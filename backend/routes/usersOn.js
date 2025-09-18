@@ -1,0 +1,293 @@
+import express from "express";
+import cookieParser from "cookie-parser";
+const router = express.Router();
+import USER from "../models/User.js";
+import Block from "../models/Blocks.js";
+import mongoose from 'mongoose';
+router.use(cookieParser());
+import authenticateToken from "../middleware/authenticateTokenProfessional.js";
+import generateJWTtoken  from "../middleware/generateJWTtoken.js";
+
+
+router.post("/logout", authenticateToken, (req, res) => {
+  res.clearCookie("token_professional", {
+    httpOnly: true,
+    secure: false, // Set to true in production with HTTPS
+    sameSite: "Strict",
+  });
+  res.status(200).json({ message: "Logged out successfully" });
+});
+
+
+router.get("/fetch-blocks", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const q = { user_id: userId, archived: false, is_del: false };
+    if (req.query.type) q.type = req.query.type;
+
+    const blocks = await Block.find(q).sort({ order: 1 }).lean().exec();
+
+    // Normalize to frontend-friendly shape if you like
+    const normalized = blocks.map((b) => ({
+      id: b._id,
+      name: b.name,
+      action: b.action,
+      type: b.type,
+      order: b.order,
+      created_at: b.created_at,
+      updated_at: b.updated_at,
+      raw: b,
+    }));
+
+    return res.json(normalized);
+  } catch (err) {
+    console.error("GET /api/blocks error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/save-blocks", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const { name, action, type = "link" } = req.body;
+
+    // Basic validation
+    if (!name || !name.trim()) return res.status(400).json({ error: "name is required" });
+    if (!action || !action.trim()) return res.status(400).json({ error: "action (URL) is required" });
+    const allowed = ["link", "video", "product", "store"];
+    if (!allowed.includes(type)) return res.status(400).json({ error: "invalid type" });
+
+    // compute new order: put at the end
+    const last = await Block.findOne({ user_id: userId }).sort({ order: -1 }).select("order").lean().exec();
+    const newOrder = last ? last.order + 100 : 100;
+
+    const doc = await Block.create({
+      user_id: userId,
+      name: name.trim(),
+      action: action.trim(),
+      type,
+      order: newOrder,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    // return normalized created block
+    return res.status(201).json({
+      id: doc._id,
+      name: doc.name,
+      action: doc.action,
+      type: doc.type,
+      order: doc.order,
+      created_at: doc.created_at,
+      updated_at: doc.updated_at,
+    });
+  } catch (err) {
+    console.error("POST /api/blocks error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+router.get("/verify-login-token", authenticateToken, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ valid: false });
+  }
+  return res.status(200).json({ valid: true, user: req.user });
+  
+});
+
+
+router.post("/user-login-gmail", async (req, res) => {
+  try {
+    const { email, firstName, lastName, picture } = req.body;
+    console.log("email : ", email);
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    let user = await USER.findOne({ email });
+    let wasNew = false;
+
+    if (!user) {
+      user = await USER.create({
+        email,
+        name: `${firstName || ""} ${lastName || ""}`.trim(),
+        picture,
+        is_google_user: true,
+      });
+      wasNew = true;
+    }
+
+    const token = await generateJWTtoken(user._id, user.email);
+
+    // Cookie options: adjust for your environment (see notes below)
+    res.cookie("tokenMyhandleProf", token, {
+      httpOnly: true,
+      secure: false,    // set true in production when using HTTPS
+      sameSite: "Lax",  // or 'None' if your frontend is on a different domain and you use HTTPS
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: wasNew ? "User registered successfully" : "User logged in successfully",
+      user: {
+        user_id: user._id,
+        user_email: user.email,
+      },
+      token,
+      wasNew
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ error: "Internal server error", message: "An error occurred" });
+  }
+});
+
+router.post("/save-username", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthenticated" });
+
+    let { handleUserName, goal } = req.body || {};
+    if (!handleUserName || typeof handleUserName !== "string") {
+      return res.status(400).json({ success: false, message: "handleUserName is required" });
+    }
+
+    // sanitize & normalize
+    handleUserName = handleUserName.trim().toLowerCase();
+
+    // validate same pattern as frontend
+    const usernameRegex = /^[a-zA-Z0-9._-]{3,30}$/;
+    if (!usernameRegex.test(handleUserName)) {
+      return res.status(400).json({ success: false, message: "Invalid username format" });
+    }
+
+    // check uniqueness (exclude current user)
+    const existing = await USER.findOne({ handleUserName });
+    if (existing && String(existing._id) !== String(userId)) {
+      return res.status(409).json({ success: false, message: "Username already taken" });
+    }
+
+    // update current user
+    const updated = await USER.findByIdAndUpdate(
+      userId,
+      { handleUserName, goal, updated_at: new Date() },
+      { new: true }
+    ).select("-password"); // remove sensitive fields if any
+
+    return res.json({ success: true, message: "Username saved", user: updated });
+  } catch (err) {
+    console.error("handle-username error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+router.get("/user/socials", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const user = await USER.findById(userId).select("socials").lean();
+    return res.json({ socials: user?.socials || [] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/user/socials", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    const { platform, url } = req.body;
+    if (!platform || !url) return res.status(400).json({ error: "platform and url required" });
+
+    const allowed = ["youtube", "twitter", "instagram", "linkedin", "whatsapp"];
+    if (!allowed.includes(platform)) return res.status(400).json({ error: "invalid platform" });
+
+    const user = await USER.findById(userId).select("socials");
+    if (!user) return res.status(404).json({ error: "user not found" });
+
+    // Case-insensitive duplicate check
+    const exists = user.socials.some(s => String(s.platform).toLowerCase() === platform.toLowerCase());
+    if (exists) return res.status(409).json({ error: "platform already added" });
+
+    const socialObj = { platform, url, created_at: new Date() };
+    user.socials.push(socialObj);
+    await user.save();
+
+    // return the new social (last item)
+    const added = user.socials[user.socials.length - 1];
+    return res.status(201).json({ social: added });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const id = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: "invalid id" });
+
+    const user = await USER.findById(userId).exec();
+    if (!user) return res.status(404).json({ error: "user not found" });
+
+    user.socials = user.socials.filter((s) => String(s._id) !== String(id));
+    await user.save();
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+  router.get('/get-user-details', authenticateToken, async function (req, res){
+
+    const userId = req.user?.user_id;
+
+        if (!userId) {
+          return res.status(400).json({ message: "Username is invalid." });
+        }
+  
+    USER.findById(userId).then((result)=>{
+  
+      if(result){
+  
+      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture}});
+      res.end();
+
+  
+      }
+  
+      else{
+      res.status(200).send({ success: false, data: null });
+      res.end();
+  
+      }
+  
+    }).catch(e2=>{
+  
+      console.error("❌ Error fetching campaign details:", e2);
+      return res.status(500).json({ error: "Internal Server Error" });
+  
+    })
+  });
+
+
+export default router;
