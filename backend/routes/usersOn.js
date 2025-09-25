@@ -401,5 +401,44 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/profile', async (req, res) => {
+  try {
+    // prefer explicit query param in dev; in prod use extractSubdomain(req.headers.host)
+    // const handle = (req.query.handle || extractSubdomain(req.headers.host || '') || '').trim().toLowerCase();
+    const handle = 'sid4real';
+    if (!handle) return res.status(400).json({ error: 'handle required' });
+
+    // find user by handleUserName (case-insensitive)
+    const user = await USER.findOne({ handleUserName: handle }).lean();
+    if (!user) return res.status(404).json({ error: 'not found' });
+
+    // fetch blocks for this user (published and not deleted) and sort by order asc
+    const blocks = await Block.find({
+      user_id: user._id,
+      is_del: false,
+    })
+      .sort({ order: 1, created_at: -1 })
+      .lean();
+
+
+    // shape payload: remove internal mongo fields as needed
+    const { _id, __v, ...userRest } = user;
+
+    const payload = {
+      ...userRest,
+      id: String(_id),
+      blocks: blocks || [],
+      socials: user.socials || [],
+    };
+
+      console.log(' payload: ', payload );
+
+
+    return res.json(payload);
+  } catch (err) {
+    console.error('GET /api/profile error:', err);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
 
 export default router;

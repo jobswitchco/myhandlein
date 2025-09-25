@@ -65,7 +65,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
       setLoading(true);
       setError(null);
       try {
-        const resp = await axios.get('/api/profile', {
+        const resp = await axios.get('/api/usersOn/profile', {
           params: { handle },
           signal,
         });
