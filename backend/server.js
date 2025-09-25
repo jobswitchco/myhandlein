@@ -52,7 +52,7 @@ function extractSubdomain(hostname = '') {
 
 // ... other code ...
 
-app.get('/api/profile', async (req, res) => {
+app.get('/profile', async (req, res) => {
   try {
     // prefer explicit query param in dev; in prod use extractSubdomain(req.headers.host)
     // const handle = (req.query.handle || extractSubdomain(req.headers.host || '') || '').trim().toLowerCase();

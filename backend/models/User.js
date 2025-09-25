@@ -12,6 +12,10 @@ const User_Schema = new Schema({
     type: String,
   },
 
+    intro: {
+    type: String,
+  },
+
   sub: {
     type: String,
   },
