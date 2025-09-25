@@ -66,7 +66,6 @@ app.get('/profile', async (req, res) => {
     // fetch blocks for this user (published and not deleted) and sort by order asc
     const blocks = await BlockModel.find({
       user_id: user._id,
-      published: true,
       is_del: false,
     })
       .sort({ order: 1, created_at: -1 })
