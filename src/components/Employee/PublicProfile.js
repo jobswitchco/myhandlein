@@ -52,7 +52,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
 
   const [snack, setSnack] = useState({ open: false, message: "" });
 
-  const API_BASE = "/api";
+  const API_BASE = "";
 
   useEffect(() => {
     if (!handle) return;
