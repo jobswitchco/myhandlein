@@ -69,6 +69,8 @@ export default function PublicProfile({ handle, initialProfile = null }) {
           params: { handle },
           signal,
         });
+
+        console.log('Response : ', resp.data);
         setProfile(resp.data);
       } catch (err) {
         if (axios.isCancel && axios.isCancel(err)) return;

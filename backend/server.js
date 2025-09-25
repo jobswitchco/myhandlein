@@ -71,6 +71,7 @@ app.get('/profile', async (req, res) => {
       .sort({ order: 1, created_at: -1 })
       .lean();
 
+
     // shape payload: remove internal mongo fields as needed
     const { _id, __v, ...userRest } = user;
 
@@ -80,6 +81,9 @@ app.get('/profile', async (req, res) => {
       blocks: blocks || [],
       socials: user.socials || [],
     };
+
+      console.log(' payload: ', payload );
+
 
     return res.json(payload);
   } catch (err) {
