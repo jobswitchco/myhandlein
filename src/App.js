@@ -5,7 +5,6 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ToastContainer } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
-
 import LandingPage from './components/LandingPage.js';
 import UserSideNavBar from './components/Employee/UserSideNavBar.js';
 import Support from './components/Employee/Support.js';
@@ -29,18 +28,50 @@ import ProfileBasedDiscovery from './components/ProfileDiscovery.js';
 import EndToEndScheduling from './components/EndToEndScheduling.js';
 import SaveTimePage from './components/SaveTimePage.js';
 import GoogleAnalytics from './components/GoogleAnalytics.js';
-// import WaitlistSignup from './components/WaitlistSignup.js';
 import { GoogleOAuthProvider } from "@react-oauth/google";
-// import WaitlistSuccessCard from './components/WaitlistSuccessCard.js';
 import CreatorOnboarding from './components/CreatorOnboarding.js';
 import UserBioDashboard from './components/UserBioDashboard.js';
+import PublicProfile from './components/Employee/PublicProfile.js';
 
 
 
 
-function App() {
+
+function App({ initialSubdomain = null, initialProfile = null }) {
 
    const GOOGLE_CLIENT_ID = "802722937988-5bl806gh4pc7cmhugdpks8hgs01m1tqc.apps.googleusercontent.com";
+
+ // inside App component, replace the early-return branch with this:
+
+if (initialSubdomain) {
+  return (
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <div className="App">
+          {/* Wrap in a Router so any components using useLocation/useNavigate work */}
+          <Router>
+            <GoogleAnalytics />
+            <PublicProfile handle={initialSubdomain} initialProfile={initialProfile} />
+          </Router>
+
+          <ToastContainer
+            position="top-left"
+            autoClose={2000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="colored"
+            style={{ zIndex: 15000 }}
+          />
+        </div>
+      </GoogleOAuthProvider>
+    </LocalizationProvider>
+  );
+}
+
 
 
   return (
@@ -69,8 +100,8 @@ function App() {
               <Route path="/personalised-user-tone" element={<ProfileBasedDiscovery />} />
               <Route path="/schedule-publish" element={<EndToEndScheduling />} />
               <Route path="/save-time" element={<SaveTimePage />} />
-              {/* <Route path="/join-waitlist" element={<WaitlistSignup />} /> */}
-              {/* <Route path="/waitlist-success" element={<WaitlistSuccessCard />} /> */}
+              <Route path="/join-waitlist" element={<WaitlistSignup />} />
+              <Route path="/waitlist-success" element={<WaitlistSuccessCard />} />
 
               <Route path="/professional/*" element={<UserSideNavBar />}>
               <Route path="user/bio" element={<UserBioDashboard />} />

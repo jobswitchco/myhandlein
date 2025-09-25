@@ -20,7 +20,16 @@ import {
   Tabs,
   Tab,
   CircularProgress,
-  Tooltip
+  Tooltip,
+  FormControl,
+  FormLabel,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  Menu,
+  MenuItem,
+  Button,
+  ClickAwayListener,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { styled } from "@mui/material/styles";
@@ -42,10 +51,8 @@ import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import MovieIcon from "@mui/icons-material/Movie";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
-
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // ---------- Responsive Custom styled buttons ----------
 const PrimaryBtn = styled("button")(({ theme }) => ({
@@ -156,41 +163,91 @@ export default function ProfileBlocksEditor() {
   const theme = useTheme();
   const navigate = useNavigate();
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingIntro, setIsEditingIntro] = useState(false);
   const fileInputRef = useRef(null);
   const [avatarHover, setAvatarHover] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [tempLink, setTempLink] = useState("");
   const [name, setName] = useState("");
+  const [userIntro, setUserIntro] = useState("");
   const [link, setLink] = useState("");
   const [copySnackOpen, setCopySnackOpen] = useState(false);
-  // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl="/api/usersOn";
+  const baseUrl = "/api/usersOn";
+  const [userDetails, setUserDetails] = useState({});
+const addCloseTimer = useRef(null);
+  // ---------- Form submission dialog state ----------
+  const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [currentFormBlock, setCurrentFormBlock] = useState(null); // the block user clicked
+  const [formValues, setFormValues] = useState({}); // { fieldKey: value }
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({}); // { fieldKey: "error message" }
 
-  const [ userDetails, setUserDetails ] = useState({});
-  
+  function openFormDialog(block) {
+    // block.raw.fields OR JSON in block.action
+    let fields = block.raw?.fields;
+    if (!fields && typeof block.action === "string") {
+      try {
+        fields = JSON.parse(block.action).fields;
+      } catch {}
+    }
+    fields = fields || [];
+
+    // Build initial values object using field.key (fallback to label)
+    const values = {};
+    fields.forEach((f, i) => {
+      const key =
+        f.key ||
+        f.name ||
+        f.label?.toLowerCase().replace(/\s+/g, "_") ||
+        uid("fldkey");
+      if (f.type === "radio") {
+        // default to empty so user must choose (change to f.options?.[0] to auto-select)
+        values[key] = "";
+      } else {
+        values[key] = "";
+      }
+    });
+
+    setCurrentFormBlock({
+      ...block,
+      _renderFields: fields.map((f, i) => ({ ...f, _key: f.key || `f_${i}` })),
+    });
+    setFormValues(values);
+    setFormErrors({});
+    setFormDialogOpen(true);
+  }
+
+  function closeFormDialog() {
+    setFormDialogOpen(false);
+    setCurrentFormBlock(null);
+    setFormValues({});
+    setFormErrors({});
+  }
+
   // Social state
-  const [socials, setSocials] = useState([]);        // list fetched from backend
-const [loadingSocials, setLoadingSocials] = useState(false);
-const [addingSocial, setAddingSocial] = useState(false);
-const [selectedPlatform, setSelectedPlatform] = useState(null); // 'youtube' | 'twitter' ...
-const [socialUrl, setSocialUrl] = useState("");
-const [socialApiMsg, setSocialApiMsg] = useState(null);
+  const [socials, setSocials] = useState([]); // list fetched from backend
+  const [loadingSocials, setLoadingSocials] = useState(false);
+  const [addingSocial, setAddingSocial] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState(null); // 'youtube' | 'twitter' ...
+  const [socialUrl, setSocialUrl] = useState("");
+  const [socialApiMsg, setSocialApiMsg] = useState(null);
 
+  const PLATFORMS = [
+    { key: "youtube", label: "YouTube", Icon: YouTubeIcon },
+    { key: "twitter", label: "Twitter", Icon: TwitterIcon },
+    { key: "linkedin", label: "LinkedIn", Icon: LinkedInIcon },
+    { key: "whatsapp", label: "WhatsApp", Icon: WhatsAppIcon },
+    { key: "instagram", label: "Instagram", Icon: InstagramIcon },
+  ];
 
-const PLATFORMS = [
-  { key: "youtube", label: "YouTube", Icon: YouTubeIcon },
-  { key: "twitter", label: "Twitter", Icon: TwitterIcon },
-  { key: "linkedin", label: "LinkedIn", Icon: LinkedInIcon },
-  { key: "whatsapp", label: "WhatsApp", Icon: WhatsAppIcon },
-  { key: "instagram", label: "Instagram", Icon: InstagramIcon },
-];
+  const availablePlatforms = PLATFORMS.filter(
+    (p) =>
+      !socials.some(
+        (s) => String(s.platform).toLowerCase() === String(p.key).toLowerCase()
+      )
+  );
 
-const availablePlatforms = PLATFORMS.filter(
-  (p) => !socials.some((s) => String(s.platform).toLowerCase() === String(p.key).toLowerCase())
-);
-
-
-  // blocks + drag & drop: start empty and load from backend
+  // blocks + drag & drop
   const [blocks, setBlocks] = useState([]);
   const [draggingId, setDraggingId] = useState(null);
 
@@ -200,6 +257,112 @@ const availablePlatforms = PLATFORMS.filter(
   const [newBlockAction, setNewBlockAction] = useState("");
   const [tab, setTab] = useState("link");
 
+  // --- Form tab state (dynamic fields) ---
+  const [formFields, setFormFields] = useState([]);
+
+  const uid = (prefix = "f") =>
+    `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  function defaultFormFields() {
+    return [
+      {
+        id: uid("name"),
+        key: "name",
+        label: "Name",
+        type: "text",
+        placeholder: "",
+        required: true,
+      },
+    ];
+  }
+
+  function addFormField() {
+    setFormFields((s) => [
+      ...s,
+      {
+        id: uid("fld"),
+        key: `field_${s.length + 1}`,
+        label: "New field",
+        type: "text",
+        placeholder: "",
+        required: false,
+      },
+    ]);
+  }
+
+
+
+
+  function updateFormField(id, patch) {
+    setFormFields((s) => s.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  }
+
+  function removeFormField(id) {
+    setFormFields((s) => s.filter((f) => f.id !== id));
+  }
+
+  // --------- NEW: Add Field hover/menu state + helpers ----------
+  // ---------- Add Field hover/menu state + helpers (single robust implementation) ----------
+  const [addAnchor, setAddAnchor] = useState(null);
+
+  const ADD_FIELD_TYPES = [
+    { value: "text", label: "Text" },
+    { value: "tel", label: "Phone" },
+    { value: "email", label: "Email" },
+    { value: "radio", label: "Radio" },
+  ];
+
+  // Accept either an Event (from mouse event / click) OR an element reference (e.currentTarget)
+  function openAddMenu(targetOrEvent) {
+    // cancel any pending close timer
+    if (addCloseTimer.current) {
+      clearTimeout(addCloseTimer.current);
+      addCloseTimer.current = null;
+    }
+
+    // if caller passed an event, use currentTarget; otherwise assume it's the anchor element
+    const anchor = targetOrEvent?.currentTarget ?? targetOrEvent ?? null;
+    setAddAnchor(anchor);
+  }
+
+  function closeAddMenu(withDelay = true) {
+    // clear any existing timer first
+    if (addCloseTimer.current) {
+      clearTimeout(addCloseTimer.current);
+      addCloseTimer.current = null;
+    }
+
+    if (withDelay) {
+      // small delay so mouse can transit from button -> menu
+      addCloseTimer.current = setTimeout(() => {
+        setAddAnchor(null);
+        addCloseTimer.current = null;
+      }, 160);
+    } else {
+      setAddAnchor(null);
+    }
+  }
+
+  function createFieldOfType(type) {
+    const id = uid("fld");
+    const base = {
+      id,
+      key: `field_${Date.now().toString(36).slice(2, 7)}`,
+      label: type === "radio" ? "Gender" : "New field",
+      placeholder: "",
+      required: false,
+      type,
+    };
+
+    if (type === "radio") {
+      base.options = ["Male", "Female"];
+    }
+
+    setFormFields((s) => [...s, base]);
+    closeAddMenu(false);
+  }
+
+
   // API/loading states
   const [loadingBlocks, setLoadingBlocks] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -207,138 +370,129 @@ const availablePlatforms = PLATFORMS.filter(
   const [deletingId, setDeletingId] = useState(null);
   const [apiSnack, setApiSnack] = useState({ open: false, message: "" });
 
-
   const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
 
+  useEffect(() => {
+    fetchSocials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchSocials() {
+    setLoadingSocials(true);
+    try {
+      const res = await api.get("/user/socials");
+      setSocials(res.data.socials || []);
+    } catch (err) {
+      console.error("fetchSocials", err);
+      setSocialApiMsg("Failed to load socials");
+    } finally {
+      setLoadingSocials(false);
+    }
+  }
+
+  async function saveSocial() {
+    if (!selectedPlatform || !socialUrl.trim()) {
+      setSocialApiMsg("Pick a platform and enter a URL");
+      return;
+    }
+    setAddingSocial(true);
+    try {
+      const payload = { platform: selectedPlatform, url: socialUrl.trim() };
+      const res = await api.post("/user/socials", payload);
+      const added = res.data.social;
+      if (added) {
+        setSocials((s) => [...s, added]);
+      } else {
+        await fetchSocials();
+      }
+      setSelectedPlatform(null);
+      setSocialUrl("");
+      setSocialApiMsg("Saved");
+    } catch (err) {
+      console.error("saveSocial", err);
+      setSocialApiMsg(err?.response?.data?.message || "Failed to save");
+    } finally {
+      setAddingSocial(false);
+      setTimeout(() => setSocialApiMsg(null), 2000);
+    }
+  }
+
+  async function deleteSocial(id) {
+    try {
+      await api.delete(`/user/socials/${id}`);
+      setSocials((s) => s.filter((x) => String(x._id || x.id) !== String(id)));
+    } catch (err) {
+      console.error("deleteSocial", err);
+      setSocialApiMsg("Delete failed");
+      setTimeout(() => setSocialApiMsg(null), 2000);
+    }
+  }
+
+  const handleSessionExpired = () => {
+    toast.error("Session expired. Please log in again.");
+    setTimeout(() => {
+      navigate("/professional/login");
+    }, 2000);
+  };
 
   useEffect(() => {
-  fetchSocials();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+    const verifyToken = async () => {
+      setLoading(true);
 
-async function fetchSocials() {
-  setLoadingSocials(true);
-  try {
-    const res = await api.get("/user/socials"); // backend route
-    setSocials(res.data.socials || []);
-  } catch (err) {
-    console.error("fetchSocials", err);
-    setSocialApiMsg("Failed to load socials");
-  } finally {
-    setLoadingSocials(false);
-  }
-}
+      try {
+        const res = await axios.get(`${baseUrl}/verify-login-token`, {
+          withCredentials: true,
+        });
 
-async function saveSocial() {
-  if (!selectedPlatform || !socialUrl.trim()) {
-    setSocialApiMsg("Pick a platform and enter a URL");
-    return;
-  }
-  setAddingSocial(true);
-  try {
-    const payload = { platform: selectedPlatform, url: socialUrl.trim() };
-    const res = await api.post("/user/socials", payload);
-    // server returns the updated social or the updated list. We'll push returned item.
-    const added = res.data.social;
-    if (added) {
-      setSocials((s) => [...s, added]);
-    } else {
-      // fallback: refresh list
-      await fetchSocials();
-    }
-    // reset
-    setSelectedPlatform(null);
-    setSocialUrl("");
-    setSocialApiMsg("Saved");
-  } catch (err) {
-    console.error("saveSocial", err);
-    setSocialApiMsg(err?.response?.data?.message || "Failed to save");
-  } finally {
-    setAddingSocial(false);
-    // clear message after a bit
-    setTimeout(() => setSocialApiMsg(null), 2000);
-  }
-}
+        if (res.data.valid) {
+          fetchData();
+        } else {
+          handleSessionExpired();
+        }
+      } catch (error) {
+        if (
+          error.response &&
+          (error.response.status === 401 || error.response.status === 403)
+        ) {
+          handleSessionExpired();
+        } else {
+          toast.error("Network error, please try again later.");
+          handleSessionExpired();
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
-async function deleteSocial(id) {
-  try {
-    await api.delete(`/user/socials/${id}`);
-    setSocials((s) => s.filter((x) => String(x._id || x.id) !== String(id)));
-  } catch (err) {
-    console.error("deleteSocial", err);
-    setSocialApiMsg("Delete failed");
-    setTimeout(() => setSocialApiMsg(null), 2000);
-  }
-}
+    verifyToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-
-    const handleSessionExpired = () => {
+  const fetchData = async () => {
+    try {
+      const ress = await axios.get(baseUrl + "/get-user-details", {
+        withCredentials: true,
+      });
+      if (ress.data.success) {
+        setUserDetails(ress.data.data);
+        setName(ress.data.data.name || "");
+        // The backend may not have an intro yet; use .intro if present
+        setUserIntro(ress.data.data.intro || "");
+      } else {
+        setLoading(false);
         toast.error("Session expired. Please log in again.");
         setTimeout(() => {
-          navigate('/professional/login');
+          navigate("/professional/login");
         }, 2000);
-      };
-
-
-      useEffect(() => {
-        const verifyToken = async () => {
-          setLoading(true);
-        
-          try {
-            const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
-        
-            if (res.data.valid) {
-              fetchData();
-            } else {
-              handleSessionExpired();
-            }
-          } catch (error) {
-            if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-              handleSessionExpired();
-            } else {
-              toast.error("Network error, please try again later.");
-              handleSessionExpired();
-  
-            }
-          } finally {
-            setLoading(false);
-          }
-        };
-        
-    
-        verifyToken();
-      }, []);
-  
-   
-            const fetchData = async () => {
-              try {
-        
-                      await axios.get(baseUrl + "/get-user-details", { withCredentials : true}).then(ress=>{
-  
-                        if(ress.data.success){
-                          setUserDetails(ress.data.data);
-                          
-                        }
-                        else {
-                          setLoading(false);
-                          toast.error("Session expired. Please log in again.");
-                          setTimeout(() => {
-                          navigate('/professional/login');
-                          }, 2000);
-                        }
-              
-                  }).catch(e=>{
-              
-                  })
-              
-              } catch (error) {
-                setLoading(false);
-                toast.error("Network error. Please log in again.");
-                setTimeout(() => {
-                navigate('/professional/login');
-                }, 2000);
-              }
-            };
+      }
+    } catch (e) {
+      setLoading(false);
+      toast.error("Network error. Please log in again.");
+      setTimeout(() => {
+        navigate("/professional/login");
+      }, 2000);
+    }
+  };
 
   // ---------- Effects ----------
   useEffect(() => {
@@ -346,44 +500,42 @@ async function deleteSocial(id) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-async function fetchBlocks() {
-  setLoadingBlocks(true);
-  try {
-    const res = await axios.get(baseUrl + "/fetch-blocks", { withCredentials: true });
-    const data = res.data;
+  async function fetchBlocks() {
+    setLoadingBlocks(true);
+    try {
+      const res = await axios.get(baseUrl + "/fetch-blocks", {
+        withCredentials: true,
+      });
+      const data = res.data;
 
-    // normalize shape if needed (support _id or id)
-    const normalized = (data || []).map((b) => ({
-      id: b._id || b.id,
-      title: b.name || b.title || "",
-      action: b.action || b.url || "",
-      type: b.type || "link",
-      image: b.image,
-      raw: b,
-    }));
+      const normalized = (data || []).map((b) => ({
+        id: b._id || b.id,
+        title: b.name || b.title || "",
+        action: b.action || b.url || "",
+        type: b.type || "link",
+        image: b.image,
+        raw: b,
+      }));
 
-    setBlocks(
-      normalized.sort((a, b) => {
-        // if backend returns `order` inside raw, use it
-        const ao = a.raw?.order ?? 0;
-        const bo = b.raw?.order ?? 0;
-        return ao - bo;
-      })
-    );
-  } catch (err) {
-    console.error("fetchBlocks error:", err);
-    // try to show a useful message if available
-    const msg =
-      err?.response?.data?.error ||
-      err?.response?.data?.message ||
-      err?.message ||
-      "Failed to load blocks";
-    setApiSnack({ open: true, message: msg });
-  } finally {
-    setLoadingBlocks(false);
+      setBlocks(
+        normalized.sort((a, b) => {
+          const ao = a.raw?.order ?? 0;
+          const bo = b.raw?.order ?? 0;
+          return ao - bo;
+        })
+      );
+    } catch (err) {
+      console.error("fetchBlocks error:", err);
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to load blocks";
+      setApiSnack({ open: true, message: msg });
+    } finally {
+      setLoadingBlocks(false);
+    }
   }
-}
-
 
   // ---------- Handlers ----------
   function handleAvatarClick() {
@@ -406,20 +558,36 @@ async function fetchBlocks() {
     setNewBlockName("");
     setNewBlockAction("");
     setTab("link");
+    setFormFields([]); // ensure Name exists by default
     setAddOpen(true);
   }
 
-
-
 async function saveAdd() {
-  if (!newBlockName.trim()) return;
+  if (tab !== "form" && !newBlockName.trim()) return;
+  if (tab === "form" && (!newBlockName.trim() && formFields.length === 0)) return;
+
   setSavingBlock(true);
 
   const payload = {
-    name: newBlockName.trim(),
+    name: newBlockName.trim() || (tab === "form" ? "Contact form" : "Untitled"),
     action: newBlockAction.trim(),
-    type: tab === "video" ? "video" : "link",
+    type: tab === "video" ? "video" : tab === "form" ? "form" : "link",
   };
+
+  if (tab === "form") {
+    // Ensure each field is normalized and includes options if present
+    payload.fields = formFields.map(({ id, ...rest }) => {
+      // rest.options may be undefined, string, or array — normalize to array
+      let opts = rest.options;
+      if (typeof opts === "string") {
+        opts = opts.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+      if (!Array.isArray(opts)) opts = opts === undefined ? [] : [String(opts)];
+      return { ...rest, options: opts };
+    });
+    // store a JSON preview in action for backwards compatibility
+    payload.action = JSON.stringify({ fields: payload.fields });
+  }
 
   try {
     const res = await axios.post(baseUrl + "/save-blocks", payload, {
@@ -456,22 +624,30 @@ async function saveAdd() {
 
 
   async function deleteBlock(id) {
-    // optimistic UI: mark deleting
+    // optimistic UI: show spinner for the deleting item
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/blocks/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("delete failed");
-      setBlocks((s) => s.filter((b) => b.id !== id));
-      setApiSnack({ open: true, message: "Block deleted" });
+      // call authenticated backend delete route
+      const res = await api.delete(`/delete-block/${id}`);
+      if (res.status === 200 && res.data.success !== false) {
+        // remove locally
+        setBlocks((s) => s.filter((b) => b.id !== id));
+        setApiSnack({ open: true, message: "Block deleted" });
+      } else {
+        // server returned failure
+        const msg = (res.data && (res.data.message || res.data.error)) || "Delete failed";
+        setApiSnack({ open: true, message: msg });
+      }
     } catch (err) {
-      console.error(err);
-      setApiSnack({ open: true, message: "Failed to delete" });
+      console.error("deleteBlock error:", err);
+      const msg = err?.response?.data?.message || "Failed to delete";
+      setApiSnack({ open: true, message: msg });
     } finally {
       setDeletingId(null);
     }
   }
 
-  // Drag & Drop (native) — UI-only; persist order later as you wish
+  // Drag & Drop (native)
   function onDragStart(e, id) {
     setDraggingId(id);
     e.dataTransfer.effectAllowed = "move";
@@ -492,8 +668,29 @@ async function saveAdd() {
       return arr;
     });
   }
-  function onDragEnd() {
+
+  // Persist order when drag ends
+  async function onDragEnd() {
     setDraggingId(null);
+    // Persist current order to backend
+    await saveBlocksOrder();
+  }
+
+  // Save blocks order to backend
+  async function saveBlocksOrder() {
+    try {
+      // prepare payload with id and order index (smaller index => higher)
+      const payload = blocks.map((b, idx) => ({
+        id: b.id,
+        order: idx + 1, // 1-based order
+      }));
+
+      await api.post("/update-block-order", { order: payload }, { headers: { "Content-Type": "application/json" } });
+      setApiSnack({ open: true, message: "Order saved" });
+    } catch (err) {
+      console.error("saveBlocksOrder", err);
+      setApiSnack({ open: true, message: "Failed to save order" });
+    }
   }
 
   // ---------- Preview rendering helpers ----------
@@ -533,9 +730,6 @@ async function saveAdd() {
 
             <Box>
               <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500 }}>{b.title}</Typography>
-              <Typography sx={{ opacity: 0.75, fontFamily: "Inter", fontSize: "10px", fontWeight: 400, mt: 0.5 }}>
-                {b.action || ""}
-              </Typography>
             </Box>
           </Box>
 
@@ -624,54 +818,123 @@ async function saveAdd() {
     }
 
     if (b.type === "video") {
+      const ytId = getYouTubeId(b.action || "");
+      const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
+
       return (
         <Paper
           key={b.id}
           sx={{
-            p: 1.5,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            p: 0,
             borderRadius: 2,
-            color: "#0f1724",
-            boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
-            cursor: "pointer",
-            textAlign: "left",
+            border: "1px solid #37353E",
+            // borderColor: '#FFFFFF',
+            boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
+            cursor: b.action ? "pointer" : "default",
+            overflow: "hidden",
           }}
+          onClick={() => {
+            if (b.action) window.open(b.action, "_blank");
+          }}
+          elevation={0}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
+          <Box sx={{ position: "relative", width: "100%", aspectRatio: "16/9", bgcolor: "#000" }}>
+            {thumb ? (
+              <Box
+                component="img"
+                src={thumb}
+                alt={b.title || "video thumbnail"}
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  display: "block",
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: "#F3F4F6",
+                }}
+              >
+                <MovieIcon sx={{ fontSize: 28, color: "rgba(15,23,42,0.6)" }} />
+              </Box>
+            )}
+
             <Box
               sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 1.5,
-                bgcolor: "#F0F0F0",
+                position: "absolute",
+                inset: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                overflow: "hidden",
-                flexShrink: 0,
+                pointerEvents: "none",
               }}
             >
-              <MovieIcon sx={{ fontSize: 16 }} />
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  bgcolor: "rgba(0,0,0,0.55)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 6px 18px rgba(2,6,23,0.28)",
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                  <path d="M8 5v14l11-7L8 5z" fill="#fff" />
+                </svg>
+              </Box>
             </Box>
-
-            <Box>
-              <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500 }}>{b.title}</Typography>
-              <Typography sx={{ opacity: 0.75, fontFamily: "Inter", fontSize: "10px", fontWeight: 400, mt: 0.5 }}>
-                {b.action || ""}
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <ArrowForwardIosIcon sx={{ fontSize: 16, color: "rgba(15,23,42,0.5)" }} />
           </Box>
         </Paper>
       );
     }
 
-    // fallback
+    if (b.type === "form") {
+      // fields may be in b.raw.fields or JSON in b.action
+      let fields = b.raw?.fields;
+      if (!fields && typeof b.action === "string") {
+        try {
+          fields = JSON.parse(b.action).fields;
+        } catch {}
+      }
+      return (
+        <Paper key={b.id} sx={{ p: 1.5, borderRadius: 2, cursor: "pointer" }} onClick={() => openFormDialog(b)}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 1.25,
+                display: "grid",
+                placeItems: "center",
+                bgcolor: alpha("#10b981", 0.06),
+                color: "#10b981",
+                flexShrink: 0,
+              }}
+            >
+              <AddIcon sx={{ fontSize: 18 }} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 600 }}>{b.title || "Contact form"}</Typography>
+            </Box>
+            <Box>
+              <ArrowForwardIosIcon sx={{ fontSize: 16, color: "rgba(15,23,42,0.5)" }} />
+            </Box>
+          </Box>
+        </Paper>
+      );
+    }
+
     return (
       <Paper key={b.id} sx={{ p: 1.5 }}>
         <Typography>{b.title}</Typography>
@@ -681,7 +944,7 @@ async function saveAdd() {
 
   // ---------- copy to clipboard ----------
   async function copyToClipboard() {
-    const text = userDetails.handleUserName+'.myhandle.in' || "";
+    const text = userDetails.handleUserName + ".myhandle.in" || "";
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
@@ -703,7 +966,7 @@ async function saveAdd() {
     }
   }
 
-  // ---------- YouTube preview helper (unchanged) ----------
+  // ---------- YouTube preview helper ----------
   const getYouTubeId = (url) => {
     if (!url) return null;
     try {
@@ -748,8 +1011,41 @@ async function saveAdd() {
     );
   };
 
+  // ---------- Save profile changes (name / intro) ----------
+  async function saveProfileField(payload) {
+    try {
+      const res = await api.post("/update-profile", payload, { headers: { "Content-Type": "application/json" } });
+      if (res.data.success) {
+        // merge into local userDetails
+        setUserDetails((prev) => ({ ...prev, ...payload }));
+        if (payload.name !== undefined) setName(payload.name);
+        if (payload.intro !== undefined) setUserIntro(payload.intro);
+        setApiSnack({ open: true, message: "Saved" });
+      } else {
+        setApiSnack({ open: true, message: res.data.message || "Save failed" });
+      }
+    } catch (err) {
+      console.error("saveProfileField", err);
+      setApiSnack({ open: true, message: "Failed to save" });
+    }
+  }
+
+  // Called when user presses save icon or leaves field
+  const handleSaveName = async () => {
+    setIsEditingName(false);
+    if ((userDetails.name || "") === name) return; // no change
+    await saveProfileField({ name });
+  };
+
+  const handleSaveIntro = async () => {
+    setIsEditingIntro(false);
+    if ((userDetails.intro || "") === userIntro) return;
+    await saveProfileField({ intro: userIntro });
+  };
+
   return (
     <Box sx={{ p: { xs: 0, sm: 1, md: 1 } }}>
+      <ToastContainer />
       {/* ROW 1: FULL WIDTH HEADER */}
       <Grid container spacing={2} sx={{ mb: { xs: 1.5, sm: 2 } }}>
         <Grid item xs={12}>
@@ -757,6 +1053,7 @@ async function saveAdd() {
             sx={{
               p: { xs: 2, sm: 3 },
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
               gap: 3,
               flexDirection: { xs: "column", sm: "row" },
@@ -764,68 +1061,105 @@ async function saveAdd() {
             }}
           >
             {/* Avatar + edit */}
-            <Box
-              onMouseEnter={() => setAvatarHover(true)}
-              onMouseLeave={() => setAvatarHover(false)}
-              sx={{
-                position: "relative",
-                width: 66,
-                height: 66,
-                flexShrink: 0,
-              }}
-            >
-              <Avatar
-                src={avatarUrl || ""}
+            <Stack sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
+              <Box
+                onMouseEnter={() => setAvatarHover(true)}
+                onMouseLeave={() => setAvatarHover(false)}
                 sx={{
+                  position: "relative",
                   width: 66,
                   height: 66,
-                  bgcolor: avatarUrl ? "transparent" : "primary.main",
-                  cursor: "pointer",
-                  border: "4px solid rgba(0,0,0,0.04)",
+                  flexShrink: 0,
                 }}
-                onClick={handleAvatarClick}
               >
-                {!avatarUrl && name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-              </Avatar>
+                <Avatar
+                  src={avatarUrl || ""}
+                  sx={{
+                    width: 66,
+                    height: 66,
+                    bgcolor: avatarUrl ? "transparent" : "primary.main",
+                    cursor: "pointer",
+                    border: "4px solid rgba(0,0,0,0.04)",
+                  }}
+                  onClick={handleAvatarClick}
+                >
+                  {!avatarUrl && name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                </Avatar>
 
-              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
-            </Box>
+                <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
+              </Box>
 
-            {/* Name + role */}
-            <Box sx={{ flex: 1, width: "100%" }}>
-              {!isEditingName ? (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                  <Typography
-                    sx={{ fontFamily: "Inter", fontSize: "18px", fontWeight: 600, cursor: "pointer", wordBreak: "break-word" }}
-                    onClick={() => setIsEditingName(true)}
-                  >
-                    {userDetails.name}
-                  </Typography>
-                  <IconButton size="small" onClick={() => setIsEditingName(true)} aria-label="edit-name">
-                    <EditIcon fontSize="small" />
-                  </IconButton>
+              <Box sx={{ display: "flex", flexDirection: "column" }}>
+                {/* Name + role */}
+                <Box sx={{ flex: 1, width: "100%" }}>
+                  {!isEditingName ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                      <Typography
+                        sx={{ fontFamily: "Inter", fontSize: "18px", fontWeight: 600, cursor: "pointer", wordBreak: "break-word" }}
+                        onClick={() => setIsEditingName(true)}
+                      >
+                        {name || "Your name"}
+                      </Typography>
+                      <IconButton onClick={() => setIsEditingName(true)} aria-label="edit-name">
+                        <EditIcon sx={{ fontSize: "16px" }} />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center", width: "100%" }}>
+                      <TextField
+                        size="small"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onBlur={handleSaveName}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSaveName();
+                          }
+                        }}
+                        inputProps={{ maxLength: 60 }}
+                        sx={{ flex: 1 }}
+                      />
+                      <IconButton color="primary" onClick={handleSaveName} aria-label="save-name">
+                        <SaveIcon />
+                      </IconButton>
+                    </Box>
+                  )}
                 </Box>
-              ) : (
-                <Box sx={{ display: "flex", gap: 1, alignItems: "center", width: "100%" }}>
-                  <TextField
-                    size="small"
-                    value={userDetails.name}
-                    onChange={(e) => setName(e.target.value)}
-                    onBlur={() => setIsEditingName(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") setIsEditingName(false);
-                    }}
-                    inputProps={{ maxLength: 60 }}
-                    sx={{ flex: 1 }}
-                  />
-                  <IconButton color="primary" onClick={() => setIsEditingName(false)} aria-label="save-name">
-                    <SaveIcon />
-                  </IconButton>
-                </Box>
-              )}
 
-           
-            </Box>
+                <Box sx={{ flex: 1, width: "100%" }}>
+                  {!isEditingIntro ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                      <Typography
+                        sx={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 500, cursor: "pointer", wordBreak: "break-word", color: "grey" }}
+                        onClick={() => setIsEditingIntro(true)}
+                      >
+                        {userIntro || "Write a short intro..."}
+                      </Typography>
+                      <IconButton onClick={() => setIsEditingIntro(true)} aria-label="edit-intro">
+                        <EditIcon sx={{ fontSize: "16px" }} />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center", width: "100%" }}>
+                      <TextField
+                        size="small"
+                        value={userIntro}
+                        onChange={(e) => setUserIntro(e.target.value)}
+                        onBlur={handleSaveIntro}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveIntro();
+                        }}
+                        inputProps={{ maxLength: 160 }}
+                        sx={{ flex: 1 }}
+                      />
+                      <IconButton color="primary" onClick={handleSaveIntro} aria-label="save-intro">
+                        <SaveIcon />
+                      </IconButton>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Stack>
 
             {/* URL + actions: stack on mobile */}
             <Box
@@ -849,7 +1183,7 @@ async function saveAdd() {
                   <HandleBtn title="Customize Link" onClick={openCustomize}>
                     <LinkIcon style={{ fontSize: 18, cursor: "pointer" }} />
                     <Typography sx={{ fontFamily: "Inter", fontSize: 14, fontWeight: 500, wordBreak: "break-all", color: "#000000" }}>
-                      {userDetails.handleUserName+'.myhandle.in'}
+                      {userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : "yourhandle.myhandle.in"}
                     </Typography>
                   </HandleBtn>
                 </Box>
@@ -870,116 +1204,98 @@ async function saveAdd() {
       <Grid container spacing={2}>
         {/* LEFT: Blocks editor */}
         <Grid item xs={12} md={7}>
-
           <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
+            {/* --- Social picker + saved socials --- */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Social accounts
+              </Typography>
 
-{/* --- Social picker + saved socials --- */}
-<Box sx={{ mb: 2 }}>
-  <Typography variant="subtitle1" sx={{ mb: 2 }}>Social accounts</Typography>
-
-<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
-  {availablePlatforms.length === 0 ? (
-    <Typography variant="caption" color="text.secondary">
-      You've added all available platforms.
-    </Typography>
-  ) : (
-    availablePlatforms.map(({ key, label, Icon }) => {
-      const selected = selectedPlatform === key;
-      return (
-        <Box
-          key={key}
-          onClick={() => { setSelectedPlatform(selected ? null : key); setSocialUrl(""); }}
-          sx={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 1,
-            cursor: "pointer",
-            px: 1.25,
-            py: 0.5,
-            borderRadius: 999,
-            border: selected ? `1px solid ${theme.palette.primary.main}` : "1px solid rgba(0,0,0,0.06)",
-            bgcolor: selected ? "background.paper" : "transparent",
-            // remove mr:1 because gap already gives horizontal spacing
-            // optional minHeight to keep rows aligned:
-            minHeight: 36,
-          }}
-        >
-          <Icon sx={{ fontSize: 20, color: selected ? theme.palette.primary.main : "text.secondary" }} />
-          <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 600 }}>{label}</Typography>
-        </Box>
-      );
-    })
-  )}
-</Box>
-
-
-
-  {/* selected platform => show url field + save */}
-  {selectedPlatform && (
-    <Paper sx={{ p: 1, mb: 1, borderRadius: 2 }}>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
-        <TextField
-          fullWidth
-          size="small"
-          placeholder={`Enter ${selectedPlatform} URL`}
-          value={socialUrl}
-          onChange={(e) => setSocialUrl(e.target.value)}
-        />
-        <PrimaryBtn
-          onClick={saveSocial}
-          disabled={addingSocial}
-          style={{ display: "inline-flex", alignItems: "center" }}
-        >
-          {addingSocial ? <CircularProgress size={18} /> : <SaveIcon />}
-          <span style={{ marginLeft: 8 }}>{addingSocial ? "Saving..." : "Save"}</span>
-        </PrimaryBtn>
-      </Stack>
-      {socialApiMsg && <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>{socialApiMsg}</Typography>}
-    </Paper>
-  )}
-
-  {/* existing socials list */}
-  <Stack spacing={1}>
-    {loadingSocials ? (
-      <Box sx={{ py: 2, display: "flex", justifyContent: "center" }}><CircularProgress size={24} /></Box>
-    ) : socials.length === 0 ? (
-      <Typography variant="caption" color="text.secondary">No socials saved yet — pick one above to add.</Typography>
-    ) : (
-      socials.map((s) => {
-        const Plat = PLATFORMS.find((p) => p.key === s.platform)?.Icon || LinkIcon;
-        return (
-          <Paper key={s._id || s.id || s.url} variant="outlined" sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Plat sx={{ fontSize: 18 }} />
-              <Box>
-                <Typography
-  variant="body2"
-  sx={{ fontFamily: "Inter", fontWeight: 500, textTransform: "capitalize" }}
->
-  {s.platform}
-</Typography>
-
-                <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>{s.url}</Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                {availablePlatforms.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    You've added all available platforms.
+                  </Typography>
+                ) : (
+                  availablePlatforms.map(({ key, label, Icon }) => {
+                    const selected = selectedPlatform === key;
+                    return (
+                      <Box
+                        key={key}
+                        onClick={() => {
+                          setSelectedPlatform(selected ? null : key);
+                          setSocialUrl("");
+                        }}
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 1,
+                          cursor: "pointer",
+                          px: 1.25,
+                          py: 0.5,
+                          borderRadius: 999,
+                          border: selected ? `1px solid ${theme.palette.primary.main}` : "1px solid rgba(0,0,0,0.06)",
+                          bgcolor: selected ? "background.paper" : "transparent",
+                          minHeight: 36,
+                        }}
+                      >
+                        <Icon sx={{ fontSize: 20, color: selected ? theme.palette.primary.main : "text.secondary" }} />
+                        <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 600 }}>{label}</Typography>
+                      </Box>
+                    );
+                  })
+                )}
               </Box>
-            </Box>
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              <IconButton onClick={() => window.open(s.url, "_blank")} size="small" title="Open">
-                <ChevronRightRoundedIcon fontSize="small" />
-              </IconButton>
-              <IconButton onClick={() => deleteSocial(s._id || s.id)} size="small" title="Delete">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </Paper>
-        );
-      })
-    )}
-  </Stack>
-</Box>
-{/* --- end social picker --- */}
-</Paper>
 
-      
+              {selectedPlatform && (
+                <Paper sx={{ p: 1, mb: 1, borderRadius: 2 }}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+                    <TextField fullWidth size="small" placeholder={`Enter ${selectedPlatform} URL`} value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} />
+                    <PrimaryBtn onClick={saveSocial} disabled={addingSocial} style={{ display: "inline-flex", alignItems: "center" }}>
+                      {addingSocial ? <CircularProgress size={18} /> : <SaveIcon />}
+                      <span style={{ marginLeft: 8 }}>{addingSocial ? "Saving..." : "Save"}</span>
+                    </PrimaryBtn>
+                  </Stack>
+                  {socialApiMsg && <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>{socialApiMsg}</Typography>}
+                </Paper>
+              )}
+
+              <Stack spacing={1}>
+                {loadingSocials ? (
+                  <Box sx={{ py: 2, display: "flex", justifyContent: "center" }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : socials.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">No socials saved yet — pick one above to add.</Typography>
+                ) : (
+                  socials.map((s) => {
+                    const Plat = PLATFORMS.find((p) => p.key === s.platform)?.Icon || LinkIcon;
+                    return (
+                      <Paper key={s._id || s.id || s.url} variant="outlined" sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Plat sx={{ fontSize: 18 }} />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontFamily: "Inter", fontWeight: 500, textTransform: "capitalize" }}>{s.platform}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>{s.url}</Typography>
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                          <IconButton onClick={() => window.open(s.url, "_blank")} size="small" title="Open">
+                            <ChevronRightRoundedIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton onClick={() => deleteSocial(s._id || s.id)} size="small" title="Delete">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Paper>
+                    );
+                  })
+                )}
+              </Stack>
+            </Box>
+            {/* --- end social picker --- */}
+          </Paper>
+
           <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexDirection: { xs: "column", sm: "row" }, gap: { xs: 1, sm: 0 } }}>
               <Typography variant="subtitle1">Block List</Typography>
@@ -1020,9 +1336,9 @@ async function saveAdd() {
 
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="body1">{b.title}</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      {/* <Typography variant="caption" color="text.secondary">
                         {b.action || "no action"}
-                      </Typography>
+                      </Typography> */}
                     </Box>
 
                     <Box sx={{ display: "flex", gap: 1 }}>
@@ -1052,7 +1368,6 @@ async function saveAdd() {
               )}
             </Stack>
           </Paper>
-
         </Grid>
 
         {/* RIGHT: Preview */}
@@ -1065,119 +1380,105 @@ async function saveAdd() {
               border: { xs: "8px solid rgba(240,240,245,0.95)", sm: "10px solid rgba(240,240,245,0.9)" },
               boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
               overflow: "hidden",
-              bgcolor: "#f8fafc",
+              bgcolor: "#37353E",
             }}
           >
-            {/* purple top banner */}
-            <Box sx={{ height: { xs: 72, sm: 96 }, background: "linear-gradient(90deg,#4c1d95,#7c3aed)" }} />
-
-            {/* white card area */}
-            <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: "center", position: "relative" }}>
-              {/* avatar overlapping */}
-              <Avatar
-                src={avatarUrl || ""}
+            <Box sx={{ p: { xs: 2, sm: 2 } }}>
+              <Box
                 sx={{
-                  width: { xs: 72, sm: 86 },
-                  height: { xs: 72, sm: 86 },
-                  position: "absolute",
-                  top: { xs: -36, sm: -46 },
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  border: "4px solid #fff",
-                  boxShadow: "0 8px 30px rgba(124,58,237,0.18)",
-                  bgcolor: avatarUrl ? "transparent" : "#6d28d9",
-                  fontSize: { xs: 18, sm: 20 },
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  width: "100%",
+                  mt: 3,
+                  gap: 1,
                 }}
               >
-                {!avatarUrl && name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-              </Avatar>
+                <Avatar
+                  src={avatarUrl || ""}
+                  sx={{
+                    width: { xs: 60, sm: 80 },
+                    height: { xs: 60, sm: 80 },
+                    border: "4px solid #fff",
+                    boxShadow: "0 8px 30px rgba(124,58,237,0.18)",
+                    bgcolor: avatarUrl ? "transparent" : "#6d28d9",
+                    fontSize: { xs: 18, sm: 20 },
+                    flexShrink: 0,
+                  }}
+                >
+                  {!avatarUrl && name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                </Avatar>
 
-              <Box sx={{ mt: { xs: 3.5, sm: 4 } }}>
-                <Typography sx={{ fontFamily : 'Inter', fontWeight: 600, fontSize: { xs: 16, sm: 18 } }}>
-                  {userDetails.name}
-                </Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", gap: 0.5 }}>
+                  <Typography sx={{ color: "#FFFFFF", fontFamily: "Inter", fontWeight: 500, fontSize: { xs: 16, sm: 16 } }}>
+                    {name}
+                  </Typography>
 
-               
-              {/* social icons / preview */}
-<Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-  {loadingSocials ? (
-    // Optional: show a small loader while socials are being fetched
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      <CircularProgress size={20} />
-      <Typography variant="caption" color="text.secondary">Loading socials…</Typography>
-    </Box>
-  ) : socials && socials.length > 0 ? (
-    <Box sx={{ display: "flex", gap: 1.25 }}>
-   {socials.map((s) => {
-  const key = (s.platform || "").toLowerCase();
+                  <Typography sx={{ color: "#FFFFFF", fontFamily: "Inter", fontWeight: 400, fontSize: { xs: 12, sm: 12 } }}>
+                    {userIntro}
+                  </Typography>
 
-  // platform -> icon component (same as you already had)
-  const IconComp =
-    key === "youtube" ? YouTubeIcon :
-    key === "twitter" ? TwitterIcon :
-    key === "whatsapp" ? WhatsAppIcon :
-    key === "instagram" ? InstagramIcon :
-    key === "linkedin" ? LinkedInIcon :
-    LinkIcon; // fallback
+                  <Box sx={{ display: "flex", mt: 1, gap: 1 }}>
+                    {loadingSocials ? (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <CircularProgress size={20} />
+                        <Typography variant="caption" color="text.secondary">Loading socials…</Typography>
+                      </Box>
+                    ) : socials && socials.length > 0 ? (
+                      socials.map((s) => {
+                        const key = (s.platform || "").toLowerCase();
+                        const IconComp =
+                          key === "youtube" ? YouTubeIcon :
+                          key === "twitter" ? TwitterIcon :
+                          key === "whatsapp" ? WhatsAppIcon :
+                          key === "instagram" ? InstagramIcon :
+                          key === "linkedin" ? LinkedInIcon :
+                          LinkIcon;
+                        const BRAND = {
+                          youtube: "#FF0000",
+                          twitter: "#1DA1F2",
+                          whatsapp: "#25D366",
+                          instagram: "#E1306C",
+                          linkedin: "#0077B5",
+                          default: "#6366f1",
+                        };
+                        const color = BRAND[key] || BRAND.default;
+                        const bg = alpha(color, 0.03);
+                        const hoverBg = alpha(color, 0.18);
 
-  // brand color map (feel free to tweak)
-  const BRAND = {
-    youtube: "#FF0000",
-    twitter: "#1DA1F2",
-    whatsapp: "#25D366",
-    instagram: "#E1306C",
-    linkedin: "#0077B5",
-    default: "#6366f1",
-  };
-
-  const color = BRAND[key] || BRAND.default;
-  const bg = alpha(color, 0.03);    // subtle background
-  const hoverBg = alpha(color, 0.18); // hover background
-
-  return (
-    <Tooltip key={s._id || s.url} title={key.charAt(0).toUpperCase() + key.slice(1)} arrow>
-      <IconButton
-        onClick={() => window.open(s.url, "_blank")}
-        sx={{
-          bgcolor: bg,
-          borderRadius: 1,
-          width: 30,
-          height: 30,
-          "&:hover": { bgcolor: hoverBg },
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-        aria-label={`open ${key}`}
-        size="small"
-      >
-        <IconComp sx={{ fontSize: 26, color: color }} />
-      </IconButton>
-    </Tooltip>
-  );
-})}
-
-    </Box>
-  ) : (
-    // Placeholder when no socials available
-    <Paper
-      elevation={0}
-      sx={{
-        px: 2,
-        py: 1,
-        borderRadius: 2,
-        border: "1px dashed rgba(15, 23, 42, 0.06)",
-        bgcolor: "transparent",
-      }}
-    >
-      <Typography variant="caption" color="text.secondary">
-        Social accounts will appear here when you add them.
-      </Typography>
-    </Paper>
-  )}
-</Box>
-
-
+                        return (
+                          <Tooltip key={s._id || s.url} title={key.charAt(0).toUpperCase() + key.slice(1)} arrow>
+                            <IconButton
+                              onClick={() => window.open(s.url, "_blank")}
+                              sx={{
+                                bgcolor: bg,
+                                borderRadius: 1,
+                                width: 30,
+                                height: 30,
+                                "&:hover": { bgcolor: hoverBg },
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                              aria-label={`open ${key}`}
+                              size="small"
+                            >
+                              <IconComp sx={{ fontSize: 26, color: color }} />
+                            </IconButton>
+                          </Tooltip>
+                        );
+                      })
+                    ) : (
+                      <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 2, border: "1px dashed rgba(15, 23, 42, 0.06)", bgcolor: "transparent" }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Social accounts will appear here when you add them.
+                        </Typography>
+                      </Paper>
+                    )}
+                  </Box>
+                </Box>
               </Box>
 
               <Divider sx={{ my: 1.5 }} />
@@ -1199,10 +1500,9 @@ async function saveAdd() {
                 </Typography>
               </Box>
 
-               <Typography sx={{ fontFamily : 'Inter', fontWeight: 400, color: 'grey', fontSize: { xs: 12, sm: 12 }, mb: 1 }}>
-                  {userDetails.handleUserName+'.myhandle.in'}
-                </Typography>
-
+              <Typography sx={{ fontFamily: "Inter", fontWeight: 400, color: "grey", fontSize: { xs: 12, sm: 12 }, mb: 1 }}>
+                {userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : ""}
+              </Typography>
             </Box>
           </Box>
         </Grid>
@@ -1216,7 +1516,7 @@ async function saveAdd() {
             fullWidth
             label="Custom link"
             margin="dense"
-            value={userDetails.handleUserName+'.myhandle.in'}
+            value={userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : tempLink}
             onChange={(e) => setTempLink(e.target.value)}
             InputProps={{
               startAdornment: (
@@ -1264,7 +1564,10 @@ async function saveAdd() {
           >
             <Tabs
               value={tab}
-              onChange={(_, v) => setTab(v)}
+              onChange={(_, v) => {
+                setTab(v);
+                if (v === "form") setFormFields([]);
+              }}
               variant="fullWidth"
               sx={{
                 minHeight: 40,
@@ -1274,8 +1577,7 @@ async function saveAdd() {
               {[
                 { label: "Link", value: "link" },
                 { label: "Video", value: "video" },
-                { label: "Product", value: "product" },
-                { label: "Store", value: "store" },
+                { label: "Form", value: "form" },
               ].map((t) => (
                 <Tab
                   key={t.value}
@@ -1316,14 +1618,7 @@ async function saveAdd() {
               <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mt: 2 }}>
                 Preview
               </Typography>
-              <Paper
-                elevation={0}
-                sx={{
-                  borderRadius: 2,
-                  border: (t) => `1px solid ${t.palette.divider}`,
-                  p: 1,
-                }}
-              >
+              <Paper elevation={0} sx={{ borderRadius: 2, border: (t) => `1px solid ${t.palette.divider}`, p: 1 }}>
                 <Stack direction="row" alignItems="center" spacing={1.5}>
                   <Box
                     sx={{
@@ -1406,13 +1701,226 @@ async function saveAdd() {
             </Box>
           )}
 
-          {/* Placeholders for future tabs */}
-          {tab !== "link" && tab !== "video" && (
-            <Box sx={{ mt: 1.5 }}>
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                  The <b>{tab}</b> tab UI will go here. Tell me what fields you need and the preview style, and I'll wire it up.
-                </Typography>
+          {/* FORM TAB */}
+          {tab === "form" && (
+            <Box>
+              <Stack spacing={1}>
+                {/* Block title (optional) */}
+                <TextField fullWidth label="Form Title" margin="dense" placeholder="e.g. 1:1 Coaching - Sign up" value={newBlockName} onChange={(e) => setNewBlockName(e.target.value)} />
+
+                {/* Dynamic fields list */}
+                <Box sx={{ display: "grid", gap: 8, mt: 1 }}>
+                  {formFields.map((f, idx) => (
+                    <Paper key={f.id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                      <Grid container spacing={1} alignItems="center">
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Label"
+                            value={f.label}
+                            onChange={(e) => updateFormField(f.id, { label: e.target.value })}
+                          />
+                        </Grid>
+
+                        <Grid item xs={8} sm={4}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Placeholder"
+                            value={f.placeholder}
+                            onChange={(e) => updateFormField(f.id, { placeholder: e.target.value })}
+                          />
+                        </Grid>
+
+                        <Grid item xs={4} sm={2} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                            <TextField
+                              select
+                              SelectProps={{ native: true }}
+                              size="small"
+                              value={f.type}
+                              onChange={(e) => updateFormField(f.id, { type: e.target.value })}
+                              sx={{ minWidth: 110 }}
+                            >
+                              <option value="text">Text</option>
+                              <option value="email">Email</option>
+                              <option value="tel">Phone</option>
+                              <option value="radio">Radio</option>
+                            </TextField>
+
+                            <Tooltip title="Remove field">
+                              <IconButton size="small" onClick={() => removeFormField(f.id)} aria-label="remove-field">
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={!!f.required}
+                              onChange={(e) => updateFormField(f.id, { required: e.target.checked })}
+                              id={`req-${f.id}`}
+                              style={{ width: 14, height: 14 }}
+                            />
+                            <label htmlFor={`req-${f.id}`} style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>
+                              Required
+                            </label>
+                          </Box>
+                        </Grid>
+
+                        {/* Radio options editor: two editable inputs + add option button (replaces comma-field) */}
+                        {f.type === "radio" && (
+                          <Grid item xs={12}>
+                            <Box sx={{ mt: 1, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
+                              <TextField
+                                size="small"
+                                label="Option 1"
+                                placeholder="e.g. Male"
+                                value={(f.options && f.options[0]) || ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateFormField(f.id, { options: [v, (f.options && f.options[1]) || ""] });
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                label="Option 2"
+                                placeholder="e.g. Female"
+                                value={(f.options && f.options[1]) || ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateFormField(f.id, { options: [(f.options && f.options[0]) || "", v] });
+                                }}
+                              />
+                            </Box>
+
+                            <Box sx={{ mt: 1, display: "flex", gap: 1, alignItems: "center" }}>
+                              <Button
+                                size="small"
+                                onClick={() =>
+                                  updateFormField(f.id, {
+                                    options: [...(Array.isArray(f.options) ? f.options : []), `Option ${((f.options && f.options.length) || 0) + 1}`],
+                                  })
+                                }
+                                sx={{ textTransform: "none" }}
+                              >
+                                + Add option
+                              </Button>
+
+                              <Typography variant="caption" sx={{ color: "text.secondary", ml: 1 }}>
+                                Options editable here. You can add more after saving.
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Paper>
+                  ))}
+
+                  <Box>
+                  
+                  <Box sx={{ display: "inline-block" }}>
+  <ClickAwayListener onClickAway={() => { if (addCloseTimer.current) clearTimeout(addCloseTimer.current); setAddAnchor(null); }}>
+    <Box
+      onMouseEnter={(e) => openAddMenu(e.currentTarget)}
+      onMouseLeave={closeAddMenu}
+      sx={{ display: "inline-block" }}
+    >
+      <Button
+        variant="contained"
+        onClick={(e) => {
+          if (addAnchor) setAddAnchor(null);
+          else openAddMenu(e.currentTarget);
+        }}
+        sx={{
+          textTransform: "none",
+          borderRadius: 2,
+          px: 2,
+          py: 1,
+          background: "linear-gradient(90deg,#7c3aed,#9f7aea)",
+          boxShadow: "0 12px 30px rgba(99,102,241,0.12)",
+          color: "#fff",
+          fontWeight: 700,
+          display: "inline-flex",
+          gap: 1,
+        }}
+      >
+        <AddIcon />
+        Add Field
+      </Button>
+
+      <Menu
+        anchorEl={addAnchor}
+        open={Boolean(addAnchor)}
+        onClose={() => setAddAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        transformOrigin={{ vertical: "top", horizontal: "left" }}
+        MenuListProps={{
+          onMouseEnter: () => {
+            if (addCloseTimer.current) {
+              clearTimeout(addCloseTimer.current);
+              addCloseTimer.current = null;
+            }
+          },
+          onMouseLeave: closeAddMenu,
+        }}
+      >
+        {ADD_FIELD_TYPES.map((t) => (
+          <MenuItem key={t.value} onClick={() => createFieldOfType(t.value)} sx={{ textTransform: "none", fontWeight: 600 }}>
+            {t.label}
+          </MenuItem>
+        ))}
+      </Menu>
+    </Box>
+  </ClickAwayListener>
+</Box>
+
+
+                  </Box>
+                </Box>
+              </Stack>
+
+              <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mt: 2 }}>
+                Preview
+              </Typography>
+
+              <Paper elevation={0} sx={{ borderRadius: 2, border: (t) => `1px solid ${t.palette.divider}`, p: 2, mt: 1 }}>
+                <Stack spacing={1}>
+                  <Typography variant="subtitle2">{newBlockName || "Contact form"}</Typography>
+
+                  {formFields.map((f) => {
+                    const opts = Array.isArray(f.options)
+                      ? f.options
+                      : (typeof f.options === "string" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : []);
+
+                    return (
+                      <Box key={f.id} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                        {f.type === "textarea" ? (
+                          <TextField fullWidth label={f.label} placeholder={f.placeholder} multiline rows={3} InputProps={{ readOnly: true }} />
+                        ) : f.type === "radio" ? (
+                          <FormControl component="fieldset" variant="standard" sx={{ mt: 0.5 }}>
+                            <FormLabel component="legend" sx={{ fontSize: 13, mb: 0.5 }}>{f.label}</FormLabel>
+                            <RadioGroup row>
+                              {opts.map((opt, i) => (
+                                <FormControlLabel key={i} value={opt} control={<Radio />} label={opt} disabled />
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
+                        ) : (
+                          <TextField fullWidth label={f.label} placeholder={f.placeholder} type={f.type || "text"} InputProps={{ readOnly: true }} />
+                        )}
+                      </Box>
+                    );
+                  })}
+
+                  <PrimaryBtn onClick={() => { /* no-op on preview */ }} style={{ width: 160 }}>
+                    Submit
+                  </PrimaryBtn>
+                </Stack>
               </Paper>
             </Box>
           )}
@@ -1436,6 +1944,139 @@ async function saveAdd() {
           <PrimaryBtn onClick={saveAdd} disabled={savingBlock}>
             {savingBlock ? <CircularProgress size={18} /> : <SaveIcon />}
             <span style={{ marginLeft: 6 }}>{savingBlock ? "Saving..." : "Save"}</span>
+          </PrimaryBtn>
+        </DialogActions>
+      </Dialog>
+
+      {/* ---------- Form Submission Dialog ---------- */}
+      <Dialog open={formDialogOpen} onClose={closeFormDialog} fullWidth maxWidth="sm">
+        <DialogTitle>{currentFormBlock?.title || "Submit form"}</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ mt: 0.5, display: "grid", gap: 1 }}>
+            {currentFormBlock?._renderFields?.length === 0 && <Typography variant="body2" color="text.secondary">This form has no fields.</Typography>}
+
+            {currentFormBlock?._renderFields?.map((f) => {
+              const key = f._key || f.key || f.label?.toLowerCase().replace(/\s+/g, "_");
+              const value = formValues[key] ?? "";
+              const error = formErrors[key];
+
+              // show textarea for textarea type, otherwise text/email/tel
+              if ((f.type || "text") === "textarea") {
+                return (
+                  <TextField
+                    key={key}
+                    fullWidth
+                    multiline
+                    rows={4}
+                    label={f.label || "Field"}
+                    placeholder={f.placeholder || ""}
+                    value={value}
+                    onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                    error={!!error}
+                    helperText={error || (f.required ? "Required" : "")}
+                    margin="dense"
+                  />
+                );
+              }
+
+              if (f.type === "radio") {
+                const opts = Array.isArray(f.options)
+                  ? f.options
+                  : (typeof f.options === "string" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : []);
+
+                return (
+                  <FormControl key={key} component="fieldset" margin="dense" error={!!formErrors[key]}>
+                    <FormLabel component="legend">{f.label}</FormLabel>
+                    <RadioGroup
+                      name={key}
+                      value={formValues[key] ?? ""}
+                      onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                    >
+                      {opts.map((opt, idx) => (
+                        <FormControlLabel key={idx} value={opt} control={<Radio />} label={opt} />
+                      ))}
+                    </RadioGroup>
+                    {formErrors[key] && <Typography variant="caption" color="error">{formErrors[key]}</Typography>}
+                  </FormControl>
+                );
+              }
+
+              return (
+                <TextField
+                  key={key}
+                  fullWidth
+                  label={f.label || "Field"}
+                  placeholder={f.placeholder || ""}
+                  type={f.type === "tel" ? "tel" : f.type === "email" ? "email" : "text"}
+                  value={value}
+                  onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                  error={!!error}
+                  helperText={error || (f.required ? "Required" : "")}
+                  margin="dense"
+                />
+              );
+            })}
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ gap: 1, p: 2 }}>
+          <button
+            onClick={closeFormDialog}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: "8px 12px",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Cancel
+          </button>
+
+          <PrimaryBtn
+            onClick={async () => {
+              // validate and submit
+              if (!currentFormBlock) return;
+              const fields = currentFormBlock._renderFields || [];
+              const errors = {};
+              fields.forEach((f, i) => {
+                const key = f._key || f.key || `f_${i}`;
+                if (f.required && !String(formValues[key] ?? "").trim()) {
+                  errors[key] = `${f.label || "This field"} is required`;
+                }
+              });
+              setFormErrors(errors);
+              if (Object.keys(errors).length > 0) return;
+
+              // build payload
+              const payload = {
+                blockId: currentFormBlock.id,
+                blockName: currentFormBlock.title || currentFormBlock.name || "form",
+                values: formValues, // { key: value }
+                meta: { submittedAt: new Date().toISOString() },
+              };
+
+              setFormSubmitting(true);
+              try {
+                // endpoint: POST /submit-form  (adjust if your API expects /submit-form/:id)
+                const res = await api.post("/submit-form", payload, { withCredentials: true, headers: { "Content-Type": "application/json" } });
+                // success handling
+                setApiSnack({ open: true, message: res.data?.message || "Submitted" });
+                closeFormDialog();
+              } catch (err) {
+                console.error("form submit error", err);
+                const msg = err?.response?.data?.message || "Failed to submit";
+                setApiSnack({ open: true, message: msg });
+              } finally {
+                setFormSubmitting(false);
+              }
+            }}
+            disabled={formSubmitting}
+          >
+            {formSubmitting ? <CircularProgress size={18} /> : <SaveIcon />}
+            <span style={{ marginLeft: 8 }}>{formSubmitting ? "Submitting..." : "Submit"}</span>
           </PrimaryBtn>
         </DialogActions>
       </Dialog>

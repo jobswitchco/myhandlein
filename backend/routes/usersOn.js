@@ -54,27 +54,85 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
     const userId = req.user?.user_id;
     if (!userId) return res.status(401).json({ error: "Unauthenticated" });
 
-    const { name, action, type = "link" } = req.body;
+    const { name, action, type = "link", fields } = req.body;
 
-    // Basic validation
+    // Basic validation: name always required
     if (!name || !name.trim()) return res.status(400).json({ error: "name is required" });
-    if (!action || !action.trim()) return res.status(400).json({ error: "action (URL) is required" });
-    const allowed = ["link", "video", "product", "store"];
+
+    const allowed = ["link", "video", "product", "store", "form", "cta"];
     if (!allowed.includes(type)) return res.status(400).json({ error: "invalid type" });
+
+    // If it's a form, expect an array of fields (but allow empty array if user will add later)
+    let normalizedFields = undefined;
+    if (type === "form") {
+      if (fields !== undefined) {
+        if (!Array.isArray(fields)) return res.status(400).json({ error: "fields must be an array" });
+        // Basic per-field validation + normalization
+        normalizedFields = fields.map((f, i) => {
+          const key = (f.key || f.name || `field_${i}`).toString();
+          const label = (f.label || "").toString();
+          const ftype = (f.type || "text").toString();
+          const placeholder = f.placeholder ? String(f.placeholder) : "";
+          const required = !!f.required;
+
+          if (!label || !label.trim()) throw { status: 400, message: `field ${i} missing label` };
+
+          // extend supported types to include 'radio' and 'textarea' etc.
+          const supportedTypes = ["text", "email", "tel", "textarea", "number", "radio"];
+          if (!supportedTypes.includes(ftype)) throw { status: 400, message: `field ${i} has invalid type` };
+
+          // normalize options for radio fields
+          let options = undefined;
+          if (ftype === "radio") {
+            // accept array or comma-string
+            if (f.options === undefined) {
+              throw { status: 400, message: `field ${i} (radio) missing options` };
+            }
+            if (Array.isArray(f.options)) {
+              options = f.options.map((o) => String(o).trim()).filter(Boolean);
+            } else if (typeof f.options === "string") {
+              options = f.options.split(",").map((s) => s.trim()).filter(Boolean);
+            } else {
+              throw { status: 400, message: `field ${i} (radio) options must be array or comma string` };
+            }
+            if (options.length === 0) throw { status: 400, message: `field ${i} (radio) requires at least one option` };
+          }
+
+          // Build normalized field object including options when present
+          const normalized = { key, label: label.trim(), type: ftype, placeholder, required };
+          if (options !== undefined) normalized.options = options;
+          return normalized;
+        });
+      } else {
+        // fields not supplied by the client — allow empty array to be created
+        normalizedFields = [];
+      }
+    } else {
+      // non-form: action required (URL or string)
+      if (!action || !action.trim()) return res.status(400).json({ error: "action (URL) is required for this block type" });
+    }
 
     // compute new order: put at the end
     const last = await Block.findOne({ user_id: userId }).sort({ order: -1 }).select("order").lean().exec();
     const newOrder = last ? last.order + 100 : 100;
 
-    const doc = await Block.create({
+    const payload = {
       user_id: userId,
       name: name.trim(),
-      action: action.trim(),
+      action: (action && action.trim()) || "",
       type,
       order: newOrder,
       created_at: new Date(),
       updated_at: new Date(),
-    });
+    };
+
+    if (type === "form") {
+      payload.fields = normalizedFields;
+      // optional: store a little preview in action for backward compatibility
+      payload.action = JSON.stringify({ fields: normalizedFields });
+    }
+
+    const doc = await Block.create(payload);
 
     // return normalized created block
     return res.status(201).json({
@@ -87,11 +145,36 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
       updated_at: doc.updated_at,
     });
   } catch (err) {
+    // handle thrown validation object from map above
+    if (err && err.status && err.message) {
+      return res.status(err.status).json({ error: err.message });
+    }
+
     console.error("POST /api/blocks error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
+
+router.delete('/delete-block/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const blockId = req.params.id;
+    if (!blockId) return res.status(400).json({ success: false, message: 'Block id missing' });
+
+    const block = await Block.findOne({ _id: blockId, user_id: userId }).lean();
+    if (!block) return res.status(404).json({ success: false, message: 'Block not found' });
+
+    await Block.deleteOne({ _id: blockId, user_id: userId });
+
+    return res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    console.error('delete-block error', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
 router.get("/verify-login-token", authenticateToken, (req, res) => {
   if (!req.user) {
@@ -269,7 +352,7 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   
       if(result){
   
-      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture}});
+      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture, intro: result.intro}});
       res.end();
 
   
@@ -288,6 +371,35 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   
     })
   });
+
+  router.post('/update-block-order', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const { order } = req.body;
+    if (!Array.isArray(order)) return res.status(400).json({ success: false, message: 'Invalid payload' });
+
+    // For safety only allow updating blocks belonging to this user
+    const bulkOps = order.map((item) => {
+      return {
+        updateOne: {
+          filter: { _id: item.id, user_id: userId },
+          update: { $set: { order: parseInt(item.order, 10) || 0, updated_at: new Date() } },
+        },
+      };
+    });
+
+    if (bulkOps.length === 0) return res.json({ success: true, message: 'No changes' });
+
+    const result = await Block.bulkWrite(bulkOps);
+    return res.json({ success: true, result });
+  } catch (err) {
+    console.error('update-block-order error', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
 
 export default router;
