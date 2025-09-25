@@ -100,8 +100,8 @@ if (initialSubdomain) {
               <Route path="/personalised-user-tone" element={<ProfileBasedDiscovery />} />
               <Route path="/schedule-publish" element={<EndToEndScheduling />} />
               <Route path="/save-time" element={<SaveTimePage />} />
-              <Route path="/join-waitlist" element={<WaitlistSignup />} />
-              <Route path="/waitlist-success" element={<WaitlistSuccessCard />} />
+              {/* <Route path="/join-waitlist" element={<WaitlistSignup />} /> */}
+              {/* <Route path="/waitlist-success" element={<WaitlistSuccessCard />} /> */}
 
               <Route path="/professional/*" element={<UserSideNavBar />}>
               <Route path="user/bio" element={<UserBioDashboard />} />
