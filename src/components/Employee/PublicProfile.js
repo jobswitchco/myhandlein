@@ -65,7 +65,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
       setLoading(true);
       setError(null);
       try {
-        const resp = await axios.get('/profile', {
+        const resp = await axios.get('/api/profile', {
           params: { handle },
           signal,
         });
@@ -196,7 +196,7 @@ function openFormDialog(block) {
 
     setFormSubmitting(true);
     try {
-      const res = await axios.post('/submit-form', payload, { withCredentials: false });
+      const res = await axios.post('/api/submit-form', payload, { withCredentials: false });
       setSnack({ open: true, message: res?.data?.message || "Submitted" });
       closeFormDialog();
     } catch (err) {

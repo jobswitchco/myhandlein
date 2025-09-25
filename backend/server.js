@@ -52,7 +52,7 @@ function extractSubdomain(hostname = '') {
 
 // ... other code ...
 
-app.get('/profile', async (req, res) => {
+app.get('/api/profile', async (req, res) => {
   try {
     // prefer explicit query param in dev; in prod use extractSubdomain(req.headers.host)
     // const handle = (req.query.handle || extractSubdomain(req.headers.host || '') || '').trim().toLowerCase();
@@ -92,7 +92,7 @@ app.get('/profile', async (req, res) => {
   }
 });
 
-app.post("/submit-form", async (req, res) => {
+app.post("/api/submit-form", async (req, res) => {
   try {
     // extract possible keys (be tolerant of different names)
     const {
@@ -191,7 +191,9 @@ app.get('*', async (req, res, next) => {
     if (!TEMPLATE_HTML) return next();
 
     const host = req.headers.host || '';
-    const subdomain = extractSubdomain(host);
+    // const subdomain = extractSubdomain(host);
+    const subdomain = 'sid4real';
+
 
     // If no subdomain, just serve normal index.html (no injection)
     if (!subdomain) {
@@ -199,8 +201,9 @@ app.get('*', async (req, res, next) => {
     }
 
     // Try to fetch profile from DB
-    const profilesColl = mongoose.connection.collection('profiles');
-    const profile = await profilesColl.findOne({ handle: subdomain.toLowerCase() });
+    const profilesColl = mongoose.connection.collection('users');
+    console.log('profilesColl : ', profilesColl);
+    const profile = await profilesColl.findOne({ handleUserName: subdomain.toLowerCase() });
 
     // If no profile, serve default index and let client show 404/notfound UI
     if (!profile) {
