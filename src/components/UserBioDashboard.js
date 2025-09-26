@@ -172,6 +172,7 @@ export default function ProfileBlocksEditor() {
   const [userIntro, setUserIntro] = useState("");
   const [link, setLink] = useState("");
   const [copySnackOpen, setCopySnackOpen] = useState(false);
+  // const baseUrl = "http://localhost:8001/usersOn";
   const baseUrl = "/api/usersOn";
   const [userDetails, setUserDetails] = useState({});
 const addCloseTimer = useRef(null);
@@ -256,6 +257,97 @@ const addCloseTimer = useRef(null);
   const [newBlockName, setNewBlockName] = useState("");
   const [newBlockAction, setNewBlockAction] = useState("");
   const [tab, setTab] = useState("link");
+
+// Per-slot uploading flags (so each slot shows its own spinner)
+const [uploadingHeader, setUploadingHeader] = useState({
+  headerImage1: false,
+  headerImage2: false,
+  headerImage3: false,
+});
+
+// maps the frontend key to the position value the backend accepts
+function positionForKey(key) {
+  switch (key) {
+    case "headerImage1":
+    case "leftHeadImage":
+      return "left";           // backend will normalize to leftHeadImage
+    case "headerImage2":
+    case "rightTopImage":
+      return "rightTop";       // backend -> rightTopImage
+    case "headerImage3":
+    case "rightBottomImage":
+      return "rightBottom";    // backend -> rightBottomImage
+    default:
+      return null;
+  }
+}
+
+async function handleHeaderImageChange(e, key) {
+  const file = e?.target?.files?.[0];
+  if (!file) return;
+
+  const slotKey = key || "headerImage1";
+  const position = positionForKey(slotKey);
+  if (!position) {
+    console.warn("Unknown header image key", slotKey);
+    return;
+  }
+
+  try {
+    // show spinner for this slot
+    setUploadingHeader((s) => ({ ...s, [slotKey]: true }));
+
+    const fd = new FormData();
+    fd.append("image", file);
+    fd.append("position", position);
+
+    // send to your endpoint - using baseUrl from earlier
+    const res = await axios.post(`${baseUrl}/upload-header-image`, fd, {
+      withCredentials: true,
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (progressEvent) => {
+        // optional: you could track progressEvent.loaded / total here
+      },
+    });
+
+    if (res?.data?.success) {
+      // server returns updated user doc or url — prefer returned user fields if present
+      const returnedUser = res.data.user;
+      if (returnedUser) {
+        // merge the three fields if returned
+        setUserDetails((prev) => ({
+          ...prev,
+          leftHeadImage: returnedUser.leftHeadImage ?? prev.leftHeadImage,
+          rightTopImage: returnedUser.rightTopImage ?? prev.rightTopImage,
+          rightBottomImage: returnedUser.rightBottomImage ?? prev.rightBottomImage,
+        }));
+      } else if (res.data.url) {
+        // fallback: update only the target field locally from returned URL
+        // convert returnedField to local key (server uses leftHeadImage/rightTopImage/rightBottomImage)
+        const returnedField = res.data.updatedField;
+        if (returnedField) {
+          setUserDetails((prev) => ({ ...prev, [returnedField]: res.data.url }));
+        }
+      }
+
+      setApiSnack({ open: true, message: "Image uploaded" });
+    } else {
+      setApiSnack({ open: true, message: res?.data?.message || "Upload failed" });
+      console.error("upload failed response", res?.data);
+    }
+  } catch (err) {
+    console.error("upload error", err);
+    setApiSnack({ open: true, message: err?.response?.data?.message || err.message || "Upload failed" });
+  } finally {
+    // hide spinner for this slot
+    setUploadingHeader((s) => ({ ...s, [slotKey]: false }));
+    // clear the file input value so the same file can be reselected if needed
+    try { e.target.value = ""; } catch (ignore) {}
+  }
+}
+
+
+
 
   // --- Form tab state (dynamic fields) ---
   const [formFields, setFormFields] = useState([]);
@@ -475,6 +567,7 @@ const addCloseTimer = useRef(null);
       });
       if (ress.data.success) {
         setUserDetails(ress.data.data);
+        console.log('Response : ',ress.data.data );
         setName(ress.data.data.name || "");
         // The backend may not have an intro yet; use .intro if present
         setUserIntro(ress.data.data.intro || "");
@@ -1062,32 +1155,156 @@ async function saveAdd() {
           >
             {/* Avatar + edit */}
             <Stack sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
-              <Box
-                onMouseEnter={() => setAvatarHover(true)}
-                onMouseLeave={() => setAvatarHover(false)}
-                sx={{
-                  position: "relative",
-                  width: 66,
-                  height: 66,
-                  flexShrink: 0,
-                }}
-              >
-                <Avatar
-                  src={avatarUrl || ""}
-                  sx={{
-                    width: 66,
-                    height: 66,
-                    bgcolor: avatarUrl ? "transparent" : "primary.main",
-                    cursor: "pointer",
-                    border: "4px solid rgba(0,0,0,0.04)",
-                  }}
-                  onClick={handleAvatarClick}
-                >
-                  {!avatarUrl && name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-                </Avatar>
+        <Grid container spacing={1} sx={{ flex: 1 }}>
+  {/* Left big image (50%) */}
+  <Grid item xs={6}>
+    <Box
+      sx={{
+        width: "100%",
+        height: 140,
+        borderRadius: 2,
+        bgcolor: "#f4f4f4",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        overflow: "hidden",
+      }}
+      onClick={() => document.getElementById("image-upload-1")?.click()}
+    >
+      {uploadingHeader.headerImage1 ? (
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+          <CircularProgress size={28} />
+        </Box>
+      ) : userDetails?.leftHeadImage ? (
+        <Box
+          component="img"
+          src={userDetails.leftHeadImage}
+          alt="Header Left"
+          sx={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",     // <-- show full image without cropping
+            objectPosition: "center",
+            backgroundColor: "#f4f4f4",
+          }}
+        />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Add Image
+        </Typography>
+      )}
 
-                <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
-              </Box>
+      <input
+        id="image-upload-1"
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => handleHeaderImageChange(e, "headerImage1")}
+      />
+    </Box>
+  </Grid>
+
+  {/* Right stacked images (top + bottom) */}
+  <Grid item xs={6}>
+    <Stack spacing={1} sx={{ height: "100%" }}>
+      {/* Top right image */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          overflow: "hidden",
+        }}
+        onClick={() => document.getElementById("image-upload-2")?.click()}
+      >
+        {uploadingHeader.headerImage2 ? (
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : userDetails?.rightTopImage || userDetails?.headerImage2 ? (
+          <Box
+            component="img"
+            src={userDetails.rightTopImage ?? userDetails.headerImage2}
+            alt="Header Right Top"
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",   // <-- avoid cropping
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-2"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "headerImage2")}
+        />
+      </Box>
+
+      {/* Bottom right image */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          overflow: "hidden",
+        }}
+        onClick={() => document.getElementById("image-upload-3")?.click()}
+      >
+        {uploadingHeader.headerImage3 ? (
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : userDetails?.rightBottomImage || userDetails?.headerImage3 ? (
+          <Box
+            component="img"
+            src={userDetails.rightBottomImage ?? userDetails.headerImage3}
+            alt="Header Right Bottom"
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",   // <-- avoid cropping
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-3"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "headerImage3")}
+        />
+      </Box>
+    </Stack>
+  </Grid>
+</Grid>
+
+
+
 
               <Box sx={{ display: "flex", flexDirection: "column" }}>
                 {/* Name + role */}
@@ -1370,142 +1587,269 @@ async function saveAdd() {
           </Paper>
         </Grid>
 
-        {/* RIGHT: Preview */}
-        <Grid item xs={12} md={5}>
+      {/* Right Preview Images */}
+<Grid item xs={12} md={5}>
+  <Box
+    sx={{
+      width: { xs: "100%", sm: "85%", md: "85%" },
+      margin: "0 auto",
+      borderRadius: { xs: 6, sm: 12 },
+      border: {
+        xs: "8px solid rgba(240,240,245,0.95)",
+        sm: "10px solid rgba(240,240,245,0.9)",
+      },
+      boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
+      overflow: "hidden",
+      bgcolor: "#37353E",
+    }}
+  >
+    <Box sx={{ p: { xs: 2, sm: 2 } }}>
+      {/* --- Image Grid Preview --- */}
+   <Grid container spacing={1} sx={{ mb: 2 }}>
+  {/* Left big image */}
+  <Grid item xs={6}>
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        borderRadius: 2,
+        bgcolor: "#f4f4f4",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+      }}
+      onClick={() => document.getElementById("image-upload-1")?.click()}
+    >
+      {userDetails?.leftHeadImage ? (
+        <Box
+          component="img"
+          src={userDetails.leftHeadImage}
+          alt="Header Left"
+          sx={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",    // show whole image; change to "cover" if you prefer fill
+            objectPosition: "center",
+            backgroundColor: "#f4f4f4",
+          }}
+        />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Add Image
+        </Typography>
+      )}
+
+      <input
+        id="image-upload-1"
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => handleHeaderImageChange(e, "leftHeadImage")}
+      />
+    </Box>
+  </Grid>
+
+  {/* Right stacked images */}
+  <Grid item xs={6}>
+    <Stack spacing={1} sx={{ height: "100%" }}>
+      {/* Top right */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+        }}
+        onClick={() => document.getElementById("image-upload-2")?.click()}
+      >
+        {userDetails?.rightTopImage ? (
+          <Box
+            component="img"
+            src={userDetails.rightTopImage}
+            alt="Header Right Top"
+            sx={{
+              width: "100%",
+              height: 60,
+              objectFit: "contain",
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-2"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "rightTopImage")}
+        />
+      </Box>
+
+      {/* Bottom right */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+        }}
+        onClick={() => document.getElementById("image-upload-3")?.click()}
+      >
+        {userDetails?.rightBottomImage ? (
+          <Box
+            component="img"
+            src={userDetails.rightBottomImage}
+            alt="Header Right Bottom"
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "fill",
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-3"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "rightBottomImage")}
+        />
+      </Box>
+    </Stack>
+  </Grid>
+</Grid>
+
+
+      {/* --- Name + Socials --- */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1.5,
+          mt: 1,
+        }}
+      >
+        <Typography
+          sx={{
+            color: "#FFFFFF",
+            fontFamily: "Inter",
+            fontWeight: 500,
+            fontSize: { xs: 16, sm: 18 },
+          }}
+        >
+          {name}
+        </Typography>
+
+        {/* Social icons row */}
+        <Box sx={{ display: "flex", gap: 1 }}>
+          {socials.map((s) => {
+            const key = (s.platform || "").toLowerCase();
+            const IconComp =
+              key === "youtube"
+                ? YouTubeIcon
+                : key === "twitter"
+                ? TwitterIcon
+                : key === "whatsapp"
+                ? WhatsAppIcon
+                : key === "instagram"
+                ? InstagramIcon
+                : key === "linkedin"
+                ? LinkedInIcon
+                : LinkIcon;
+
+            return (
+              <IconButton
+                key={s._id || s.url}
+                onClick={() => window.open(s.url, "_blank")}
+                sx={{ color: "#fff" }}
+              >
+                <IconComp sx={{ fontSize: 22 }} />
+              </IconButton>
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Intro below name + socials */}
+      <Typography
+        sx={{
+          color: "#FFFFFF",
+          fontFamily: "Inter",
+          fontWeight: 400,
+          fontSize: { xs: 12, sm: 13 },
+          mt: 1,
+        }}
+      >
+        {userIntro}
+      </Typography>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* blocks area */}
+      <Stack spacing={1.25} sx={{ mt: 1, mb: 1 }}>
+        {loadingBlocks ? (
           <Box
             sx={{
-              width: { xs: "100%", sm: "85%", md: "85%" },
-              margin: "0 auto",
-              borderRadius: { xs: 6, sm: 12 },
-              border: { xs: "8px solid rgba(240,240,245,0.95)", sm: "10px solid rgba(240,240,245,0.9)" },
-              boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
-              overflow: "hidden",
-              bgcolor: "#37353E",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              py: 4,
             }}
           >
-            <Box sx={{ p: { xs: 2, sm: 2 } }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  textAlign: "center",
-                  width: "100%",
-                  mt: 3,
-                  gap: 1,
-                }}
-              >
-                <Avatar
-                  src={avatarUrl || ""}
-                  sx={{
-                    width: { xs: 60, sm: 80 },
-                    height: { xs: 60, sm: 80 },
-                    border: "4px solid #fff",
-                    boxShadow: "0 8px 30px rgba(124,58,237,0.18)",
-                    bgcolor: avatarUrl ? "transparent" : "#6d28d9",
-                    fontSize: { xs: 18, sm: 20 },
-                    flexShrink: 0,
-                  }}
-                >
-                  {!avatarUrl && name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-                </Avatar>
-
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", gap: 0.5 }}>
-                  <Typography sx={{ color: "#FFFFFF", fontFamily: "Inter", fontWeight: 500, fontSize: { xs: 16, sm: 16 } }}>
-                    {name}
-                  </Typography>
-
-                  <Typography sx={{ color: "#FFFFFF", fontFamily: "Inter", fontWeight: 400, fontSize: { xs: 12, sm: 12 } }}>
-                    {userIntro}
-                  </Typography>
-
-                  <Box sx={{ display: "flex", mt: 1, gap: 1 }}>
-                    {loadingSocials ? (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <CircularProgress size={20} />
-                        <Typography variant="caption" color="text.secondary">Loading socials…</Typography>
-                      </Box>
-                    ) : socials && socials.length > 0 ? (
-                      socials.map((s) => {
-                        const key = (s.platform || "").toLowerCase();
-                        const IconComp =
-                          key === "youtube" ? YouTubeIcon :
-                          key === "twitter" ? TwitterIcon :
-                          key === "whatsapp" ? WhatsAppIcon :
-                          key === "instagram" ? InstagramIcon :
-                          key === "linkedin" ? LinkedInIcon :
-                          LinkIcon;
-                        const BRAND = {
-                          youtube: "#FF0000",
-                          twitter: "#1DA1F2",
-                          whatsapp: "#25D366",
-                          instagram: "#E1306C",
-                          linkedin: "#0077B5",
-                          default: "#6366f1",
-                        };
-                        const color = BRAND[key] || BRAND.default;
-                        const bg = alpha(color, 0.03);
-                        const hoverBg = alpha(color, 0.18);
-
-                        return (
-                          <Tooltip key={s._id || s.url} title={key.charAt(0).toUpperCase() + key.slice(1)} arrow>
-                            <IconButton
-                              onClick={() => window.open(s.url, "_blank")}
-                              sx={{
-                                bgcolor: bg,
-                                borderRadius: 1,
-                                width: 30,
-                                height: 30,
-                                "&:hover": { bgcolor: hoverBg },
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                              aria-label={`open ${key}`}
-                              size="small"
-                            >
-                              <IconComp sx={{ fontSize: 26, color: color }} />
-                            </IconButton>
-                          </Tooltip>
-                        );
-                      })
-                    ) : (
-                      <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 2, border: "1px dashed rgba(15, 23, 42, 0.06)", bgcolor: "transparent" }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Social accounts will appear here when you add them.
-                        </Typography>
-                      </Paper>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-
-              <Divider sx={{ my: 1.5 }} />
-
-              {/* blocks area */}
-              <Stack spacing={1.25} sx={{ mt: 1, mb: 1 }}>
-                {loadingBlocks ? (
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 4 }}>
-                    <CircularProgress />
-                  </Box>
-                ) : (
-                  blocks.map((b) => renderPreviewBlock(b))
-                )}
-              </Stack>
-
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {link}
-                </Typography>
-              </Box>
-
-              <Typography sx={{ fontFamily: "Inter", fontWeight: 400, color: "grey", fontSize: { xs: 12, sm: 12 }, mb: 1 }}>
-                {userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : ""}
-              </Typography>
-            </Box>
+            <CircularProgress />
           </Box>
-        </Grid>
+        ) : (
+          blocks.map((b) => renderPreviewBlock(b))
+        )}
+      </Stack>
+
+      <Box sx={{ mt: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          {link}
+        </Typography>
+      </Box>
+
+      <Typography
+        sx={{
+          fontFamily: "Inter",
+          fontWeight: 400,
+          color: "grey",
+          fontSize: { xs: 12, sm: 12 },
+          mb: 1,
+        }}
+      >
+        {userDetails.handleUserName
+          ? userDetails.handleUserName + ".myhandle.in"
+          : ""}
+      </Typography>
+    </Box>
+  </Box>
+</Grid>
+
       </Grid>
 
       {/* Customize URL Dialog */}

@@ -46,9 +46,7 @@ const ResponsiveDrawer = ({ window }) => {
   const [userName, setUserName] = useState("");
   const [freeTrialDaysLeft, setFreeTrialLeftDays] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
-  // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl="/api/usersOn";
-
+  const baseUrl = "http://localhost:8001/usersOn";
   const [currentTime, setCurrentTime] = useState(new Date());
     const navigate = useNavigate();
 
@@ -224,15 +222,15 @@ const getHeaderTitle = () => {
         {/* My Posts */}
         <ListItem disablePadding>
           <Link
-            to="/professional/myposts"
+            to="/professional/store/products"
             style={{ textDecoration: "none", color: "black", width: "100%" }}
             onClick={handleDrawerToggle}
           >
             <ListItemButton
-              selected={location.pathname === "/professional/myposts"}
+              selected={location.pathname === "/professional/store/products"}
               sx={{
                 backgroundColor:
-                  location.pathname === "/professional/myposts"
+                  location.pathname === "/professional/store/products"
                     ? "#e3e3f3"
                     : "transparent",
                 borderRadius: "6px",
@@ -243,7 +241,7 @@ const getHeaderTitle = () => {
                 <DateRangeOutlinedIcon
                   sx={{
                     color:
-                      location.pathname === "/professional/myposts"
+                      location.pathname === "/professional/store/products"
                         ? "#093FB4"
                         : "#7F8CAA",
                     transition: "color 0.3s",
@@ -251,11 +249,11 @@ const getHeaderTitle = () => {
                 />
               </ListItemIcon>
               <ListItemText
-                primary="My posts"
+                primary="Store"
                 primaryTypographyProps={{
                   sx: {
                     color:
-                      location.pathname === "/professional/myposts"
+                      location.pathname === "/professional/store/products"
                         ? "#093FB4"
                         : "#7F8CAA",
                     fontWeight: 400,

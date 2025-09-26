@@ -3,10 +3,21 @@ import cookieParser from "cookie-parser";
 const router = express.Router();
 import USER from "../models/User.js";
 import Block from "../models/Blocks.js";
+import FormsData from "../models/FormsData.js";
+import Product from "../models/ProductsCatalogue.js";
 import mongoose from 'mongoose';
 router.use(cookieParser());
 import authenticateToken from "../middleware/authenticateTokenProfessional.js";
 import generateJWTtoken  from "../middleware/generateJWTtoken.js";
+import fs from "fs";
+import crypto from "crypto";
+import util from "util";
+const unlinkAsync = util.promisify(fs.unlink);
+import { Storage } from '@google-cloud/storage';
+const storage = new Storage();
+const bucketName = "postlnbucketcom"; 
+const bucket = storage.bucket(bucketName);
+const upload = multer({ storage: multer.memoryStorage() });
 
 
 router.post("/logout", authenticateToken, (req, res) => {
@@ -17,6 +28,92 @@ router.post("/logout", authenticateToken, (req, res) => {
   });
   res.status(200).json({ message: "Logged out successfully" });
 });
+
+async function uploadBufferToGCS(buffer, originalName, mimeType) {
+  if (!bucket) throw new Error("GCS bucket not configured.");
+  const ext = path.extname(originalName) || "";
+  const objectName = `products/${Date.now()}-${crypto
+    .randomBytes(6)
+    .toString("hex")}${ext}`;
+  const file = bucket.file(objectName);
+
+  return new Promise((resolve, reject) => {
+    const stream = file.createWriteStream({
+      metadata: { contentType: mimeType },
+      resumable: false,
+    });
+
+    stream.on("error", (err) => reject(err));
+    stream.on("finish", async () => {
+      try {
+        await file.makePublic();
+        const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
+        resolve({ publicUrl, objectName });
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    // 🔑 Actually write the in-memory buffer to GCS
+    stream.end(buffer);
+  });
+}
+
+
+// Upload from a local file path (works with multer({ dest: "uploads/" }))
+async function uploadFilePathToGCS(filePath, originalName, mimeType) {
+  if (!bucket) throw new Error("GCS bucket not configured.");
+  const ext = path.extname(originalName) || path.extname(filePath) || "";
+  const objectName = `products/${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
+  const file = bucket.file(objectName);
+
+  return new Promise((resolve, reject) => {
+    const readStream = fs.createReadStream(filePath);
+    const writeStream = file.createWriteStream({
+      metadata: { contentType: mimeType || "application/octet-stream" },
+      resumable: false,
+    });
+
+    readStream.on("error", (err) => {
+      reject(err);
+    });
+
+    writeStream.on("error", (err) => {
+      reject(err);
+    });
+
+    writeStream.on("finish", async () => {
+      try {
+        await file.makePublic();
+        const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
+
+        // cleanup local file - don't block the response if deletion fails, but attempt it
+        try {
+          await unlinkAsync(filePath);
+        } catch (unlinkErr) {
+          console.warn("Failed to remove local upload file:", unlinkErr.message);
+        }
+
+        resolve({ publicUrl, objectName });
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    // pipe the local file into GCS write stream
+    readStream.pipe(writeStream);
+  });
+}
+
+
+function normalizePosition(pos) {
+  if (!pos) return null;
+  const p = String(pos).trim().toLowerCase();
+  if (["left", "headerimage1", "headerimage_1", "1"].includes(p)) return "leftHeadImage";
+  if (["righttop", "right_top", "headerimage2", "headerimage_2", "2"].includes(p)) return "rightTopImage";
+  if (["rightbottom", "right_bottom", "headerimage3", "headerimage_3", "3"].includes(p)) return "rightBottomImage";
+  return null;
+}
 
 
 router.get("/fetch-blocks", authenticateToken, async (req, res) => {
@@ -340,7 +437,7 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
 });
 
 
-  router.get('/get-user-details', authenticateToken, async function (req, res){
+   router.get('/get-user-details', authenticateToken, async function (req, res){
 
     const userId = req.user?.user_id;
 
@@ -352,7 +449,7 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   
       if(result){
   
-      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture, intro: result.intro}});
+      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture, intro: result.intro, leftHeadImage: result.leftHeadImage, rightTopImage: result.rightTopImage, rightBottomImage: result.rightBottomImage}});
       res.end();
 
   
@@ -440,5 +537,314 @@ router.get('/profile', async (req, res) => {
     return res.status(500).json({ error: 'internal' });
   }
 });
+
+router.post("/submit-form", async (req, res) => {
+  try {
+    // extract possible keys (be tolerant of different names)
+    const {
+      formId,
+      userId,
+      blockId,
+      blockName,
+      values = {},
+      meta = {},
+    } = req.body || {};
+
+    // basic validation: values should be an object
+    if (values == null || typeof values !== "object") {
+      return res.status(400).json({ message: "Invalid values payload; expected an object." });
+    }
+
+    // collect IP and user agent if available
+    const ip = req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() || req.ip || null;
+    const ua = req.get("User-Agent") || null;
+
+    const doc = new FormsData({
+      form_id: formId || undefined,
+      user_id: userId || undefined,
+      block_id: blockId || undefined,
+      block_name: blockName || undefined,
+      values,
+      meta,
+      ip_address: ip,
+      user_agent: ua,
+      submitted_at: meta?.submittedAt ? new Date(meta.submittedAt) : undefined,
+    });
+
+    await doc.save();
+
+    return res.status(201).json({ message: "Form submitted", id: doc._id });
+  } catch (err) {
+    console.error("Error saving form submission:", err);
+    return res.status(500).json({ message: "Failed to save submission" });
+  }
+});
+
+
+router.post("/upload-product", upload.single("image"), authenticateToken, async (req, res) => {
+  try {
+
+    const userId = req.user?.user_id;
+
+    const { title, link } = req.body;
+    if (!title || !link) {
+      return res.status(400).json({ message: "title and link required" });
+    }
+
+    let imageUrl = null;
+    let imagePublicId = null;
+
+    if (req.file) {
+      // Case A: multer({ dest: "uploads/" }) -> req.file.path exists (disk)
+      if (req.file.path) {
+        const uploaded = await uploadFilePathToGCS(req.file.path, req.file.originalname, req.file.mimetype);
+        imageUrl = uploaded.publicUrl;
+        imagePublicId = uploaded.objectName;
+        // uploadFilePathToGCS already tries to unlink the local file after upload,
+        // but in case your helper doesn't, ensure cleanup:
+        if (fs.existsSync(req.file.path)) {
+          try { await unlinkAsync(req.file.path); } catch (e) { /* ignore */ }
+        }
+      }
+      // Case B: multer.memoryStorage() -> req.file.buffer exists
+      else if (req.file.buffer) {
+        const uploaded = await uploadBufferToGCS(req.file.buffer, req.file.originalname, req.file.mimetype);
+        imageUrl = uploaded.publicUrl;
+        imagePublicId = uploaded.objectName;
+      } else {
+        // Fallback: unexpected multer shape
+        console.warn("Uploaded file present but no path or buffer found:", req.file);
+      }
+    }
+
+    const prod = await Product.create({ user_id: userId, title, link, imageUrl, imagePublicId });
+    return res.json({ product: prod });
+  } catch (err) {
+    console.error("Create product error:", err);
+
+    // attempt to remove multer temp file on error (best-effort)
+    try {
+      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+        await unlinkAsync(req.file.path);
+      }
+    } catch (cleanupErr) {
+      console.warn("Failed to cleanup temp file:", cleanupErr.message);
+    }
+
+    return res.status(500).json({ message: "Error creating product", error: err.message });
+  }
+});
+
+
+// GET /api/products/fet-user-products?page=1&limit=10
+router.get("/fet-user-products", authenticateToken, async (req, res) => {
+
+    const userId = req.user?.user_id;
+    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+    const limit = Math.max(parseInt(req.query.limit || "10", 10), 1);
+    const skip = (page - 1) * limit;
+
+    try {
+      // support req.user.id or req.user._id
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized: no user id" });
+      }
+
+      const filter = { user_id: userId, is_del: false };
+
+      const [data, total] = await Promise.all([
+        Product.find(filter).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
+        Product.countDocuments(filter),
+      ]);
+
+      return res.json({ data, total });
+    } catch (err) {
+      console.error("List user products error:", err);
+      return res.status(500).json({ message: "Error fetching products" });
+    }
+  }
+);
+
+router.post("/edit-product/:id", authenticateToken, upload.single("image"), async (req, res) => {
+    try {
+
+      const userId = req.user?.user_id;
+      const id = req.params.id;
+      const { title, link } = req.body;
+
+      const product = await Product.findOne({_id: id, user_id : userId});
+      if (!product) return res.status(404).json({ message: "Product not found" });
+
+      // Update fields
+      if (title) product.title = title;
+      if (link) product.link = link;
+
+      // If new image uploaded, upload to GCS and delete old object (if exists)
+      if (req.file) {
+        let uploaded;
+        // Case A: multer({ dest: "uploads/" }) -> req.file.path exists (disk)
+        if (req.file.path) {
+          uploaded = await uploadFilePathToGCS(req.file.path, req.file.originalname, req.file.mimetype);
+          // uploadFilePathToGCS already tries to unlink the local file after upload,
+          // but double-check and cleanup if still present:
+          try {
+            if (fs.existsSync(req.file.path)) {
+              await unlinkAsync(req.file.path);
+            }
+          } catch (e) {
+            console.warn("Failed to unlink temp file:", e.message);
+          }
+        }
+        // Case B: multer.memoryStorage() -> req.file.buffer exists
+        else if (req.file.buffer) {
+          uploaded = await uploadBufferToGCS(req.file.buffer, req.file.originalname, req.file.mimetype);
+        } else {
+          console.warn("Uploaded file present but neither path nor buffer found:", req.file);
+        }
+
+        if (uploaded) {
+          // delete old object if exists
+          if (product.imagePublicId && bucket) {
+            try {
+              await bucket.file(product.imagePublicId).delete();
+            } catch (err) {
+              console.warn("Failed to delete old image from GCS:", err.message);
+              // not fatal
+            }
+          }
+
+          product.imageUrl = uploaded.publicUrl;
+          product.imagePublicId = uploaded.objectName;
+        }
+      }
+
+      await product.save();
+      return res.json({ product });
+    } catch (err) {
+      console.error("Edit product error:", err);
+
+      // attempt to remove multer temp file on error (best-effort)
+      try {
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          await unlinkAsync(req.file.path);
+        }
+      } catch (cleanupErr) {
+        console.warn("Failed to cleanup temp file:", cleanupErr.message);
+      }
+
+      return res.status(500).json({ message: "Error editing product", error: err.message });
+    }
+  }
+);
+
+router.delete("/delete-product/:id", authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.user_id;
+      const id = req.params.id;
+
+      // validate id
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid product id" });
+      }
+
+      // find product
+      const product = await Product.findOne({_id: id, user_id : userId});
+
+      if (!product) return res.status(404).json({ message: "Product not found" });
+
+
+      // if already soft-deleted
+      if (product.is_del) {
+        return res.status(400).json({ message: "Product already deleted" });
+      }
+
+      // Soft-delete: mark flags but keep DB row and GCS object intact
+      product.is_del = true;
+      product.updated_at = new Date();
+      await product.save();
+
+      return res.json({ message: "Product soft-deleted", productId: id });
+    } catch (err) {
+      console.error("Delete product error:", err);
+      return res.status(500).json({ message: "Error deleting product" });
+    }
+  }
+);
+
+router.post(
+  "/upload-header-image",
+  authenticateToken,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const userId = req.user?.user_id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      // Multer memoryStorage provides file.buffer
+      const file = req.file;
+      const rawPosition = req.body?.position;
+
+      // Basic validation
+      if (!file || !file.buffer) {
+        return res.status(400).json({
+          success: false,
+          message: "No file uploaded. Ensure you send multipart/form-data with field name 'image'.",
+        });
+      }
+
+      const targetField = normalizePosition(rawPosition);
+      if (!targetField) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid position value. Acceptable values: left | headerImage1 | 1, rightTop | headerImage2 | 2, rightBottom | headerImage3 | 3",
+        });
+      }
+
+      // Upload buffer to GCS (your helper) - it should return { publicUrl, objectName }
+      const { publicUrl, objectName } = await uploadBufferToGCS(
+        file.buffer,
+        file.originalname || `upload-${Date.now()}`,
+        file.mimetype || "application/octet-stream"
+      );
+
+      if (!publicUrl) {
+        return res.status(500).json({ success: false, message: "Failed to upload to storage" });
+      }
+
+      // Update user doc
+      const update = { [targetField]: publicUrl, updated_at: new Date() };
+      const updatedUser = await USER.findByIdAndUpdate(userId, { $set: update }, { new: true }).lean();
+
+      if (!updatedUser) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+
+      return res.json({
+        success: true,
+        url: publicUrl,
+        updatedField: targetField,
+        objectName,
+        user: {
+          _id: updatedUser._id,
+          leftHeadImage: updatedUser.leftHeadImage,
+          rightTopImage: updatedUser.rightTopImage,
+          rightBottomImage: updatedUser.rightBottomImage,
+        },
+      });
+    } catch (err) {
+      console.error("upload-header-image error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Upload failed",
+        error: err?.message || String(err),
+      });
+    }
+  }
+);
+
+
 
 export default router;

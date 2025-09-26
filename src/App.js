@@ -32,6 +32,8 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import CreatorOnboarding from './components/CreatorOnboarding.js';
 import UserBioDashboard from './components/UserBioDashboard.js';
 import PublicProfile from './components/Employee/PublicProfile.js';
+import ProductCatalogue from './components/Employee/ProductCatalogue.js'
+
 
 
 
@@ -108,6 +110,8 @@ if (initialSubdomain) {
                 <Route path="support" element={<Support />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="account/details" element={<AccountDetails />} />
+                <Route path="store/products" element={<ProductCatalogue />} />
+
 
               </Route>
 

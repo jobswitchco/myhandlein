@@ -24,6 +24,19 @@ const User_Schema = new Schema({
     type: String,
   },
 
+  leftHeadImage: {
+    type: String,
+  },
+
+   rightTopImage: {
+    type: String,
+  },
+
+   rightBottomImage: {
+    type: String,
+  },
+
+
   is_google_user: {
     type: Boolean
   },
