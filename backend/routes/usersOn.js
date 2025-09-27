@@ -13,6 +13,7 @@ import authenticateToken from "../middleware/authenticateTokenProfessional.js";
 import generateJWTtoken  from "../middleware/generateJWTtoken.js";
 import fs from "fs";
 import multer from "multer";
+import path from "path";
 import crypto from "crypto";
 import util from "util";
 const unlinkAsync = util.promisify(fs.unlink);
