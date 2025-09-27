@@ -449,10 +449,10 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
                     sx={{
                       width: "100%",
                       height: { xs: 76, sm: 108 },
-                     objectFit: "contain",   
+                     objectFit: "cover",   
                     objectPosition: "center",
                       borderRadius: 1,
-                      backgroundColor: "#f4f4f4",
+                      // backgroundColor: "#f4f4f4",
 
                     }}
                   />
@@ -465,10 +465,10 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
                     sx={{
                       width: "100%",
                       height: { xs: 76, sm: 108 },
-                      objectFit: "contain",   
+                      objectFit: "cover",   
                     objectPosition: "center",
                       borderRadius: 1,
-                      backgroundColor: "#f4f4f4",
+                      // backgroundColor: "#f4f4f4",
                     }}
                   />
                 </Grid>
