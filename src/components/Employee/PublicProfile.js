@@ -538,7 +538,7 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
             <IconButton
            onClick={() => {
   const subdomain = (window.location.hostname || "").split(".")[0] || "";
-  const url = "http://localhost:4800/products-affiliate?subdomain=" + encodeURIComponent(subdomain);
+  const url = "https://myhandle.in/products-affiliate?subdomain=" + encodeURIComponent(subdomain);
   window.location.href = url;
 }}
 
