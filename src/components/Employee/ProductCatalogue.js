@@ -21,7 +21,9 @@ import {
   Avatar,
   Typography,
   CircularProgress,
-  Tooltip
+  Tooltip,
+  Switch,
+  FormControlLabel, // <-- added
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -31,8 +33,7 @@ import format from "date-fns/format";
 
 axios.defaults.withCredentials = true; // apply globally for this file
 
-const API_BASE = "/api/usersOn"; 
-
+const API_BASE = "/api/usersOn";
 
 export default function Store() {
   const [products, setProducts] = useState([]);
@@ -40,6 +41,10 @@ export default function Store() {
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Store enabled toggle state
+  const [storeEnabled, setStoreEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -53,34 +58,71 @@ export default function Store() {
   const [saving, setSaving] = useState(false);
 
   const MAX_LINK_LEN = 30;
-function truncate(str, max = MAX_LINK_LEN) {
-  if (!str) return "";
-  return str.length > max ? str.slice(0, max) + "..." : str;
-}
+  function truncate(str, max = MAX_LINK_LEN) {
+    if (!str) return "";
+    return str.length > max ? str.slice(0, max) + "..." : str;
+  }
 
   useEffect(() => {
     fetchProducts(page + 1, limit); // backend expects 1-based page
+    fetchStoreStatus(); // fetch initial store enabled status
     // eslint-disable-next-line
   }, [page, limit]);
 
-async function fetchProducts(pageNo = 1, pageSize = 10) {
-  setLoading(true);
-  try {
-    const res = await axios.get(`${API_BASE}/fet-user-products`, {
-      params: { page: pageNo, limit: pageSize },
-      withCredentials: true,
-    });
-    // Expect { data: [...], total: N }
-    setProducts(res.data.data || []);
-    setTotal(res.data.total ?? 0);
-  } catch (err) {
-    console.error("Fetch user products error:", err);
-    // optionally show toast
-  } finally {
-    setLoading(false);
+  async function fetchStoreStatus() {
+    try {
+      // If you already have an endpoint to get status, adjust path accordingly.
+      const res = await axios.get(`${API_BASE}/store-status`, { withCredentials: true });
+      // Expect { enabled: true/false }
+      if (res?.data?.enabled !== undefined) setStoreEnabled(Boolean(res.data.enabled));
+    } catch (err) {
+      // If /store-status is not available, silently ignore. You can remove this catch or show a toast.
+      console.warn("Could not fetch store status (expected GET /store-status).", err);
+    }
   }
-}
 
+  async function toggleStoreEnabled(nextValue) {
+    // optimistic UI
+    const previous = storeEnabled;
+    setStoreEnabled(nextValue);
+    setToggling(true);
+
+    try {
+      // backend router expected: POST /enable-store
+      // sending { enabled: true/false } in body
+      await axios.post(
+        `${API_BASE}/enable-store`,
+        { enabled: nextValue },
+        { withCredentials: true }
+      );
+      // success — nothing else required, state already updated
+    } catch (err) {
+      console.error("Error toggling store enable:", err);
+      // revert optimistic update
+      setStoreEnabled(previous);
+      alert("Failed to update store status. Please try again.");
+    } finally {
+      setToggling(false);
+    }
+  }
+
+  async function fetchProducts(pageNo = 1, pageSize = 10) {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE}/fet-user-products`, {
+        params: { page: pageNo, limit: pageSize },
+        withCredentials: true,
+      });
+      // Expect { data: [...], total: N }
+      setProducts(res.data.data || []);
+      setTotal(res.data.total ?? 0);
+    } catch (err) {
+      console.error("Fetch user products error:", err);
+      // optionally show toast
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function openAddDialog() {
     setIsEditing(false);
@@ -125,20 +167,17 @@ async function fetchProducts(pageNo = 1, pageSize = 10) {
       form.append("link", link);
       if (file) form.append("image", file);
 
-      let res;
       if (isEditing && editingProductId) {
-        // If editing, backend accepts POST /api/products/:id or PUT
-        res = await axios.post(`${API_BASE}/edit-product/${editingProductId}`, form, {
+        // If editing, backend accepts POST /edit-product/:id or PUT
+        await axios.post(`${API_BASE}/edit-product/${editingProductId}`, form, {
           headers: { "Content-Type": "multipart/form-data" },
           withCredentials: true,
         });
       } else {
-       
-        const res = await axios.post(`${API_BASE}/upload-product`, form, {
-            headers: { "Content-Type": "multipart/form-data" },
-            withCredentials: true,
-            });
-
+        await axios.post(`${API_BASE}/upload-product`, form, {
+          headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
+        });
       }
 
       // On success, refresh current page
@@ -178,9 +217,27 @@ async function fetchProducts(pageNo = 1, pageSize = 10) {
     <Box sx={{ p: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h6">Store - Products</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openAddDialog}>
-          + Add Product
-        </Button>
+
+        {/* Right side controls: Enable Store toggle + Add Product */}
+        <Stack direction="row" spacing={2} alignItems="center">
+          {/* ENABLE STORE TOGGLE */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={storeEnabled}
+                onChange={(e) => toggleStoreEnabled(e.target.checked)}
+                disabled={toggling}
+                inputProps={{ "aria-label": "Enable Store" }}
+              />
+            }
+            label={toggling ? "Updating..." : "Enable Store"}
+          />
+
+          {/* ADD PRODUCT BUTTON */}
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openAddDialog}>
+            + Add Product
+          </Button>
+        </Stack>
       </Stack>
 
       <Paper>
@@ -190,82 +247,77 @@ async function fetchProducts(pageNo = 1, pageSize = 10) {
               <CircularProgress />
             </Box>
           ) : (
-           <Table>
-    <TableHead>
-      <TableRow>
-        <TableCell>S.No</TableCell>
-        <TableCell>Uploaded Date</TableCell>
-        <TableCell>Product Image</TableCell>
-        <TableCell>Product Name</TableCell>
-        <TableCell>Link</TableCell> {/* new column */}
-        <TableCell align="center">Actions</TableCell>
-      </TableRow>
-    </TableHead>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>S.No</TableCell>
+                  <TableCell>Uploaded Date</TableCell>
+                  <TableCell>Product Image</TableCell>
+                  <TableCell>Product Name</TableCell>
+                  <TableCell>Link</TableCell> {/* new column */}
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
 
-    <TableBody>
-      {products.length === 0 && (
-        <TableRow>
-          <TableCell colSpan={6} align="center">
-            No products found.
-          </TableCell>
-        </TableRow>
-      )}
+              <TableBody>
+                {products.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      No products found.
+                    </TableCell>
+                  </TableRow>
+                )}
 
-      {products.map((p, idx) => {
-        const displayDate = p.createdAt || p.created_at;
-        return (
-          <TableRow key={p._id}>
-            <TableCell>{page * limit + idx + 1}</TableCell>
-            <TableCell>
-              {displayDate ? format(new Date(displayDate), "yyyy-MM-dd HH:mm") : "-"}
-            </TableCell>
-            <TableCell>
-              <Avatar
-                variant="rounded"
-                src={p.imageUrl}
-                alt={p.title}
-                sx={{ width: 64, height: 64 }}
-              />
-            </TableCell>
+                {products.map((p, idx) => {
+                  const displayDate = p.createdAt || p.created_at;
+                  return (
+                    <TableRow key={p._id}>
+                      <TableCell>{page * limit + idx + 1}</TableCell>
+                      <TableCell>
+                        {displayDate ? format(new Date(displayDate), "yyyy-MM-dd HH:mm") : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Avatar variant="rounded" src={p.imageUrl} alt={p.title} sx={{ width: 64, height: 64 }} />
+                      </TableCell>
 
-            <TableCell>
-              <Typography variant="body1">{p.title}</Typography>
-            </TableCell>
+                      <TableCell>
+                        <Typography variant="body1">{truncate(p.title)}</Typography>
+                      </TableCell>
 
-            <TableCell>
-              {p.link ? (
-                <Tooltip title={p.link}>
-                  <a
-                    href={p.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ textDecoration: "none", color: "inherit", wordBreak: "break-all" }}
-                  >
-                    <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                      {truncate(p.link)}
-                    </Typography>
-                  </a>
-                </Tooltip>
-              ) : (
-                <Typography variant="caption" color="text.secondary">
-                  -
-                </Typography>
-              )}
-            </TableCell>
+                      <TableCell>
+                        {p.link ? (
+                          <Tooltip title={p.link}>
+                            <a
+                              href={p.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ textDecoration: "none", color: "inherit", wordBreak: "break-all" }}
+                            >
+                              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                                {truncate(p.link)}
+                              </Typography>
+                            </a>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
+                      </TableCell>
 
-            <TableCell align="center">
-              <IconButton onClick={() => openEditDialog(p)} size="small">
-                <EditIcon />
-              </IconButton>
-              <IconButton onClick={() => handleDelete(p._id)} size="small" color="error">
-                <DeleteIcon />
-              </IconButton>
-            </TableCell>
-          </TableRow>
-        );
-      })}
-    </TableBody>
-  </Table>
+                      <TableCell align="center">
+                        <IconButton onClick={() => openEditDialog(p)} size="small">
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton onClick={() => handleDelete(p._id)} size="small" color="error">
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </TableContainer>
 
@@ -285,12 +337,7 @@ async function fetchProducts(pageNo = 1, pageSize = 10) {
         <DialogTitle>{isEditing ? "Edit Product" : "Add Product"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Product Title"
-              fullWidth
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+            <TextField label="Product Title" fullWidth value={title} onChange={(e) => setTitle(e.target.value)} />
             <TextField
               label="Product Purchase Link (https://...)"
               fullWidth
@@ -304,14 +351,7 @@ async function fetchProducts(pageNo = 1, pageSize = 10) {
                 <input hidden accept="image/*" type="file" onChange={handleFileChange} />
               </Button>
 
-              {previewUrl && (
-                <Avatar
-                  variant="rounded"
-                  src={previewUrl}
-                  alt="preview"
-                  sx={{ width: 80, height: 80 }}
-                />
-              )}
+              {previewUrl && <Avatar variant="rounded" src={previewUrl} alt="preview" sx={{ width: 80, height: 80 }} />}
             </Stack>
             <Typography variant="caption" color="text.secondary">
               If you don't upload an image while editing, existing image will remain.

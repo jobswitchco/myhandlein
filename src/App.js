@@ -33,6 +33,8 @@ import CreatorOnboarding from './components/CreatorOnboarding.js';
 import UserBioDashboard from './components/UserBioDashboard.js';
 import PublicProfile from './components/Employee/PublicProfile.js';
 import ProductCatalogue from './components/Employee/ProductCatalogue.js'
+import ProductGallery from './components/Employee/ProductGallery.js';
+
 
 
 
@@ -102,6 +104,8 @@ if (initialSubdomain) {
               <Route path="/personalised-user-tone" element={<ProfileBasedDiscovery />} />
               <Route path="/schedule-publish" element={<EndToEndScheduling />} />
               <Route path="/save-time" element={<SaveTimePage />} />
+              <Route path="/products-affiliate" element={<ProductGallery />} />
+
               {/* <Route path="/join-waitlist" element={<WaitlistSignup />} /> */}
               {/* <Route path="/waitlist-success" element={<WaitlistSuccessCard />} /> */}
 

@@ -38,7 +38,7 @@ import LinkIcon from "@mui/icons-material/Link";
 import AddIcon from "@mui/icons-material/Add";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteIcon from "@mui/icons-material/Delete";
-import avatarUrl from "../images/sid4real.jpeg";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 import SaveIcon from "@mui/icons-material/Save";
 import ShareIcon from "@mui/icons-material/Share";
 import YouTubeIcon from "@mui/icons-material/YouTube";
@@ -172,7 +172,6 @@ export default function ProfileBlocksEditor() {
   const [userIntro, setUserIntro] = useState("");
   const [link, setLink] = useState("");
   const [copySnackOpen, setCopySnackOpen] = useState(false);
-  // const baseUrl = "http://localhost:8001/usersOn";
   const baseUrl = "/api/usersOn";
   const [userDetails, setUserDetails] = useState({});
 const addCloseTimer = useRef(null);
@@ -1765,33 +1764,51 @@ async function saveAdd() {
         </Typography>
 
         {/* Social icons row */}
-        <Box sx={{ display: "flex", gap: 1 }}>
-          {socials.map((s) => {
-            const key = (s.platform || "").toLowerCase();
-            const IconComp =
-              key === "youtube"
-                ? YouTubeIcon
-                : key === "twitter"
-                ? TwitterIcon
-                : key === "whatsapp"
-                ? WhatsAppIcon
-                : key === "instagram"
-                ? InstagramIcon
-                : key === "linkedin"
-                ? LinkedInIcon
-                : LinkIcon;
+     {/* Social icons row */}
+<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+  {socials.map((s) => {
+    const key = (s.platform || "").toLowerCase();
+    const IconComp =
+      key === "youtube"
+        ? YouTubeIcon
+        : key === "twitter"
+        ? TwitterIcon
+        : key === "whatsapp"
+        ? WhatsAppIcon
+        : key === "instagram"
+        ? InstagramIcon
+        : key === "linkedin"
+        ? LinkedInIcon
+        : LinkIcon;
 
-            return (
-              <IconButton
-                key={s._id || s.url}
-                onClick={() => window.open(s.url, "_blank")}
-                sx={{ color: "#fff" }}
-              >
-                <IconComp sx={{ fontSize: 22 }} />
-              </IconButton>
-            );
-          })}
-        </Box>
+    return (
+      <IconButton
+        key={s._id || s.url}
+        onClick={() => window.open(s.url, "_blank")}
+        sx={{ color: "#fff" }}
+      >
+        <IconComp sx={{ fontSize: 22 }} />
+      </IconButton>
+    );
+  })}
+
+  {/* Store icon shown if store_enabled true */}
+  {userDetails?.store_enabled ? (
+    <IconButton
+      onClick={() => alert("Store is enabled — open store or show products here.")}
+      title="Open store"
+      sx={{
+        color: "#fff",
+        ml: 0.5,
+        border: "1px solid rgba(255,255,255,0.12)",
+        bgcolor: "rgba(255,255,255,0.03)",
+      }}
+    >
+      <StorefrontIcon sx={{ fontSize: 22 }} />
+    </IconButton>
+  ) : null}
+</Box>
+
       </Box>
 
       {/* Intro below name + socials */}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-
 import Grid from "@mui/material/Grid";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -11,7 +11,6 @@ import Paper from "@mui/material/Paper";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import { alpha } from "@mui/material/styles";
-
 import YouTubeIcon from "@mui/icons-material/YouTube";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
@@ -35,8 +34,12 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Snackbar from "@mui/material/Snackbar";
 import IndiaFlag from "../../images/flag.png";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+
 
 export default function PublicProfile({ handle, initialProfile = null }) {
+  
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(!initialProfile);
   const [error, setError] = useState(null);
@@ -49,6 +52,8 @@ export default function PublicProfile({ handle, initialProfile = null }) {
 
   const [snack, setSnack] = useState({ open: false, message: "" });
 
+  const API_BASE = "/api/usersOn";
+
   useEffect(() => {
     if (!handle) return;
     if (profile) return;
@@ -60,7 +65,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
       setLoading(true);
       setError(null);
       try {
-        const resp = await axios.get('/api/usersOn/profile', {
+        const resp = await axios.get(`${API_BASE}/profile`, {
           params: { handle },
           signal,
         });
@@ -81,6 +86,76 @@ export default function PublicProfile({ handle, initialProfile = null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handle]);
 
+
+async function handleLinkClick(block, url, opts = { newTab: true, awaitPost: false }) {
+  if (!url) return;
+
+  const apiEndpoint = `${API_BASE}/link-click-analytics`;
+  const linkKey = block?._id || block?.id || block?.key || block?.actionKey || block?.slug || block?.name || url;
+  const payload = {
+    handle: handle || block?.ownerHandle || (profile && profile.handleUserName) || undefined,
+    link_key: String(linkKey),
+    block_name: block?.name || block?.title || undefined,
+  };
+
+  // 1) Try navigator.sendBeacon first (best for navigation/unload)
+  if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    try {
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      const ok = navigator.sendBeacon(apiEndpoint, blob);
+      // sendBeacon is fire-and-forget; we don't get a response
+      // continue to navigation below
+    } catch (beErr) {
+      console.warn("sendBeacon failed, falling back to axios POST:", beErr);
+      // fall through to axios below
+      try {
+        // fire-and-forget axios (not awaited) so navigation isn't blocked
+        axios.post(apiEndpoint, payload, { headers: { "Content-Type": "application/json" }, timeout: 2500 })
+          .catch((e) => console.warn("axios POST (fallback) failed:", e?.message || e));
+      } catch (e) {
+        // ignore
+      }
+    } finally {
+      // navigate immediately — sendBeacon already queued the payload
+      if (opts.newTab) window.open(url, "_blank");
+      else window.location.href = url;
+      return;
+    }
+  }
+
+  // 2) If sendBeacon not available, use axios. If opts.awaitPost is true we will await it (safer), otherwise fire-and-forget.
+  try {
+    const postPromise = axios.post(apiEndpoint, payload, {
+      headers: { "Content-Type": "application/json" },
+      timeout: 2500, // short timeout to avoid long waits if we do await
+    });
+
+    if (opts.awaitPost) {
+      // wait for the POST to finish (may add latency)
+      try {
+        await postPromise;
+      } catch (err) {
+        console.warn("axios POST failed (await):", err?.message || err);
+      }
+      // then navigate
+      if (opts.newTab) window.open(url, "_blank");
+      else window.location.href = url;
+      return;
+    } else {
+      // fire-and-forget: don't await; still handle rejection to avoid unhandled rejections
+      postPromise.catch((err) => console.warn("axios POST failed (non-blocking):", err?.message || err));
+    }
+  } catch (err) {
+    // final fallback ignore
+    console.warn("axios POST error (unexpected):", err?.message || err);
+  } finally {
+    // navigation (if not already done)
+    if (opts.newTab) window.open(url, "_blank");
+    else window.location.href = url;
+  }
+}
+
+
   if (!handle) return <div style={{ padding: 24 }}>Invalid profile handle</div>;
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (error) {
@@ -98,6 +173,10 @@ export default function PublicProfile({ handle, initialProfile = null }) {
     socials: profile.socials || profile.links || [],
     intro: profile.intro || profile.bio || profile.description || "",
   };
+
+
+  // pick store flag from profile variations
+const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.storeEnabledFlag ?? false;
 
   // header images (use the fields you asked for; fallback to other likely names)
   const leftImage =
@@ -200,7 +279,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
 
     setFormSubmitting(true);
     try {
-      const res = await axios.post('/api/usersOn/submit-form', payload, { withCredentials: false });
+      const res = await axios.post(`${API_BASE}/submit-form`, payload, { withCredentials: false });
       setSnack({ open: true, message: res?.data?.message || "Submitted" });
       closeFormDialog();
     } catch (err) {
@@ -267,7 +346,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton aria-label="open" onClick={() => url && window.open(url, "_blank")} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
+            <IconButton aria-label="open" onClick={() => url && handleLinkClick(b, url, { newTab: true })} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
               <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
             </IconButton>
           </Box>
@@ -280,7 +359,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
       const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
 
       return (
-        <Paper key={b._id || url || title} elevation={0} sx={{ borderRadius: 2, overflow: "hidden", boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: url ? "pointer" : "default" }} onClick={() => url && window.open(url, "_blank")}>
+        <Paper key={b._id || url || title} elevation={0} sx={{ borderRadius: 2, overflow: "hidden", boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: url ? "pointer" : "default" }} onClick={() => url && handleLinkClick(b, url, { newTab: true })}>
           <Box sx={{ position: "relative", width: "100%", aspectRatio: "16/9", bgcolor: "#000" }}>
             {thumb ? (
               <Box component="img" src={thumb} alt={title} sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -314,7 +393,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
           <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14 }}>{title}</Typography>
         </Box>
 
-        <IconButton aria-label="open" onClick={() => url && window.open(url, "_blank")} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
+        <IconButton aria-label="open" onClick={() => url && handleLinkClick(b, url, { newTab: true })} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
           <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
         </IconButton>
       </Paper>
@@ -344,7 +423,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
         }}>
           <Box sx={{ p: { xs: 1.5, sm: 2 }, textAlign: "left" }}>
             {/* header: left 50% single large image, right 50% two stacked images */}
-            <Grid container spacing={1}>
+            <Grid container>
               <Grid item xs={6}>
                 <Box
                   component="img"
@@ -353,10 +432,10 @@ export default function PublicProfile({ handle, initialProfile = null }) {
                   sx={{
                     width: "100%",
                     height: { xs: 160, sm: 220 },
-                    objectFit: "cover",
-                    display: "block",
+                    objectFit: "contain",   
+                    objectPosition: "center",
                     borderRadius: 1,
-                    backgroundColor: leftImage ? "transparent" : "#444",
+
                   }}
                 />
               </Grid>
@@ -370,10 +449,11 @@ export default function PublicProfile({ handle, initialProfile = null }) {
                     sx={{
                       width: "100%",
                       height: { xs: 76, sm: 108 },
-                      objectFit: "cover",
-                      display: "block",
+                     objectFit: "contain",   
+                    objectPosition: "center",
                       borderRadius: 1,
-                      backgroundColor: rightTopImage ? "transparent" : "#444",
+                      backgroundColor: "#f4f4f4",
+
                     }}
                   />
                 </Grid>
@@ -385,10 +465,10 @@ export default function PublicProfile({ handle, initialProfile = null }) {
                     sx={{
                       width: "100%",
                       height: { xs: 76, sm: 108 },
-                      objectFit: "cover",
-                      display: "block",
+                      objectFit: "contain",   
+                    objectPosition: "center",
                       borderRadius: 1,
-                      backgroundColor: rightBottomImage ? "transparent" : "#444",
+                      backgroundColor: "#f4f4f4",
                     }}
                   />
                 </Grid>
@@ -409,47 +489,91 @@ export default function PublicProfile({ handle, initialProfile = null }) {
               </Grid>
 
               {/* Right: social icons */}
-              <Grid item xs={6}>
-                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.75 }}>
-                  {socials && socials.length > 0 ? (
-                    socials.map((s) => {
-                      const key = (s.platform || s.name || "").toLowerCase();
-                      const IconComp = SocialIconFor(key);
+             {/* Right: social icons */}
+<Grid item xs={6}>
+  <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.75, alignItems: "center" }}>
+    {socials && socials.length > 0 ? (
+      <>
+        {socials.map((s) => {
+          const key = (s.platform || s.name || "").toLowerCase();
+          const IconComp = SocialIconFor(key);
 
-                      const BRAND = {
-                        youtube: "#FF0000",
-                        twitter: "#1DA1F2",
-                        whatsapp: "#25D366",
-                        instagram: "#E1306C",
-                        linkedin: "#0077B5",
-                        default: "#6366f1",
-                      };
-                      const color = BRAND[key] || BRAND.default;
-                      const bg = alpha(color, 0.03);
-                      const hoverBg = alpha(color, 0.18);
+          const BRAND = {
+            youtube: "#FF0000",
+            twitter: "#1DA1F2",
+            whatsapp: "#25D366",
+            instagram: "#E1306C",
+            linkedin: "#0077B5",
+            default: "#6366f1",
+          };
+          const color = BRAND[key] || BRAND.default;
+          const bg = alpha(color, 0.03);
+          const hoverBg = alpha(color, 0.18);
 
-                      const url = s.url || s.link || s.href || "";
+          const url = s.url || s.link || s.href || "";
 
-                      return (
-                        <Tooltip key={s._id || url} title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"} arrow>
-                          <IconButton onClick={() => url && window.open(url, "_blank")} sx={{
-                            bgcolor: bg, borderRadius: 1, width: 36, height: 36, "&:hover": { bgcolor: hoverBg },
-                            display: "flex", alignItems: "center", justifyContent: "center"
-                          }} aria-label={`open ${key}`} size="small">
-                            <IconComp sx={{ fontSize: 20, color: color }} />
-                          </IconButton>
-                        </Tooltip>
-                      );
-                    })
-                  ) : (
-                    <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 2, border: "1px dashed rgba(255,255,255,0.06)", bgcolor: "transparent" }}>
-                      <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)" }}>
-                        Social accounts will appear here when you add them.
-                      </Typography>
-                    </Paper>
-                  )}
-                </Box>
-              </Grid>
+          return (
+            <Tooltip key={s._id || url} title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"} arrow>
+              <IconButton
+                onClick={() => url && window.open(url, "_blank")}
+                sx={{
+                  bgcolor: bg,
+                  borderRadius: 1,
+                  width: 36,
+                  height: 36,
+                  "&:hover": { bgcolor: hoverBg },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                aria-label={`open ${key}`}
+                size="small"
+              >
+                <IconComp sx={{ fontSize: 20, color: color }} />
+              </IconButton>
+            </Tooltip>
+          );
+        })}
+
+        {/* Store icon (appended after socials) */}
+        {storeEnabled && (
+          <Tooltip title="Visit store" arrow>
+            <IconButton
+           onClick={() => {
+  const subdomain = (window.location.hostname || "").split(".")[0] || "";
+  const url = "http://localhost:4800/products-affiliate?subdomain=" + encodeURIComponent(subdomain);
+  window.location.href = url;
+}}
+
+              sx={{
+                bgcolor: "rgba(255,255,255,0.03)",
+                borderRadius: 1,
+                width: 36,
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid rgba(255,255,255,0.06)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.06)" },
+              }}
+              aria-label="open store"
+              size="small"
+            >
+              <StorefrontIcon sx={{ fontSize: 20, color: "#FFFFFF" }} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </>
+    ) : (
+      <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 2, border: "1px dashed rgba(255,255,255,0.06)", bgcolor: "transparent" }}>
+        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)" }}>
+          Social accounts will appear here when you add them.
+        </Typography>
+      </Paper>
+    )}
+  </Box>
+</Grid>
+
 
               {/* Intro: full width below the row */}
               <Grid item xs={12}>

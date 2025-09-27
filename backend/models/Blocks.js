@@ -31,8 +31,6 @@ const FieldSchema = new Schema(
 const BlockSchema = new Schema(
   {
     user_id: { type: Schema.Types.ObjectId, required: true, index: true, ref: "users" },
-
-    // add 'form' as a valid type
     type: {
       type: String,
       enum: ["link", "video", "product", "store", "form", "cta"],
@@ -40,16 +38,7 @@ const BlockSchema = new Schema(
       index: true,
     },
 
-    // human readable title for the block
     name: { type: String, required: true, trim: true },
-
-    /**
-     * main payload:
-     * - for links/videos: URL (string)
-     * - for form blocks: optional (we use `fields` instead)
-     *
-     * Make `action` required only when type !== 'form'
-     */
     action: {
       type: String,
       trim: true,
@@ -59,27 +48,31 @@ const BlockSchema = new Schema(
       default: "",
     },
 
-    // form fields (only used when type === 'form')
     fields: {
       type: [FieldSchema],
       required: false,
       default: undefined,
     },
 
-    // order: smaller numbers appear higher (top-to-bottom)
     order: { type: Number, required: true, default: 1000, index: true },
-
-    // lifecycle flags
     published: { type: Boolean, default: true },
     archived: { type: Boolean, default: false },
 
-    // soft-delete (keeps naming similar to your waitlist schema)
     is_del: { type: Boolean, default: false },
-
-    // simple analytics counters (optional)
     clicks: { type: Number, default: 0 },
+link_click_analytics: [{
+  ip: { type: String, index: true },
+  user_agent: { type: String },
+  referrer: { type: String },
+  country: { type: String, index: true },
+  country_code: { type: String, index: true },
+  region: { type: String },
+  city: { type: String },
+  postal: { type: String },
+  latitude: { type: Number },
+  longitude: { type: Number },
+}],
 
-    // timestamps in snake_case to match your style
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },

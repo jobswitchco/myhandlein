@@ -70,6 +70,11 @@ const User_Schema = new Schema({
     default: true,
   },
 
+   store_enabled: {
+    type: Boolean,
+    default: false,
+  },
+
   free_trial_started_date: {
     type: Date,
     default: Date.now,

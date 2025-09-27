@@ -1,10 +1,12 @@
 import express from "express";
 import cookieParser from "cookie-parser";
+import axios from "axios";
 const router = express.Router();
 import USER from "../models/User.js";
 import Block from "../models/Blocks.js";
 import FormsData from "../models/FormsData.js";
 import Product from "../models/ProductsCatalogue.js";
+import PageAnalytics from "../models/PageAnalytics.js";
 import mongoose from 'mongoose';
 router.use(cookieParser());
 import authenticateToken from "../middleware/authenticateTokenProfessional.js";
@@ -19,6 +21,112 @@ const storage = new Storage();
 const bucketName = "postlnbucketcom"; 
 const bucket = storage.bucket(bucketName);
 const upload = multer({ storage: multer.memoryStorage() });
+const IPDATA_KEY = process.env.IPDATA_KEY;
+
+
+function escapeRegex(str = "") {
+  // escape special regex chars to keep regex search safe
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+
+async function lookupGeo_ipdata(ip) {
+  if (!IPDATA_KEY) {
+    console.warn("IPDATA_API_KEY not set; skipping ipdata lookup");
+    return null;
+  }
+
+  try {
+    const ipSegment = ip ? `/${encodeURIComponent(ip)}` : "";
+    const url = `https://api.ipdata.co${ipSegment}?api-key=${encodeURIComponent(IPDATA_KEY)}`;
+
+    const resp = await axios.get(url, { timeout: 3000 }); // 3s timeout
+    const d = resp.data;
+
+    return {
+      ip: d.ip,
+      country: d.country_code || d.country,
+      country_name: d.country_name,
+      region: d.region,
+      city: d.city,
+      postal: d.postal,
+      latitude: d.latitude,
+      longitude: d.longitude,
+      timezone: d.time_zone?.name || d.time_zone,
+      raw: d
+    };
+  } catch (err) {
+    // log but don't throw (caller should handle null)
+    console.warn("ipdata lookup failed:", err?.response?.status, err?.message || err);
+    return null;
+  }
+}
+
+ function isPrivateIp(ip) {
+  if (!ip) return false;
+  // remove IPv6 zone id if present (e.g. fe80::1%lo0)
+  const clean = ip.split("%")[0];
+
+  // normalize IPv6 mapped IPv4
+  const normalized = clean.startsWith("::ffff:") ? clean.split("::ffff:")[1] : clean;
+
+  // quick private checks (IPv4)
+  if (/^127\./.test(normalized)) return true; // loopback
+  if (/^10\./.test(normalized)) return true;
+  if (/^192\.168\./.test(normalized)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(normalized)) return true;
+
+  // IPv6 local/unique-local/loopback
+  if (normalized === "::1") return true;
+  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true; // unique-local
+  if (normalized.startsWith("fe80")) return true; // link-local
+
+  return false;
+}
+
+async function normalizeIp(ip) {
+  if (!ip) return null;
+  const cleaned = ip.split("%")[0]; // drop zone id
+  if (cleaned.startsWith("::ffff:")) return cleaned.split("::ffff:")[1];
+  return cleaned;
+}
+
+async function getClientIp(req) {
+  // common proxy headers (X-Forwarded-For can be a comma list)
+  const headerChecks = [
+    "x-client-ip",
+    "x-forwarded-for",
+    "x-real-ip",
+    "cf-connecting-ip", // Cloudflare
+    "fastly-client-ip",
+    "true-client-ip",
+    "x-appengine-user-ip",
+  ];
+
+  let ip = null;
+  for (const h of headerChecks) {
+    const val = req.headers[h];
+    if (!val) continue;
+    // X-Forwarded-For may contain a list of IPs; take the first non-empty one
+    const candidate = val.split(",")[0].trim();
+    if (candidate) {
+      ip = candidate;
+      break;
+    }
+  }
+
+  // fallback to Express/Node remote address
+  if (!ip) {
+    ip = req.connection?.remoteAddress || req.socket?.remoteAddress || req.ip || null;
+  }
+
+  ip = await normalizeIp(ip);
+
+  // if local/private, return null (so callers know not to call external geo APIs)
+  if (isPrivateIp(ip)) return null;
+
+  return ip;
+}
 
 
 router.post("/logout", authenticateToken, (req, res) => {
@@ -115,6 +223,52 @@ function normalizePosition(pos) {
   if (["rightbottom", "right_bottom", "headerimage3", "headerimage_3", "3"].includes(p)) return "rightBottomImage";
   return null;
 }
+
+router.post("/product-click-analytics", async (req, res) => {
+  try {
+
+    const { link_key } = req.body || {};
+    if (!link_key) return res.status(400).json({ error: "link_key required" });
+
+    // find block exists (quick check). You can also do the update blindly and check modifiedCount.
+    const productExists = await Product.exists({ _id: link_key });
+    if (!productExists) return res.status(404).json({ error: "block not found" });
+
+    // get client info
+    const ip = await getClientIp(req);
+    const userAgent = req.headers["user-agent"] || null;
+    const referrer = req.headers["referer"] || req.headers["referrer"] || null;
+    const geo = await lookupGeo_ipdata(ip);
+
+    const analyticsEntry = {
+      ip: geo.ip || null,
+      user_agent: userAgent,
+      referrer: referrer,
+      country: geo?.country || null,
+      country_code: geo?.country || geo?.country_code || null,
+      region: geo?.region || null,
+      city: geo?.city || null,
+      postal: geo?.postal || null,
+      latitude: geo?.latitude || null,
+      longitude: geo?.longitude || null,
+    };
+
+    // atomic push into the array
+    const updateResult = await Product.updateOne(
+      { _id: link_key },
+      { $push: { link_click_analytics: analyticsEntry } }
+    );
+
+    if (updateResult.matchedCount === 0) {
+      return res.status(404).json({ error: "block not found (race?)" });
+    }
+
+    return res.status(201).json({ ok: true, analytics: analyticsEntry });
+  } catch (err) {
+    console.error("Error saving link click analytics:", err);
+    return res.status(500).json({ message: "Failed to save link click analytics" });
+  }
+});
 
 
 router.get("/fetch-blocks", authenticateToken, async (req, res) => {
@@ -252,7 +406,6 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 router.delete('/delete-block/:id', authenticateToken, async (req, res) => {
   try {
@@ -438,7 +591,7 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
 });
 
 
-   router.get('/get-user-details', authenticateToken, async function (req, res){
+  router.get('/get-user-details', authenticateToken, async function (req, res){
 
     const userId = req.user?.user_id;
 
@@ -450,7 +603,7 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   
       if(result){
   
-      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture, intro: result.intro, leftHeadImage: result.leftHeadImage, rightTopImage: result.rightTopImage, rightBottomImage: result.rightBottomImage}});
+      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture, intro: result.intro, leftHeadImage: result.leftHeadImage, rightTopImage: result.rightTopImage, rightBottomImage: result.rightBottomImage, store_enabled: result.store_enabled}});
       res.end();
 
   
@@ -499,43 +652,81 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/profile', async (req, res) => {
+router.get("/profile", async (req, res) => {
   try {
-    // prefer explicit query param in dev; in prod use extractSubdomain(req.headers.host)
-    // const handle = (req.query.handle || extractSubdomain(req.headers.host || '') || '').trim().toLowerCase();
-    const handle = 'sid4real';
-    if (!handle) return res.status(400).json({ error: 'handle required' });
+    // const handle = (req.query.handle || extractSubdomain(req.headers.host || "") || "").trim().toLowerCase();
+    const handle = "sid4real";
+    if (!handle) return res.status(400).json({ error: "handle required" });
 
-    // find user by handleUserName (case-insensitive)
     const user = await USER.findOne({ handleUserName: handle }).lean();
-    if (!user) return res.status(404).json({ error: 'not found' });
+    if (!user) return res.status(404).json({ error: "not found" });
 
-    // fetch blocks for this user (published and not deleted) and sort by order asc
-    const blocks = await Block.find({
-      user_id: user._id,
-      is_del: false,
-    })
+    const blocks = await Block.find({ user_id: user._id, is_del: false })
       .sort({ order: 1, created_at: -1 })
       .lean();
 
-
-    // shape payload: remove internal mongo fields as needed
     const { _id, __v, ...userRest } = user;
+    const payload = { ...userRest, id: String(_id), blocks: blocks || [], socials: user.socials || [] };
 
-    const payload = {
-      ...userRest,
-      id: String(_id),
-      blocks: blocks || [],
-      socials: user.socials || [],
-    };
+    // === Analytics logging ===
+    (async () => {
+      try {
+        const ip = await getClientIp(req);
+        const ua = req.headers["user-agent"] || "";
+        const ref = req.headers["referer"] || req.headers["referrer"] || "";
 
-      console.log(' payload: ', payload );
+        // call ipdata; if null, we'll still create event with ip only
+        const geo = await lookupGeo_ipdata(ip);
 
+         let geoLanguages = [];
+  try {
+    const rawLangs = geo?.raw?.languages;
+    if (Array.isArray(rawLangs) && rawLangs.length) {
+      geoLanguages = rawLangs.map((l) => {
+        // l may be { name, native, code } or other shapes; be defensive
+        return {
+          name: l?.name || l?.language || null,
+          native: l?.native || null,
+          code: l?.code || l?.iso || null,
+        };
+      }).filter(Boolean);
+    }
+  } catch (langErr) {
+    console.warn("Failed to parse geo languages:", langErr?.message || langErr);
+  }
+
+        const eventDoc = {
+          user_id: user._id,
+          user_agent: ua,
+          referrer: ref,
+          ip: geo?.ip,
+          country: geo?.country,
+          region: geo?.region,
+          city: geo?.city,
+          postal: geo?.postal,
+          latitude: geo?.latitude,
+          longitude: geo?.longitude,
+          geo_languages: geoLanguages,
+        };
+
+        await PageAnalytics.create(eventDoc);
+
+        // upsert daily counter
+        const dateKey = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+        // await PageAnalyticsCounter.updateOne(
+        //   { user_id: user._id, date: dateKey, event: "profile_view" },
+        //   { $inc: { count: 1 }, $set: { updated_at: new Date() } },
+        //   { upsert: true }
+        // );
+      } catch (aerr) {
+        console.warn("analytics logging error (profile):", aerr?.message || aerr);
+      }
+    })(); 
 
     return res.json(payload);
   } catch (err) {
-    console.error('GET /api/profile error:', err);
-    return res.status(500).json({ error: 'internal' });
+    console.error("GET /api/profile error:", err);
+    return res.status(500).json({ error: "internal" });
   }
 });
 
@@ -556,31 +747,95 @@ router.post("/submit-form", async (req, res) => {
       return res.status(400).json({ message: "Invalid values payload; expected an object." });
     }
 
-    // collect IP and user agent if available
-    const ip = req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() || req.ip || null;
-    const ua = req.get("User-Agent") || null;
+   (async () => {
+      try {
+        const ip = await getClientIp(req);
+        const ua = req.headers["user-agent"] || "";
+        const ref = req.headers["referer"] || req.headers["referrer"] || "";
 
-    const doc = new FormsData({
+        // call ipdata; if null, we'll still create event with ip only
+        const geo = await lookupGeo_ipdata(ip);
+
+      const doc = new FormsData({
       form_id: formId || undefined,
       user_id: userId || undefined,
       block_id: blockId || undefined,
       block_name: blockName || undefined,
       values,
       meta,
-      ip_address: ip,
-      user_agent: ua,
       submitted_at: meta?.submittedAt ? new Date(meta.submittedAt) : undefined,
+        user_agent: ua,
+          referrer: ref,
+          country: geo?.country,
+          ip: geo?.ip,
+          region: geo?.region,
+          city: geo?.city,
+          postal: geo?.postal,
+          latitude: geo?.latitude,
+          longitude: geo?.longitude,
     });
 
     await doc.save();
 
     return res.status(201).json({ message: "Form submitted", id: doc._id });
+
+      } catch (aerr) {
+        console.warn("analytics logging error (profile):", aerr?.message || aerr);
+      }
+    })(); 
+
+
+
   } catch (err) {
     console.error("Error saving form submission:", err);
     return res.status(500).json({ message: "Failed to save submission" });
   }
 });
 
+router.post("/link-click-analytics", async (req, res) => {
+  try {
+    const { link_key } = req.body || {};
+    if (!link_key) return res.status(400).json({ error: "link_key required" });
+
+    // find block exists (quick check). You can also do the update blindly and check modifiedCount.
+    const blockExists = await Block.exists({ _id: link_key });
+    if (!blockExists) return res.status(404).json({ error: "block not found" });
+
+    // get client info
+    const ip = await getClientIp(req);
+    const userAgent = req.headers["user-agent"] || null;
+    const referrer = req.headers["referer"] || req.headers["referrer"] || null;
+    const geo = await lookupGeo_ipdata(ip);
+
+    const analyticsEntry = {
+      ip: geo.ip || null,
+      user_agent: userAgent,
+      referrer: referrer,
+      country: geo?.country || null,
+      country_code: geo?.country || geo?.country_code || null,
+      region: geo?.region || null,
+      city: geo?.city || null,
+      postal: geo?.postal || null,
+      latitude: geo?.latitude || null,
+      longitude: geo?.longitude || null,
+    };
+
+    // atomic push into the array
+    const updateResult = await Block.updateOne(
+      { _id: link_key },
+      { $push: { link_click_analytics: analyticsEntry } }
+    );
+
+    if (updateResult.matchedCount === 0) {
+      return res.status(404).json({ error: "block not found (race?)" });
+    }
+
+    return res.status(201).json({ ok: true, analytics: analyticsEntry });
+  } catch (err) {
+    console.error("Error saving link click analytics:", err);
+    return res.status(500).json({ message: "Failed to save link click analytics" });
+  }
+});
 
 router.post("/upload-product", upload.single("image"), authenticateToken, async (req, res) => {
   try {
@@ -637,7 +892,6 @@ router.post("/upload-product", upload.single("image"), authenticateToken, async 
 });
 
 
-// GET /api/products/fet-user-products?page=1&limit=10
 router.get("/fet-user-products", authenticateToken, async (req, res) => {
 
     const userId = req.user?.user_id;
@@ -772,10 +1026,7 @@ router.delete("/delete-product/:id", authenticateToken, async (req, res) => {
   }
 );
 
-router.post(
-  "/upload-header-image",
-  authenticateToken,
-  upload.single("image"),
+router.post("/upload-header-image", authenticateToken, upload.single("image"),
   async (req, res) => {
     try {
       const userId = req.user?.user_id;
@@ -846,6 +1097,97 @@ router.post(
   }
 );
 
+
+router.get("/fetch-influencer-products", async (req, res) => {
+  try {
+    console.log("Incoming URL:", req.originalUrl);
+    console.log("Query object:", req.query);
+
+    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+    const limit = Math.max(parseInt(req.query.limit || "10", 10), 1);
+    const skip = (page - 1) * limit;
+    const qRaw = (req.query.q || "").trim();
+
+    const subdomainRaw = (req.query.subdomain || "").trim();
+    if (!subdomainRaw) {
+      // No subdomain supplied — return empty set (or treat as public/global)
+      // You can instead return all products or 400; choose what's appropriate.
+      console.log("No subdomain provided");
+      return res.json({ data: [], total: 0 });
+    }
+
+    // Find user by handleUserName (case-insensitive); fallback to 'handle' if you have that field
+    // Use exact match (case-insensitive) rather than substring for safety.
+    const handleRegex = new RegExp("^" + escapeRegex(subdomainRaw) + "$", "i");
+    const user = await USER.findOne(
+      { $or: [{ handleUserName: handleRegex }, { handle: handleRegex }] },
+      { _id: 1 } // projection: only need _id
+    ).lean();
+
+    if (!user) {
+      console.log("No user found for subdomain:", subdomainRaw);
+      // return empty result — optional: res.status(404).json({ error: "User not found" });
+      return res.json({ data: [], total: 0 });
+    }
+
+    const userId = user._id;
+    console.log("Resolved subdomain -> userId:", userId.toString());
+
+    // Build product filter for that user
+    const filter = { user_id: userId, is_del: false };
+
+    if (qRaw) {
+      const safe = escapeRegex(qRaw);
+      const re = new RegExp(safe, "i");
+      filter.$or = [{ title: re }, { name: re }, { link: re }];
+    }
+
+    const projection = {}; // adjust if you want to exclude heavy fields
+
+    const [data, total] = await Promise.all([
+      Product.find(filter, projection).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    return res.json({ data, total });
+  } catch (err) {
+    console.error("List influencer products error:", err);
+    return res.status(500).json({ message: "Error fetching products" });
+  }
+});
+
+router.post("/enable-store", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    // Accept { enabled: true/false } in body; default to true if not provided
+    const { enabled = true } = req.body ?? {};
+
+    // validate boolean-ish values
+    const storeEnabled = enabled === true || enabled === "true" || enabled === 1 || enabled === "1";
+
+    // Update the user's document
+    const update = { $set: { store_enabled: storeEnabled } };
+
+    // findOneAndUpdate returns the previous by default; pass { new: true } to get updated document
+    const updated = await USER.findOneAndUpdate(
+      { _id: userId },
+      update,
+      { new: true, projection: { store_enabled: 1, _id: 0 } }
+    ).lean();
+
+    if (!updated) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.json({ success: true, enabled: Boolean(updated.store_enabled) });
+  } catch (err) {
+    console.error("POST /enable-store error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 
 export default router;
