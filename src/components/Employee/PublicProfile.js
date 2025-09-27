@@ -411,19 +411,19 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
   }
 
   return (
-    <Grid container justifyContent="center">
+      <Grid container justifyContent="center">
       <Grid item xs={12} md={4}>
-        <Box sx={{
-          width: { xs: "100%", sm: "85%", md: "85%" },
-          margin: "0 auto",
-          border: { xs: "8px solid rgba(240,240,245,0.95)", sm: "10px solid rgba(240,240,245,0.9)" },
-          boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
-          overflow: "hidden",
-          bgcolor: "#37353E",
-        }}>
-          <Box sx={{ p: { xs: 1.5, sm: 2 }, textAlign: "left" }}>
-            {/* header: left 50% single large image, right 50% two stacked images */}
-            <Grid container>
+          <Box sx={{ px: { xs: 1.5, sm: 2 }, alignItems: 'center', justifyContent : 'center', background: "linear-gradient(135deg, #0f0c29 0%, #3a1c71 40%, #1f3a93 100%)" }}>
+        <Box
+          sx={{
+            px: 2,
+            pt: 1,
+            pb: 2,
+            textAlign: "left"
+          }}
+        >
+         
+            <Grid container spacing={1}>
               <Grid item xs={6}>
                 <Box
                   component="img"
@@ -432,7 +432,7 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
                   sx={{
                     width: "100%",
                     height: { xs: 160, sm: 220 },
-                    objectFit: "contain",   
+                    objectFit: "cover",   
                     objectPosition: "center",
                     borderRadius: 1,
 
@@ -452,7 +452,7 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
                      objectFit: "cover",   
                     objectPosition: "center",
                       borderRadius: 1,
-                      // backgroundColor: "#f4f4f4",
+                      backgroundColor: "#f4f4f4",
 
                     }}
                   />
@@ -468,14 +468,12 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
                       objectFit: "cover",   
                     objectPosition: "center",
                       borderRadius: 1,
-                      // backgroundColor: "#f4f4f4",
+                      backgroundColor: "#f4f4f4",
                     }}
                   />
                 </Grid>
               </Grid>
             </Grid>
-
-            <Box sx={{ height: 1, bgcolor: "rgba(255,255,255,0.06)", mt: 1 }} />
 
             {/* Name + socials row (no avatar) */}
             <Grid container alignItems="center" spacing={1} sx={{ mt: 1 }}>
@@ -488,7 +486,6 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
                 </Box>
               </Grid>
 
-              {/* Right: social icons */}
              {/* Right: social icons */}
 <Grid item xs={6}>
   <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.75, alignItems: "center" }}>
@@ -541,7 +538,7 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
             <IconButton
            onClick={() => {
   const subdomain = (window.location.hostname || "").split(".")[0] || "";
-  const url = "https://myhandle.in/products-affiliate?subdomain=" + encodeURIComponent(subdomain);
+  const url = "http://localhost:4800/products-affiliate?subdomain=" + encodeURIComponent(subdomain);
   window.location.href = url;
 }}
 
@@ -585,9 +582,27 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
               </Grid>
             </Grid>
 
-            <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.06)" }} />
+            </Box>
+
+<Divider
+  sx={{
+    my: 0.1,
+    borderColor: "#FFFFFF", 
+    width: "50%",                
+    mx: "auto",   
+  }}
+/>
+
+
 
             {/* blocks area */}
+            <Box sx={{   
+           
+         
+            px: 2,
+            pt: 1
+           
+           }}>
             <Stack spacing={1.25} sx={{ mt: 1, mb: 1 }}>
               {blocks && blocks.length > 0 ? (
                 blocks.map((b) => renderPreviewBlock(b))
@@ -601,13 +616,14 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
             </Stack>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "center", mt: 3 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1, mb: 1 }}>
                 <Typography sx={{ fontFamily: "Inter", fontWeight: 400, color: "rgba(255,255,255,0.8)", fontSize: { xs: 12, sm: 12 }, mb: 0.25 }}>Made in India</Typography>
                 <Box component="img" src={IndiaFlag} alt="India flag" sx={{ width: 18, height: "auto", display: "block", borderRadius: "2px" }} aria-hidden={false} />
               </Box>
             </Box>
+            </Box>
 
-          </Box>
+
         </Box>
       </Grid>
 
