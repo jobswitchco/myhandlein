@@ -523,17 +523,13 @@ router.post("/conversations/find-or-create", authenticateParticipant, async (req
     console.log('hit : ', req.body);
     if (!subdomain) return res.status(400).json({ error: "subdomain required" });
 
-    const userId = req.user?.user_id || req.user?._id || req.user?.id;
-    console.log('userId : ', userId);
-
-
-
     // fetch influencer by subdomain/handle (case-insensitive optional)
     const influencer = await USER.findOne({ handleUserName: subdomain }).lean();
     if (!influencer) return res.status(404).json({ error: "influencer not found" });
 
     // get participant id from authenticateToken middleware
-    const participantIdRaw = req.user?.id || req.user?.userId || req.user?.user_id || req.user?._id || null;
+    const participantIdRaw = req.user?.user_id || req.user?._id || req.user?.id;
+
     if (!participantIdRaw) return res.status(401).json({ error: "participant not authenticated" });
     if (!mongoose.Types.ObjectId.isValid(participantIdRaw)) return res.status(400).json({ error: "invalid participant id" });
 
