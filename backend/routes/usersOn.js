@@ -1194,12 +1194,15 @@ router.post("/user-login-gmail", async (req, res) => {
 
     const token = await generateJWTtoken(user._id, user.email);
 
-    // Cookie options: adjust for your environment (see notes below)
+
+
     res.cookie("tokenMyhandleProf", token, {
-      httpOnly: true,
-      secure: true,    // set true in production when using HTTPS
-      sameSite: "Lax",  // or 'None' if your frontend is on a different domain and you use HTTPS
-    });
+  httpOnly: true,
+  secure: true,                  // required when SameSite=None
+  sameSite: "none",              // critical for iOS/Safari & any cross-site/iframe usage
+  maxAge: 7 * 24 * 60 * 60 * 1000
+});
+
 
     return res.status(200).json({
       success: true,
@@ -1242,11 +1245,12 @@ router.post("/participant-user-login-gmail", async (req, res) => {
     const token = await generateJWTtoken(user._id, user.email);
 
     // Cookie options: adjust for your environment (see notes below)
-    res.cookie("tokenParticipantMyHandle", token, {
-      httpOnly: true,
-      secure: true,    // set true in production when using HTTPS
-      sameSite: "Lax",  // or 'None' if your frontend is on a different domain and you use HTTPS
-    });
+  res.cookie("tokenParticipantMyHandle", token, {
+  httpOnly: true,
+  secure: true,                  // required when SameSite=None
+  sameSite: "none",              // critical for iOS/Safari & any cross-site/iframe usage
+  maxAge: 7 * 24 * 60 * 60 * 1000
+});
 
     return res.status(200).json({
       success: true,
