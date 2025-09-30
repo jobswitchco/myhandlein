@@ -77,7 +77,7 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!influencer) return;
 
-    const socket = io(API_BASE, {
+    const socket = io("https://myhandle.in", {
       transports: ["websocket", "polling"],
       withCredentials: true,
       query: { subdomain },
