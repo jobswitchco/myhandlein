@@ -1197,7 +1197,7 @@ router.post("/user-login-gmail", async (req, res) => {
     // Cookie options: adjust for your environment (see notes below)
     res.cookie("tokenMyhandleProf", token, {
       httpOnly: true,
-      secure: false,    // set true in production when using HTTPS
+      secure: true,    // set true in production when using HTTPS
       sameSite: "Lax",  // or 'None' if your frontend is on a different domain and you use HTTPS
     });
 
@@ -1244,7 +1244,7 @@ router.post("/participant-user-login-gmail", async (req, res) => {
     // Cookie options: adjust for your environment (see notes below)
     res.cookie("tokenParticipantMyHandle", token, {
       httpOnly: true,
-      secure: false,    // set true in production when using HTTPS
+      secure: true,    // set true in production when using HTTPS
       sameSite: "Lax",  // or 'None' if your frontend is on a different domain and you use HTTPS
     });
 
