@@ -78,10 +78,11 @@ export default function ChatWindow() {
     if (!influencer) return;
 
     const socket = io("https://myhandle.in", {
-      transports: ["websocket", "polling"],
-      withCredentials: true,
-      query: { subdomain },
-    });
+   path: "/socket.io",
+   transports: ["websocket", "polling"], // ok to start with both
+   withCredentials: true, // keep ONLY if you actually rely on cookies (you do for participant token)
+   query: { subdomain },
+ });
 
     socketRef.current = socket;
 

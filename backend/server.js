@@ -21,15 +21,22 @@ app.use((req, res, next) => {
   next();
 });
 
-const corsOptions = {
-  origin: '*',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true,
-  optionSuccessStatus: 200,
-  changeOrigin: true,
-};
+const ALLOWED_ORIGINS = [
+'https://myhandle.in',
+'http://localhost:4800', // dev, if needed
+];
+ app.use(cors({
+   origin: function (origin, cb) {
+     // allow no-origin requests (mobile apps, curl) and whitelisted origins
+     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+     return cb(new Error('Not allowed by CORS'));
+   },
+   credentials: true,
+   methods: ['GET','HEAD','PUT','PATCH','POST','DELETE'],
+ }));
+ app.options('*', cors());
+ 
 
-app.use(cors(corsOptions));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
@@ -37,6 +44,13 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   next();
 });
+
+
+
+
+
+
+
 app.use("/usersOn", usersOnBoard);
 
 // --- Simple helper: extract subdomain from Host header

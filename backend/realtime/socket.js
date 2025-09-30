@@ -10,11 +10,25 @@ import USER from "../models/User.js";
 const JWT_SECRET = process.env.JWT_SECRET || "NidkPwke9485hfKDLAndu9*#&$&$jcbPOqkPkshEYfk3848Asj";
 
 export default function attachSocket(server, expressApp) {
+
+ const allowed = expressApp.get("cors_origins") || ['https://myhandle.in', 'http://localhost:4800'];
   const io = new IOServer(server, {
+    path: "/socket.io",
     cors: {
-      origin: expressApp.get("cors_origins") || "*",
+      origin: allowed,
       credentials: true,
+      methods: ["GET","POST"],
     },
+    allowEIO3: false, // you’re on EIO=4; keep strict unless you must support v2 clients
+  });
+
+  // See low-level handshake/upgrade failures
+  io.engine.on("connection_error", (err) => {
+    console.error("engine connection_error:", {
+      code: err.code,
+      message: err.message,
+      context: err.context,
+    });
   });
 
   // helper: extract participant token from cookies (cookie name used earlier)
