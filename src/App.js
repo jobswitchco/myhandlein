@@ -6,7 +6,6 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ToastContainer } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
 import LandingPage from './components/LandingPage.js';
-import UserSideNavBar from './components/Employee/UserSideNavBar.js';
 import Support from './components/Employee/Support.js';
 import Profile from './components/Employee/Profile.js';
 import PricingPage from './components/PricingPage.js';
@@ -38,6 +37,7 @@ import UserParticipant from './components/Employee/UserParticipant.js';
 import ChatWindow from './components/Employee/ChatWindow.js';
 import MyInbox from './components/Employee/MyInbox.js';
 import MyChatWindow from './components/Employee/MyChatWindow.js';
+import UserSideNavbar from './components/Employee/UserSideNavBar.js';
 
 
 
@@ -112,8 +112,9 @@ if (initialSubdomain) {
               <Route path="/products-affiliate" element={<ProductGallery />} />
 
            
-              <Route path="/professional/*" element={<UserSideNavBar />}>
-              <Route path="user/bio" element={<UserBioDashboard />} />
+              <Route path="/professional/*" element={<UserSideNavbar />}>
+
+                <Route path="user/bio" element={<UserBioDashboard />} />
                 <Route path="support" element={<Support />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="account/details" element={<AccountDetails />} />
