@@ -418,7 +418,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
         <Box
           sx={{
             px: 2,
-            pt: 1,
+            pt: 3,
             pb: 2,
             textAlign: "left"
           }}
