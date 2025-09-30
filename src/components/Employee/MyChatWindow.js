@@ -111,11 +111,16 @@ export default function MyChatWindow() {
   // socket
   useEffect(() => {
     if (!conversation) return;
-    const socket = io(API_BASE, {
-      transports: ["websocket", "polling"],
-      withCredentials: true,
-      query: { subdomain: conversation?.subdomain || "" }
-    });
+  
+
+       const socket = io("https://myhandle.in", {
+       path: "/socket.io",
+       transports: ["websocket", "polling"], // ok to start with both
+       withCredentials: true, // keep ONLY if you actually rely on cookies (you do for participant token)
+       query: { subdomain },
+     });
+
+     
     socketRef.current = socket;
 
     socket.on("connect", () => {
