@@ -91,7 +91,6 @@ const handleLoginSuccess = async (email_gm, firstName, lastName, picture) => {
 
     
     console.log('email_gm : ', email_gm);
-    const subdomainToSend = subdomainRef.current;
 
     const res = await axios.post(
       baseUrl + "/participant-user-login-gmail",

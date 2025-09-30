@@ -137,7 +137,7 @@ async function getClientIp(req) {
 router.post("/logout", authenticateToken, (req, res) => {
   res.clearCookie("token_professional", {
     httpOnly: true,
-    secure: false, // Set to true in production with HTTPS
+    secure: true, // Set to true in production with HTTPS
     sameSite: "Strict",
   });
   res.status(200).json({ message: "Logged out successfully" });
@@ -1200,6 +1200,8 @@ router.post("/user-login-gmail", async (req, res) => {
   httpOnly: true,
   secure: true,                  // required when SameSite=None
   sameSite: "none",              // critical for iOS/Safari & any cross-site/iframe usage
+   domain: ".myhandle.in",// needed if crossing subdomains
+  path: "/",             // ensure all routes get it
   maxAge: 7 * 24 * 60 * 60 * 1000
 });
 
@@ -1249,6 +1251,8 @@ router.post("/participant-user-login-gmail", async (req, res) => {
   httpOnly: true,
   secure: true,                  // required when SameSite=None
   sameSite: "none",              // critical for iOS/Safari & any cross-site/iframe usage
+   domain: ".myhandle.in",// needed if crossing subdomains
+  path: "/",             // ensure all routes get it
   maxAge: 7 * 24 * 60 * 60 * 1000
 });
 
