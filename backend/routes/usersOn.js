@@ -691,7 +691,7 @@ router.post("/enable-dm-inbox", authenticateToken, async (req, res) => {
 });
 
 
-router.get("/messages/:conversationId", authenticateToken, async (req, res) => {
+router.get("/messages/:conversationId", authenticateParticipant, async (req, res) => {
   try {
     const { conversationId } = req.params;
     if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
