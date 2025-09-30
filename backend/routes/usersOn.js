@@ -775,130 +775,142 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
     const influencerObjectId = new mongoose.Types.ObjectId(user_id);
     const ObjectId = mongoose.Types.ObjectId;
 
-    // Aggregation: pick latest incoming message per conversation (or per sender if no conversation)
-    const pipeline = [
-      // only non-deleted messages
-      { $match: { is_deleted: false } },
+   const participantCollection = "participant_user"; 
 
-      // join conversation to inspect participants (if any)
-      {
-        $lookup: {
-          from: "conversations",
-          localField: "conversation",
-          foreignField: "_id",
-          as: "conversation"
-        }
-      },
-      { $unwind: { path: "$conversation", preserveNullAndEmptyArrays: true } },
+const pipeline = [
+  { $match: { is_deleted: false } },
 
-      // identify messages that are effectively "incoming" to influencer:
-      // - recipients array explicitly contains influencerId OR
-      // - conversation exists and influencer is a participant and sender != influencer
-      {
-        $match: {
-          $or: [
-            { recipients: influencerObjectId },
-            {
-              $and: [
-                { "conversation.participants.user": influencerObjectId },
-                { $expr: { $ne: ["$sender", influencerObjectId] } }
-              ]
-            }
+  {
+    $lookup: {
+      from: "conversations",
+      localField: "conversation",
+      foreignField: "_id",
+      as: "conversation"
+    }
+  },
+  { $unwind: { path: "$conversation", preserveNullAndEmptyArrays: true } },
+
+  // Only messages incoming to influencer
+  {
+    $match: {
+      $or: [
+        { recipients: influencerObjectId },
+        {
+          $and: [
+            { "conversation.participants.user": influencerObjectId },
+            { $expr: { $ne: ["$sender", influencerObjectId] } }
           ]
         }
-      },
+      ]
+    }
+  },
 
-      // newest first so $first in grouping is latest
-      { $sort: { createdAt: -1 } },
-
-      // group by conversation (if exists) else by sender (for one-off messages)
-      {
-        $group: {
-          _id: { $ifNull: ["$conversation._id", "$sender"] },
-          doc: { $first: "$$ROOT" }
-        }
-      },
-
-      // flatten back to message doc
-      { $replaceRoot: { newRoot: "$doc" } },
-
-      // optional pagination
-      { $skip: skip },
-      { $limit: limit },
-
-      // populate sender from users collection (if sender is a user)
-      {
-        $lookup: {
-          from: "users",
-          localField: "sender",
-          foreignField: "_id",
-          as: "user_sender"
-        }
-      },
-      { $unwind: { path: "$user_sender", preserveNullAndEmptyArrays: true } },
-
-      // populate sender from participant_users collection (if sender is a participant_user)
-      {
-        $lookup: {
-          from: "participant_users",
-          localField: "sender",
-          foreignField: "_id",
-          as: "participant_sender"
-        }
-      },
-      { $unwind: { path: "$participant_sender", preserveNullAndEmptyArrays: true } },
-
-      // project minimal fields
-      {
-        $project: {
-          _id: 1,
-          conversation: 1,
-          conversation_id: "$conversation",
-          sender: 1,
-          user_sender: {
-            _id: "$user_sender._id",
-            name: "$user_sender.name",
-            handleUserName: "$user_sender.handleUserName",
-            picture: "$user_sender.picture"
-          },
-          participant_sender: {
-            _id: "$participant_sender._id",
-            name: "$participant_sender.name",
-            email: "$participant_sender.email",
-            picture: "$participant_sender.picture"
-          },
-          guest_info: 1,
-          text: 1,
-          createdAt: 1
-        }
+  // Normalize sender to ObjectId for lookups
+  {
+    $addFields: {
+      senderObjId: {
+        $cond: [
+          { $eq: [{ $type: "$sender" }, "string"] },
+          { $toObjectId: "$sender" },
+          "$sender"
+        ]
       }
-    ];
+    }
+  },
 
-    const results = await Message.aggregate(pipeline).exec();
+  { $sort: { createdAt: -1 } },
+  {
+    $group: {
+      _id: { $ifNull: ["$conversation._id", "$senderObjId"] },
+      doc: { $first: "$$ROOT" }
+    }
+  },
+  { $replaceRoot: { newRoot: "$doc" } },
 
-    // normalize rows for frontend
-    const rows = results.map(m => {
-      // determine from id and name precedence: participant_sender -> user_sender -> guest_info.name
-      const fromParticipantId = m.participant_sender && m.participant_sender._id ? String(m.participant_sender._id) : null;
-      const fromUserId = m.user_sender && m.user_sender._id ? String(m.user_sender._id) : null;
-      const fromId = fromParticipantId || fromUserId || (m.sender ? String(m.sender) : null);
+  // Pagination
+  { $skip: skip },
+  { $limit: limit },
 
-      const fromName = (m.participant_sender && (m.participant_sender.name || m.participant_sender.email))
-        || (m.user_sender && (m.user_sender.name || m.user_sender.handleUserName))
-        || (m.guest_info && m.guest_info.name)
-        || "Unknown";
+  // Lookups
+  {
+    $lookup: {
+      from: "users",
+      localField: "senderObjId",
+      foreignField: "_id",
+      as: "user_sender"
+    }
+  },
+  { $unwind: { path: "$user_sender", preserveNullAndEmptyArrays: true } },
 
-      return {
-        _id: m._id,
-        conversation_id: m.conversation && m.conversation._id ? String(m.conversation._id) : (m.conversation_id ? String(m.conversation_id) : null),
-        from_id: fromId,
-        from_name: fromName,
-        text: m.text || "",
-        created_at: m.createdAt || null
-      };
-    });
+  {
+    $lookup: {
+      from: participantCollection,
+      localField: "senderObjId",
+      foreignField: "_id",
+      as: "participant_sender"
+    }
+  },
+  { $unwind: { path: "$participant_sender", preserveNullAndEmptyArrays: true } },
 
-    return res.json({ ok: true, conversations: rows, total: rows.length });
+  // Build robust name/email fallbacks in the pipeline itself
+  {
+    $addFields: {
+      from_name: {
+        $ifNull: [
+          { $ifNull: ["$participant_sender.name", "$participant_sender.fullName"] },
+          {
+            $ifNull: [
+              { $ifNull: ["$user_sender.name", "$user_sender.fullName"] },
+              {
+                $ifNull: [
+                  "$participant_sender.username",
+                  {
+                    $ifNull: [
+                      "$user_sender.handleUserName",
+                      {
+                        $ifNull: [
+                          "$participant_sender.email",
+                          { $ifNull: ["$user_sender.email", { $ifNull: ["$guest_info.name", "Unknown"] }] }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      conversation_id: { $ifNull: ["$conversation._id", "$conversation"] } // ensure an id
+    }
+  },
+
+  {
+    $project: {
+      _id: 1,
+      conversation_id: 1,
+      sender: "$senderObjId",
+      text: 1,
+      createdAt: 1,
+      from_name: 1
+    }
+  }
+];
+
+const results = await Message.aggregate(pipeline).exec();
+
+const rows = results.map(m => ({
+  _id: m._id,
+  conversation_id: m.conversation_id ? String(m.conversation_id) : null,
+  from_id: m.sender ? String(m.sender) : null,
+  from_name: m.from_name || "Unknown",
+  text: m.text || "",
+  created_at: m.createdAt || null
+}));
+
+return res.json({ ok: true, conversations: rows, total: rows.length });
+
+
   } catch (err) {
     console.error("POST /influencer/messages error:", err);
     return res.status(500).json({ error: "internal", details: err.message });
