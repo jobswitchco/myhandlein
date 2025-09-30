@@ -21,6 +21,7 @@ app.use((req, res, next) => {
   next();
 });
 
+
 const ALLOWED_ORIGINS = [
 'https://myhandle.in',
 'http://localhost:4800', // dev, if needed
@@ -35,7 +36,7 @@ const ALLOWED_ORIGINS = [
    methods: ['GET','HEAD','PUT','PATCH','POST','DELETE'],
  }));
  app.options('*', cors());
- 
+
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -116,6 +117,15 @@ function buildMetaTags(meta) {
 // catch-all for client-side routes: inject meta & initial profile for subdomain requests
 app.get('*', async (req, res, next) => {
   try {
+
+    if (req.path === '/socket.io' || req.path.startsWith('/socket.io/')) {
+  return next(); // let Engine.IO handle it
+ }
+  if (req.path.startsWith('/api/')) {
+    return next(); // not SPA
+  }
+
+
     // If the request matches an existing static file, let express.static have handled it.
     // If template not loaded, fallback to next middleware (or 404).
     if (!TEMPLATE_HTML) return next();
