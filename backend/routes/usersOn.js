@@ -530,11 +530,16 @@ router.post("/conversations/find-or-create", authenticateParticipant, async (req
     // get participant id from authenticateToken middleware
     const participantIdRaw = req.user?.user_id || req.user?._id || req.user?.id;
 
+    console.log('participantIdRaw : ', participantIdRaw);
+
     if (!participantIdRaw) return res.status(401).json({ error: "participant not authenticated" });
     if (!mongoose.Types.ObjectId.isValid(participantIdRaw)) return res.status(400).json({ error: "invalid participant id" });
 
     const influencerId = String(influencer._id);
     const participantId = String(participantIdRaw);
+
+    console.log('participantId : ', participantId);
+
 
     // prevent creating a DM with self
     if (influencerId === participantId) {
