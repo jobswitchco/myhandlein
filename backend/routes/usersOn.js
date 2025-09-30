@@ -517,95 +517,7 @@ router.post("/messages/send", async (req, res) => {
   }
 });
 
-router.post("/conversations/find-or-create", authenticateParticipant, async (req, res) => {
-  try {
-    const { subdomain } = req.body || {};
-    console.log('hit : ', req.body);
-    if (!subdomain) return res.status(400).json({ error: "subdomain required" });
 
-    // fetch influencer by subdomain/handle (case-insensitive optional)
-    const influencer = await USER.findOne({ handleUserName: subdomain }).lean();
-    if (!influencer) return res.status(404).json({ error: "influencer not found" });
-
-    // get participant id from authenticateToken middleware
-    const participantIdRaw = req.user?.user_id || req.user?._id || req.user?.id;
-
-    console.log('participantIdRaw : ', participantIdRaw);
-
-    if (!participantIdRaw) return res.status(401).json({ error: "participant not authenticated" });
-    if (!mongoose.Types.ObjectId.isValid(participantIdRaw)) return res.status(400).json({ error: "invalid participant id" });
-
-    const influencerId = String(influencer._id);
-    const participantId = String(participantIdRaw);
-
-    console.log('participantId : ', participantId);
-
-
-    // prevent creating a DM with self
-    if (influencerId === participantId) {
-      return res.status(400).json({ error: "cannot create conversation with yourself" });
-    }
-
-    // build deterministic sorted participant ids string (lexicographic)
-    const sortedIds = [influencerId, participantId].map(s => String(s)).sort();
-    const participant_ids_sorted = sortedIds.join("|");
-
-    // try to find an existing DM by the deterministic key
-    const existing = await Conversation.findOne({
-      participant_ids_sorted,
-      "metadata.conversation_type": "dm",
-      is_deleted: { $ne: true }
-    }).lean();
-
-    if (existing) {
-      return res.json({ conversation: existing });
-    }
-
-    // not found -> create new conversation doc
-    const participants = [
-      {
-        user: new mongoose.Types.ObjectId(influencerId),
-        role: "influencer",     // keep influencer role as before
-        joined_at: new Date()
-      },
-      {
-        user: new mongoose.Types.ObjectId(participantId),
-        role: "member",         // <-- use "member" (valid enum in your schema) instead of "participant"
-        joined_at: new Date()
-      }
-    ];
-
-    const toInsert = {
-      participants,
-      participant_ids_sorted,
-      last_message: null, // no messages yet; Message._id will be set once messages exist
-      unread_counts: { [influencerId]: 0, [participantId]: 0 },
-      metadata: { conversation_type: "dm", title: null, tags: [], pinned: false }
-    };
-
-    let convo;
-    try {
-      convo = await Conversation.create(toInsert);
-    } catch (err) {
-      // Handle race: another process may have created the same conversation
-      if (err && err.code === 11000) {
-        const existingAgain = await Conversation.findOne({
-          participant_ids_sorted,
-          "metadata.conversation_type": "dm",
-          is_deleted: { $ne: true }
-        }).lean();
-        if (existingAgain) return res.json({ conversation: existingAgain });
-      }
-      // bubble other errors
-      throw err;
-    }
-
-    return res.json({ conversation: convo });
-  } catch (err) {
-    console.error("POST /conversations/find-or-create error:", err);
-    return res.status(500).json({ error: "internal", details: err.message });
-  }
-});
 
 router.get('/store-status', authenticateToken, async (req, res) => {
   try {
@@ -690,73 +602,150 @@ router.post("/enable-dm-inbox", authenticateToken, async (req, res) => {
   }
 });
 
-
 router.get("/messages/:conversationId", authenticateParticipant, async (req, res) => {
   try {
     const { conversationId } = req.params;
+
     if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
       return res.status(400).json({ error: "invalid conversation id" });
     }
 
-    // ensure requester identity is present
-    const authId = req.user?.user_id;
-
-    if (!authId || !mongoose.Types.ObjectId.isValid(authId)) {
+    // Participant id coming from authenticateParticipant
+    const participantId = req.user?.user_id;
+    if (!participantId || !mongoose.Types.ObjectId.isValid(participantId)) {
       return res.status(401).json({ error: "unauthenticated" });
     }
 
-    // load conversation and participants (lightweight)
-    const convo = await Conversation.findById(conversationId)
-      .populate({ path: "participants.user", select: "_id name handleUserName picture email" })
+    // Load conversation and ensure requester is a participant
+    const convo = await Conversation.findOne({
+      _id: conversationId,
+      "participants.user": new mongoose.Types.ObjectId(participantId),
+      is_deleted: { $ne: true }
+    })
+      .select("_id participants metadata")
       .lean();
-    if (!convo) return res.status(404).json({ error: "conversation not found" });
 
-    // check if requester is participant
-    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
-    const isParticipant = participantsArr.some(p => {
-      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
-      return uid === authId;
-    });
-
-    if (!isParticipant) {
-      // strict access control — change if influencer/dashboard-level access is allowed
+    if (!convo) {
       return res.status(403).json({ error: "not authorized for this conversation" });
     }
 
-    // fetch messages using new Message schema fields
-    const msgs = await Message.find({ conversation: conversationId, is_deleted: false })
+    // Identify influencer + participant from the conversation (by role or by comparison)
+    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
+    const influencerEntry = participantsArr.find(p => p.role === "influencer");
+    const participantEntry = participantsArr.find(p => String(p.user) === String(participantId));
+
+    const influencerId = influencerEntry ? String(influencerEntry.user) : null;
+    const memberId = participantEntry ? String(participantEntry.user) : String(participantId);
+
+    if (!influencerId || !memberId) {
+      return res.status(500).json({ error: "conversation participants malformed" });
+    }
+
+    // Fetch messages ONLY for this conversation
+    const docs = await Message.find({
+      conversation: new mongoose.Types.ObjectId(conversationId),
+      is_deleted: { $ne: true }
+    })
       .sort({ createdAt: 1 })
-      .populate({ path: "sender", select: "_id name handleUserName picture" })
-      .populate({ path: "recipients", select: "_id name handleUserName picture" })
+      .select("_id text createdAt conversation sender")
       .lean();
 
-    // normalize minimal fields the frontend expects (optional)
-    const normalized = msgs.map(m => ({
-      _id: m._id,
-      conversation_id: String(m.conversation || conversationId),
-      senderId: m.sender ? String(m.sender._id) : null,
-      sender: m.sender ? {
-        _id: m.sender._id,
-        name: m.sender.name,
-        handleUserName: m.sender.handleUserName,
-        picture: m.sender.picture
-      } : null,
-      recipients: Array.isArray(m.recipients) ? m.recipients.map(r => ({
-        _id: r._id,
-        name: r.name,
-        handleUserName: r.handleUserName,
-        picture: r.picture
-      })) : [],
-      text: m.text || "",
-      attachments: m.attachments || [],
-      status: m.status || "sent",
-      created_at: m.createdAt || m.created_at || null,
-      raw: m // remove this in production if not needed
-    }));
+    // OPTIONAL: small lookup for names/avatars if you want (kept minimal here)
+    // const senderIds = [...new Set(docs.map(d => String(d.sender)).filter(Boolean))];
+    // const users = await USER.find({ _id: { $in: senderIds } }).select("_id name handleUserName picture").lean();
+    // const userMap = Object.fromEntries(users.map(u => [String(u._id), u]));
 
-    return res.json({ ok: true, conversation: convo, messages: normalized });
+    const messages = docs.map(d => {
+      const sId = d.sender ? String(d.sender) : null;
+      const senderRole =
+        sId && sId === influencerId ? "influencer"
+        : sId && sId === memberId ? "member"
+        : undefined;
+
+      return {
+        _id: d._id,
+        text: d.text || "",
+        createdAt: d.createdAt,
+        conversation: { _id: String(conversationId) },
+        sender: sId ? { _id: sId } : undefined,
+        senderRole
+      };
+    });
+
+    return res.json({ messages });
   } catch (err) {
-    console.error("GET /messages/:conversationId error:", err);
+    console.error("GET /usersOn/messages/:conversationId error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+
+router.post("/conversations/find-or-create", authenticateParticipant, async (req, res) => {
+  try {
+    const { subdomain } = req.body || {};
+    if (!subdomain) return res.status(400).json({ error: "subdomain required" });
+
+    const influencer = await USER.findOne({ handleUserName: subdomain }).lean();
+    if (!influencer) return res.status(404).json({ error: "influencer not found" });
+
+    // participant id strictly from authenticateParticipant
+    const participantIdRaw = req.user?.user_id;
+    if (!participantIdRaw || !mongoose.Types.ObjectId.isValid(participantIdRaw)) {
+      return res.status(401).json({ error: "participant not authenticated" });
+    }
+
+    const influencerId = String(influencer._id);
+    const participantId = String(participantIdRaw);
+
+    if (influencerId === participantId) {
+      return res.status(400).json({ error: "cannot create conversation with yourself" });
+    }
+
+    const participant_ids_sorted = [influencerId, participantId].sort().join("|");
+
+    // Find existing DM
+    const existing = await Conversation.findOne({
+      participant_ids_sorted,
+      "metadata.conversation_type": "dm",
+      is_deleted: { $ne: true }
+    }).lean();
+
+    if (existing) {
+      return res.json({ conversation: existing });
+    }
+
+    // Create DM
+    const participants = [
+      { user: new mongoose.Types.ObjectId(influencerId), role: "influencer", joined_at: new Date() },
+      { user: new mongoose.Types.ObjectId(participantId), role: "member",     joined_at: new Date() }
+    ];
+
+    const toInsert = {
+      participants,
+      participant_ids_sorted,
+      last_message: null,
+      unread_counts: { [influencerId]: 0, [participantId]: 0 },
+      metadata: { conversation_type: "dm", title: null, tags: [], pinned: false }
+    };
+
+    let convo = null;
+    try {
+      convo = await Conversation.create(toInsert);
+    } catch (err) {
+      if (err && err.code === 11000) {
+        const again = await Conversation.findOne({
+          participant_ids_sorted,
+          "metadata.conversation_type": "dm",
+          is_deleted: { $ne: true }
+        }).lean();
+        if (again) return res.json({ conversation: again });
+      }
+      throw err;
+    }
+
+    return res.json({ conversation: convo });
+  } catch (err) {
+    console.error("POST /usersOn/conversations/find-or-create error:", err);
     return res.status(500).json({ error: "internal", details: err.message });
   }
 });
