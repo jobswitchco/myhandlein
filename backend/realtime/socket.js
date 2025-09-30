@@ -1,6 +1,5 @@
 // realtime/socket.js
-import pkg from "socket.io";
-const { Server: IOServer } = pkg;
+import { Server as IOServer } from "socket.io";
 import cookie from "cookie";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
