@@ -523,6 +523,8 @@ router.post("/conversations/find-or-create", authenticateParticipant, async (req
     console.log('hit : ', req.body);
     if (!subdomain) return res.status(400).json({ error: "subdomain required" });
 
+    console.log('participant : ', req.user?.userId);
+
     // fetch influencer by subdomain/handle (case-insensitive optional)
     const influencer = await USER.findOne({ handleUserName: subdomain }).lean();
     if (!influencer) return res.status(404).json({ error: "influencer not found" });
