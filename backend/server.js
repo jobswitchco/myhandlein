@@ -7,6 +7,9 @@ import bodyParser from "body-parser";
 import cors from 'cors';
 import usersOnBoard from "./routes/usersOn.js";
 import mongoose from 'mongoose';
+import attachSocket from './realtime/socket.js';
+
+
 dbConnection();
 const app = express();
 app.use(express.json());
@@ -154,6 +157,9 @@ app.get('*', async (req, res, next) => {
 
 
 const server = http.createServer(app);
+const io = attachSocket(server, app);
+app.set('io', io);
+
 
 server.listen(8001, () => {
   console.log('Server is running on port 8001');

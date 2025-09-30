@@ -25,7 +25,7 @@ import FormLabel from "@mui/material/FormLabel";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
-
+import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -177,6 +177,7 @@ async function handleLinkClick(block, url, opts = { newTab: true, awaitPost: fal
 
   // pick store flag from profile variations
 const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.storeEnabledFlag ?? false;
+const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFlag ?? false;
 
   // header images (use the fields you asked for; fallback to other likely names)
   const leftImage =
@@ -543,20 +544,50 @@ const storeEnabled = profile.store_enabled ?? profile.storeEnabled ?? profile.st
 }}
 
               sx={{
-                bgcolor: "rgba(255,255,255,0.03)",
+                // bgcolor: "rgba(255,255,255,0.03)",
                 borderRadius: 1,
                 width: 36,
                 height: 36,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: "1px solid rgba(255,255,255,0.06)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.06)" },
+                // border: "1px solid rgba(255,255,255,0.06)",
+                // "&:hover": { bgcolor: "rgba(255,255,255,0.06)" },
               }}
               aria-label="open store"
               size="small"
             >
               <StorefrontIcon sx={{ fontSize: 20, color: "#FFFFFF" }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        
+          {dmEnabled && (
+          <Tooltip title="Direct Message" arrow>
+            <IconButton
+      onClick={() => {
+  const subdomain = (window.location.hostname || "").split(".")[0] || "";
+  const url = "https://myhandle.in/influencer/participant/login?subdomain=" + encodeURIComponent(subdomain);
+  window.open(url, "_blank", "noopener,noreferrer"); 
+}}
+
+
+              sx={{
+                // bgcolor: "rgba(255,255,255,0.03)",
+                borderRadius: 1,
+                width: 36,
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                // border: "1px solid rgba(255,255,255,0.06)",
+                // "&:hover": { bgcolor: "rgba(255,255,255,0.06)" },
+              }}
+              aria-label="open store"
+              size="small"
+            >
+              <SmsOutlinedIcon sx={{ fontSize: 20, color: "#FFFFFF" }} />
             </IconButton>
           </Tooltip>
         )}

@@ -3,6 +3,9 @@ import cookieParser from "cookie-parser";
 import axios from "axios";
 const router = express.Router();
 import USER from "../models/User.js";
+import ParticipantUser from "../models/ParticipantUser.js";
+import Conversation from "../models/Conversations.js";
+import Message from "../models/Messages.js";
 import Block from "../models/Blocks.js";
 import FormsData from "../models/FormsData.js";
 import Product from "../models/ProductsCatalogue.js";
@@ -10,6 +13,7 @@ import PageAnalytics from "../models/PageAnalytics.js";
 import mongoose from 'mongoose';
 router.use(cookieParser());
 import authenticateToken from "../middleware/authenticateTokenProfessional.js";
+import authenticateParticipant from "../middleware/authenticateParticipant.js";
 import generateJWTtoken  from "../middleware/generateJWTtoken.js";
 import fs from "fs";
 import multer from "multer";
@@ -225,6 +229,709 @@ function normalizePosition(pos) {
   return null;
 }
 
+router.get("/influencer/:subdomain", async (req, res) => {
+  try {
+    const sub = String(req.params.subdomain || "").toLowerCase();
+    if (!sub) return res.status(400).json({ error: "subdomain required" });
+    const influencer = await USER.findOne({ handleUserName: sub }).select("_id name picture handleUserName").lean();
+    if (!influencer) return res.status(404).json({ error: "not found" });
+    return res.json({ influencer });
+  } catch (err) {
+    console.error("GET /influencer error:", err);
+    return res.status(500).json({ error: "internal" });
+  }
+});
+
+router.get("/conversations/:conversationId", authenticateToken, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ error: "conversationId required and must be a valid ObjectId" });
+    }
+
+    // ensure we have requester id from authenticateToken
+    const requesterId = req.user?.user_id;
+    if (!requesterId || !mongoose.Types.ObjectId.isValid(requesterId)) {
+      return res.status(401).json({ error: "unauthenticated" });
+    }
+
+    // Populate participants.user (basic fields) and last_message (basic fields + sender)
+    const convo = await Conversation.findById(conversationId)
+      .populate({
+        path: "participants.user",
+        select: "_id name handleUserName picture email"
+      })
+      .populate({
+        path: "last_message",
+        select: "_id text sender createdAt",
+        populate: { path: "sender", select: "_id name handleUserName picture" }
+      })
+      .lean();
+
+      console.log('convo : ', convo);
+
+    if (!convo) {
+      return res.status(404).json({ error: "conversation not found" });
+    }
+
+    // Normalize participants: array of { user: {..}, role, last_read_at, ... }
+    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
+
+    // Find the participant entry for the requester
+    const requesterParticipant = participantsArr.find(p => {
+      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
+      return uid === requesterId;
+    });
+
+    // If requester is not part of the conversation, forbid access
+    if (!requesterParticipant) {
+      return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
+    }
+
+    // Other participants (useful to show the 'influencer' or recipients)
+    const otherParticipants = participantsArr
+      .filter(p => {
+        const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
+        return uid && uid !== requesterId;
+      })
+      .map(p => p.user); // map to populated user doc or id
+
+    // For compatibility with previous code, pick "participant" (requester) and "influencer" (first other)
+    const participant = {
+      user: requesterParticipant.user,
+      role: requesterParticipant.role,
+      last_read_at: requesterParticipant.last_read_at,
+      joined_at: requesterParticipant.joined_at,
+      muted: requesterParticipant.muted
+    };
+
+    const influencer = otherParticipants.length ? otherParticipants[0] : null;
+
+    // Respond with the conversation and resolved participant/influencer
+    return res.json({
+      ok: true,
+      conversation: convo,
+      participant,
+      influencer,
+      others: otherParticipants
+    });
+  } catch (err) {
+    console.error("DEBUG: GET conversation error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+router.get("/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    console.log('conversation Id : ', conversationId);
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ error: "conversationId required and must be a valid ObjectId" });
+    }
+
+    // requester id from authenticateToken (ensure authenticateToken sets req.user.id/_id)
+    const requesterId = req.user?.user_id;
+
+    if (!requesterId || !mongoose.Types.ObjectId.isValid(requesterId)) {
+      return res.status(401).json({ error: "unauthenticated" });
+    }
+
+    // Load conversation and populate participant user docs (basic fields)
+   const convo = await Conversation.findById(conversationId)
+  .populate({ path: "participants.user", model: "User", select: "_id name handleUserName picture email" })
+  .lean();
+
+    if (!convo) return res.status(404).json({ error: "conversation not found" });
+
+    // Find requester participant entry
+    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
+    console.log('participants Array : ', participantsArr);
+    const requesterParticipantEntry = participantsArr.find(p => {
+      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
+      return uid === requesterId;
+    });
+
+    if (!requesterParticipantEntry) {
+      return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
+    }
+
+    // Resolve influencer/other participants (first other participant)
+    const otherParticipants = participantsArr
+      .filter(p => {
+        const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
+        return uid && uid !== requesterId;
+      })
+      .map(p => p.user);
+
+    const participantDoc = requesterParticipantEntry.user;
+    const influencerDoc = otherParticipants.length ? otherParticipants[0] : null;
+
+    // Fetch messages (use new Message schema fields)
+    // Message schema: conversation (ref), sender (ref to User), is_deleted, timestamps (createdAt)
+    const msgs = await Message.find({ conversation: conversationId, is_deleted: false })
+      .sort({ createdAt: 1 })
+      .populate({ path: "sender", select: "_id name handleUserName picture" })
+      .lean();
+
+    // Normalize each message to your expected shape
+    const normalized = msgs.map(m => {
+      // determine sender id (if populated sender object, use its _id)
+      const senderId = m.sender ? String(m.sender._id) : (m.senderId ? String(m.senderId) : null);
+
+      // decide whether this message is from the participant (requester) or influencer (other)
+      let senderRole = "influencer";
+      if (senderId && participantDoc && String(participantDoc._id) === senderId) {
+        senderRole = "participant";
+      } else if (senderId && influencerDoc && String(influencerDoc._id) === senderId) {
+        senderRole = "influencer";
+      } else {
+        // ambiguous — fallback to: if recipients include influencer -> participant else influencer
+        const recipients = Array.isArray(m.recipients) ? m.recipients.map(r => String(r)) : [];
+        if (recipients.length && influencerDoc && recipients.includes(String(influencerDoc._id))) {
+          senderRole = "participant";
+        } else if (senderId && participantDoc && senderId === String(participantDoc._id)) {
+          senderRole = "participant";
+        } else {
+          // default to influencer (since UI is influencer-facing)
+          senderRole = "influencer";
+        }
+      }
+
+      return {
+        _id: m._id,
+        conversation_id: m.conversation || conversationId,
+        sender: senderRole,                 // "participant" | "influencer"
+        senderId: senderId || null,
+        text: m.text || m.body || "",
+        created_at: m.createdAt || m.created_at || new Date(),
+        raw: m // optional - remove or omit for production
+      };
+    });
+
+    // optional debug log
+    console.log("GET /conversations/:id/messages normalized count:", normalized.length);
+
+    return res.json({
+      ok: true,
+      conversation: convo,
+      participant: participantDoc,
+      influencer: influencerDoc,
+      messages: normalized
+    });
+  } catch (err) {
+    console.error("GET conversation messages error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+router.post("/messages/send", async (req, res) => {
+  try {
+    const { conversationId, text, attachments } = req.body || {};
+    if (!conversationId || !text) return res.status(400).json({ error: "conversationId and text required" });
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) return res.status(400).json({ error: "invalid conversationId" });
+
+    // --- extract participantId from cookie tokenParticipantMyHandle (same as your original flow) ---
+    const cookies = req.headers.cookie || "";
+    const parsedCookies = require("cookie").parse(cookies || "");
+    const token = parsedCookies.tokenParticipantMyHandle;
+    if (!token) return res.status(401).json({ error: "authentication tokenParticipantMyHandle required" });
+
+    const jwt = require("jsonwebtoken");
+    let participantId = null;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET || "devsecret");
+      participantId = payload.userId || payload.user_id || payload.id || null;
+    } catch (e) {
+      return res.status(401).json({ error: "invalid token" });
+    }
+    if (!participantId || !mongoose.Types.ObjectId.isValid(participantId)) {
+      return res.status(401).json({ error: "invalid participant id in token" });
+    }
+    const participantObjectId = new mongoose.Types.ObjectId(participantId);
+
+    // --- ensure conversation exists and requester is a participant ---
+    const convo = await Conversation.findById(conversationId).lean();
+    if (!convo) return res.status(404).json({ error: "conversation not found" });
+
+    // participants are stored as objects: { user: ObjectId, role, ... }
+    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
+    const requesterEntry = participantsArr.find(p => {
+      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
+      return uid === String(participantId);
+    });
+
+    if (!requesterEntry) {
+      return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
+    }
+
+    // Determine the "other" participant(s) — here we pick the first other user as influencer (if any)
+    const otherUsers = participantsArr
+      .map(p => (p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null)))
+      .filter(uid => uid && uid !== String(participantId));
+
+    const influencerId = otherUsers.length ? otherUsers[0] : null;
+    const influencerObjectId = influencerId ? new mongoose.Types.ObjectId(influencerId) : null;
+
+    // --- build message doc according to new Message schema ---
+    const messagePayload = {
+      conversation: new mongoose.Types.ObjectId(conversationId),
+      sender: participantObjectId,
+      sender_type: "user",
+      recipients: influencerObjectId ? [influencerObjectId] : [],
+      text: String(text || ""),
+      attachments: Array.isArray(attachments) ? attachments : [], // attachments must match your AttachmentSchema shape
+      status: "sent",
+      is_deleted: false
+    };
+
+    const created = await Message.create(messagePayload);
+
+    // populate sender for emission & response (lightweight)
+    const populatedMessage = await Message.findById(created._id)
+      .populate({ path: "sender", select: "_id name handleUserName picture" })
+      .lean();
+
+    // --- update conversation: set last_message to message _id and increment unread count for influencer ---
+    const updateOps = {
+      $set: { last_message: created._id, updatedAt: new Date() }
+    };
+    if (influencerId) {
+      updateOps.$inc = { [`unread_counts.${influencerId}`]: 1 };
+    }
+    await Conversation.findByIdAndUpdate(convo._id, updateOps);
+
+    // --- socket emission (if io exists on app) ---
+    const io = req.app.get("io");
+    if (io) {
+      // emit to influencer-specific room and conversation room
+      if (influencerId) {
+        io.to(`influencer:${String(influencerId)}`).emit("message:received", { message: populatedMessage });
+      }
+      io.to(`conversation:${String(convo._id)}`).emit("message:received", { message: populatedMessage });
+    }
+
+    return res.json({ ok: true, message: populatedMessage });
+  } catch (err) {
+    console.error("POST /messages/send error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+router.post("/conversations/find-or-create", authenticateParticipant, async (req, res) => {
+  try {
+    const { subdomain } = req.body || {};
+    console.log('hit : ', req.body);
+    if (!subdomain) return res.status(400).json({ error: "subdomain required" });
+
+    // fetch influencer by subdomain/handle (case-insensitive optional)
+    const influencer = await USER.findOne({ handleUserName: subdomain }).lean();
+    if (!influencer) return res.status(404).json({ error: "influencer not found" });
+
+    // get participant id from authenticateToken middleware
+    const participantIdRaw = req.user?.id || req.user?.userId || req.user?.user_id || req.user?._id || null;
+    if (!participantIdRaw) return res.status(401).json({ error: "participant not authenticated" });
+    if (!mongoose.Types.ObjectId.isValid(participantIdRaw)) return res.status(400).json({ error: "invalid participant id" });
+
+    const influencerId = String(influencer._id);
+    const participantId = String(participantIdRaw);
+
+    // prevent creating a DM with self
+    if (influencerId === participantId) {
+      return res.status(400).json({ error: "cannot create conversation with yourself" });
+    }
+
+    // build deterministic sorted participant ids string (lexicographic)
+    const sortedIds = [influencerId, participantId].map(s => String(s)).sort();
+    const participant_ids_sorted = sortedIds.join("|");
+
+    // try to find an existing DM by the deterministic key
+    const existing = await Conversation.findOne({
+      participant_ids_sorted,
+      "metadata.conversation_type": "dm",
+      is_deleted: { $ne: true }
+    }).lean();
+
+    if (existing) {
+      return res.json({ conversation: existing });
+    }
+
+    // not found -> create new conversation doc
+    const participants = [
+      {
+        user: new mongoose.Types.ObjectId(influencerId),
+        role: "influencer",     // keep influencer role as before
+        joined_at: new Date()
+      },
+      {
+        user: new mongoose.Types.ObjectId(participantId),
+        role: "member",         // <-- use "member" (valid enum in your schema) instead of "participant"
+        joined_at: new Date()
+      }
+    ];
+
+    const toInsert = {
+      participants,
+      participant_ids_sorted,
+      last_message: null, // no messages yet; Message._id will be set once messages exist
+      unread_counts: { [influencerId]: 0, [participantId]: 0 },
+      metadata: { conversation_type: "dm", title: null, tags: [], pinned: false }
+    };
+
+    let convo;
+    try {
+      convo = await Conversation.create(toInsert);
+    } catch (err) {
+      // Handle race: another process may have created the same conversation
+      if (err && err.code === 11000) {
+        const existingAgain = await Conversation.findOne({
+          participant_ids_sorted,
+          "metadata.conversation_type": "dm",
+          is_deleted: { $ne: true }
+        }).lean();
+        if (existingAgain) return res.json({ conversation: existingAgain });
+      }
+      // bubble other errors
+      throw err;
+    }
+
+    return res.json({ conversation: convo });
+  } catch (err) {
+    console.error("POST /conversations/find-or-create error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+router.get('/store-status', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: missing user id' });
+    }
+
+    // Only fetch the one field; use bracket notation because of the hyphen in the key.
+    const user = await USER.findById(
+      userId,
+      { ['store_enabled']: 1 }, // projection
+    ).lean();
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const enabled = Boolean(user?.['store_enabled']);
+    return res.json({ enabled });
+  } catch (err) {
+    console.error('GET /store-status failed:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+router.get('/dm-inbox-status', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: missing user id' });
+    }
+
+    // Only fetch the one field; use bracket notation because of the hyphen in the key.
+    const user = await USER.findById(
+      userId,
+      { ['dm_enabled']: 1 },
+    ).lean();
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const enabled = Boolean(user?.['dm_enabled']);
+    return res.json({ enabled });
+  } catch (err) {
+    console.error('GET /store-status failed:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+router.post("/enable-dm-inbox", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    // Accept { enabled: true/false } in body; default to true if not provided
+    const { enabled = true } = req.body ?? {};
+
+    // validate boolean-ish values
+    const dmEnabled = enabled === true || enabled === "true" || enabled === 1 || enabled === "1";
+
+    // Update the user's document
+    const update = { $set: { dm_enabled: dmEnabled } };
+
+    // findOneAndUpdate returns the previous by default; pass { new: true } to get updated document
+    const updated = await USER.findOneAndUpdate(
+      { _id: userId },
+      update,
+      { new: true, projection: { dm_enabled: 1, _id: 0 } }
+    ).lean();
+
+    if (!updated) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.json({ success: true, enabled: Boolean(updated.dm_enabled) });
+  } catch (err) {
+    console.error("POST /enable-dm-inbox error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+router.get("/messages/:conversationId", authenticateToken, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ error: "invalid conversation id" });
+    }
+
+    // ensure requester identity is present
+    const authId = req.user?.user_id;
+
+    if (!authId || !mongoose.Types.ObjectId.isValid(authId)) {
+      return res.status(401).json({ error: "unauthenticated" });
+    }
+
+    // load conversation and participants (lightweight)
+    const convo = await Conversation.findById(conversationId)
+      .populate({ path: "participants.user", select: "_id name handleUserName picture email" })
+      .lean();
+    if (!convo) return res.status(404).json({ error: "conversation not found" });
+
+    // check if requester is participant
+    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
+    const isParticipant = participantsArr.some(p => {
+      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
+      return uid === authId;
+    });
+
+    if (!isParticipant) {
+      // strict access control — change if influencer/dashboard-level access is allowed
+      return res.status(403).json({ error: "not authorized for this conversation" });
+    }
+
+    // fetch messages using new Message schema fields
+    const msgs = await Message.find({ conversation: conversationId, is_deleted: false })
+      .sort({ createdAt: 1 })
+      .populate({ path: "sender", select: "_id name handleUserName picture" })
+      .populate({ path: "recipients", select: "_id name handleUserName picture" })
+      .lean();
+
+    // normalize minimal fields the frontend expects (optional)
+    const normalized = msgs.map(m => ({
+      _id: m._id,
+      conversation_id: String(m.conversation || conversationId),
+      senderId: m.sender ? String(m.sender._id) : null,
+      sender: m.sender ? {
+        _id: m.sender._id,
+        name: m.sender.name,
+        handleUserName: m.sender.handleUserName,
+        picture: m.sender.picture
+      } : null,
+      recipients: Array.isArray(m.recipients) ? m.recipients.map(r => ({
+        _id: r._id,
+        name: r.name,
+        handleUserName: r.handleUserName,
+        picture: r.picture
+      })) : [],
+      text: m.text || "",
+      attachments: m.attachments || [],
+      status: m.status || "sent",
+      created_at: m.createdAt || m.created_at || null,
+      raw: m // remove this in production if not needed
+    }));
+
+    return res.json({ ok: true, conversation: convo, messages: normalized });
+  } catch (err) {
+    console.error("GET /messages/:conversationId error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+
+router.post("/influencer/messages", authenticateToken, async (req, res) => {
+  try {
+    const user_id = req.user?.user_id || req.user?.id || req.user?._id;
+    let { limit = 200, skip = 0 } = req.body || {};
+    limit = Math.min(parseInt(limit, 10) || 200, 1000);
+    skip = parseInt(skip, 10) || 0;
+
+    if (!user_id || !mongoose.Types.ObjectId.isValid(user_id)) {
+      return res.status(400).json({ error: "user_id required and must be valid" });
+    }
+    const influencerObjectId = new mongoose.Types.ObjectId(user_id);
+    const ObjectId = mongoose.Types.ObjectId;
+
+    // Aggregation: pick latest incoming message per conversation (or per sender if no conversation)
+    const pipeline = [
+      // only non-deleted messages
+      { $match: { is_deleted: false } },
+
+      // join conversation to inspect participants (if any)
+      {
+        $lookup: {
+          from: "conversations",
+          localField: "conversation",
+          foreignField: "_id",
+          as: "conversation"
+        }
+      },
+      { $unwind: { path: "$conversation", preserveNullAndEmptyArrays: true } },
+
+      // identify messages that are effectively "incoming" to influencer:
+      // - recipients array explicitly contains influencerId OR
+      // - conversation exists and influencer is a participant and sender != influencer
+      {
+        $match: {
+          $or: [
+            { recipients: influencerObjectId },
+            {
+              $and: [
+                { "conversation.participants.user": influencerObjectId },
+                { $expr: { $ne: ["$sender", influencerObjectId] } }
+              ]
+            }
+          ]
+        }
+      },
+
+      // newest first so $first in grouping is latest
+      { $sort: { createdAt: -1 } },
+
+      // group by conversation (if exists) else by sender (for one-off messages)
+      {
+        $group: {
+          _id: { $ifNull: ["$conversation._id", "$sender"] },
+          doc: { $first: "$$ROOT" }
+        }
+      },
+
+      // flatten back to message doc
+      { $replaceRoot: { newRoot: "$doc" } },
+
+      // optional pagination
+      { $skip: skip },
+      { $limit: limit },
+
+      // populate sender from users collection (if sender is a user)
+      {
+        $lookup: {
+          from: "users",
+          localField: "sender",
+          foreignField: "_id",
+          as: "user_sender"
+        }
+      },
+      { $unwind: { path: "$user_sender", preserveNullAndEmptyArrays: true } },
+
+      // populate sender from participant_users collection (if sender is a participant_user)
+      {
+        $lookup: {
+          from: "participant_users",
+          localField: "sender",
+          foreignField: "_id",
+          as: "participant_sender"
+        }
+      },
+      { $unwind: { path: "$participant_sender", preserveNullAndEmptyArrays: true } },
+
+      // project minimal fields
+      {
+        $project: {
+          _id: 1,
+          conversation: 1,
+          conversation_id: "$conversation",
+          sender: 1,
+          user_sender: {
+            _id: "$user_sender._id",
+            name: "$user_sender.name",
+            handleUserName: "$user_sender.handleUserName",
+            picture: "$user_sender.picture"
+          },
+          participant_sender: {
+            _id: "$participant_sender._id",
+            name: "$participant_sender.name",
+            email: "$participant_sender.email",
+            picture: "$participant_sender.picture"
+          },
+          guest_info: 1,
+          text: 1,
+          createdAt: 1
+        }
+      }
+    ];
+
+    const results = await Message.aggregate(pipeline).exec();
+
+    // normalize rows for frontend
+    const rows = results.map(m => {
+      // determine from id and name precedence: participant_sender -> user_sender -> guest_info.name
+      const fromParticipantId = m.participant_sender && m.participant_sender._id ? String(m.participant_sender._id) : null;
+      const fromUserId = m.user_sender && m.user_sender._id ? String(m.user_sender._id) : null;
+      const fromId = fromParticipantId || fromUserId || (m.sender ? String(m.sender) : null);
+
+      const fromName = (m.participant_sender && (m.participant_sender.name || m.participant_sender.email))
+        || (m.user_sender && (m.user_sender.name || m.user_sender.handleUserName))
+        || (m.guest_info && m.guest_info.name)
+        || "Unknown";
+
+      return {
+        _id: m._id,
+        conversation_id: m.conversation && m.conversation._id ? String(m.conversation._id) : (m.conversation_id ? String(m.conversation_id) : null),
+        from_id: fromId,
+        from_name: fromName,
+        text: m.text || "",
+        created_at: m.createdAt || null
+      };
+    });
+
+    return res.json({ ok: true, conversations: rows, total: rows.length });
+  } catch (err) {
+    console.error("POST /influencer/messages error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+router.post("/enable-store", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    // Accept { enabled: true/false } in body; default to true if not provided
+    const { enabled = true } = req.body ?? {};
+
+    // validate boolean-ish values
+    const storeEnabled = enabled === true || enabled === "true" || enabled === 1 || enabled === "1";
+
+    // Update the user's document
+    const update = { $set: { store_enabled: storeEnabled } };
+
+    // findOneAndUpdate returns the previous by default; pass { new: true } to get updated document
+    const updated = await USER.findOneAndUpdate(
+      { _id: userId },
+      update,
+      { new: true, projection: { store_enabled: 1, _id: 0 } }
+    ).lean();
+
+    if (!updated) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.json({ success: true, enabled: Boolean(updated.store_enabled) });
+  } catch (err) {
+    console.error("POST /enable-store error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/product-click-analytics", async (req, res) => {
   try {
 
@@ -436,6 +1143,14 @@ router.get("/verify-login-token", authenticateToken, (req, res) => {
   
 });
 
+router.get("/verify-participant-login-token", authenticateParticipant, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ valid: false });
+  }
+  return res.status(200).json({ valid: true, user: req.user });
+  
+});
+
 
 router.post("/user-login-gmail", async (req, res) => {
   try {
@@ -463,6 +1178,53 @@ router.post("/user-login-gmail", async (req, res) => {
 
     // Cookie options: adjust for your environment (see notes below)
     res.cookie("tokenMyhandleProf", token, {
+      httpOnly: true,
+      secure: false,    // set true in production when using HTTPS
+      sameSite: "Lax",  // or 'None' if your frontend is on a different domain and you use HTTPS
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: wasNew ? "User registered successfully" : "User logged in successfully",
+      user: {
+        user_id: user._id,
+        user_email: user.email,
+      },
+      token,
+      wasNew
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ error: "Internal server error", message: "An error occurred" });
+  }
+});
+
+router.post("/participant-user-login-gmail", async (req, res) => {
+  try {
+    const { email, firstName, lastName, picture } = req.body;
+    console.log("email : ", email);
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    let user = await ParticipantUser.findOne({ email });
+    let wasNew = false;
+
+    if (!user) {
+      user = await ParticipantUser.create({
+        email,
+        name: `${firstName || ""} ${lastName || ""}`.trim(),
+        picture,
+        is_google_user: true,
+      });
+      wasNew = true;
+    }
+
+    const token = await generateJWTtoken(user._id, user.email);
+
+    // Cookie options: adjust for your environment (see notes below)
+    res.cookie("tokenParticipantMyHandle", token, {
       httpOnly: true,
       secure: false,    // set true in production when using HTTPS
       sameSite: "Lax",  // or 'None' if your frontend is on a different domain and you use HTTPS
@@ -604,7 +1366,7 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   
       if(result){
   
-      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture, intro: result.intro, leftHeadImage: result.leftHeadImage, rightTopImage: result.rightTopImage, rightBottomImage: result.rightBottomImage, store_enabled: result.store_enabled}});
+      res.status(200).send({ success: true, data: { name: result.name, handleUserName: result.handleUserName, picture : result.picture, intro: result.intro, leftHeadImage: result.leftHeadImage, rightTopImage: result.rightTopImage, rightBottomImage: result.rightBottomImage, store_enabled: result.store_enabled, dm_enabled: result.dm_enabled}});
       res.end();
 
   

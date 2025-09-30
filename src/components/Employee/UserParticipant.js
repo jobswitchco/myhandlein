@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from 'axios';
@@ -8,7 +8,7 @@ import {
   Typography,
   Grid
 } from '@mui/material';
-import {login} from '../../store/professionalSlice';
+import {login} from '../../store/participantSlice';
 import { useDispatch} from 'react-redux';
 import { toast } from "react-toastify";
 import CircularProgress from '@mui/material/CircularProgress';
@@ -18,14 +18,45 @@ import { useGoogleLogin } from '@react-oauth/google';
 import GmailIcon from '../../images/google.png';
 import wallBack from '../../images/wallback.jpg';
 
-function WaitlistSignup() {
+function UserParticipant() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
-  // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl="/api/usersOn";
+  const baseUrl = "/api/usersOn";
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const subdomainRef = useRef("");
+  
+  
+
+    useEffect(() => {
+      let computed = "";
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const q = params.get("subdomain")?.trim();
+        if (q) {
+          computed = q;
+        } else {
+          const host = window.location?.hostname || "";
+          // fallback: pick first label, but ignore 'localhost' and direct IPs
+          const firstLabel = host.split(".")[0] || "";
+          const isIP = /^\d+\.\d+\.\d+\.\d+$/.test(host);
+          if (firstLabel && firstLabel !== "localhost" && !isIP) {
+            computed = firstLabel;
+          } else {
+            computed = ""; // treat localhost/IP as no subdomain
+          }
+        }
+      } catch (err) {
+        console.warn("subdomain extraction error", err);
+        computed = "";
+      }
+  
+      subdomainRef.current = computed;
+    
+    }, []);
+
+
 
 
   useEffect(() => {
@@ -38,9 +69,10 @@ function WaitlistSignup() {
       useEffect(() => {
       const verifyToken = async () => {
         try {
-          const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
+          const res = await axios.get(`${baseUrl}/verify-participant-login-token`, { withCredentials: true });
           if (res.data.valid) {
-            navigate("/professional/user/bio");
+             const subdomainToSend = subdomainRef.current;
+navigate(`/chat-window?subdomain=${encodeURIComponent(subdomainToSend)}`);
           } else {
             setIsLoading(false);
           }
@@ -56,9 +88,13 @@ function WaitlistSignup() {
 const handleLoginSuccess = async (email_gm, firstName, lastName, picture) => {
   setIsLoading(true);
   try {
+
+    
     console.log('email_gm : ', email_gm);
+    const subdomainToSend = subdomainRef.current;
+
     const res = await axios.post(
-      baseUrl + "/user-login-gmail",
+      baseUrl + "/participant-user-login-gmail",
       { email: email_gm, firstName, lastName, picture },
       { withCredentials: true }
     );
@@ -68,19 +104,15 @@ const handleLoginSuccess = async (email_gm, firstName, lastName, picture) => {
     // safe guard: check data object
     const data = res?.data || {};
 
-    if(data.success && data.wasNew){
+    if(data.success ){
       dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
        setIsLoading(false);
-      navigate("/creator/onboarding");
+  const subdomainToSend = subdomainRef.current;
+navigate(`/chat-window?subdomain=${encodeURIComponent(subdomainToSend)}`);
 
     }
 
-      else if(data.success && !data.wasNew){
-      dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
-       setIsLoading(false);
-      navigate("/professional/user/bio");
-
-    }
+   
     else{
 
       toast.error("Something Wrong. Please login again.");
@@ -293,4 +325,4 @@ sx={{
   )
 }
 
-export default WaitlistSignup
+export default UserParticipant

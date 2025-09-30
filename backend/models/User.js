@@ -2,100 +2,33 @@ import mongoose from "mongoose";
 const { Schema } = mongoose;
 
 const User_Schema = new Schema({
-
-  email: {
-    type: String,
-    required: true,
-  },
-
-  name: {
-    type: String,
-  },
-
-    intro: {
-    type: String,
-  },
-
-  sub: {
-    type: String,
-  },
-
-  picture: {
-    type: String,
-  },
-
-  leftHeadImage: {
-    type: String,
-  },
-
-   rightTopImage: {
-    type: String,
-  },
-
-   rightBottomImage: {
-    type: String,
-  },
-
-
-  is_google_user: {
-    type: Boolean
-  },
-
-   handleUserName: {
-    type: String
-  },
-
-  socials: [
-  {
+  email: { type: String, required: true },
+  name: { type: String },
+  intro: { type: String },
+  sub: { type: String },
+  picture: { type: String },
+  leftHeadImage: { type: String },
+  rightTopImage: { type: String },
+  rightBottomImage: { type: String },
+  is_google_user: { type: Boolean },
+  handleUserName: { type: String },
+  socials: [{
     platform: { type: String },
     url: { type: String },
     created_at: { type: Date, default: Date.now },
-  }
-],
-
+  }],
   account_delete_code: { type: Number },
-
-  last_login: {
-    type: Date,
-  },
-
-  loginHistory: [
-    {
-      type: Date,
-    },
-  ],
-
-  free_trial: {
-    type: Boolean,
-    default: true,
-  },
-
-   store_enabled: {
-    type: Boolean,
-    default: false,
-  },
-
-  free_trial_started_date: {
-    type: Date,
-    default: Date.now,
-
-  },
-
-
-  is_del: {
-    type: Boolean,
-    default: false,
-  },
-
-  created_at: {
-    type: Date,
-    default: Date.now,
-  },
-
-  updated_at: {
-    type: Date,
-  },
+  last_login: { type: Date },
+  loginHistory: [{ type: Date }],
+  free_trial: { type: Boolean, default: true },
+  store_enabled: { type: Boolean, default: false },
+  dm_enabled: { type: Boolean, default: false },
+  free_trial_started_date: { type: Date, default: Date.now },
+  is_del: { type: Boolean, default: false },
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date },
 });
 
-const User_Schema_Model = mongoose.model("users", User_Schema);
-export default User_Schema_Model;
+// Register model as "User" but use existing collection "users"
+const User = mongoose.models.User || mongoose.model("User", User_Schema, "users");
+export default User;

@@ -1,571 +1,2534 @@
-import React, { useState, useEffect }from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
-import PropTypes from "prop-types";
-import {
-  AppBar,
-  Toolbar,
-  IconButton,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Box,
-  useMediaQuery,
-  Typography,
-  Menu,
-  Divider,
-  MenuItem,
-  LinearProgress
-} from "@mui/material";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import DateRangeOutlinedIcon from '@mui/icons-material/DateRangeOutlined';
-import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
-import { deepOrange, blue, green, brown } from "@mui/material/colors";
-import logo from "../../images/postln_logo.svg";
-import axios from "axios";
+// ProfileBlocksEditor.js
+import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "react-toastify/dist/ReactToastify.css";
+import {
+  Avatar,
+  Box,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Grid,
+  IconButton,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  useTheme,
+  Snackbar,
+  Tabs,
+  Tab,
+  CircularProgress,
+  Tooltip,
+  FormControl,
+  FormLabel,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  Menu,
+  MenuItem,
+  Button,
+  ClickAwayListener,
+  Switch
+} from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import { styled } from "@mui/material/styles";
+import EditIcon from "@mui/icons-material/Edit";
+import LinkIcon from "@mui/icons-material/Link";
+import AddIcon from "@mui/icons-material/Add";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import DeleteIcon from "@mui/icons-material/Delete";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
+import SaveIcon from "@mui/icons-material/Save";
+import ShareIcon from "@mui/icons-material/Share";
+import YouTubeIcon from "@mui/icons-material/YouTube";
+import TwitterIcon from "@mui/icons-material/Twitter";
+import InstagramIcon from "@mui/icons-material/Instagram";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import MovieIcon from "@mui/icons-material/Movie";
+import axios from "axios";
 import { toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-const theme = createTheme({
-  palette: {
-    primary: { main: deepOrange[500] },
-    secondary: { main: green[500] },
+// ---------- Responsive Custom styled buttons ----------
+const PrimaryBtn = styled("button")(({ theme }) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  border: "none",
+  cursor: "pointer",
+  padding: "10px 16px",
+  borderRadius: 999,
+  color: "#fff",
+  fontWeight: 700,
+  background: "linear-gradient(90deg,#7c3aed,#9f7aea)",
+  boxShadow: "0 8px 24px rgba(124,58,237,0.14)",
+  transition: "transform .12s ease, box-shadow .12s ease",
+  fontSize: 14,
+  textTransform: "none",
+  [theme.breakpoints.down("sm")]: {
+    width: "100%",
+    justifyContent: "center",
+    padding: "12px 14px",
   },
+}));
+
+const ShareUrlBtn = styled("button")(({ theme }) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  border: "none",
+  cursor: "pointer",
+  padding: "8px 14px",
+  borderRadius: 999,
+  color: "#fff",
+  fontFamily: "Inter",
+  fontWeight: 600,
+  background: "linear-gradient(90deg,#7c3aed,#9f7aea)",
+  boxShadow: "0 8px 24px rgba(124,58,237,0.14)",
+  transition: "transform .12s ease, box-shadow .12s ease",
+  fontSize: 12,
+  textTransform: "none",
+  [theme.breakpoints.down("sm")]: {
+    width: "100%",
+    justifyContent: "center",
+    padding: "10px 12px",
+  },
+}));
+
+const GhostBtn = styled("button")(({ theme }) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  border: "1px solid rgba(99,102,241,0.14)",
+  cursor: "pointer",
+  padding: "8px 14px",
+  borderRadius: 999,
+  color: "#374151",
+  background: "#FFF",
+  fontFamily: "Inter",
+  fontWeight: 600,
+  fontSize: 12,
+  textTransform: "none",
+  [theme.breakpoints.down("sm")]: {
+    width: "100%",
+    justifyContent: "center",
+    padding: "10px 12px",
+  },
+}));
+
+const HandleBtn = styled("button")(({ theme }) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  border: "1px solid rgba(99,102,241,0.14)",
+  padding: "8px 14px",
+  borderRadius: 999,
+  color: "#374151",
+  background: "#FFF",
+  textTransform: "none",
+  [theme.breakpoints.down("sm")]: {
+    width: "100%",
+    justifyContent: "center",
+    padding: "10px 12px",
+  },
+}));
+
+const AddPill = styled("button")(({ theme }) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
+  border: "none",
+  cursor: "pointer",
+  padding: "10px 18px",
+  borderRadius: 999,
+  color: "#fff",
+  fontWeight: 700,
+  background: "#6d28d9",
+  boxShadow: "0 12px 30px rgba(99,102,241,0.12)",
+  fontSize: 14,
+  [theme.breakpoints.down("sm")]: {
+    width: "100%",
+    justifyContent: "center",
+    padding: "12px 14px",
+  },
+}));
+
+// ---------- Component ----------
+export default function ProfileBlocksEditor() {
+  const theme = useTheme();
+  const navigate = useNavigate();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingIntro, setIsEditingIntro] = useState(false);
+  const fileInputRef = useRef(null);
+  const [avatarHover, setAvatarHover] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [tempLink, setTempLink] = useState("");
+  const [name, setName] = useState("");
+  const [userIntro, setUserIntro] = useState("");
+  const [link, setLink] = useState("");
+  const [copySnackOpen, setCopySnackOpen] = useState(false);
+  const baseUrl = "/api/usersOn";
+  const [userDetails, setUserDetails] = useState({});
+const addCloseTimer = useRef(null);
+  // ---------- Form submission dialog state ----------
+  const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [currentFormBlock, setCurrentFormBlock] = useState(null); // the block user clicked
+  const [formValues, setFormValues] = useState({}); // { fieldKey: value }
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({}); // { fieldKey: "error message" }
+    const [dmEnabled, setDmEnabled] = useState(false);
+    const [toggling, setToggling] = useState(false);
+
+  function openFormDialog(block) {
+    // block.raw.fields OR JSON in block.action
+    let fields = block.raw?.fields;
+    if (!fields && typeof block.action === "string") {
+      try {
+        fields = JSON.parse(block.action).fields;
+      } catch {}
+    }
+    fields = fields || [];
+
+    // Build initial values object using field.key (fallback to label)
+    const values = {};
+    fields.forEach((f, i) => {
+      const key =
+        f.key ||
+        f.name ||
+        f.label?.toLowerCase().replace(/\s+/g, "_") ||
+        uid("fldkey");
+      if (f.type === "radio") {
+        // default to empty so user must choose (change to f.options?.[0] to auto-select)
+        values[key] = "";
+      } else {
+        values[key] = "";
+      }
+    });
+
+    setCurrentFormBlock({
+      ...block,
+      _renderFields: fields.map((f, i) => ({ ...f, _key: f.key || `f_${i}` })),
+    });
+    setFormValues(values);
+    setFormErrors({});
+    setFormDialogOpen(true);
+  }
+
+  function closeFormDialog() {
+    setFormDialogOpen(false);
+    setCurrentFormBlock(null);
+    setFormValues({});
+    setFormErrors({});
+  }
+
+  // Social state
+  const [socials, setSocials] = useState([]); // list fetched from backend
+  const [loadingSocials, setLoadingSocials] = useState(false);
+  const [addingSocial, setAddingSocial] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState(null); // 'youtube' | 'twitter' ...
+  const [socialUrl, setSocialUrl] = useState("");
+  const [socialApiMsg, setSocialApiMsg] = useState(null);
+
+  const PLATFORMS = [
+    { key: "youtube", label: "YouTube", Icon: YouTubeIcon },
+    { key: "twitter", label: "Twitter", Icon: TwitterIcon },
+    { key: "linkedin", label: "LinkedIn", Icon: LinkedInIcon },
+    { key: "whatsapp", label: "WhatsApp", Icon: WhatsAppIcon },
+    { key: "instagram", label: "Instagram", Icon: InstagramIcon },
+  ];
+
+  const availablePlatforms = PLATFORMS.filter(
+    (p) =>
+      !socials.some(
+        (s) => String(s.platform).toLowerCase() === String(p.key).toLowerCase()
+      )
+  );
+
+  // blocks + drag & drop
+  const [blocks, setBlocks] = useState([]);
+  const [draggingId, setDraggingId] = useState(null);
+
+  // Add block dialog
+  const [addOpen, setAddOpen] = useState(false);
+  const [newBlockName, setNewBlockName] = useState("");
+  const [newBlockAction, setNewBlockAction] = useState("");
+  const [tab, setTab] = useState("link");
+
+// Per-slot uploading flags (so each slot shows its own spinner)
+const [uploadingHeader, setUploadingHeader] = useState({
+  headerImage1: false,
+  headerImage2: false,
+  headerImage3: false,
 });
 
-const ResponsiveDrawer = ({ window }) => {
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [anchorEl, setAnchorEl] = React.useState(null);
-  const location = useLocation();
-  const [greeting, setGreeting] = useState("");
-  const [userName, setUserName] = useState("");
-  const [freeTrialDaysLeft, setFreeTrialLeftDays] = useState("");
-  const [profilePicture, setProfilePicture] = useState("");
-  const baseUrl = "http://localhost:8001/usersOn";
-  const [currentTime, setCurrentTime] = useState(new Date());
-    const navigate = useNavigate();
-
-
-
-
-    const handleSessionExpired = () => {
-              toast.error("Session expired. Please log in again.");
-              setTimeout(() => {
-    
-                navigate('/professional/login');
-                
-              }, 1500);
-            };
-
-useEffect(() => {
-  const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-  return () => clearInterval(interval);
-}, []);
-
-useEffect(() => {
-  const getGreeting = () => {
-    const now = new Date();
-    const hour = now.getHours();
-    if (hour < 12) return "Good morning";
-    else if (hour < 18) return "Good afternoon";
-    else return "Good evening";
-  };
-
-  setGreeting(getGreeting());
-
-const fetchUserName = async () => {
-  // try {
-  //   const response = await axios.get(`${baseUrl}/get-user-name-image`, {
-  //     withCredentials: true,
-  //   });
-  //   setUserName(response.data.name);
-  //   setProfilePicture(response.data.profilePicture);
-  //   setFreeTrialLeftDays(response.data.freeTrialDaysLeft);
-  // } catch (error) {
-  //   if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-  //     handleSessionExpired();
-  //   } else {
-  //     console.error("Failed to fetch user name:", error);
-  //     handleSessionExpired();
-  //     setUserName("");
-  //     toast.error("Failed to fetch user information.");
-  //   }
-  // }
-};
-
-  fetchUserName();
-}, []);
-
-
-const getHeaderTitle = () => {
-  switch (location.pathname) {
-    case "/professional/myposts":
-      return {
-        title: "My posts",
-        subtitle: "Posts you've created with PostLn."
-      };
-    case "/professional/newsletters":
-      return {
-        title: "Newsletters",
-        subtitle: "Your latest AI-crafted newsletters"
-      };
+// maps the frontend key to the position value the backend accepts
+function positionForKey(key) {
+  switch (key) {
+    case "headerImage1":
+    case "leftHeadImage":
+      return "left";           // backend will normalize to leftHeadImage
+    case "headerImage2":
+    case "rightTopImage":
+      return "rightTop";       // backend -> rightTopImage
+    case "headerImage3":
+    case "rightBottomImage":
+      return "rightBottom";    // backend -> rightBottomImage
     default:
-      return {
-        title: `${greeting}, ${userName}! 🖐️`,
-        subtitle: null
-      };
+      return null;
   }
-};
+}
+
+  async function fetchStoreStatus() {
+    try {
+      // If you already have an endpoint to get status, adjust path accordingly.
+      const res = await axios.get(`${baseUrl}/dm-inbox-status`, { withCredentials: true });
+      // Expect { enabled: true/false }
+      if (res?.data?.enabled !== undefined) setDmEnabled(Boolean(res.data.enabled));
+    } catch (err) {
+      // If /store-status is not available, silently ignore. You can remove this catch or show a toast.
+      console.warn("Could not fetch store status (expected GET /store-status).", err);
+    }
+  }
+
+ async function toggleStoreEnabled(nextValue) {
+    // optimistic UI
+    const previous = dmEnabled;
+    setDmEnabled(nextValue);
+    setToggling(true);
+
+    try {
+      // backend router expected: POST /enable-store
+      // sending { enabled: true/false } in body
+      await axios.post(
+        `${baseUrl}/enable-dm-inbox`,
+        { enabled: nextValue },
+        { withCredentials: true }
+      );
+          await fetchData();
+      // success — nothing else required, state already updated
+    } catch (err) {
+      console.error("Error toggling store enable:", err);
+      // revert optimistic update
+      setDmEnabled(previous);
+      alert("Failed to update store status. Please try again.");
+    } finally {
+      setToggling(false);
+    }
+  }
+
+async function handleHeaderImageChange(e, key) {
+  const file = e?.target?.files?.[0];
+  if (!file) return;
+
+  const slotKey = key || "headerImage1";
+  const position = positionForKey(slotKey);
+  if (!position) {
+    console.warn("Unknown header image key", slotKey);
+    return;
+  }
+
+  try {
+    // show spinner for this slot
+    setUploadingHeader((s) => ({ ...s, [slotKey]: true }));
+
+    const fd = new FormData();
+    fd.append("image", file);
+    fd.append("position", position);
+
+    // send to your endpoint - using baseUrl from earlier
+    const res = await axios.post(`${baseUrl}/upload-header-image`, fd, {
+      withCredentials: true,
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (progressEvent) => {
+        // optional: you could track progressEvent.loaded / total here
+      },
+    });
+
+    if (res?.data?.success) {
+      // server returns updated user doc or url — prefer returned user fields if present
+      const returnedUser = res.data.user;
+      if (returnedUser) {
+        // merge the three fields if returned
+        setUserDetails((prev) => ({
+          ...prev,
+          leftHeadImage: returnedUser.leftHeadImage ?? prev.leftHeadImage,
+          rightTopImage: returnedUser.rightTopImage ?? prev.rightTopImage,
+          rightBottomImage: returnedUser.rightBottomImage ?? prev.rightBottomImage,
+        }));
+      } else if (res.data.url) {
+        // fallback: update only the target field locally from returned URL
+        // convert returnedField to local key (server uses leftHeadImage/rightTopImage/rightBottomImage)
+        const returnedField = res.data.updatedField;
+        if (returnedField) {
+          setUserDetails((prev) => ({ ...prev, [returnedField]: res.data.url }));
+        }
+      }
+
+      setApiSnack({ open: true, message: "Image uploaded" });
+    } else {
+      setApiSnack({ open: true, message: res?.data?.message || "Upload failed" });
+      console.error("upload failed response", res?.data);
+    }
+  } catch (err) {
+    console.error("upload error", err);
+    setApiSnack({ open: true, message: err?.response?.data?.message || err.message || "Upload failed" });
+  } finally {
+    // hide spinner for this slot
+    setUploadingHeader((s) => ({ ...s, [slotKey]: false }));
+    // clear the file input value so the same file can be reselected if needed
+    try { e.target.value = ""; } catch (ignore) {}
+  }
+}
 
 
 
 
-  const handleDrawerToggle = () => {
-    setMobileOpen((prev) => !prev);
+  // --- Form tab state (dynamic fields) ---
+  const [formFields, setFormFields] = useState([]);
+
+  const uid = (prefix = "f") =>
+    `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  function defaultFormFields() {
+    return [
+      {
+        id: uid("name"),
+        key: "name",
+        label: "Name",
+        type: "text",
+        placeholder: "",
+        required: true,
+      },
+    ];
+  }
+
+  function addFormField() {
+    setFormFields((s) => [
+      ...s,
+      {
+        id: uid("fld"),
+        key: `field_${s.length + 1}`,
+        label: "New field",
+        type: "text",
+        placeholder: "",
+        required: false,
+      },
+    ]);
+  }
+
+
+
+
+  function updateFormField(id, patch) {
+    setFormFields((s) => s.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  }
+
+  function removeFormField(id) {
+    setFormFields((s) => s.filter((f) => f.id !== id));
+  }
+
+  // --------- NEW: Add Field hover/menu state + helpers ----------
+  // ---------- Add Field hover/menu state + helpers (single robust implementation) ----------
+  const [addAnchor, setAddAnchor] = useState(null);
+
+  const ADD_FIELD_TYPES = [
+    { value: "text", label: "Text" },
+    { value: "tel", label: "Phone" },
+    { value: "email", label: "Email" },
+    { value: "radio", label: "Radio" },
+  ];
+
+  // Accept either an Event (from mouse event / click) OR an element reference (e.currentTarget)
+  function openAddMenu(targetOrEvent) {
+    // cancel any pending close timer
+    if (addCloseTimer.current) {
+      clearTimeout(addCloseTimer.current);
+      addCloseTimer.current = null;
+    }
+
+    // if caller passed an event, use currentTarget; otherwise assume it's the anchor element
+    const anchor = targetOrEvent?.currentTarget ?? targetOrEvent ?? null;
+    setAddAnchor(anchor);
+  }
+
+  function closeAddMenu(withDelay = true) {
+    // clear any existing timer first
+    if (addCloseTimer.current) {
+      clearTimeout(addCloseTimer.current);
+      addCloseTimer.current = null;
+    }
+
+    if (withDelay) {
+      // small delay so mouse can transit from button -> menu
+      addCloseTimer.current = setTimeout(() => {
+        setAddAnchor(null);
+        addCloseTimer.current = null;
+      }, 160);
+    } else {
+      setAddAnchor(null);
+    }
+  }
+
+  function createFieldOfType(type) {
+    const id = uid("fld");
+    const base = {
+      id,
+      key: `field_${Date.now().toString(36).slice(2, 7)}`,
+      label: type === "radio" ? "Gender" : "New field",
+      placeholder: "",
+      required: false,
+      type,
+    };
+
+    if (type === "radio") {
+      base.options = ["Male", "Female"];
+    }
+
+    setFormFields((s) => [...s, base]);
+    closeAddMenu(false);
+  }
+
+
+  // API/loading states
+  const [loadingBlocks, setLoadingBlocks] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [savingBlock, setSavingBlock] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [apiSnack, setApiSnack] = useState({ open: false, message: "" });
+
+  const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
+
+  useEffect(() => {
+    fetchSocials();
+    fetchStoreStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchSocials() {
+    setLoadingSocials(true);
+    try {
+      const res = await api.get("/user/socials");
+      setSocials(res.data.socials || []);
+    } catch (err) {
+      console.error("fetchSocials", err);
+      setSocialApiMsg("Failed to load socials");
+    } finally {
+      setLoadingSocials(false);
+    }
+  }
+
+  async function saveSocial() {
+    if (!selectedPlatform || !socialUrl.trim()) {
+      setSocialApiMsg("Pick a platform and enter a URL");
+      return;
+    }
+    setAddingSocial(true);
+    try {
+      const payload = { platform: selectedPlatform, url: socialUrl.trim() };
+      const res = await api.post("/user/socials", payload);
+      const added = res.data.social;
+      if (added) {
+        setSocials((s) => [...s, added]);
+      } else {
+        await fetchSocials();
+      }
+      setSelectedPlatform(null);
+      setSocialUrl("");
+      setSocialApiMsg("Saved");
+    } catch (err) {
+      console.error("saveSocial", err);
+      setSocialApiMsg(err?.response?.data?.message || "Failed to save");
+    } finally {
+      setAddingSocial(false);
+      setTimeout(() => setSocialApiMsg(null), 2000);
+    }
+  }
+
+  async function deleteSocial(id) {
+    try {
+      await api.delete(`/user/socials/${id}`);
+      setSocials((s) => s.filter((x) => String(x._id || x.id) !== String(id)));
+    } catch (err) {
+      console.error("deleteSocial", err);
+      setSocialApiMsg("Delete failed");
+      setTimeout(() => setSocialApiMsg(null), 2000);
+    }
+  }
+
+  const handleSessionExpired = () => {
+    toast.error("Session expired. Please log in again.");
+    setTimeout(() => {
+      navigate("/professional/login");
+    }, 2000);
   };
 
-  const drawerWidth = 220;
+  useEffect(() => {
+    const verifyToken = async () => {
+      setLoading(true);
 
- const drawerContent = (
-  <Box
-    sx={{
-      display: "flex",
-      flexDirection: "column",
-      height: "100vh",
-      backgroundColor: "#F5F7F8",
-      pt: isSmallScreen ? "64px" : 0, 
-    }}
-  >
-    {/* Top section (logo + nav links) */}
-    <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
-      <Toolbar sx={{ justifyContent: "space-between" }}>
-        <Link
-          to="/"
-          style={{
+      try {
+        const res = await axios.get(`${baseUrl}/verify-login-token`, {
+          withCredentials: true,
+        });
+
+        if (res.data.valid) {
+          fetchData();
+        } else {
+          handleSessionExpired();
+        }
+      } catch (error) {
+        if (
+          error.response &&
+          (error.response.status === 401 || error.response.status === 403)
+        ) {
+          handleSessionExpired();
+        } else {
+          toast.error("Network error, please try again later.");
+          handleSessionExpired();
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const ress = await axios.get(baseUrl + "/get-user-details", {
+        withCredentials: true,
+      });
+      if (ress.data.success) {
+        setUserDetails(ress.data.data);
+        setName(ress.data.data.name || "");
+        // The backend may not have an intro yet; use .intro if present
+        setUserIntro(ress.data.data.intro || "");
+      } else {
+        setLoading(false);
+        toast.error("Session expired. Please log in again.");
+        setTimeout(() => {
+          navigate("/professional/login");
+        }, 2000);
+      }
+    } catch (e) {
+      setLoading(false);
+      toast.error("Network error. Please log in again.");
+      setTimeout(() => {
+        navigate("/professional/login");
+      }, 2000);
+    }
+  };
+
+  // ---------- Effects ----------
+  useEffect(() => {
+    fetchBlocks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchBlocks() {
+    setLoadingBlocks(true);
+    try {
+      const res = await axios.get(baseUrl + "/fetch-blocks", {
+        withCredentials: true,
+      });
+      const data = res.data;
+
+      const normalized = (data || []).map((b) => ({
+        id: b._id || b.id,
+        title: b.name || b.title || "",
+        action: b.action || b.url || "",
+        type: b.type || "link",
+        image: b.image,
+        raw: b,
+      }));
+
+      setBlocks(
+        normalized.sort((a, b) => {
+          const ao = a.raw?.order ?? 0;
+          const bo = b.raw?.order ?? 0;
+          return ao - bo;
+        })
+      );
+    } catch (err) {
+      console.error("fetchBlocks error:", err);
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to load blocks";
+      setApiSnack({ open: true, message: msg });
+    } finally {
+      setLoadingBlocks(false);
+    }
+  }
+
+  // ---------- Handlers ----------
+  function handleAvatarClick() {
+    fileInputRef.current?.click();
+  }
+  function handleFileChange(e) {
+    // handle avatar update if needed
+  }
+
+  function openCustomize() {
+    setTempLink(userDetails.handleUserName);
+    setCustomizeOpen(true);
+  }
+  function saveCustomize() {
+    setLink(userDetails.handleUserName);
+    setCustomizeOpen(false);
+  }
+
+  function openAdd() {
+    setNewBlockName("");
+    setNewBlockAction("");
+    setTab("link");
+    setFormFields([]); // ensure Name exists by default
+    setAddOpen(true);
+  }
+
+async function saveAdd() {
+  if (tab !== "form" && !newBlockName.trim()) return;
+  if (tab === "form" && (!newBlockName.trim() && formFields.length === 0)) return;
+
+  setSavingBlock(true);
+
+  const payload = {
+    name: newBlockName.trim() || (tab === "form" ? "Contact form" : "Untitled"),
+    action: newBlockAction.trim(),
+    type: tab === "video" ? "video" : tab === "form" ? "form" : "link",
+  };
+
+  if (tab === "form") {
+    // Ensure each field is normalized and includes options if present
+    payload.fields = formFields.map(({ id, ...rest }) => {
+      // rest.options may be undefined, string, or array — normalize to array
+      let opts = rest.options;
+      if (typeof opts === "string") {
+        opts = opts.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+      if (!Array.isArray(opts)) opts = opts === undefined ? [] : [String(opts)];
+      return { ...rest, options: opts };
+    });
+    // store a JSON preview in action for backwards compatibility
+    payload.action = JSON.stringify({ fields: payload.fields });
+  }
+
+  try {
+    const res = await axios.post(baseUrl + "/save-blocks", payload, {
+      withCredentials: true,
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const saved = res.data;
+
+    const normalized = {
+      id: saved._id || saved.id || `temp-${Date.now()}`,
+      title: saved.name || payload.name,
+      action: saved.action || payload.action,
+      type: saved.type || payload.type,
+      image: saved.image,
+      raw: saved,
+    };
+
+    setBlocks((s) => [...s, normalized]);
+    setAddOpen(false);
+    setApiSnack({ open: true, message: "Block added" });
+  } catch (err) {
+    console.error("saveAdd error:", err);
+    const msg =
+      err?.response?.data?.error ||
+      err?.response?.data?.message ||
+      err?.message ||
+      "Could not save block";
+    setApiSnack({ open: true, message: msg });
+  } finally {
+    setSavingBlock(false);
+  }
+}
+
+
+  async function deleteBlock(id) {
+    // optimistic UI: show spinner for the deleting item
+    setDeletingId(id);
+    try {
+      // call authenticated backend delete route
+      const res = await api.delete(`/delete-block/${id}`);
+      if (res.status === 200 && res.data.success !== false) {
+        // remove locally
+        setBlocks((s) => s.filter((b) => b.id !== id));
+        setApiSnack({ open: true, message: "Block deleted" });
+      } else {
+        // server returned failure
+        const msg = (res.data && (res.data.message || res.data.error)) || "Delete failed";
+        setApiSnack({ open: true, message: msg });
+      }
+    } catch (err) {
+      console.error("deleteBlock error:", err);
+      const msg = err?.response?.data?.message || "Failed to delete";
+      setApiSnack({ open: true, message: msg });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  // Drag & Drop (native)
+  function onDragStart(e, id) {
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = "move";
+    try {
+      e.dataTransfer.setData("text/plain", id);
+    } catch {}
+  }
+  function onDragOver(e, overId) {
+    e.preventDefault();
+    if (!draggingId || draggingId === overId) return;
+    setBlocks((prev) => {
+      const arr = [...prev];
+      const from = arr.findIndex((x) => x.id === draggingId);
+      const to = arr.findIndex((x) => x.id === overId);
+      if (from === -1 || to === -1) return prev;
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return arr;
+    });
+  }
+
+  // Persist order when drag ends
+  async function onDragEnd() {
+    setDraggingId(null);
+    // Persist current order to backend
+    await saveBlocksOrder();
+  }
+
+  // Save blocks order to backend
+  async function saveBlocksOrder() {
+    try {
+      // prepare payload with id and order index (smaller index => higher)
+      const payload = blocks.map((b, idx) => ({
+        id: b.id,
+        order: idx + 1, // 1-based order
+      }));
+
+      await api.post("/update-block-order", { order: payload }, { headers: { "Content-Type": "application/json" } });
+      setApiSnack({ open: true, message: "Order saved" });
+    } catch (err) {
+      console.error("saveBlocksOrder", err);
+      setApiSnack({ open: true, message: "Failed to save order" });
+    }
+  }
+
+  // ---------- Preview rendering helpers ----------
+  function renderPreviewBlock(b) {
+    if (b.type === "link" || b.type === "cta") {
+      return (
+        <Paper
+          key={b.id}
+          sx={{
+            p: 1.5,
             display: "flex",
             alignItems: "center",
-            textDecoration: "none",
-            color: "inherit",
+            justifyContent: "space-between",
+            borderRadius: 2,
+            color: "#0f1724",
+            boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
+            cursor: "pointer",
+            textAlign: "left",
           }}
         >
-          <img
-            src={logo}
-            alt="PostLn Logo"
-            width="32"
-            height="auto"
-            style={{ display: "block" }}
-          />
-          <div
-            style={{
-              marginLeft: 2,
-              fontWeight: 600,
-              fontSize: "1.2rem",
-            }}
-          >
-            PostLn
-          </div>
-        </Link>
-       
-      </Toolbar>
-
-      <List sx={{ px: 1 }}>
-        {/* Dashboard */}
-        <ListItem disablePadding>
-          <Link
-            to="/professional/user/bio"
-            style={{ textDecoration: "none", color: "black", width: "100%" }}
-            onClick={handleDrawerToggle}
-          >
-            <ListItemButton
-              selected={location.pathname === "/professional/user/bio"}
+          <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
+            <Box
               sx={{
-                backgroundColor:
-                  location.pathname === "/professional/user/bio"
-                    ? "#e3e3f3"
-                    : "transparent",
-                borderRadius: "6px",
-                py: 0.5,
+                width: 44,
+                height: 44,
+                borderRadius: 1.5,
+                bgcolor: "#F0F0F0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                flexShrink: 0,
               }}
             >
-              <ListItemIcon>
-                <SpaceDashboardOutlinedIcon
-                  sx={{
-                    color:
-                      location.pathname === "/professional/user/bio"
-                        ? "#093FB4"
-                        : "#7F8CAA",
-                    transition: "color 0.3s",
-                  }}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary="Dashboard"
-                primaryTypographyProps={{
-                  sx: {
-                    color:
-                      location.pathname === "/professional/user/bio"
-                        ? "#093FB4"
-                        : "#7F8CAA",
-                    fontWeight: 400,
-                  },
-                }}
-              />
-            </ListItemButton>
-          </Link>
-        </ListItem>
+              <LinkIcon sx={{ fontSize: 16 }} />
+            </Box>
 
-        {/* My Posts */}
-        <ListItem disablePadding>
-          <Link
-            to="/professional/store/products"
-            style={{ textDecoration: "none", color: "black", width: "100%" }}
-            onClick={handleDrawerToggle}
-          >
-            <ListItemButton
-              selected={location.pathname === "/professional/store/products"}
-              sx={{
-                backgroundColor:
-                  location.pathname === "/professional/store/products"
-                    ? "#e3e3f3"
-                    : "transparent",
-                borderRadius: "6px",
-                py: 0.5,
-              }}
-            >
-              <ListItemIcon>
-                <DateRangeOutlinedIcon
-                  sx={{
-                    color:
-                      location.pathname === "/professional/store/products"
-                        ? "#093FB4"
-                        : "#7F8CAA",
-                    transition: "color 0.3s",
-                  }}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary="Store"
-                primaryTypographyProps={{
-                  sx: {
-                    color:
-                      location.pathname === "/professional/store/products"
-                        ? "#093FB4"
-                        : "#7F8CAA",
-                    fontWeight: 400,
-                  },
-                }}
-              />
-            </ListItemButton>
-          </Link>
-        </ListItem>
+            <Box>
+              <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500 }}>{b.title}</Typography>
+            </Box>
+          </Box>
 
-        {/* Profile (only on mobile) */}
-        {isSmallScreen && (
-          <ListItem disablePadding>
-            <Link
-              to="/professional/profile"
-              style={{
-                textDecoration: "none",
-                color: "black",
-                width: "100%",
-              }}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemButton
-                selected={location.pathname === "/professional/profile"}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <ArrowForwardIosIcon sx={{ fontSize: 16, color: "rgba(15,23,42,0.5)" }} />
+          </Box>
+        </Paper>
+      );
+    }
+
+    if (b.type === "product") {
+      const hasImage = !!b.image;
+      const isStringImage = hasImage && typeof b.image === "string";
+
+      return (
+        <Paper
+          key={b.id}
+          sx={{
+            p: 1.5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderRadius: 2,
+            color: "#0f1724",
+            boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
+            {isStringImage ? (
+              <Box
+                component="img"
+                src={b.image}
+                alt={b.title || "product image"}
                 sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/profile"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
+                  objectFit: "cover",
+                  display: "block",
+                  flexShrink: 0,
+                }}
+              />
+            ) : hasImage && React.isValidElement(b.image) ? (
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
+                  overflow: "hidden",
+                  flexShrink: 0,
                 }}
               >
-                <ListItemIcon>
-                  <AccountCircleOutlinedIcon
-                    sx={{
-                      color:
-                        location.pathname === "/professional/profile"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
-                    }}
+                {b.image}
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
+                  bgcolor: "#e9e7ff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Typography variant="caption" sx={{ color: "#6b21a8", fontWeight: 700 }}>
+                  IMG
+                </Typography>
+              </Box>
+            )}
+
+            <Box>
+              <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500 }}>{b.title}</Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <ArrowForwardIosIcon sx={{ fontSize: 16, color: "rgba(15,23,42,0.5)" }} />
+          </Box>
+        </Paper>
+      );
+    }
+
+    if (b.type === "video") {
+      const ytId = getYouTubeId(b.action || "");
+      const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
+
+      return (
+        <Paper
+          key={b.id}
+          sx={{
+            p: 0,
+            borderRadius: 2,
+            border: "1px solid #37353E",
+            // borderColor: '#FFFFFF',
+            boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
+            cursor: b.action ? "pointer" : "default",
+            overflow: "hidden",
+          }}
+          onClick={() => {
+            if (b.action) window.open(b.action, "_blank");
+          }}
+          elevation={0}
+        >
+          <Box sx={{ position: "relative", width: "100%", aspectRatio: "16/9", bgcolor: "#000" }}>
+            {thumb ? (
+              <Box
+                component="img"
+                src={thumb}
+                alt={b.title || "video thumbnail"}
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  display: "block",
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: "#F3F4F6",
+                }}
+              >
+                <MovieIcon sx={{ fontSize: 28, color: "rgba(15,23,42,0.6)" }} />
+              </Box>
+            )}
+
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  bgcolor: "rgba(0,0,0,0.55)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 6px 18px rgba(2,6,23,0.28)",
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                  <path d="M8 5v14l11-7L8 5z" fill="#fff" />
+                </svg>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+      );
+    }
+
+    if (b.type === "form") {
+      // fields may be in b.raw.fields or JSON in b.action
+      let fields = b.raw?.fields;
+      if (!fields && typeof b.action === "string") {
+        try {
+          fields = JSON.parse(b.action).fields;
+        } catch {}
+      }
+      return (
+        <Paper key={b.id} sx={{ p: 1.5, borderRadius: 2, cursor: "pointer" }} onClick={() => openFormDialog(b)}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 1.25,
+                display: "grid",
+                placeItems: "center",
+                bgcolor: alpha("#10b981", 0.06),
+                color: "#10b981",
+                flexShrink: 0,
+              }}
+            >
+              <AddIcon sx={{ fontSize: 18 }} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 600 }}>{b.title || "Contact form"}</Typography>
+            </Box>
+            <Box>
+              <ArrowForwardIosIcon sx={{ fontSize: 16, color: "rgba(15,23,42,0.5)" }} />
+            </Box>
+          </Box>
+        </Paper>
+      );
+    }
+
+    return (
+      <Paper key={b.id} sx={{ p: 1.5 }}>
+        <Typography>{b.title}</Typography>
+      </Paper>
+    );
+  }
+
+  // ---------- copy to clipboard ----------
+  async function copyToClipboard() {
+    const text = userDetails.handleUserName + ".myhandle.in" || "";
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "absolute";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopySnackOpen(true);
+    } catch (err) {
+      setCopySnackOpen(true);
+      console.error("Copy failed", err);
+    }
+  }
+
+  // ---------- YouTube preview helper ----------
+  const getYouTubeId = (url) => {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes("youtube.com")) return u.searchParams.get("v");
+      if (u.hostname === "youtu.be") return u.pathname.slice(1);
+    } catch (e) {
+      return null;
+    }
+    return null;
+  };
+
+  const renderYouTubePreview = (url) => {
+    const id = getYouTubeId(url);
+    if (!id) {
+      return (
+        <Box sx={{ p: 2 }}>
+          <Typography variant="body2" sx={{ opacity: 0.75 }}>
+            Paste a YouTube URL (e.g. https://youtu.be/xxxx or https://www.youtube.com/watch?v=xxxx) to preview it here.
+          </Typography>
+          {url && (
+            <Typography variant="caption" sx={{ display: "block", mt: 1, wordBreak: "break-all" }}>
+              {url}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+
+    const src = `https://www.youtube.com/embed/${id}`;
+    return (
+      <Box sx={{ position: "relative", pt: "56.25%" }}>
+        <iframe
+          title="youtube-preview"
+          src={src}
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </Box>
+    );
+  };
+
+  // ---------- Save profile changes (name / intro) ----------
+  async function saveProfileField(payload) {
+    try {
+      const res = await api.post("/update-profile", payload, { headers: { "Content-Type": "application/json" } });
+      if (res.data.success) {
+        // merge into local userDetails
+        setUserDetails((prev) => ({ ...prev, ...payload }));
+        if (payload.name !== undefined) setName(payload.name);
+        if (payload.intro !== undefined) setUserIntro(payload.intro);
+        setApiSnack({ open: true, message: "Saved" });
+      } else {
+        setApiSnack({ open: true, message: res.data.message || "Save failed" });
+      }
+    } catch (err) {
+      console.error("saveProfileField", err);
+      setApiSnack({ open: true, message: "Failed to save" });
+    }
+  }
+
+  // Called when user presses save icon or leaves field
+  const handleSaveName = async () => {
+    setIsEditingName(false);
+    if ((userDetails.name || "") === name) return; // no change
+    await saveProfileField({ name });
+  };
+
+  const handleSaveIntro = async () => {
+    setIsEditingIntro(false);
+    if ((userDetails.intro || "") === userIntro) return;
+    await saveProfileField({ intro: userIntro });
+  };
+
+  return (
+    <Box sx={{ p: { xs: 0, sm: 1, md: 1 } }}>
+      <ToastContainer />
+      {/* ROW 1: FULL WIDTH HEADER */}
+      <Grid container spacing={2} sx={{ mb: { xs: 1.5, sm: 2 } }}>
+        <Grid item xs={12}>
+          <Paper
+            sx={{
+              p: { xs: 2, sm: 3 },
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 3,
+              flexDirection: { xs: "column", sm: "row" },
+              background: "#FFFFFF",
+            }}
+          >
+            {/* Avatar + edit */}
+            <Stack sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
+        <Grid container spacing={1} sx={{ flex: 1 }}>
+  {/* Left big image (50%) */}
+  <Grid item xs={6}>
+    <Box
+      sx={{
+        width: "100%",
+        height: 140,
+        borderRadius: 2,
+        bgcolor: "#f4f4f4",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        overflow: "hidden",
+      }}
+      onClick={() => document.getElementById("image-upload-1")?.click()}
+    >
+      {uploadingHeader.headerImage1 ? (
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+          <CircularProgress size={28} />
+        </Box>
+      ) : userDetails?.leftHeadImage ? (
+        <Box
+          component="img"
+          src={userDetails.leftHeadImage}
+          alt="Header Left"
+          sx={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",     // <-- show full image without cropping
+            objectPosition: "center",
+            backgroundColor: "#f4f4f4",
+          }}
+        />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Add Image
+        </Typography>
+      )}
+
+      <input
+        id="image-upload-1"
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => handleHeaderImageChange(e, "headerImage1")}
+      />
+    </Box>
+  </Grid>
+
+  {/* Right stacked images (top + bottom) */}
+  <Grid item xs={6}>
+    <Stack spacing={1} sx={{ height: "100%" }}>
+      {/* Top right image */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          overflow: "hidden",
+        }}
+        onClick={() => document.getElementById("image-upload-2")?.click()}
+      >
+        {uploadingHeader.headerImage2 ? (
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : userDetails?.rightTopImage || userDetails?.headerImage2 ? (
+          <Box
+            component="img"
+            src={userDetails.rightTopImage ?? userDetails.headerImage2}
+            alt="Header Right Top"
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",   // <-- avoid cropping
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-2"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "headerImage2")}
+        />
+      </Box>
+
+      {/* Bottom right image */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          overflow: "hidden",
+        }}
+        onClick={() => document.getElementById("image-upload-3")?.click()}
+      >
+        {uploadingHeader.headerImage3 ? (
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : userDetails?.rightBottomImage || userDetails?.headerImage3 ? (
+          <Box
+            component="img"
+            src={userDetails.rightBottomImage ?? userDetails.headerImage3}
+            alt="Header Right Bottom"
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",   // <-- avoid cropping
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-3"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "headerImage3")}
+        />
+      </Box>
+    </Stack>
+  </Grid>
+</Grid>
+
+
+
+
+              <Box sx={{ display: "flex", flexDirection: "column" }}>
+                {/* Name + role */}
+                <Box sx={{ flex: 1, width: "100%" }}>
+                  {!isEditingName ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                      <Typography
+                        sx={{ fontFamily: "Inter", fontSize: "18px", fontWeight: 600, cursor: "pointer", wordBreak: "break-word" }}
+                        onClick={() => setIsEditingName(true)}
+                      >
+                        {name || "Your name"}
+                      </Typography>
+                      <IconButton onClick={() => setIsEditingName(true)} aria-label="edit-name">
+                        <EditIcon sx={{ fontSize: "16px" }} />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center", width: "100%" }}>
+                      <TextField
+                        size="small"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onBlur={handleSaveName}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSaveName();
+                          }
+                        }}
+                        inputProps={{ maxLength: 60 }}
+                        sx={{ flex: 1 }}
+                      />
+                      <IconButton color="primary" onClick={handleSaveName} aria-label="save-name">
+                        <SaveIcon />
+                      </IconButton>
+                    </Box>
+                  )}
+                </Box>
+
+                <Box sx={{ flex: 1, width: "100%" }}>
+                  {!isEditingIntro ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                      <Typography
+                        sx={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 500, cursor: "pointer", wordBreak: "break-word", color: "grey" }}
+                        onClick={() => setIsEditingIntro(true)}
+                      >
+                        {userIntro || "Write a short intro..."}
+                      </Typography>
+                      <IconButton onClick={() => setIsEditingIntro(true)} aria-label="edit-intro">
+                        <EditIcon sx={{ fontSize: "16px" }} />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center", width: "100%" }}>
+                      <TextField
+                        size="small"
+                        value={userIntro}
+                        onChange={(e) => setUserIntro(e.target.value)}
+                        onBlur={handleSaveIntro}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveIntro();
+                        }}
+                        inputProps={{ maxLength: 160 }}
+                        sx={{ flex: 1 }}
+                      />
+                      <IconButton color="primary" onClick={handleSaveIntro} aria-label="save-intro">
+                        <SaveIcon />
+                      </IconButton>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Stack>
+
+            {/* URL + actions: stack on mobile */}
+            <Box
+              sx={{
+                minWidth: { xs: "100%", sm: 320 },
+                textAlign: "right",
+                mt: { xs: 1.5, sm: 0 },
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 1,
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  mt: 1,
+                  flexDirection: { xs: "column", sm: "row" },
+                }}
+              >
+                <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                  <HandleBtn title="Customize Link" onClick={openCustomize}>
+                    <LinkIcon style={{ fontSize: 18, cursor: "pointer" }} />
+                    <Typography sx={{ fontFamily: "Inter", fontSize: 14, fontWeight: 500, wordBreak: "break-all", color: "#000000" }}>
+                      {userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : "yourhandle.myhandle.in"}
+                    </Typography>
+                  </HandleBtn>
+                </Box>
+
+                <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                  <ShareUrlBtn onClick={copyToClipboard} aria-label="copy-link">
+                    <ShareIcon style={{ fontSize: 16 }} />
+                    Share
+                  </ShareUrlBtn>
+                </Box>
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* ROW 2: LEFT = Blocks, RIGHT = Preview */}
+      <Grid container spacing={2}>
+
+
+        {/* LEFT: Blocks editor */}
+        <Grid item xs={12} md={7}>
+           <Paper>
+            <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center', justifyContent : 'space-between', p: { xs: 1, sm: 2, md: 2 }, mt: 1.5}}>
+            
+            <Stack sx={{ display : 'flex', flexDirection : 'column'}}>
+
+              <Typography>
+                {toggling ? "Updating..." : "Enable DM (Direct Message)"}
+              </Typography>
+
+               <Typography>
+              Now, you can receive direct messages from users and bla bla
+              </Typography>
+            </Stack>
+
+
+                <FormControlLabel
+                    control={
+                      <Switch
+                        checked={dmEnabled}
+                        onChange={(e) => toggleStoreEnabled(e.target.checked)}
+                        disabled={toggling}
+                        inputProps={{ "aria-label": "Enable DM(Direct Message)" }}
+                      />
+                    }
                   />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Profile"
-                  primaryTypographyProps={{
-                    sx: {
-                      color:
-                        location.pathname === "/professional/profile"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
+
+            </Stack>
+                
+        
+                </Paper>
+
+          <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
+            {/* --- Social picker + saved socials --- */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Social accounts
+              </Typography>
+
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                {availablePlatforms.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    You've added all available platforms.
+                  </Typography>
+                ) : (
+                  availablePlatforms.map(({ key, label, Icon }) => {
+                    const selected = selectedPlatform === key;
+                    return (
+                      <Box
+                        key={key}
+                        onClick={() => {
+                          setSelectedPlatform(selected ? null : key);
+                          setSocialUrl("");
+                        }}
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 1,
+                          cursor: "pointer",
+                          px: 1.25,
+                          py: 0.5,
+                          borderRadius: 999,
+                          border: selected ? `1px solid ${theme.palette.primary.main}` : "1px solid rgba(0,0,0,0.06)",
+                          bgcolor: selected ? "background.paper" : "transparent",
+                          minHeight: 36,
+                        }}
+                      >
+                        <Icon sx={{ fontSize: 20, color: selected ? theme.palette.primary.main : "text.secondary" }} />
+                        <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 600 }}>{label}</Typography>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+
+              {selectedPlatform && (
+                <Paper sx={{ p: 1, mb: 1, borderRadius: 2 }}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+                    <TextField fullWidth size="small" placeholder={`Enter ${selectedPlatform} URL`} value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} />
+                    <PrimaryBtn onClick={saveSocial} disabled={addingSocial} style={{ display: "inline-flex", alignItems: "center" }}>
+                      {addingSocial ? <CircularProgress size={18} /> : <SaveIcon />}
+                      <span style={{ marginLeft: 8 }}>{addingSocial ? "Saving..." : "Save"}</span>
+                    </PrimaryBtn>
+                  </Stack>
+                  {socialApiMsg && <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>{socialApiMsg}</Typography>}
+                </Paper>
+              )}
+
+              <Stack spacing={1}>
+                {loadingSocials ? (
+                  <Box sx={{ py: 2, display: "flex", justifyContent: "center" }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : socials.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">No socials saved yet — pick one above to add.</Typography>
+                ) : (
+                  socials.map((s) => {
+                    const Plat = PLATFORMS.find((p) => p.key === s.platform)?.Icon || LinkIcon;
+                    return (
+                      <Paper key={s._id || s.id || s.url} variant="outlined" sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Plat sx={{ fontSize: 18 }} />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontFamily: "Inter", fontWeight: 500, textTransform: "capitalize" }}>{s.platform}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>{s.url}</Typography>
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                          <IconButton onClick={() => window.open(s.url, "_blank")} size="small" title="Open">
+                            <ChevronRightRoundedIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton onClick={() => deleteSocial(s._id || s.id)} size="small" title="Delete">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Paper>
+                    );
+                  })
+                )}
+              </Stack>
+            </Box>
+            {/* --- end social picker --- */}
+          </Paper>
+
+          <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexDirection: { xs: "column", sm: "row" }, gap: { xs: 1, sm: 0 } }}>
+              <Typography variant="subtitle1">Block List</Typography>
+              <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                <AddPill onClick={openAdd}>
+                  <AddIcon />
+                  Add New Blocks
+                </AddPill>
+              </Box>
+            </Box>
+
+            <Stack spacing={1}>
+              {loadingBlocks ? (
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 6 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                blocks.map((b) => (
+                  <Paper
+                    key={b.id}
+                    variant="outlined"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      p: 1.25,
+                      cursor: "grab",
+                      bgcolor: b.id === draggingId ? "action.selected" : "background.paper",
+                    }}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, b.id)}
+                    onDragOver={(e) => onDragOver(e, b.id)}
+                    onDragEnd={onDragEnd}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", pr: 1 }}>
+                      <DragIndicatorIcon fontSize="small" color="action" />
+                    </Box>
+
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body1">{b.title}</Typography>
+                      {/* <Typography variant="caption" color="text.secondary">
+                        {b.action || "no action"}
+                      </Typography> */}
+                    </Box>
+
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <button
+                        onClick={() => deleteBlock(b.id)}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          padding: 8,
+                          borderRadius: 8,
+                        }}
+                        title="Delete block"
+                        disabled={deletingId === b.id}
+                      >
+                        {deletingId === b.id ? <CircularProgress size={18} /> : <DeleteIcon fontSize="small" />}
+                      </button>
+                    </Box>
+                  </Paper>
+                ))
+              )}
+
+              {!loadingBlocks && blocks.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No blocks yet — click "Add New Blocks".
+                </Typography>
+              )}
+            </Stack>
+          </Paper>
+        </Grid>
+
+      {/* Right Preview Images */}
+<Grid item xs={12} md={5}>
+  <Box
+    sx={{
+      width: { xs: "100%", sm: "85%", md: "85%" },
+      margin: "0 auto",
+    
+      boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
+      overflow: "hidden",
+      background: "linear-gradient(135deg, #0f0c29 0%, #3a1c71 40%, #1f3a93 100%)",
+    }}
+  >
+    <Box sx={{ p: { xs: 2, sm: 2 } }}>
+      {/* --- Image Grid Preview --- */}
+   <Grid container spacing={1} sx={{ mb: 2 }}>
+  {/* Left big image */}
+  <Grid item xs={6}>
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        borderRadius: 2,
+        bgcolor: "#f4f4f4",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+      }}
+      onClick={() => document.getElementById("image-upload-1")?.click()}
+    >
+      {userDetails?.leftHeadImage ? (
+        <Box
+          component="img"
+          src={userDetails.leftHeadImage}
+          alt="Header Left"
+          sx={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",    // show whole image; change to "cover" if you prefer fill
+            objectPosition: "center",
+            backgroundColor: "#f4f4f4",
+          }}
+        />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Add Image
+        </Typography>
+      )}
+
+      <input
+        id="image-upload-1"
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => handleHeaderImageChange(e, "leftHeadImage")}
+      />
+    </Box>
+  </Grid>
+
+  {/* Right stacked images */}
+  <Grid item xs={6}>
+    <Stack spacing={1} sx={{ height: "100%" }}>
+      {/* Top right */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+        }}
+        onClick={() => document.getElementById("image-upload-2")?.click()}
+      >
+        {userDetails?.rightTopImage ? (
+          <Box
+            component="img"
+            src={userDetails.rightTopImage}
+            alt="Header Right Top"
+            sx={{
+              width: "100%",
+              height: { xs: 76, sm: 108 },
+              objectFit: "cover",
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-2"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "rightTopImage")}
+        />
+      </Box>
+
+      {/* Bottom right */}
+      <Box
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          bgcolor: "#f4f4f4",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+        }}
+        onClick={() => document.getElementById("image-upload-3")?.click()}
+      >
+        {userDetails?.rightBottomImage ? (
+          <Box
+            component="img"
+            src={userDetails.rightBottomImage}
+            alt="Header Right Bottom"
+            sx={{
+              width: "100%",
+              height: { xs: 76, sm: 108 },
+              objectFit: "cover",
+              objectPosition: "center",
+              backgroundColor: "#f4f4f4",
+            }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Add Image
+          </Typography>
+        )}
+
+        <input
+          id="image-upload-3"
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={(e) => handleHeaderImageChange(e, "rightBottomImage")}
+        />
+      </Box>
+    </Stack>
+  </Grid>
+</Grid>
+
+
+      {/* --- Name + Socials --- */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1.5,
+          mt: 1,
+        }}
+      >
+        <Typography
+          sx={{
+            color: "#FFFFFF",
+            fontFamily: "Inter",
+            fontWeight: 500,
+            fontSize: { xs: 16, sm: 18 },
+          }}
+        >
+          {name}
+        </Typography>
+
+        {/* Social icons row */}
+     {/* Social icons row */}
+<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+  {socials.map((s) => {
+    const key = (s.platform || "").toLowerCase();
+    const IconComp =
+      key === "youtube"
+        ? YouTubeIcon
+        : key === "twitter"
+        ? TwitterIcon
+        : key === "whatsapp"
+        ? WhatsAppIcon
+        : key === "instagram"
+        ? InstagramIcon
+        : key === "linkedin"
+        ? LinkedInIcon
+        : LinkIcon;
+
+    return (
+      <IconButton
+        key={s._id || s.url}
+        onClick={() => window.open(s.url, "_blank")}
+        sx={{ color: "#fff" }}
+      >
+        <IconComp sx={{ fontSize: 22 }} />
+      </IconButton>
+    );
+  })}
+
+  {/* Store icon shown if store_enabled true */}
+  {userDetails?.store_enabled ? (
+    <IconButton
+      onClick={() => alert("Store is enabled — open store or show products here.")}
+      title="Open store"
+      sx={{
+        color: "#fff",
+        ml: 0.5,
+        // border: "1px solid rgba(255,255,255,0.12)",
+        // bgcolor: "rgba(255,255,255,0.03)",
+      }}
+    >
+      <StorefrontIcon sx={{ fontSize: 22 }} />
+    </IconButton>
+  ) : null}
+
+    {userDetails?.dm_enabled ? (
+    <IconButton
+      onClick={() => alert("DM is enabled — open My Inbox.")}
+      title="DM Enabled"
+      sx={{
+        color: "#fff",
+        ml: 0.5,
+        // border: "1px solid rgba(255,255,255,0.12)",
+        // bgcolor: "rgba(255,255,255,0.03)",
+      }}
+    >
+      <SmsOutlinedIcon sx={{ fontSize: 22 }} />
+    </IconButton>
+  ) : null}
+
+
+</Box>
+
+      </Box>
+
+      {/* Intro below name + socials */}
+      <Typography
+        sx={{
+          color: "#FFFFFF",
+          fontFamily: "Inter",
+          fontWeight: 400,
+          fontSize: { xs: 12, sm: 13 },
+          mt: 1,
+        }}
+      >
+        {userIntro}
+      </Typography>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* blocks area */}
+      <Stack spacing={1.25} sx={{ mt: 1, mb: 1 }}>
+        {loadingBlocks ? (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              py: 4,
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          blocks.map((b) => renderPreviewBlock(b))
+        )}
+      </Stack>
+
+      <Box sx={{ mt: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          {link}
+        </Typography>
+      </Box>
+
+      <Typography
+        sx={{
+          fontFamily: "Inter",
+          fontWeight: 400,
+          color: "grey",
+          fontSize: { xs: 12, sm: 12 },
+          mb: 1,
+        }}
+      >
+        {userDetails.handleUserName
+          ? userDetails.handleUserName + ".myhandle.in"
+          : ""}
+      </Typography>
+    </Box>
+  </Box>
+</Grid>
+
+      </Grid>
+
+      {/* Customize URL Dialog */}
+      <Dialog open={customizeOpen} onClose={() => setCustomizeOpen(false)}>
+        <DialogTitle>Customize Url</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Custom link"
+            margin="dense"
+            value={userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : tempLink}
+            onChange={(e) => setTempLink(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <span style={{ marginRight: 8, display: "inline-flex", alignItems: "center" }}>
+                  <LinkIcon />
+                </span>
+              ),
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <button
+            onClick={() => setCustomizeOpen(false)}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: "8px 12px",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Cancel
+          </button>
+          <PrimaryBtn onClick={saveCustomize}>Save</PrimaryBtn>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={copySnackOpen} autoHideDuration={1800} onClose={() => setCopySnackOpen(false)} message="Link copied to clipboard" />
+      <Snackbar open={apiSnack.open} autoHideDuration={2000} onClose={() => setApiSnack({ open: false, message: "" })} message={apiSnack.message} />
+
+      {/* Add Block Dialog */}
+      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Add New Block</DialogTitle>
+
+        <DialogContent sx={{ pt: 1 }}>
+          {/* Rounded tabs */}
+          <Box
+            sx={{
+              bgcolor: (t) => (t.palette.mode === "dark" ? "#0b1220" : "#f5f7fb"),
+              p: 0.5,
+              borderRadius: 3,
+              mb: 2,
+            }}
+          >
+            <Tabs
+              value={tab}
+              onChange={(_, v) => {
+                setTab(v);
+                if (v === "form") setFormFields([]);
+              }}
+              variant="fullWidth"
+              sx={{
+                minHeight: 40,
+                "& .MuiTabs-flexContainer": { gap: 0.5 },
+              }}
+            >
+              {[
+                { label: "Link", value: "link" },
+                { label: "Video", value: "video" },
+                { label: "Form", value: "form" },
+              ].map((t) => (
+                <Tab
+                  key={t.value}
+                  label={t.label}
+                  value={t.value}
+                  sx={{
+                    minHeight: 36,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    mx: 0.25,
+                    "&.Mui-selected": {
+                      bgcolor: "background.paper",
+                      boxShadow: 1,
                     },
                   }}
                 />
-              </ListItemButton>
-            </Link>
-          </ListItem>
-        )}
-      </List>
-    </Box>
+              ))}
+            </Tabs>
+          </Box>
 
-    {/* Bottom fixed plan card */}
-  <Box
-      sx={{
-        p: 2,
-        borderTop: "1px solid #e0e0e0",
-        backgroundColor: "#F5F7F8",
-        flexShrink: 0,
-        ...(isSmallScreen && {
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          width: drawerWidth,
-          zIndex: 1300,
-        }),
-      }}
+          {/* LINK TAB CONTENT */}
+          {tab === "link" && (
+            <Box>
+              <Stack spacing={1.5}>
+                <TextField fullWidth label="Name" margin="dense" value={newBlockName} onChange={(e) => setNewBlockName?.(e.target.value)} />
+                <TextField
+                  fullWidth
+                  label="URL"
+                  placeholder="https://example.com"
+                  type="url"
+                  margin="dense"
+                  value={newBlockAction}
+                  onChange={(e) => setNewBlockAction?.(e.target.value)}
+                />
+              </Stack>
+
+              <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mt: 2 }}>
+                Preview
+              </Typography>
+              <Paper elevation={0} sx={{ borderRadius: 2, border: (t) => `1px solid ${t.palette.divider}`, p: 1 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 2,
+                      display: "grid",
+                      placeItems: "center",
+                      bgcolor: (t) => (t.palette.mode === "dark" ? "#101826" : "#eef2ff"),
+                    }}
+                  >
+                    <LinkIcon fontSize="small" />
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="subtitle2" noWrap>
+                      {newBlockName || "Link title"}
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.7 }} noWrap>
+                      {newBlockAction || "https://your-link.com"}
+                    </Typography>
+                  </Box>
+                  <IconButton size="small" aria-label="open">
+                    <ChevronRightRoundedIcon />
+                  </IconButton>
+                </Stack>
+              </Paper>
+            </Box>
+          )}
+
+          {/* VIDEO TAB (YouTube-only) */}
+          {tab === "video" && (
+            <Box>
+              <Stack spacing={1.5}>
+                <TextField fullWidth label="Video Name" margin="dense" value={newBlockName} onChange={(e) => setNewBlockName?.(e.target.value)} />
+                <TextField
+                  fullWidth
+                  label="Video URL"
+                  placeholder="https://youtu.be/xxxx or https://www.youtube.com/watch?v=xxxx"
+                  margin="dense"
+                  value={newBlockAction}
+                  onChange={(e) => setNewBlockAction?.(e.target.value)}
+                />
+              </Stack>
+
+              <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mt: 2 }}>
+                Preview
+              </Typography>
+
+              <Paper elevation={0} sx={{ borderRadius: 2, border: (t) => `1px solid ${t.palette.divider}`, mt: 1 }}>
+                {renderYouTubePreview(newBlockAction)}
+
+                <Divider sx={{ my: 1 }} />
+
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ p: 1 }}>
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 2,
+                      display: "grid",
+                      placeItems: "center",
+                      bgcolor: (t) => (t.palette.mode === "dark" ? "#101826" : "#eef2ff"),
+                    }}
+                  >
+                    <MovieIcon fontSize="small" />
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="subtitle2" noWrap>
+                      {newBlockName || "Video title"}
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.7 }} noWrap>
+                      {newBlockAction || "Paste a YouTube URL"}
+                    </Typography>
+                  </Box>
+                  <IconButton size="small" aria-label="open">
+                    <ChevronRightRoundedIcon />
+                  </IconButton>
+                </Stack>
+              </Paper>
+            </Box>
+          )}
+
+          {/* FORM TAB */}
+          {tab === "form" && (
+            <Box>
+              <Stack spacing={1}>
+                {/* Block title (optional) */}
+                <TextField fullWidth label="Form Title" margin="dense" placeholder="e.g. 1:1 Coaching - Sign up" value={newBlockName} onChange={(e) => setNewBlockName(e.target.value)} />
+
+                {/* Dynamic fields list */}
+                <Box sx={{ display: "grid", gap: 8, mt: 1 }}>
+                  {formFields.map((f, idx) => (
+                    <Paper key={f.id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
+                      <Grid container spacing={1} alignItems="center">
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Label"
+                            value={f.label}
+                            onChange={(e) => updateFormField(f.id, { label: e.target.value })}
+                          />
+                        </Grid>
+
+                        <Grid item xs={8} sm={4}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Placeholder"
+                            value={f.placeholder}
+                            onChange={(e) => updateFormField(f.id, { placeholder: e.target.value })}
+                          />
+                        </Grid>
+
+                        <Grid item xs={4} sm={2} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                            <TextField
+                              select
+                              SelectProps={{ native: true }}
+                              size="small"
+                              value={f.type}
+                              onChange={(e) => updateFormField(f.id, { type: e.target.value })}
+                              sx={{ minWidth: 110 }}
+                            >
+                              <option value="text">Text</option>
+                              <option value="email">Email</option>
+                              <option value="tel">Phone</option>
+                              <option value="radio">Radio</option>
+                            </TextField>
+
+                            <Tooltip title="Remove field">
+                              <IconButton size="small" onClick={() => removeFormField(f.id)} aria-label="remove-field">
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={!!f.required}
+                              onChange={(e) => updateFormField(f.id, { required: e.target.checked })}
+                              id={`req-${f.id}`}
+                              style={{ width: 14, height: 14 }}
+                            />
+                            <label htmlFor={`req-${f.id}`} style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>
+                              Required
+                            </label>
+                          </Box>
+                        </Grid>
+
+                        {/* Radio options editor: two editable inputs + add option button (replaces comma-field) */}
+                        {f.type === "radio" && (
+                          <Grid item xs={12}>
+                            <Box sx={{ mt: 1, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
+                              <TextField
+                                size="small"
+                                label="Option 1"
+                                placeholder="e.g. Male"
+                                value={(f.options && f.options[0]) || ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateFormField(f.id, { options: [v, (f.options && f.options[1]) || ""] });
+                                }}
+                              />
+                              <TextField
+                                size="small"
+                                label="Option 2"
+                                placeholder="e.g. Female"
+                                value={(f.options && f.options[1]) || ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateFormField(f.id, { options: [(f.options && f.options[0]) || "", v] });
+                                }}
+                              />
+                            </Box>
+
+                            <Box sx={{ mt: 1, display: "flex", gap: 1, alignItems: "center" }}>
+                              <Button
+                                size="small"
+                                onClick={() =>
+                                  updateFormField(f.id, {
+                                    options: [...(Array.isArray(f.options) ? f.options : []), `Option ${((f.options && f.options.length) || 0) + 1}`],
+                                  })
+                                }
+                                sx={{ textTransform: "none" }}
+                              >
+                                + Add option
+                              </Button>
+
+                              <Typography variant="caption" sx={{ color: "text.secondary", ml: 1 }}>
+                                Options editable here. You can add more after saving.
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Paper>
+                  ))}
+
+                  <Box>
+                  
+                  <Box sx={{ display: "inline-block" }}>
+  <ClickAwayListener onClickAway={() => { if (addCloseTimer.current) clearTimeout(addCloseTimer.current); setAddAnchor(null); }}>
+    <Box
+      onMouseEnter={(e) => openAddMenu(e.currentTarget)}
+      onMouseLeave={closeAddMenu}
+      sx={{ display: "inline-block" }}
     >
-      <Typography sx={{ fontWeight: 500, mb: 1, fontFamily: "Inter", fontSize: "14px" }}>
-        Free trial expires in {freeTrialDaysLeft} days
-      </Typography>
-
-      <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-        <Box sx={{ flexGrow: 1, mr: 2 }}>
-          <LinearProgress
-            variant="determinate"
-            value={(freeTrialDaysLeft / 7) * 100}
-            sx={{
-              height: 8,
-              borderRadius: 5,
-              backgroundColor: "#e0e0e0",
-              "& .MuiLinearProgress-bar": { backgroundColor: "#4f46e5" },
-            }}
-          />
-        </Box>
-        <Typography color="text.secondary" sx={{ fontSize: "12px" }}>
-          {freeTrialDaysLeft} / 7 days
-        </Typography>
-      </Box>
-
-      <Typography variant="body2" sx={{ color: "#555", mb: 1 }}>
-        Upgrade to $9/mo to get{" "}
-        <span style={{ fontWeight: 500, color: "#000" }}>30 AI Rewrites</span> instantly.
-      </Typography>
-
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <Typography
-          variant="body2"
-          sx={{
-            color: "#4f46e5",
-            fontWeight: 500,
-            cursor: "pointer",
-            "&:hover": { textDecoration: "underline" },
-          }}
-        >
-          Upgrade
-        </Typography>
-      </Box>
-      </Box>
-
-  </Box>
-);
-
-
-  return (
-    <ThemeProvider theme={theme}>
-      <Box sx={{ display: "flex", height: "100vh" }}>
-
-        {/* Sidebar */}
-        <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
-          <Drawer
-            anchor="left"
-            variant="temporary"
-            open={mobileOpen}
-            onClose={handleDrawerToggle}
-            ModalProps={{ keepMounted: true }}
-            sx={{
-              display: { xs: "block", sm: "none" },
-              "& .MuiDrawer-paper": { width: drawerWidth },
-            }}
-          >
-            {drawerContent}
-          </Drawer>
-
-          <Drawer
-            variant="permanent"
-            sx={{
-              display: { xs: "none", sm: "block" },
-              "& .MuiDrawer-paper": { width: drawerWidth },
-            }}
-            open
-          >
-            {drawerContent}
-          </Drawer>
-        </Box>
-
-        {/* Main Content */}
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            width: "100%",
-            maxWidth: { sm: `calc(100% - ${drawerWidth}px)` },
-            px: 2,
-            overflow: 'auto'
-           
-          }}
-        >
-          {/* AppBar for all screen sizes */}
- {/* <AppBar
-  position="fixed"
-  elevation={0}
-  sx={{
-    backgroundColor: "#F5F7F8",
-    borderBottom: "1px solid #eee",
-    zIndex: (theme) => theme.zIndex.drawer + 1,
-    ml: { sm: `${drawerWidth}px` },
-    width: { sm: `calc(100% - ${drawerWidth}px)` },
-  }}
-> */}
-  {/* <Toolbar
-    sx={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      minHeight: "64px",
-      px: 3,
-    }}
-  > */}
-    {/* Left: Greeting */}
-{/* Left: Menu Icon (Mobile) + Greeting */}
-{/* <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-  {isSmallScreen && (
-    <IconButton onClick={handleDrawerToggle}>
-      <svg width="24" height="24" viewBox="0 0 24 24">
-        <path fill="#000" d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
-      </svg>
-    </IconButton>
-  )}
-  {(() => {
-    const { title, subtitle } = getHeaderTitle();
-    return (
-      <Box>
-        <Typography sx={{ fontSize: isSmallScreen ? '14px' : '16px', fontWeight: 500, color: '#111' }}>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography sx={{ fontSize: '14px', color: '#555', mt: 0.1 }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-    );
-  })()}
-</Box> */}
-
-
-
-
-    {/* Right: Avatar with Menu */}
-   {/* Right: Date-Time + Avatar */}
-{/* <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
-   {!isSmallScreen && (
-    <>
-
-{location.pathname === "/professional/myposts" && (
-  <Typography sx={{ fontSize: "14px", color: "#555", whiteSpace: "nowrap" }}>
-    {`${currentTime.getDate().toString().padStart(2, "0")}-${currentTime.toLocaleString("en-US", {
-      month: "short",
-    }).toUpperCase()}-${currentTime.getFullYear()} ${currentTime
-      .getHours()
-      .toString()
-      .padStart(2, "0")}:${currentTime
-      .getMinutes()
-      .toString()
-      .padStart(2, "0")}:${currentTime
-      .getSeconds()
-      .toString()
-      .padStart(2, "0")}`}
-  </Typography>
-)}
-
-</> )}
-
-
-
- {!isSmallScreen && (
-  <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
-    <img
-      src={profilePicture}
-      alt="Profile"
-      style={{ width: 40, height: 40, borderRadius: "50%" }}
-    />
-  </IconButton>
-)}
-
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        PaperProps={{
-          elevation: 3,
-          sx: {
-            borderRadius: 2,
-            mt: 1,
-            minWidth: 200,
-          },
+      <Button
+        variant="contained"
+        onClick={(e) => {
+          if (addAnchor) setAddAnchor(null);
+          else openAddMenu(e.currentTarget);
+        }}
+        sx={{
+          textTransform: "none",
+          borderRadius: 2,
+          px: 2,
+          py: 1,
+          background: "linear-gradient(90deg,#7c3aed,#9f7aea)",
+          boxShadow: "0 12px 30px rgba(99,102,241,0.12)",
+          color: "#fff",
+          fontWeight: 700,
+          display: "inline-flex",
+          gap: 1,
         }}
       >
-        <Box sx={{ px: 2, py: 1 }}>
-          <Typography variant="subtitle1" fontWeight={500}>{userName}</Typography>
-        </Box>
+        <AddIcon />
+        Add Field
+      </Button>
 
-        <Divider />
-
-          <Link
-          to="/professional/profile"
-          style={{ textDecoration: "none", color: "black", width: "100%" }}>
-        <MenuItem>
-        
-
-          <AccountCircleOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
-          Profile
-        </MenuItem>
-          </Link>
-
-
-      
+      <Menu
+        anchorEl={addAnchor}
+        open={Boolean(addAnchor)}
+        onClose={() => setAddAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        transformOrigin={{ vertical: "top", horizontal: "left" }}
+        MenuListProps={{
+          onMouseEnter: () => {
+            if (addCloseTimer.current) {
+              clearTimeout(addCloseTimer.current);
+              addCloseTimer.current = null;
+            }
+          },
+          onMouseLeave: closeAddMenu,
+        }}
+      >
+        {ADD_FIELD_TYPES.map((t) => (
+          <MenuItem key={t.value} onClick={() => createFieldOfType(t.value)} sx={{ textTransform: "none", fontWeight: 600 }}>
+            {t.label}
+          </MenuItem>
+        ))}
       </Menu>
-    </Box> */}
-  {/* </Toolbar> */}
-{/* </AppBar> */}
+    </Box>
+  </ClickAwayListener>
+</Box>
 
 
+                  </Box>
+                </Box>
+              </Stack>
 
+              <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mt: 2 }}>
+                Preview
+              </Typography>
 
-          {/* Page Content */}
-          <Box sx={{ px: 2, py: 0 }}>
-            <Outlet />
+              <Paper elevation={0} sx={{ borderRadius: 2, border: (t) => `1px solid ${t.palette.divider}`, p: 2, mt: 1 }}>
+                <Stack spacing={1}>
+                  <Typography variant="subtitle2">{newBlockName || "Contact form"}</Typography>
+
+                  {formFields.map((f) => {
+                    const opts = Array.isArray(f.options)
+                      ? f.options
+                      : (typeof f.options === "string" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : []);
+
+                    return (
+                      <Box key={f.id} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                        {f.type === "textarea" ? (
+                          <TextField fullWidth label={f.label} placeholder={f.placeholder} multiline rows={3} InputProps={{ readOnly: true }} />
+                        ) : f.type === "radio" ? (
+                          <FormControl component="fieldset" variant="standard" sx={{ mt: 0.5 }}>
+                            <FormLabel component="legend" sx={{ fontSize: 13, mb: 0.5 }}>{f.label}</FormLabel>
+                            <RadioGroup row>
+                              {opts.map((opt, i) => (
+                                <FormControlLabel key={i} value={opt} control={<Radio />} label={opt} disabled />
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
+                        ) : (
+                          <TextField fullWidth label={f.label} placeholder={f.placeholder} type={f.type || "text"} InputProps={{ readOnly: true }} />
+                        )}
+                      </Box>
+                    );
+                  })}
+
+                  <PrimaryBtn onClick={() => { /* no-op on preview */ }} style={{ width: 160 }}>
+                    Submit
+                  </PrimaryBtn>
+                </Stack>
+              </Paper>
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ gap: 1, p: 2 }}>
+          <button
+            onClick={() => setAddOpen(false)}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: "8px 12px",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Cancel
+          </button>
+
+          <PrimaryBtn onClick={saveAdd} disabled={savingBlock}>
+            {savingBlock ? <CircularProgress size={18} /> : <SaveIcon />}
+            <span style={{ marginLeft: 6 }}>{savingBlock ? "Saving..." : "Save"}</span>
+          </PrimaryBtn>
+        </DialogActions>
+      </Dialog>
+
+      {/* ---------- Form Submission Dialog ---------- */}
+      <Dialog open={formDialogOpen} onClose={closeFormDialog} fullWidth maxWidth="sm">
+        <DialogTitle>{currentFormBlock?.title || "Submit form"}</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ mt: 0.5, display: "grid", gap: 1 }}>
+            {currentFormBlock?._renderFields?.length === 0 && <Typography variant="body2" color="text.secondary">This form has no fields.</Typography>}
+
+            {currentFormBlock?._renderFields?.map((f) => {
+              const key = f._key || f.key || f.label?.toLowerCase().replace(/\s+/g, "_");
+              const value = formValues[key] ?? "";
+              const error = formErrors[key];
+
+              // show textarea for textarea type, otherwise text/email/tel
+              if ((f.type || "text") === "textarea") {
+                return (
+                  <TextField
+                    key={key}
+                    fullWidth
+                    multiline
+                    rows={4}
+                    label={f.label || "Field"}
+                    placeholder={f.placeholder || ""}
+                    value={value}
+                    onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                    error={!!error}
+                    helperText={error || (f.required ? "Required" : "")}
+                    margin="dense"
+                  />
+                );
+              }
+
+              if (f.type === "radio") {
+                const opts = Array.isArray(f.options)
+                  ? f.options
+                  : (typeof f.options === "string" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : []);
+
+                return (
+                  <FormControl key={key} component="fieldset" margin="dense" error={!!formErrors[key]}>
+                    <FormLabel component="legend">{f.label}</FormLabel>
+                    <RadioGroup
+                      name={key}
+                      value={formValues[key] ?? ""}
+                      onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                    >
+                      {opts.map((opt, idx) => (
+                        <FormControlLabel key={idx} value={opt} control={<Radio />} label={opt} />
+                      ))}
+                    </RadioGroup>
+                    {formErrors[key] && <Typography variant="caption" color="error">{formErrors[key]}</Typography>}
+                  </FormControl>
+                );
+              }
+
+              return (
+                <TextField
+                  key={key}
+                  fullWidth
+                  label={f.label || "Field"}
+                  placeholder={f.placeholder || ""}
+                  type={f.type === "tel" ? "tel" : f.type === "email" ? "email" : "text"}
+                  value={value}
+                  onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                  error={!!error}
+                  helperText={error || (f.required ? "Required" : "")}
+                  margin="dense"
+                />
+              );
+            })}
           </Box>
-        </Box>
-      </Box>
-    </ThemeProvider>
+        </DialogContent>
+
+        <DialogActions sx={{ gap: 1, p: 2 }}>
+          <button
+            onClick={closeFormDialog}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: "8px 12px",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Cancel
+          </button>
+
+          <PrimaryBtn
+            onClick={async () => {
+              // validate and submit
+              if (!currentFormBlock) return;
+              const fields = currentFormBlock._renderFields || [];
+              const errors = {};
+              fields.forEach((f, i) => {
+                const key = f._key || f.key || `f_${i}`;
+                if (f.required && !String(formValues[key] ?? "").trim()) {
+                  errors[key] = `${f.label || "This field"} is required`;
+                }
+              });
+              setFormErrors(errors);
+              if (Object.keys(errors).length > 0) return;
+
+              // build payload
+              const payload = {
+                blockId: currentFormBlock.id,
+                blockName: currentFormBlock.title || currentFormBlock.name || "form",
+                values: formValues, // { key: value }
+                meta: { submittedAt: new Date().toISOString() },
+              };
+
+              setFormSubmitting(true);
+              try {
+                // endpoint: POST /submit-form  (adjust if your API expects /submit-form/:id)
+                const res = await api.post("/submit-form", payload, { withCredentials: true, headers: { "Content-Type": "application/json" } });
+                // success handling
+                setApiSnack({ open: true, message: res.data?.message || "Submitted" });
+                closeFormDialog();
+              } catch (err) {
+                console.error("form submit error", err);
+                const msg = err?.response?.data?.message || "Failed to submit";
+                setApiSnack({ open: true, message: msg });
+              } finally {
+                setFormSubmitting(false);
+              }
+            }}
+            disabled={formSubmitting}
+          >
+            {formSubmitting ? <CircularProgress size={18} /> : <SaveIcon />}
+            <span style={{ marginLeft: 8 }}>{formSubmitting ? "Submitting..." : "Submit"}</span>
+          </PrimaryBtn>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
-};
-
-ResponsiveDrawer.propTypes = {
-  window: PropTypes.func,
-};
-
-export default ResponsiveDrawer;
+}

@@ -34,7 +34,10 @@ import UserBioDashboard from './components/UserBioDashboard.js';
 import PublicProfile from './components/Employee/PublicProfile.js';
 import ProductCatalogue from './components/Employee/ProductCatalogue.js'
 import ProductGallery from './components/Employee/ProductGallery.js';
-
+import UserParticipant from './components/Employee/UserParticipant.js';
+import ChatWindow from './components/Employee/ChatWindow.js';
+import MyInbox from './components/Employee/MyInbox.js';
+import MyChatWindow from './components/Employee/MyChatWindow.js';
 
 
 
@@ -88,7 +91,9 @@ if (initialSubdomain) {
               <Route path="/" element={<LandingPage />} />
               <Route path="/creator/onboarding" element={<CreatorOnboarding />} />
               <Route path="/professional/login" element={<LinkedInUserLogin />} />
+              <Route path="/influencer/participant/login" element={<UserParticipant />} />
               <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/chat-window" element={<ChatWindow />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/cancellation-refund-policy" element={<CancellationRefund />} />
@@ -106,15 +111,15 @@ if (initialSubdomain) {
               <Route path="/save-time" element={<SaveTimePage />} />
               <Route path="/products-affiliate" element={<ProductGallery />} />
 
-              {/* <Route path="/join-waitlist" element={<WaitlistSignup />} /> */}
-              {/* <Route path="/waitlist-success" element={<WaitlistSuccessCard />} /> */}
-
+           
               <Route path="/professional/*" element={<UserSideNavBar />}>
               <Route path="user/bio" element={<UserBioDashboard />} />
                 <Route path="support" element={<Support />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="account/details" element={<AccountDetails />} />
                 <Route path="store/products" element={<ProductCatalogue />} />
+                <Route path="my/inbox" element={<MyInbox />} />
+                <Route path="my/chatwindow/:conversationId" element={<MyChatWindow />} />
 
 
               </Route>
