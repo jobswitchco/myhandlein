@@ -22,20 +22,37 @@ app.use((req, res, next) => {
 });
 
 
-const ALLOWED_ORIGINS = [
-'https://myhandle.in',
-'http://localhost:4800', // dev, if needed
+import cors from "cors";
+
+const STATIC_ALLOWED = new Set([
+  "https://myhandle.in",          // apex/root domain
+  "http://localhost:4800",        // dev
+]);
+
+// Allow any subdomain of myhandle.in, any scheme http/https, optional port.
+const ALLOWED_REGEXES = [
+  /^https?:\/\/([a-z0-9-]+\.)+myhandle\.in(?::\d+)?$/i,
 ];
- app.use(cors({
-   origin: function (origin, cb) {
-     // allow no-origin requests (mobile apps, curl) and whitelisted origins
-     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-     return cb(new Error('Not allowed by CORS'));
-   },
-   credentials: true,
-   methods: ['GET','HEAD','PUT','PATCH','POST','DELETE'],
- }));
- app.options('*', cors());
+
+app.use(cors({
+  origin: function (origin, cb) {
+    // allow no-origin requests (curl, native apps) and whitelisted origins
+    if (!origin) return cb(null, true);
+
+    if (STATIC_ALLOWED.has(origin) ||
+        ALLOWED_REGEXES.some((re) => re.test(origin))) {
+      return cb(null, true); // cors will reflect the specific origin
+    }
+
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET","HEAD","PUT","PATCH","POST","DELETE"],
+}));
+
+// Preflight
+app.options("*", cors());
+
 
 
 app.use((req, res, next) => {
