@@ -71,6 +71,8 @@ link_click_analytics: [{
   postal: { type: String },
   latitude: { type: Number },
   longitude: { type: Number },
+  created_at: { type: Date, default: Date.now },
+
 }],
 
     created_at: { type: Date, default: Date.now },
