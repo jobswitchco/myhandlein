@@ -22,49 +22,44 @@ app.use((req, res, next) => {
 });
 
 
-import cors from "cors";
+// 1) Single source of truth for CORS check
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // curl/native apps
+  try {
+    const { protocol, hostname } = new URL(origin);
 
-const STATIC_ALLOWED = new Set([
-  "https://myhandle.in",          // apex/root domain
-  "http://localhost:4800",        // dev
-]);
+    // allow http(s) only
+    if (protocol !== "http:" && protocol !== "https:") return false;
 
-// Allow any subdomain of myhandle.in, any scheme http/https, optional port.
-const ALLOWED_REGEXES = [
-  /^https?:\/\/([a-z0-9-]+\.)+myhandle\.in(?::\d+)?$/i,
-];
+    // dev ports/origins
+    if (origin === "http://localhost:4800") return true;
 
-app.use(cors({
-  origin: function (origin, cb) {
-    // allow no-origin requests (curl, native apps) and whitelisted origins
-    if (!origin) return cb(null, true);
-
-    if (STATIC_ALLOWED.has(origin) ||
-        ALLOWED_REGEXES.some((re) => re.test(origin))) {
-      return cb(null, true); // cors will reflect the specific origin
+    // myhandle.in apex or any subdomain
+    if (hostname === "myhandle.in" || hostname.endsWith(".myhandle.in")) {
+      return true;
     }
 
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+const corsOptions = {
+  origin(origin, cb) {
+    if (isAllowedOrigin(origin)) return cb(null, true);
+    console.error("❌ CORS blocked Origin:", origin); // <— keep for PM2 logs
     return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,
-  methods: ["GET","HEAD","PUT","PATCH","POST","DELETE"],
-}));
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
+};
 
-// Preflight
-app.options("*", cors());
+// 2) Put cors BEFORE any routes
+app.use(cors(corsOptions));
 
-
-
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  next();
-});
-
-
-
+// 3) Preflight must use the SAME options
+app.options("*", cors(corsOptions));
 
 
 
