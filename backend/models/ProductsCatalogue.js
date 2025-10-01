@@ -19,6 +19,7 @@ const ProductsCatalogue_Schema = new Schema({
   postal: { type: String },
   latitude: { type: Number },
   longitude: { type: Number },
+  created_at: { type: Date, default: Date.now },
 }],
    
       is_del: {

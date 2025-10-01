@@ -134,6 +134,30 @@ async function getClientIp(req) {
 }
 
 
+// Helper: parse date range from key
+async function getDateRange(rangeKey) {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  switch (rangeKey) {
+    case "today":
+      return { start: startOfToday, end: new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000) };
+    case "last7": {
+      const start = new Date(startOfToday);
+      start.setDate(start.getDate() - 6); // include today => 7 days
+      const end = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+      return { start, end };
+    }
+    case "last28": {
+      const start = new Date(startOfToday);
+      start.setDate(start.getDate() - 27);
+      const end = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+      return { start, end };
+    }
+    default:
+      return null; // no filter
+  }
+}
+
 router.post("/logout", authenticateToken, (req, res) => {
   res.clearCookie("token_professional", {
     httpOnly: true,
@@ -514,6 +538,486 @@ router.post("/messages/send", async (req, res) => {
   } catch (err) {
     console.error("POST /messages/send error:", err);
     return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+router.post("/page-analytics", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.body || {};
+    const userIdStr = req.user?.user_id;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "startDate and endDate are required" });
+    }
+    if (!userIdStr || !mongoose.Types.ObjectId.isValid(userIdStr)) {
+      return res.status(401).json({ message: "Unauthorized: invalid user" });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userIdStr);
+
+    const matchStage = {
+      $match: {
+        user_id: userObjectId,
+        created_at: {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        },
+        is_del: { $ne: true },
+      },
+    };
+
+    // Total page views (records) for this user
+    const pageViewsPromise = PageAnalytics.countDocuments(matchStage.$match);
+
+    // Unique visitors by IP across the whole range
+    const visitorsPromise = PageAnalytics.aggregate([
+      matchStage,
+      { $group: { _id: "$ip" } },
+      { $count: "uniqueIps" },
+    ]);
+
+    // Unique visitors & page views by city
+    const citiesPromise = PageAnalytics.aggregate([
+      matchStage,
+      {
+        $group: {
+          _id: { city: "$city" },
+          pageViews: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          city: "$_id.city",
+          pageViews: 1,
+        },
+      },
+    ]);
+
+    // Unique visitors per city (dedupe IP within each city)
+    const cityVisitorsPromise = PageAnalytics.aggregate([
+      matchStage,
+      { $group: { _id: { city: "$city", ip: "$ip" } } },
+      { $group: { _id: "$_id.city", visitors: { $sum: 1 } } },
+      { $project: { _id: 0, city: "$_id", visitors: 1 } },
+    ]);
+
+    // Regions: page views & unique visitors
+    const regionsPromise = PageAnalytics.aggregate([
+      matchStage,
+      { $group: { _id: { region: "$region" }, pageViews: { $sum: 1 } } },
+      { $project: { _id: 0, region: "$_id.region", pageViews: 1 } },
+    ]);
+
+    const regionVisitorsPromise = PageAnalytics.aggregate([
+      matchStage,
+      { $group: { _id: { region: "$region", ip: "$ip" } } },
+      { $group: { _id: "$_id.region", visitors: { $sum: 1 } } },
+      { $project: { _id: 0, region: "$_id", visitors: 1 } },
+    ]);
+
+    const [pageViews, visitorsArr, citiesPV, citiesUV, regionsPV, regionsUV] = await Promise.all([
+      pageViewsPromise,
+      visitorsPromise,
+      citiesPromise,
+      cityVisitorsPromise,
+      regionsPromise,
+      regionVisitorsPromise,
+    ]);
+
+    const visitors = visitorsArr?.[0]?.uniqueIps || 0;
+
+    // Merge city metrics
+    const cityMap = new Map();
+    for (const c of citiesPV) {
+      cityMap.set(c.city || "", { city: c.city || "", pageViews: c.pageViews || 0, visitors: 0 });
+    }
+    for (const c of citiesUV) {
+      const cur = cityMap.get(c.city || "") || { city: c.city || "", pageViews: 0, visitors: 0 };
+      cur.visitors = c.visitors || 0;
+      cityMap.set(c.city || "", cur);
+    }
+    const cities = Array.from(cityMap.values());
+
+    // Merge region metrics
+    const regionMap = new Map();
+    for (const r of regionsPV) {
+      regionMap.set(r.region || "", { region: r.region || "", pageViews: r.pageViews || 0, visitors: 0 });
+    }
+    for (const r of regionsUV) {
+      const cur = regionMap.get(r.region || "") || { region: r.region || "", pageViews: 0, visitors: 0 };
+      cur.visitors = r.visitors || 0;
+      regionMap.set(r.region || "", cur);
+    }
+    const regions = Array.from(regionMap.values());
+
+    res.json({
+      summary: { visitors, pageViews },
+      cities,
+      regions,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+// unchanged
+router.get("/blocks/options", authenticateToken, async (req, res) => {
+  try {
+    const userId =
+      req.user?.id ||
+      req.user?.user_id ||
+      req.headers["x-user-id"];
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: missing user_id" });
+    }
+
+    const blocks = await Block.aggregate([
+      {
+        $match: {
+          user_id: new mongoose.Types.ObjectId(userId),
+          is_del: { $ne: true },
+          archived: { $ne: true },
+        },
+      },
+      { $sort: { order: 1, created_at: 1 } },
+      {
+        $project: {
+          name: 1,
+          order: 1,
+          clicks: { $size: { $ifNull: ["$link_click_analytics", []] } },
+          visitors: {
+            $size: {
+              $setUnion: [
+                {
+                  $map: {
+                    input: { $ifNull: ["$link_click_analytics", []] },
+                    as: "a",
+                    in: "$$a.ip",
+                  },
+                },
+                [],
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    res.json({ blocks });
+  } catch (err) {
+    console.error("GET /blocks/options error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// UPDATED: now accepts startDate & endDate, filters events by created_at
+router.post("/analytics/blocks", authenticateToken, async (req, res) => {
+  try {
+    const userId =
+      req.user?.id ||
+      req.user?.user_id ||
+      req.headers["x-user-id"];
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: missing user_id" });
+    }
+
+    const { blockId, startDate, endDate } = req.body || {};
+
+    // Safety: require valid dates
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: "Invalid or missing date range" });
+    }
+
+    const baseMatch = {
+      user_id: new mongoose.Types.ObjectId(userId),
+      is_del: { $ne: true },
+      archived: { $ne: true },
+    };
+    if (blockId) baseMatch._id = new mongoose.Types.ObjectId(blockId);
+
+    const results = await Block.aggregate([
+      { $match: baseMatch },
+      { $sort: { order: 1, created_at: 1 } },
+
+      // Filter the nested events by created_at into a new array "events"
+      {
+        $addFields: {
+          events: {
+            $filter: {
+              input: { $ifNull: ["$link_click_analytics", []] },
+              as: "e",
+              cond: {
+                $and: [
+                  { $gte: ["$$e.created_at", start] },
+                  { $lt: ["$$e.created_at", end] },
+                ],
+              },
+            },
+          },
+        },
+      },
+
+      {
+        $facet: {
+          // still useful to show order-wise info when "All" is selected
+          perBlock: [
+            {
+              $project: {
+                name: 1,
+                order: 1,
+                clicks: { $size: { $ifNull: ["$events", []] } }, // Views
+                visitors: {
+                  $size: {
+                    $setUnion: [
+                      {
+                        $map: {
+                          input: { $ifNull: ["$events", []] },
+                          as: "a",
+                          in: "$$a.ip",
+                        },
+                      },
+                      [],
+                    ],
+                  },
+                },
+              },
+            },
+            { $sort: { order: 1 } },
+          ],
+
+          // Totals for the selected scope (All blocks or a single block)
+          totals: [
+            { $unwind: { path: "$events", preserveNullAndEmptyArrays: true } },
+            {
+              $group: {
+                _id: null,
+                clicks: {
+                  $sum: {
+                    $cond: [{ $ifNull: ["$events", false] }, 1, 0],
+                  },
+                },
+                ips: { $addToSet: "$events.ip" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                clicks: 1,
+                visitors: { $size: { $ifNull: ["$ips", []] } },
+              },
+            },
+          ],
+
+          // Top Cities (within range)
+          topCities: [
+            { $unwind: { path: "$events", preserveNullAndEmptyArrays: false } },
+            {
+              $match: {
+                "events.city": { $nin: [null, "", "Unknown", "undefined"] },
+              },
+            },
+            {
+              $group: {
+                _id: "$events.city",
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { count: -1, _id: 1 } },
+            { $limit: 10 },
+            { $project: { _id: 0, name: "$_id", count: 1 } },
+          ],
+
+          // Top States/Regions (within range)
+          topStates: [
+            { $unwind: { path: "$events", preserveNullAndEmptyArrays: false } },
+            {
+              $match: {
+                "events.region": { $nin: [null, "", "Unknown", "undefined"] },
+              },
+            },
+            {
+              $group: {
+                _id: "$events.region",
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { count: -1, _id: 1 } },
+            { $limit: 10 },
+            { $project: { _id: 0, name: "$_id", count: 1 } },
+          ],
+        },
+      },
+      {
+        $project: {
+          perBlock: 1,
+          totals: {
+            $ifNull: [{ $arrayElemAt: ["$totals", 0] }, { clicks: 0, visitors: 0 }],
+          },
+          topCities: 1,
+          topStates: 1,
+        },
+      },
+    ]);
+
+    res.json(
+      results[0] || {
+        perBlock: [],
+        totals: { clicks: 0, visitors: 0 },
+        topCities: [],
+        topStates: [],
+      }
+    );
+  } catch (err) {
+    console.error("POST /analytics/blocks error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+router.post("/product-analytics/table", authenticateToken, async (req, res) => {
+  try {
+    const userId =
+      req.user?.id ||
+      req.user?.user_id ||
+      req.headers["x-user-id"];
+
+    if (!userId) return res.status(400).json({ message: "user_id header is required" });
+
+    const pipeline = [
+      { $match: { is_del: { $ne: true }, user_id: new mongoose.Types.ObjectId(userId) } },
+      {
+        $project: {
+          title: 1,
+          imageUrl: 1,
+          created_at: 1,
+          // Total events
+          clicks: { $size: { $ifNull: ["$link_click_analytics", []] } },
+          // Unique IPs (exclude null/empty), count them
+          visitors: {
+            $size: {
+              $setDifference: [
+                {
+                  $setUnion: [
+                    {
+                      $map: {
+                        input: { $ifNull: ["$link_click_analytics", []] },
+                        as: "lc",
+                        in: "$$lc.ip", // keep raw ip
+                      },
+                    },
+                    [], // ensure array
+                  ],
+                },
+                [null, ""], // exclude bad values
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { created_at: -1 } },
+    ];
+
+    const docs = await Product.aggregate(pipeline);
+    res.json({ ok: true, data: docs });
+  } catch (err) {
+    console.error("/product-analytics/table error", err);
+    res.status(500).json({ ok: false, message: "Server error" });
+  }
+});
+
+
+
+router.post("/product-analytics/details", authenticateToken, async (req, res) => {
+  try {
+     const userId =
+      req.user?.id ||
+      req.user?.user_id ||
+      req.headers["x-user-id"];
+    const { productId, rangeKey = "last7" } = req.body || {};
+    if (!userId) return res.status(400).json({ message: "user_id header is required" });
+    if (!productId) return res.status(400).json({ message: "productId is required" });
+
+    const range = await getDateRange(rangeKey);
+    const matchBase = { _id: new mongoose.Types.ObjectId(productId), user_id: new mongoose.Types.ObjectId(userId), is_del: { $ne: true } };
+
+    // Fetch basic product
+    const product = await Product.findOne(matchBase, { title: 1 }).lean();
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    const dateMatch = range
+      ? { "link_click_analytics.created_at": { $gte: range.start, $lt: range.end } }
+      : {};
+
+    // clicks (count events) + visitors (unique IPs)
+    const clicksVisitors = await Product.aggregate([
+      { $match: matchBase },
+      { $unwind: "$link_click_analytics" },
+      ...(range ? [{ $match: dateMatch }] : []),
+      {
+        $group: {
+          _id: null,
+          clicks: { $sum: 1 },
+          ips: { $addToSet: "$link_click_analytics.ip" },
+        },
+      },
+      { $project: { _id: 0, clicks: 1, visitors: { $size: "$ips" } } },
+    ]);
+
+    const summary = clicksVisitors[0] || { clicks: 0, visitors: 0 };
+
+    // Top 10 Cities (by unique visitors/IP)
+    const topCities = await Product.aggregate([
+      { $match: matchBase },
+      { $unwind: "$link_click_analytics" },
+      ...(range ? [{ $match: dateMatch }] : []),
+      {
+        $group: {
+          _id: { city: "$link_click_analytics.city", ip: "$link_click_analytics.ip" },
+        },
+      },
+      { $group: { _id: "$_id.city", visitors: { $sum: 1 } } },
+      { $project: { _id: 0, name: { $ifNull: ["$_id", "Unknown"] }, visitors: 1 } },
+      { $sort: { visitors: -1 } },
+      { $limit: 10 },
+    ]);
+
+    // Top 10 States/Regions (by unique visitors/IP)
+    const topStates = await Product.aggregate([
+      { $match: matchBase },
+      { $unwind: "$link_click_analytics" },
+      ...(range ? [{ $match: dateMatch }] : []),
+      {
+        $group: {
+          _id: { state: "$link_click_analytics.region", ip: "$link_click_analytics.ip" },
+        },
+      },
+      { $group: { _id: "$_id.state", visitors: { $sum: 1 } } },
+      { $project: { _id: 0, name: { $ifNull: ["$_id", "Unknown"] }, visitors: 1 } },
+      { $sort: { visitors: -1 } },
+      { $limit: 10 },
+    ]);
+
+    res.json({
+      ok: true,
+      data: {
+        product: { id: productId, title: product.title },
+        range: rangeKey,
+        summary,
+        topCities,
+        topStates,
+      },
+    });
+  } catch (err) {
+    console.error("/product-analytics/details error", err);
+    res.status(500).json({ ok: false, message: "Server error" });
   }
 });
 

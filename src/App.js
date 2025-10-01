@@ -38,6 +38,9 @@ import ChatWindow from './components/Employee/ChatWindow.js';
 import MyInbox from './components/Employee/MyInbox.js';
 import MyChatWindow from './components/Employee/MyChatWindow.js';
 import UserSideNavbar from './components/Employee/UserSideNavBar.js';
+import PageAnalytics from './components/Employee/PageAnalytics.js';
+import BlocksAnalytics from './components/Employee/BlockAnalytics.js';
+import StoreAnalytics from './components/Employee/StoreAnalytics.js';
 
 
 
@@ -121,6 +124,10 @@ if (initialSubdomain) {
                 <Route path="store/products" element={<ProductCatalogue />} />
                 <Route path="my/inbox" element={<MyInbox />} />
                 <Route path="my/chatwindow/:conversationId" element={<MyChatWindow />} />
+                <Route path="my/page/analytics" element={<PageAnalytics />} />
+                <Route path="my/store/analytics" element={<StoreAnalytics />} />
+                <Route path="my/block/analytics" element={<BlocksAnalytics />} />
+
 
 
               </Route>
