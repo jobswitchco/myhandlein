@@ -1961,7 +1961,6 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   }
 });
 
-const { extractHandleFromHost } = require("./utils/extractSubdomain");
 
 router.get("/profile", async (req, res) => {
   try {
