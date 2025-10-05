@@ -184,6 +184,15 @@ async function extractHandleFromHost(host, roots = ["myhandle.in"]) {
   return "";
 }
 
+// --- helpers ---
+const RESERVED = new Set([
+  "www","admin","root","api","mail","support","help","blog","status","app","cdn",
+  "static","images","dev","test","staging","beta"
+]);
+
+const isValidSubdomain = (s) =>
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s);
+
 
 router.post("/logout", authenticateToken, (req, res) => {
   res.clearCookie("token_professional", {
