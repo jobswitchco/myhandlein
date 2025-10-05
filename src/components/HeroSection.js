@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import indiaFlag from "../images/flag.png"
 
 export default function Hero({
   logos = {},
@@ -256,13 +257,15 @@ const inputWrapStyle = {
     minHeight: 24,
     paddingTop: 6,
     paddingLeft: 4,
-    fontSize: 13,
-    fontWeight: 500
+    fontSize: 15,
+    fontWeight: 500,
+    marginBottom: "8px"
+
   };
 
   const statusColor =
     availability === "available"
-      ? "#166534" // green-700
+      ? "#FFFFFF" // green-700
       : availability === "taken"
       ? "#b91c1c" // red-700
       : availability === "invalid"
@@ -389,11 +392,11 @@ const inputWrapStyle = {
       style={{ display: "block" }}
       aria-label="Loading"
     >
-      <circle cx="12" cy="12" r="10" fill="none" stroke="#9ca3af" strokeWidth="3" opacity="0.25" />
+      <circle cx="12" cy="12" r="10" fill="none" stroke="#FFFFFF" strokeWidth="3" opacity="0.25" />
       <path
         d="M22 12a10 10 0 0 0-10-10"
         fill="none"
-        stroke="#6b7280"
+        stroke="#FFFFFF"
         strokeWidth="3"
       >
         <animateTransform
@@ -413,7 +416,7 @@ const inputWrapStyle = {
       <path
         d="M20 6L9 17l-5-5"
         fill="none"
-        stroke="#16a34a"
+        stroke="#F0F0F0"
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
