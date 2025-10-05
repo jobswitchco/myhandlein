@@ -459,15 +459,6 @@ const inputWrapStyle = {
     return null;
   };
 
-  const onSubmit = () => {
-    const valid = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain);
-    const next = `/join-waitlist?subdomain=${encodeURIComponent(subdomain || "")}`;
-    if (valid || subdomain === "") navigate(next);
-  };
-
-  const onKeyDown = (e) => {
-    if (e.key === "Enter") onSubmit();
-  };
 
   return (
     <section style={containerStyle} aria-label="Hero">
@@ -546,7 +537,7 @@ const inputWrapStyle = {
             </div>
 
             <button
-              onClick={onSubmit}
+             onClick={()=> navigate('/join-waitlist')}
               style={{ ...startBtnStyle, ...startBtnHoverStyle }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
