@@ -521,7 +521,6 @@ const inputWrapStyle = {
                   placeholder="Ex: mkbhd, mumbiker"
                   value={subdomain}
                   onChange={onSubdomainChange}
-                  onKeyDown={onKeyDown}
                   style={inputStyle}
                   aria-describedby="availability-msg"
                   aria-invalid={availability === "invalid" || availability === "taken"}
