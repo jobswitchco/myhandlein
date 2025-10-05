@@ -536,7 +536,7 @@ const inputWrapStyle = {
             </div>
 
             <button
-             onClick={()=> navigate('/join-waitlist')}
+             onClick={()=> navigate('/professional/login')}
               style={{ ...startBtnStyle, ...startBtnHoverStyle }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
