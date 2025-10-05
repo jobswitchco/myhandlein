@@ -74,7 +74,7 @@ export default function Navbar() {
     top: 0,
     left: 0,
     width: "100%",
-    backgroundColor: "#f5f7f8",
+    backgroundColor: "#169976",
     padding: "8px 15px",
     display: "flex",
     alignItems: "center",
@@ -289,14 +289,14 @@ export default function Navbar() {
 >
   <img
     src={logo}
-    alt="betaFounder Logo"
+    alt="myhandle Logo"
     width="46"
     height="46"
     loading="eager"
     decoding="async"
     style={{ display: "block" }}
   />
-  <div style={brandTextStyle}>betaFounder</div>
+  <div style={brandTextStyle}>myHandle</div>
 </Link>
 
 

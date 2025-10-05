@@ -158,6 +158,33 @@ async function getDateRange(rangeKey) {
   }
 }
 
+// utils/extractSubdomain.js
+async function extractHandleFromHost(host, roots = ["myhandle.in"]) {
+  if (!host) return "";
+  const raw = String(host).toLowerCase().split(":")[0]; // strip :3000, etc.
+
+  // If the host matches any known root (or is a subdomain of it)
+  for (const root of roots) {
+    if (raw === root || raw.endsWith("." + root)) {
+      // remove ".root" from the end to get the left part(s)
+      const left = raw.replace(new RegExp("\\." + root.replace(/\./g, "\\.") + "$"), "");
+      if (!left) return "";
+
+      // e.g. "sid4real" or "www.sid4real"
+      const parts = left.split(".");
+      // If there's a leading "www", drop it and pick the next label
+      const last = parts[0] === "www" ? parts.slice(1) : parts;
+      return last.length ? last[last.length - 1] : "";
+    }
+  }
+
+  // Generic fallback: sub.domain.tld => take first label (with www handling)
+  const parts = raw.split(".");
+  if (parts.length >= 3) return parts[0] === "www" ? parts[1] : parts[0];
+  return "";
+}
+
+
 router.post("/logout", authenticateToken, (req, res) => {
   res.clearCookie("token_professional", {
     httpOnly: true,
@@ -1934,10 +1961,14 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   }
 });
 
+const { extractHandleFromHost } = require("./utils/extractSubdomain");
+
 router.get("/profile", async (req, res) => {
   try {
-    // const handle = (req.query.handle || extractSubdomain(req.headers.host || "") || "").trim().toLowerCase();
-    const handle = "sid4real";
+    const host = req.headers["x-forwarded-host"] || req.headers.host || "";
+    const inferred = extractHandleFromHost(host, ["myhandle.in"]);
+    const handle = (req.query.handle || inferred || "").trim().toLowerCase();
+
     if (!handle) return res.status(400).json({ error: "handle required" });
 
     const user = await USER.findOne({ handleUserName: handle }).lean();
@@ -1948,7 +1979,12 @@ router.get("/profile", async (req, res) => {
       .lean();
 
     const { _id, __v, ...userRest } = user;
-    const payload = { ...userRest, id: String(_id), blocks: blocks || [], socials: user.socials || [] };
+    const payload = {
+      ...userRest,
+      id: String(_id),
+      blocks: blocks || [],
+      socials: user.socials || [],
+    };
 
     // === Analytics logging ===
     (async () => {
@@ -1957,25 +1993,23 @@ router.get("/profile", async (req, res) => {
         const ua = req.headers["user-agent"] || "";
         const ref = req.headers["referer"] || req.headers["referrer"] || "";
 
-        // call ipdata; if null, we'll still create event with ip only
         const geo = await lookupGeo_ipdata(ip);
 
-         let geoLanguages = [];
-  try {
-    const rawLangs = geo?.raw?.languages;
-    if (Array.isArray(rawLangs) && rawLangs.length) {
-      geoLanguages = rawLangs.map((l) => {
-        // l may be { name, native, code } or other shapes; be defensive
-        return {
-          name: l?.name || l?.language || null,
-          native: l?.native || null,
-          code: l?.code || l?.iso || null,
-        };
-      }).filter(Boolean);
-    }
-  } catch (langErr) {
-    console.warn("Failed to parse geo languages:", langErr?.message || langErr);
-  }
+        let geoLanguages = [];
+        try {
+          const rawLangs = geo?.raw?.languages;
+          if (Array.isArray(rawLangs) && rawLangs.length) {
+            geoLanguages = rawLangs
+              .map((l) => ({
+                name: l?.name || l?.language || null,
+                native: l?.native || null,
+                code: l?.code || l?.iso || null,
+              }))
+              .filter(Boolean);
+          }
+        } catch (langErr) {
+          console.warn("Failed to parse geo languages:", langErr?.message || langErr);
+        }
 
         const eventDoc = {
           user_id: user._id,
@@ -1992,18 +2026,10 @@ router.get("/profile", async (req, res) => {
         };
 
         await PageAnalytics.create(eventDoc);
-
-        // upsert daily counter
-        const dateKey = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
-        // await PageAnalyticsCounter.updateOne(
-        //   { user_id: user._id, date: dateKey, event: "profile_view" },
-        //   { $inc: { count: 1 }, $set: { updated_at: new Date() } },
-        //   { upsert: true }
-        // );
       } catch (aerr) {
         console.warn("analytics logging error (profile):", aerr?.message || aerr);
       }
-    })(); 
+    })();
 
     return res.json(payload);
   } catch (err) {
@@ -2011,6 +2037,7 @@ router.get("/profile", async (req, res) => {
     return res.status(500).json({ error: "internal" });
   }
 });
+
 
 router.post("/submit-form", async (req, res) => {
   try {
@@ -2116,6 +2143,33 @@ router.post("/link-click-analytics", async (req, res) => {
   } catch (err) {
     console.error("Error saving link click analytics:", err);
     return res.status(500).json({ message: "Failed to save link click analytics" });
+  }
+});
+
+router.post("/subdomain/check", async (req, res) => {
+  try {
+    const raw = (req.body?.subdomain ?? "").toString().trim();
+    const subdomain = raw.toLowerCase();
+
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+
+    // Basic validations (the frontend also does this, but never trust the client)
+    if (!subdomain || !isValidSubdomain(subdomain) || RESERVED.has(subdomain)) {
+      // You can also include a reason if you want
+      return res.json({ available: false });
+    }
+
+    // Case-insensitive exact match on handleUserName
+    // Prefer storing a normalized field (e.g., handleUserNameLower) and indexing that.
+    // This regex approach is safe & exact but slower without an index.
+    const rx = new RegExp(`^${escapeRegex(subdomain)}$`, "i");
+
+    const exists = await USER.exists({ handleUserName: rx });
+    return res.json({ available: !Boolean(exists) });
+  } catch (err) {
+    console.error("subdomain check error:", err);
+    return res.status(500).json({ available: false });
   }
 });
 

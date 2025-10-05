@@ -1,15 +1,26 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from 'react-router-dom';
-
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function Hero({
-  logos = {}
+  logos = {},
+  heroImage = "https://cdn.prod.website-files.com/666255f7f2126f4e8cec6f8f/68b80742d1d9216c45c6d6ea_group1597882005.avif"
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [subdomain, setSubdomain] = useState("");
   const navigate = useNavigate();
 
+  // NEW: availability state
+  // idle = nothing yet, checking = debounce in progress or request in flight
+  // available / taken / invalid / error
+  const [availability, setAvailability] = useState("idle");
+  const [message, setMessage] = useState("");
+  const abortRef = useRef(null);
+  const debounceRef = useRef(null);
+  const baseUrl = "/api/usersOn";
 
-  // Track small-screen for accessibility (so we can set aria-hidden properly)
+
+  // Track small-screen (<=600px)
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" && window.matchMedia("(max-width:600px)").matches
   );
@@ -18,105 +29,204 @@ export default function Hero({
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(max-width:600px)");
     const handler = (e) => setIsMobile(e.matches);
-
     if (mq.addEventListener) mq.addEventListener("change", handler);
     else mq.addListener(handler);
-
     return () => {
       if (mq.removeEventListener) mq.removeEventListener("change", handler);
       else mq.removeListener(handler);
     };
   }, []);
 
-  // === Highlight sizing tokens (strings so we can reuse in calc())
-  const padX = "clamp(0.05em, 1.4vw, 0.05em)";         // horizontal padding for highlight
-  const highlightHeight = "clamp(0.42em, 1.8vw, 0.42em)"; // blue bar height
+  // === Highlight tokens
+  const padX = "clamp(0.05em, 1.4vw, 0.05em)";
+  const highlightHeight = "clamp(0.42em, 1.8vw, 0.42em)";
   const highlightRadius = "0px";
-  const highlightColor = "linear-gradient(120deg, #FFFFFF 0%, #8b5cf6 80%, #8b5cf6 100%)";
-  // This controls where the bar starts vertically relative to the text box.
-  // "75%" means the top of the bar sits at 75% down the line box (i.e. lower than center).
+  const highlightColor = "linear-gradient(120deg, #FFFFFF 0%, #DC143C 80%, #DC143C 100%)";
   const barOffset = "65%";
 
-  // Inline style objects (kept largely as you provided)
+  // === Inline styles
   const containerStyle = {
     minHeight: "68vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding:
-      "clamp(20vh, 12vw, 28vh) clamp(16px, 5vw, 24px) clamp(14vh, 12vw, 18vh) clamp(16px, 5vw, 24px)",
+    padding:"clamp(18vh, 8vw, 18vh) clamp(26px, 4vw, 32px) clamp(14vh, 8vw, 16vh) clamp(26px, 4vw, 32px)",
     boxSizing: "border-box",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
+    fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
     color: "#0b1220",
-    textAlign: "center"
+    overflowX: "hidden", 
+    background: '#169976'
   };
 
-  const contentStyle = {
-    maxWidth: 980,
+  const layoutStyle = {
     width: "100%",
+    maxWidth: 1200,
     margin: "0 auto",
     display: "flex",
-    flexDirection: "column",
+    flexDirection: isMobile ? "column" : "row",
     alignItems: "center",
-    textAlign: "center"
+    justifyContent: "space-between",
+    gap: isMobile ? "24px" : "48px"
   };
 
-  const subStyle = {
-    fontSize: "clamp(1rem, 1.8vw, 1.25rem)",
-    lineHeight: 1.6,
-    color: "#374151",
-    margin: "0 0 clamp(18px, 2.5vw, 32px) 0",
-    maxWidth: 760,
-    textAlign: "center",
-    marginTop: "1rem"
+const leftColStyle = {
+  flex: isMobile ? "0 1 auto" : "1 1 70%",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: isMobile ? "center" : "flex-start",
+  textAlign: isMobile ? "center" : "left",
+  minWidth: 0,              // ✅ allow children to shrink inside flex
+};
+
+const rightColStyle = {
+  flex: isMobile ? "0 1 auto" : "1 1 30%",
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: isMobile ? "center" : "flex-end",
+  minWidth: 0,              // ✅
+};
+
+  const heroImgStyle = {
+    width: isMobile ? "88%" : "100%",
+    maxWidth: 520,
+    height: "auto",
+    borderRadius: "16px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+    objectFit: "cover"
   };
+
+  const flagImgStyle = {
+  width: "32px",
+  height: "22px",
+  objectFit: "cover",
+  borderRadius: "2px",
+  verticalAlign: "middle",
+  marginLeft: "6px"
+};
+
+
+const subStyle = {
+  fontSize: "clamp(1rem, 1.8vw, 1.25rem)",
+  lineHeight: 1.6,
+  color: "#222831",
+  margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
+  maxWidth: 760,
+  marginTop: "1rem"
+};
+
+// inline version for mobile
+const subStyleDataInline = {
+  display: "inline",
+  fontSize: "clamp(0.9rem, 1.6vw, 1.12rem)",
+  fontWeight: 500,
+  color: "#000000",
+  margin: 0
+};
+
+// block version for desktop/tablet
+const subStyleDataBlock = {
+  fontSize: "clamp(0.9rem, 1.6vw, 1.12rem)",
+  lineHeight: 1.6,
+  color: "#000000",
+  maxWidth: 760,
+  margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
+  fontWeight: 500
+};
+
+
 
   const headlineStyle = {
-    fontSize: "clamp(2.6rem, 5vw, 4rem)",
+    fontSize: "clamp(2.6rem, 5vw, 3.25rem)",
     lineHeight: 1.3,
     fontWeight: 700,
     letterSpacing: "-0.02em",
-    margin: "0 0 clamp(12px, 2vw, 24px) 0"
+    margin: "0 0 clamp(12px, 2vw, 16px) 0",
+    fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
   };
 
-  // Slightly tighter mobile font (optional)
   const mobileHeadlineStyle = {
     ...headlineStyle,
-    fontSize: "clamp(2rem, 7vw, 3rem)" // tune if you want it smaller on tiny screens
+    fontSize: "clamp(2rem, 7vw, 3rem)"
   };
 
+  // === CTA row with subdomain input + button (no external CSS)
   const ctaRowStyle = {
+    width: "100%",
     display: "flex",
-    gap: "clamp(8px, 2vw, 16px)",
-    justifyContent: "center",
-    alignItems: "center",
+    flexDirection: isMobile ? "column" : "row",
+    gap: isMobile ? "0px" : "16px",
+    justifyContent: isMobile ? "center" : "flex-start",
+    alignItems: "stretch",
     marginTop: "clamp(8px, 2vw, 16px)"
   };
 
-  const joinBtnStyle = {
+const inputWrapStyle = {
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+  background: "#FFFFFF",
+  borderRadius: "14px",
+  boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)",
+  paddingLeft: "16px",
+  paddingRight: "16px",
+  height: isMobile ? "60px" : "52px",
+  boxSizing: "border-box",
+  width: "100%",
+  maxWidth: isMobile ? "100%" : "480px",
+};
+
+
+  const inputStyle = {
+    flex: 1,
+    height: "100%",
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "#0b1220",
+    paddingRight: "120px"
+  };
+
+  const suffixStyle = {
+    position: "absolute",
+    right: "16px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    fontSize: "15px",
+    color: "#6b7280",
+    whiteSpace: "nowrap",
+    pointerEvents: "none"
+  };
+
+  const startBtnStyle = {
     appearance: "none",
     border: "none",
-    padding: "clamp(10px, 2vw, 12px) clamp(32px, 4vw, 44px)",
-    fontSize: "clamp(0.9rem, 1vw, 1.1rem)",
-    fontWeight: 600,
-    borderRadius: "clamp(22px, 2vw, 32px)",
+    height: isMobile ? "60px" : "52px",
+    width: "100%",
+    padding: "0 28px",
+    fontSize: "16px",
+    fontWeight: 700,
+    borderRadius: "999px",
     cursor: "pointer",
-    background: isHovered ? "linear-gradient(90deg, #FDFAF6 0%, #8b5cf6 40%, #000000 100%)":"linear-gradient(90deg, #000000 0%, #8b5cf6 40%, #F1EAFF 100%)",
+    background: "#37353E",
     color: "#FFFFFF",
-    transform: isHovered ? "translateY(-2px)" : "translateY(0)",
-    transition: "all 0.3s ease",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "0.5em"
+    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+    alignSelf: isMobile ? "stretch" : "auto"
   };
+
+  const startBtnHoverStyle = isHovered
+    ? { transform: "translateY(-1px)", boxShadow: "0 10px 18px rgba(0,0,0,0.16)" }
+    : {};
 
   const socialRowStyle = {
     display: "flex",
     gap: "clamp(10px, 2vw, 18px)",
-    justifyContent: "center",
+    justifyContent: isMobile ? "center" : "flex-start",
     alignItems: "center",
-    marginTop: "clamp(20px, 4vw, 32px)"
+    marginTop: "clamp(16px, 3vw, 24px)"
   };
 
   const iconWrapStyle = {
@@ -130,18 +240,36 @@ export default function Hero({
     overflow: "hidden"
   };
 
-  const logoImgStyle = {
-    width: "75%",
-    height: "75%",
-    objectFit: "contain",
-    display: "block"
-  };
+  const logoImgStyle = { width: "75%", height: "75%", objectFit: "contain", display: "block" };
 
   const captionStyle = {
-    marginTop: "clamp(14px, 3vw, 24px)",
-    fontSize: "clamp(0.75rem, 1.5vw, 0.9rem)",
-    color: "#6b7280"
+    marginTop: "clamp(12px, 2.5vw, 18px)",
+    fontSize: "clamp(0.95rem, 1.8vw, 1.2rem)",
+    color: "#543A14"
   };
+
+  // NEW: status row styles (inline, no external CSS)
+  const statusRowStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 24,
+    paddingTop: 6,
+    paddingLeft: 4,
+    fontSize: 13,
+    fontWeight: 500
+  };
+
+  const statusColor =
+    availability === "available"
+      ? "#166534" // green-700
+      : availability === "taken"
+      ? "#b91c1c" // red-700
+      : availability === "invalid"
+      ? "#92400e" // amber-700
+      : availability === "error"
+      ? "#7c3aed" // violet-700
+      : "#6b7280"; // gray-500
 
   const renderLogo = (src, alt) => {
     const fallback = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
@@ -149,42 +277,30 @@ export default function Hero({
     return <img src={imageSrc} alt={alt} style={logoImgStyle} />;
   };
 
-  // === Inline highlight builder: returns a React node with
-  // wrapper (inline-block, relative) -> bg bar (absolute) -> text (relative, zIndex 1)
+  // === Highlight builder
   const Highlight = ({ children }) => {
-    // wrapper style
     const wrapperStyle = {
       position: "relative",
       display: "inline-block",
       paddingLeft: padX,
       paddingRight: padX,
       zIndex: 0,
-      // slight extra line-height so the lowered bar has room without clipping
       lineHeight: 1.15
     };
-
-    // background bar style (absolute element)
     const bgStyle = {
       content: '""',
       position: "absolute",
-      left: `calc(-1 * ${padX})`,   // extend left
-      right: `calc(-1 * ${padX})`,  // extend right
-      top: barOffset,               // <-- moved down to start lower
-      transform: "translateY(0)",   // no upward translate so bar's top sits at barOffset
+      left: `calc(-1 * ${padX})`,
+      right: `calc(-1 * ${padX})`,
+      top: barOffset,
+      transform: "translateY(0)",
       height: highlightHeight,
       background: highlightColor,
       borderRadius: highlightRadius,
       zIndex: 0,
       pointerEvents: "none"
     };
-
-    // text style (on top)
-    const textStyle = {
-      position: "relative",
-      zIndex: 1,
-      whiteSpace: "nowrap" // keep the word together — remove this if you want it to wrap
-    };
-
+    const textStyle = { position: "relative", zIndex: 1, whiteSpace: "nowrap" };
     return (
       <span style={wrapperStyle} aria-hidden={false}>
         <span style={bgStyle} aria-hidden="true" />
@@ -193,77 +309,269 @@ export default function Hero({
     );
   };
 
+  // Sanitize input to allowed subdomain chars
+  const onSubdomainChange = (e) => {
+    const raw = e.target.value;
+    const cleaned = raw.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    setSubdomain(cleaned);
+  };
+
+  const isValidSubdomain = (s) =>
+    /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s) && s.length > 0;
+
+  // NEW: debounce & availability check
+  useEffect(() => {
+    // reset UI if empty
+    if (!subdomain) {
+      setAvailability("idle");
+      setMessage("");
+      if (abortRef.current) abortRef.current.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      return;
+    }
+
+    // invalid? show message, skip network
+    if (!isValidSubdomain(subdomain)) {
+      setAvailability("invalid");
+      setMessage("Only letters, numbers, and hyphens. Must start/end with a letter or number.");
+      if (abortRef.current) abortRef.current.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      return;
+    }
+
+    setAvailability("checking");
+    setMessage("Checking…");
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      // cancel previous in-flight request (if any)
+      if (abortRef.current) abortRef.current.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        // Adjust the URL to your backend route
+        const res = await axios.post(
+          baseUrl + "/subdomain/check",
+          { subdomain },
+          { signal: controller.signal }
+        );
+
+        const available = !!res?.data?.available;
+        if (available) {
+          setAvailability("available");
+          setMessage(`${subdomain}.myhandle.in is available!`);
+        } else {
+          setAvailability("taken");
+          setMessage(`${subdomain}.myhandle.in is taken.`);
+        }
+      } catch (err) {
+        if (axios.isCancel?.(err) || err?.name === "CanceledError" || err?.name === "AbortError") {
+          // request was aborted due to new keystrokes: ignore
+          return;
+        }
+        setAvailability("error");
+        setMessage("Couldn’t check right now. Please try again.");
+      }
+    }, 400); // 400ms debounce
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [subdomain]);
+
+  // NEW: tiny inline icons (SVG) so we don’t need external CSS
+  const Spinner = () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      style={{ display: "block" }}
+      aria-label="Loading"
+    >
+      <circle cx="12" cy="12" r="10" fill="none" stroke="#9ca3af" strokeWidth="3" opacity="0.25" />
+      <path
+        d="M22 12a10 10 0 0 0-10-10"
+        fill="none"
+        stroke="#6b7280"
+        strokeWidth="3"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 12 12"
+          to="360 12 12"
+          dur="0.8s"
+          repeatCount="indefinite"
+        />
+      </path>
+    </svg>
+  );
+
+  const CheckIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M20 6L9 17l-5-5"
+        fill="none"
+        stroke="#16a34a"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const CrossIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        fill="none"
+        stroke="#dc2626"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+
+  const WarnIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 9v4m0 4h.01" stroke="#b45309" strokeWidth="2" strokeLinecap="round" />
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="none" stroke="#b45309" strokeWidth="2" />
+    </svg>
+  );
+
+  const ErrorIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="none" stroke="#7c3aed" strokeWidth="2" />
+      <path d="M12 7v6m0 4h.01" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+
+  const StatusIcon = () => {
+    if (availability === "checking") return <Spinner />;
+    if (availability === "available") return <CheckIcon />;
+    if (availability === "taken") return <CrossIcon />;
+    if (availability === "invalid") return <WarnIcon />;
+    if (availability === "error") return <ErrorIcon />;
+    return null;
+  };
+
+  const onSubmit = () => {
+    const valid = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain);
+    const next = `/join-waitlist?subdomain=${encodeURIComponent(subdomain || "")}`;
+    if (valid || subdomain === "") navigate(next);
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") onSubmit();
+  };
+
   return (
     <section style={containerStyle} aria-label="Hero">
-      <div style={contentStyle}>
-        {/* Desktop variant (single line) using inline display toggle */}
-        <h1
-          style={{
-            ...headlineStyle,
-            display: isMobile ? "none" : "block"
-          }}
-          aria-hidden={isMobile}
-        >
-          {"The "}
-          <Highlight>Growth</Highlight>
-          {" Platform for Solo Founders."}
-        </h1>
-
-        {/* Mobile variant (three stacked lines) */}
-        <h1
-          style={{
-            ...mobileHeadlineStyle,
-            display: isMobile ? "block" : "none",
-            margin: 0 // we'll control spacing with spans
-          }}
-          aria-hidden={!isMobile}
-        >
-
-          <span style={{ display: "block", lineHeight: 1.5 }}>
-            The <Highlight>Growth</Highlight> Platform
-          </span>
-
-          <span style={{ display: "block", lineHeight: 1.5 }}>
-            for Solo Founders.
-          </span>
-        </h1>
-
-        <p style={subStyle}>
-          Collect real insights, test ideas, and grow your startup with feedback that truly matters across Reddit, LinkedIn, and Twitter.
-        </p>
-
-        <div style={ctaRowStyle}>
-          <button
-            onClick={()=> navigate('/join-waitlist')}
-            style={joinBtnStyle}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+      <div style={layoutStyle}>
+        {/* LEFT: Content */}
+        <div style={leftColStyle}>
+          {/* Desktop headline */}
+          <h1
+            style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}
+            aria-hidden={isMobile}
           >
-            <span>Get Early Access</span>
-            <span>&#8599;</span>
-          </button>
+            {"Why Pay "}
+            <Highlight>10x More</Highlight>
+            {" for Foreign Link in Bio Tools?"}
+          </h1>
+
+          {/* Mobile headline */}
+          <h1
+            style={{ ...mobileHeadlineStyle, display: isMobile ? "block" : "none", margin: 0 }}
+            aria-hidden={!isMobile}
+          >
+            <span style={{ display: "block", lineHeight: 1.5 }}>
+              Why Pay <Highlight>10x More</Highlight> for Foreign Link in Bio Tools?
+            </span>
+          </h1>
+
+         <p style={subStyle}>
+  India's affordable link-in-bio platform for creators and businesses. Unlimited links, UPI integration, Hindi support, and analytics — all for ₹99/month.
+  {isMobile ? (
+    <>
+      {" "}
+      <span style={subStyleDataInline}>Built in India, your data stays in India.</span>
+    </>
+  ) : null}
+</p>
+
+{!isMobile && (
+  <p style={subStyleDataBlock}>
+    Built in India, your data stays in India.
+  </p>
+)}
+
+
+          {/* Subdomain input + CTA */}
+          <div style={ctaRowStyle}>
+            <label
+              htmlFor="subdomain"
+              style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+            >
+              Enter your subdomain
+            </label>
+
+            <div style={{ display: "flex", flexDirection: "column", minWidth: isMobile ? "100%" : "360px", maxWidth: "480px" }}>
+              <div style={inputWrapStyle}>
+                <input
+                  id="subdomain"
+                  inputMode="latin"
+                  autoComplete="off"
+                  spellCheck="false"
+                  placeholder="Ex: mkbhd, mumbiker"
+                  value={subdomain}
+                  onChange={onSubdomainChange}
+                  onKeyDown={onKeyDown}
+                  style={inputStyle}
+                  aria-describedby="availability-msg"
+                  aria-invalid={availability === "invalid" || availability === "taken"}
+                />
+                <span style={suffixStyle}>.myhandle.in</span>
+              </div>
+
+              {/* NEW: status row */}
+              <div id="availability-msg" style={{ ...statusRowStyle, color: statusColor }}>
+                <StatusIcon />
+                <span>{message}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={onSubmit}
+              style={{ ...startBtnStyle, ...startBtnHoverStyle }}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              aria-label="Get started for free"
+              disabled={availability === "checking"}
+            >
+              Get started for free
+            </button>
+          </div>
+
+
+     <div style={captionStyle}>
+  Trusted by <span style={{ display : 'inline', fontWeight : 500}}>65,000+</span> Indian Influencers.</div>
+</div>
+
+
+        {/* RIGHT: Image */}
+        <div style={rightColStyle}>
+          {heroImage ? (
+            <img
+              src={heroImage}
+              alt="Showcase of MyHandle link-in-bio on mobile and desktop"
+              style={heroImgStyle}
+              loading="lazy"
+            />
+          ) : null}
         </div>
-
-        <div style={socialRowStyle} aria-hidden>
-          <span style={iconWrapStyle} title="Apple">
-            {renderLogo(logos.reddit, "Apple logo")}
-          </span>
-
-          <span style={iconWrapStyle} title="LinkedIn">
-            {renderLogo(logos.linkedin, "LinkedIn logo")}
-          </span>
-
-          <span style={iconWrapStyle} title="Twitter">
-            {renderLogo(logos.twitter, "Twitter logo")}
-          </span>
-
-          <span style={iconWrapStyle} title="Facebook">
-            {renderLogo(logos.facebook, "Facebook logo")}
-          </span>
-        </div>
-
-        <div style={captionStyle}>Trusted by founders and product teams</div>
       </div>
     </section>
-  );
+  )
 }

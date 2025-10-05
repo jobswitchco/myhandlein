@@ -54,8 +54,31 @@ export default function PublicProfile({ handle, initialProfile = null }) {
 
   const API_BASE = "/api/usersOn";
 
-  useEffect(() => {
-    if (!handle) return;
+  function extractHandleFromHostname(hostname, roots = ["myhandle.in"]) {
+  if (!hostname) return "";
+  const raw = String(hostname).toLowerCase();
+
+  for (const root of roots) {
+    if (raw === root || raw.endsWith("." + root)) {
+      const left = raw.replace(new RegExp("\\." + root.replace(/\./g, "\\.") + "$"), "");
+      if (!left) return "";
+      const parts = left.split(".");
+      const last = parts[0] === "www" ? parts.slice(1) : parts;
+      return last.length ? last[last.length - 1] : "";
+    }
+  }
+
+  const parts = raw.split(".");
+  if (parts.length >= 3) return parts[0] === "www" ? parts[1] : parts[0];
+  return "";
+}
+
+
+const derivedHandle = handle || extractHandleFromHostname(typeof window !== "undefined" ? window.location.hostname : "", ["myhandle.in"]);
+ const subdomain = derivedHandle;
+
+useEffect(() => {
+    if (!derivedHandle) return;
     if (profile) return;
 
     const controller = new AbortController();
@@ -66,7 +89,7 @@ export default function PublicProfile({ handle, initialProfile = null }) {
       setError(null);
       try {
         const resp = await axios.get(`${API_BASE}/profile`, {
-          params: { handle },
+          params: { handle: derivedHandle }, // <= pass it explicitly
           signal,
         });
         setProfile(resp.data);
@@ -84,19 +107,19 @@ export default function PublicProfile({ handle, initialProfile = null }) {
 
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handle]);
+  }, [derivedHandle]);
 
 
-async function handleLinkClick(block, url, opts = { newTab: true, awaitPost: false }) {
-  if (!url) return;
+  async function handleLinkClick(block, url, opts = { newTab: true, awaitPost: false }) {
+    if (!url) return;
+    const apiEndpoint = `${API_BASE}/link-click-analytics`;
+    const linkKey = block?._id || block?.id || block?.key || block?.actionKey || block?.slug || block?.name || url;
 
-  const apiEndpoint = `${API_BASE}/link-click-analytics`;
-  const linkKey = block?._id || block?.id || block?.key || block?.actionKey || block?.slug || block?.name || url;
-  const payload = {
-    handle: handle || block?.ownerHandle || (profile && profile.handleUserName) || undefined,
-    link_key: String(linkKey),
-    block_name: block?.name || block?.title || undefined,
-  };
+    const payload = {
+      handle: derivedHandle || block?.ownerHandle || (profile && profile.handleUserName) || undefined,
+      link_key: String(linkKey),
+      block_name: block?.name || block?.title || undefined,
+    };
 
   // 1) Try navigator.sendBeacon first (best for navigation/unload)
   if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
@@ -537,11 +560,11 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
         {storeEnabled && (
           <Tooltip title="Visit store" arrow>
             <IconButton
-           onClick={() => {
-  const subdomain = (window.location.hostname || "").split(".")[0] || "";
-  const url = "https://myhandle.in/products-affiliate?subdomain=" + encodeURIComponent(subdomain);
+         onClick={() => {
+  const url = "https://myhandle.in/products-affiliate?subdomain=" + encodeURIComponent(derivedHandle || "");
   window.location.href = url;
 }}
+
 
               sx={{
                 // bgcolor: "rgba(255,255,255,0.03)",
@@ -566,11 +589,11 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
           {dmEnabled && (
           <Tooltip title="Direct Message" arrow>
             <IconButton
-      onClick={() => {
-  const subdomain = (window.location.hostname || "").split(".")[0] || "";
-  const url = "https://myhandle.in/influencer/participant/login?subdomain=" + encodeURIComponent(subdomain);
-  window.open(url, "_blank", "noopener,noreferrer"); 
+ onClick={() => {
+  const url = "https://myhandle.in/influencer/participant/login?subdomain=" + encodeURIComponent(derivedHandle || "");
+  window.open(url, "_blank", "noopener,noreferrer");
 }}
+
 
 
               sx={{

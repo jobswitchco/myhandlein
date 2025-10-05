@@ -3,20 +3,15 @@ import { Helmet } from "react-helmet";
 import Navbar from "../components/Navbar";
 import BodyMain1 from "./BodyMain1";
 import HeroSection from "./HeroSection";
-import SimulatedTypingDemo from "./SimulatedTypingDemo";
 import GifShowcase from "./GifShowCase";
-import ProblemSolution from "./ProblemStatement";
-import FeaturesSection from "./FeaturesSection";
 import FAQSection from "./FAQSection";
 import redditLogo from "../images/redditIcon.png"
 import linkedinLogo from "../images/linkedin-logo.png"
 import twitterLogo from "../images/twitter.png"
 import facebookLogo from "../images/facebook.png"
-import { WhatsApp } from "@mui/icons-material";
 import WhatsAppProblemSolveCard from "./WhatsAppFeature";
-import Feature21 from "./FeatureSectionOne.js";
-import FeatureSectionTwo from "./FeatureSectionTwo.js";
-import FeatureSectionThree from "./FeatureSectionThree.js";
+import ThreeBlockPage from "./ThreeBlockPage.js";
+import ContentShowcase from "./ContentShowCase.js";
 
 // Lazy-loaded components
 const Footer = lazy(() => import("../components/Footer"));
@@ -39,13 +34,9 @@ export default function LandingPage() {
 
       <Navbar />
 <HeroSection logos={{ reddit: redditLogo, linkedin: linkedinLogo, twitter: twitterLogo, facebook: facebookLogo }} />
-      <ProblemSolution />
-      <FeaturesSection />
-      <Feature21 />
-      <FeatureSectionThree />
-      <FeatureSectionTwo />
+<ThreeBlockPage />
       <WhatsAppProblemSolveCard />
-      <SimulatedTypingDemo />
+      <ContentShowcase />
 
       {/* Lazy-loaded below pages */}
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>

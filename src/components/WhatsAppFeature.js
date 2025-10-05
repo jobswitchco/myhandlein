@@ -13,7 +13,6 @@ import {
   Grid,
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import WhatsAppLogo from '../images/WhatsappLogo.png';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowOutwardOutlinedIcon from '@mui/icons-material/ArrowOutwardOutlined';
 import { useNavigate } from 'react-router-dom';
@@ -53,20 +52,16 @@ export default function WhatsAppProblemSolveCard_modern() {
   return (
     
     <>
-    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', px: { xs: 2, md: 6 } }}>
+    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', px: { xs: 2, md: 6 }, background : '#7A1CAC' }}>
       <Card
         elevation={0}
         sx={{
           width: '100%',
-          borderRadius: 3,
           overflow: 'hidden',
           position: 'relative',
-          bgcolor: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.04)',
-          backdropFilter: 'blur(6px)',
+          bgcolor: '#7A1CAC',
           px: { xs: 2, md: 6 },
           py: { xs: 3, md: 4 },
-          boxShadow: '0 12px 48px rgba(2,6,23,0.12)',
         }}
       >
         <CardContent sx={{ p: 0 }}>

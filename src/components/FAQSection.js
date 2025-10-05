@@ -128,7 +128,7 @@ const FAQSection = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
+    <Container maxWidth="md" sx={{ py: 6 }}>
       <Box textAlign="center" mb={4}>
         <Typography gutterBottom sx={{ fontFamily : 'Inter', fontSize : isMobile ? '22px' : '32px', fontWeight : 600}}>
           Frequently Asked Questions
@@ -148,6 +148,8 @@ const FAQSection = () => {
             mb: 2,
             borderRadius: 2,
             boxShadow: 2,
+            py: 2,
+            px: isMobile ? 0 : 2,
             backgroundColor: bgColors[index % bgColors.length],
             "&:before": { display: "none" }, // 🔥 removes the horizontal line
           }}
@@ -157,7 +159,7 @@ const FAQSection = () => {
             aria-controls={`faq-content-${index}`}
             id={`faq-header-${index}`}
           >
-            <Typography sx={{ fontFamily : 'Inter', fontSize : '16px', fontWeight : 500}}>
+            <Typography sx={{ fontFamily : 'Inter', fontSize : isMobile ? '16px' : '20px', fontWeight : 500, px: isMobile ? 0 : 2}}>
               {faq.question}
             </Typography>
           </AccordionSummary>
