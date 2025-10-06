@@ -1,5 +1,4 @@
 // import logo from './logo.svg';
-import './styles/Home.module.css';
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';

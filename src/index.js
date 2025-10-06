@@ -1,7 +1,6 @@
 import { hydrate, render } from 'react-dom';
 import './index.css';
 import './styles/bootstrap.css';
-import './styles/own.css';
 import App from './App.js';
 import store from './store/store.js';
 import reportWebVitals from './reportWebVitals.js';
