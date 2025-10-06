@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import logo from "../images/betaFounder_logo.png";
+import logo from "../images/myhandle_logo.png";
 
 export default function Navbar() {
   const [isMobile, setIsMobile] = useState(false);
@@ -74,7 +74,8 @@ export default function Navbar() {
     top: 0,
     left: 0,
     width: "100%",
-    backgroundColor: "#169976",
+    // backgroundColor: "#f5f7f8",
+    backgroundColor: "#FAB12F",
     padding: "8px 15px",
     display: "flex",
     alignItems: "center",
@@ -100,8 +101,8 @@ export default function Navbar() {
     fontWeight: 600,
     fontSize: "1.25rem",
     color: "#0b1220",
-    letterSpacing: "-0.02em",
     whiteSpace: "nowrap",
+    marginLeft : '12px'
   };
 
   const centerWrapStyle = {
@@ -120,7 +121,7 @@ export default function Navbar() {
   };
 
   const navItemStyle = {
-    fontSize: "0.95rem",
+    fontSize: "1rem",
     color: "#0f1724",
     textDecoration: "none",
     cursor: "pointer",
@@ -128,6 +129,7 @@ export default function Navbar() {
     borderRadius: 8,
     background: "transparent",
     lineHeight: 1,
+    fontWeight: 400
   };
 
   const featuresBtnStyle = {
@@ -188,7 +190,7 @@ export default function Navbar() {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    marginLeft: 12,
+    marginLeft: '10%',
   };
 
   const joinBtnStyle = {
@@ -210,7 +212,7 @@ export default function Navbar() {
     top: "100%",
     left: 0,
     right: 0,
-    background: "#fff",
+    background: "#FAB12F",
     borderTop: "1px solid rgba(15,23,42,0.04)",
     boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
     padding: 12,
@@ -226,6 +228,7 @@ export default function Navbar() {
     textDecoration: "none",
     color: "#0f1724",
     borderRadius: 8,
+    fontSize : "1rem"
   };
 
   // simple inline icons
@@ -289,9 +292,9 @@ export default function Navbar() {
 >
   <img
     src={logo}
-    alt="myhandle Logo"
-    width="46"
-    height="46"
+    alt="betaFounder Logo"
+    width="36"
+    height="36"
     loading="eager"
     decoding="async"
     style={{ display: "block" }}
@@ -301,7 +304,7 @@ export default function Navbar() {
 
 
       {/* CENTER: main nav (centered on large screens) */}
-      {/* <div style={centerWrapStyle}>
+      <div style={centerWrapStyle}>
         <nav aria-label="Primary" style={navListStyle}>
           <div
             ref={featuresRef}
@@ -321,7 +324,7 @@ export default function Navbar() {
               aria-haspopup="true"
               aria-expanded={featuresOpen}
             >
-              <span style={{ lineHeight: 1, fontSize: "0.95rem", fontWeight: 600 }}>Features</span>
+              <span style={{ lineHeight: 1, fontSize: "1rem", fontWeight: 600 }}>Features</span>
               <span style={arrowStyle(featuresOpen)} aria-hidden>
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M6 9l6 6 6-6" stroke="#0f1724" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -346,27 +349,17 @@ export default function Navbar() {
             )}
           </div>
 
-          <Link to="/examples" style={navItemStyle}>Trust Center</Link>
-          <Link to="/case-study" style={navItemStyle}>WhatsApp Alerts</Link>
+          <Link to="/pricing" style={navItemStyle}>Pricing</Link>
+          <Link to="/trust-center" style={navItemStyle}>Trust Center</Link>
         
         </nav>
-      </div> */}
+      </div>
 
       {/* RIGHT: Join Waitlist (desktop only) and mobile hamburger */}
       <div style={rightStyle}>
-        {/* Join Waitlist omitted on mobile */}
-        {/* {!isMobile && (
-          <button
-            onClick={() => (window.location.href = "/waitlist")}
-            style={joinBtnStyle}
-            aria-label="Join Waitlist"
-          >
-            Join Waitlist
-          </button>
-        )} */}
 
         {/* hamburger visible only on mobile */}
-        {/* <button
+        <button
           onClick={() => setMobileOpen((s) => !s)}
           aria-label="Toggle menu"
           aria-expanded={mobileOpen}
@@ -385,7 +378,7 @@ export default function Navbar() {
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
             <path d="M3 6h18M3 12h18M3 18h18" stroke="#0f1724" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </button> */}
+        </button>
       </div>
 
       {/* MOBILE MENU */}
@@ -393,7 +386,7 @@ export default function Navbar() {
         <div style={mobileMenuStyle}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <button onClick={() => setFeaturesOpen((s) => !s)} aria-expanded={featuresOpen} style={mobileLinkStyle}>
-              <span style={{ fontWeight: 700 }}>Features</span>
+              <span style={{ fontWeight: 700, fontSize : '15px' }}>Features</span>
               <span style={{ transform: featuresOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
                   <path d="M6 9l6 6 6-6" stroke="#0f1724" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -417,8 +410,8 @@ export default function Navbar() {
               </div>
             )}
 
-            <Link to="/examples" style={mobileLinkStyle}>Trust Center</Link>
-            <Link to="/case-study" style={mobileLinkStyle}>WhatsApp Alerts</Link>
+            <Link to="/pricing" style={mobileLinkStyle}>Pricing</Link>
+            <Link to="/trust-center" style={mobileLinkStyle}>Trust Center</Link>
           </div>
         </div>
       )}

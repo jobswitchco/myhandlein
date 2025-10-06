@@ -1588,157 +1588,57 @@ async function saveAdd() {
 
       {/* Right Preview Images */}
 <Grid item xs={12} md={5}>
+
   <Box
     sx={{
       width: { xs: "100%", sm: "85%", md: "85%" },
       margin: "0 auto",
-      borderRadius: { xs: 6, sm: 12 },
-      border: {
-        xs: "8px solid rgba(240,240,245,0.95)",
-        sm: "10px solid rgba(240,240,245,0.9)",
-      },
       boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
       overflow: "hidden",
-      bgcolor: "#37353E",
+      background: "linear-gradient(135deg, #0f0c29 0%, #0b0b0b 40%, #0b0b0b 100%)",
     }}
   >
-    <Box sx={{ p: { xs: 2, sm: 2 } }}>
-      {/* --- Image Grid Preview --- */}
-   <Grid container spacing={1} sx={{ mb: 2 }}>
-  {/* Left big image */}
-  <Grid item xs={6}>
+
+           <Box
+    sx={{
+      position: "relative",
+      overflow: "hidden",
+      height: { xs: 260, sm: 320 },
+      bgcolor: "#0b0b0b",
+    }}
+  >
+<Box
+  component="img"
+  src={userDetails.leftHeadImage}
+  alt="hero"
+  sx={{
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: { xs: "center 10%", sm: "center 25%" }, // shift focus to face
+    display: "block",
+  }}
+/>
+
+
+    {/* bottom gradient overlay for the ‘mix/gradient end’ */}
     <Box
       sx={{
-        width: "100%",
-        height: "100%",
-        borderRadius: 2,
-        bgcolor: "#f4f4f4",
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: "15%",
+        background:
+          "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(8,8,12,0.55) 45%, rgba(8,8,12,0.85) 75%, #08080c 100%)",
+        pointerEvents: "none",
       }}
-      onClick={() => document.getElementById("image-upload-1")?.click()}
-    >
-      {userDetails?.leftHeadImage ? (
-        <Box
-          component="img"
-          src={userDetails.leftHeadImage}
-          alt="Header Left"
-          sx={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",    // show whole image; change to "cover" if you prefer fill
-            objectPosition: "center",
-            backgroundColor: "#f4f4f4",
-          }}
-        />
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          Add Image
-        </Typography>
-      )}
+    />
+  </Box>
 
-      <input
-        id="image-upload-1"
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={(e) => handleHeaderImageChange(e, "leftHeadImage")}
-      />
-    </Box>
-  </Grid>
+    <Box sx={{ p: { xs: 2, sm: 2 } }}>
+      {/* --- Image Grid Preview --- */}
 
-  {/* Right stacked images */}
-  <Grid item xs={6}>
-    <Stack spacing={1} sx={{ height: "100%" }}>
-      {/* Top right */}
-      <Box
-        sx={{
-          flex: 1,
-          borderRadius: 2,
-          bgcolor: "#f4f4f4",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-        }}
-        onClick={() => document.getElementById("image-upload-2")?.click()}
-      >
-        {userDetails?.rightTopImage ? (
-          <Box
-            component="img"
-            src={userDetails.rightTopImage}
-            alt="Header Right Top"
-            sx={{
-              width: "100%",
-              height: 60,
-              objectFit: "contain",
-              objectPosition: "center",
-              backgroundColor: "#f4f4f4",
-            }}
-          />
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            Add Image
-          </Typography>
-        )}
-
-        <input
-          id="image-upload-2"
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={(e) => handleHeaderImageChange(e, "rightTopImage")}
-        />
-      </Box>
-
-      {/* Bottom right */}
-      <Box
-        sx={{
-          flex: 1,
-          borderRadius: 2,
-          bgcolor: "#f4f4f4",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-        }}
-        onClick={() => document.getElementById("image-upload-3")?.click()}
-      >
-        {userDetails?.rightBottomImage ? (
-          <Box
-            component="img"
-            src={userDetails.rightBottomImage}
-            alt="Header Right Bottom"
-            sx={{
-              width: "100%",
-              height: "100%",
-              objectFit: "fill",
-              objectPosition: "center",
-              backgroundColor: "#f4f4f4",
-            }}
-          />
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            Add Image
-          </Typography>
-        )}
-
-        <input
-          id="image-upload-3"
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={(e) => handleHeaderImageChange(e, "rightBottomImage")}
-        />
-      </Box>
-    </Stack>
-  </Grid>
-</Grid>
 
 
       {/* --- Name + Socials --- */}
@@ -1823,8 +1723,6 @@ async function saveAdd() {
       >
         {userIntro}
       </Typography>
-
-      <Divider sx={{ my: 1.5 }} />
 
       {/* blocks area */}
       <Stack spacing={1.25} sx={{ mt: 1, mb: 1 }}>

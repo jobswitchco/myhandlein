@@ -56,7 +56,7 @@ export default function Hero({
     fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
     color: "#0b1220",
     overflowX: "hidden", 
-    background: '#169976'
+    background: '#FAB12F'
   };
 
   const layoutStyle = {
@@ -166,7 +166,7 @@ const inputWrapStyle = {
   position: "relative",
   display: "flex",
   alignItems: "center",
-  background: "#FFFFFF",
+  background: "#FAB12F",
   borderRadius: "14px",
   boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)",
   paddingLeft: "16px",

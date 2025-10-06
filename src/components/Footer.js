@@ -29,7 +29,7 @@ export default function Footer() {
         
 
         
-{/* 
+
           <Typography
             variant="body2"
             sx={{
@@ -39,10 +39,10 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/pricing" style={linkStyle}>
+            <a href="/pricing" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Pricing
             </a>
-          </Typography> */}
+          </Typography>
            
             <Typography
             variant="body2"
@@ -53,7 +53,7 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/trust-center" style={linkStyle}>
+            <a href="/trust-center" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Trust Center
             </a>
           </Typography>
@@ -67,7 +67,7 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/disclosure-policy" style={linkStyle}>
+            <a href="/disclosure-policy" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Disclosure Policy
             </a>
           </Typography>
@@ -81,7 +81,7 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/about-us" style={linkStyle}>
+            <a href="/about-us" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               About Us
             </a>
           </Typography>
@@ -109,7 +109,7 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/sitemap.xml" style={linkStyle}>
+            <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Sitemap
             </a>
           </Typography>
@@ -128,19 +128,7 @@ export default function Footer() {
           >
             Useful
           </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              color: "#ccc",
-              mb: 1,
-              transition: "color 0.3s",
-              "&:hover": { color: "#f2f2f2" },
-            }}
-          >
-            <a href="/linkedin-text-formatter" target="_blank" rel="noopener noreferrer" style={linkStyle}>
-               Linkedin Text Formatter [Free]
-            </a>
-          </Typography>
+        
             <Typography
             variant="body2"
             sx={{
@@ -150,10 +138,11 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/google-api-disclosure" style={linkStyle}>
+            <a href="/google-api-disclosure" target="_blank" rel="noopener noreferrer" style={linkStyle}>
                Google API Disclosure
             </a>
           </Typography>
+
           <Typography
             variant="body2"
             sx={{
@@ -163,10 +152,11 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/terms" style={linkStyle}>
+            <a href="/terms" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Terms & Conditions
             </a>
           </Typography>
+
           <Typography
             variant="body2"
             sx={{
@@ -176,12 +166,13 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/privacy-policy" style={linkStyle}>
+            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Privacy Policy
             </a>
           </Typography>
+          
 
-             {/* <Typography
+             <Typography
             variant="body2"
             sx={{
               color: "#ccc",
@@ -190,10 +181,10 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/cancellation-refund-policy" style={linkStyle}>
-              Cancellation & Refund
+            <a href="/refund-cancellation-policy" target="_blank" rel="noopener noreferrer" style={linkStyle}>
+              Refund & Cancellation
             </a>
-          </Typography> */}
+          </Typography>
 
           <Typography
             variant="body2"
@@ -204,10 +195,11 @@ export default function Footer() {
               "&:hover": { color: "#f2f2f2" },
             }}
           >
-            <a href="/security" style={linkStyle}>
+            <a href="/security" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Security
             </a>
           </Typography>
+
         </Grid>
 
         {/* Social Media Section */}
@@ -252,7 +244,7 @@ export default function Footer() {
 
       <Box textAlign="center" sx={{ mt: 2 }}>
         <Typography variant="body2" sx={{ color: "#B9B4C7" }}>
-          &copy; betaFounder.co 2025
+          &copy; myHandle.in 2025
         </Typography>
       </Box>
     </Box>

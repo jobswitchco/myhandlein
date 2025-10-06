@@ -435,73 +435,59 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
   }
 
   return (
-      <Grid container justifyContent="center">
-      <Grid item xs={12} md={4}>
-          <Box sx={{ px: { xs: 1.5, sm: 2 }, alignItems: 'center', justifyContent : 'center', background: "linear-gradient(135deg, #0f0c29 0%, #3a1c71 40%, #1f3a93 100%)" }}>
-        <Box
-          sx={{
-            px: 2,
-            pt: 3,
-            pb: 2,
-            textAlign: "left"
-          }}
-        >
-         
-            <Grid container spacing={1}>
-              <Grid item xs={6}>
-                <Box
-                  component="img"
-                  src={leftImage || avatarUrl || ""}
-                  alt="header-left"
-                  sx={{
-                    width: "100%",
-                    height: { xs: 160, sm: 220 },
-                    objectFit: "cover",   
-                    objectPosition: "center",
-                    borderRadius: 1,
+    <Grid
+  container
+  justifyContent="center"
+  sx={{ background: "#0b0b0b" }}
+>
 
-                  }}
-                />
-              </Grid>
 
-              <Grid item xs={6} container direction="column" spacing={1}>
-                <Grid item sx={{ flex: 1 }}>
-                  <Box
-                    component="img"
-                    src={rightTopImage || avatarUrl || ""}
-                    alt="header-right-top"
-                    sx={{
-                      width: "100%",
-                      height: { xs: 76, sm: 108 },
-                     objectFit: "cover",   
-                    objectPosition: "center",
-                      borderRadius: 1,
-                      backgroundColor: "#f4f4f4",
+ 
+<Box
+  sx={{
+    width: { xs: "100%", sm: "85%", md: "85%" },
+    boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
+    overflow: "hidden",
+    background:
+      "linear-gradient(135deg, #0f0c29 0%, #0b0b0b 40%, #0b0b0b 100%)",
+    position: "relative", // ✅ must be relative for overlay to anchor
+  }}
+>
+  {/* hero image */}
+  <Box
+    component="img"
+    src={leftImage || avatarUrl}
+    alt="hero"
+    sx={{
+      width: "100%",
+      height: "360px",
+      objectFit: "cover",
+      objectPosition: { xs: "center 15%", sm: "center 25%" },
+      display: "block",
+      background:
+        "linear-gradient(135deg, #0f0c29 0%, #0b0b0b 60%, #0b0b0b 60%)",
+    }}
+  />
 
-                    }}
-                  />
-                </Grid>
-                <Grid item sx={{ flex: 1 }}>
-                  <Box
-                    component="img"
-                    src={rightBottomImage || avatarUrl || ""}
-                    alt="header-right-bottom"
-                    sx={{
-                      width: "100%",
-                      height: { xs: 76, sm: 108 },
-                      objectFit: "cover",   
-                    objectPosition: "center",
-                      borderRadius: 1,
-                      backgroundColor: "#f4f4f4",
-                    }}
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
+  {/* bottom gradient overlay */}
+  <Box
+    sx={{
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: "25%", // ✅ must have height, controls how far the fade goes up
+      background:
+        "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(8,8,12,0.55) 45%, #0b0b0b 85%, #0b0b0b 100%)",
+      pointerEvents: "none",
+      zIndex: 2,
+    }}
+  />
+</Box>
 
             {/* Name + socials row (no avatar) */}
-            <Grid container alignItems="center" spacing={1} sx={{ mt: 1 }}>
-              {/* Left: name */}
+            <Grid container alignItems="center" spacing={1} sx={{ mt: 0, px: 2, pb:2, textAlign : 'left', background: " #0b0b0b"}}>
+
               <Grid item xs={6}>
                 <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
                   <Typography sx={{ color: "#FFFFFF", fontFamily: "Inter", fontWeight: 600, fontSize: { xs: 16, sm: 18 } }}>
@@ -636,17 +622,9 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               </Grid>
             </Grid>
 
-            </Box>
 
-<Divider
-  sx={{
-    my: 0.1,
-    borderColor: "#FFFFFF", 
-    width: "50%",                
-    mx: "auto",   
-  }}
-/>
-
+ <Grid item xs={12} md={4}>
+          <Box sx={{ px: { xs: 1.5, sm: 2 }, alignItems: 'center', justifyContent : 'center'}}>
 
 
             {/* blocks area */}

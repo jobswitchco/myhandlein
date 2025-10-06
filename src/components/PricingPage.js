@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// PricingPage.js
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Grid,
@@ -9,284 +10,288 @@ import {
   CardContent,
   Button,
   useMediaQuery,
-  Stack
+  Chip,
+  Divider
 } from '@mui/material';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 
-const pricingData = {
+const plans = {
   monthly: {
-    starter: 9.99,
-    pro: 39.99,
+    price: 99,
+    label: 'Monthly',
+    subLabel: 'Billed monthly',
+    cta: 'Start for ₹99',
+    note: '7-day refund • cancel anytime'
   },
-  yearly: {
-    starter: 9.99,
-    pro: 29.99,
-  },
+  lifetime: {
+    price: 999,
+    label: 'Lifetime',
+    subLabel: 'Access up to 20 years',
+    cta: 'Get Lifetime for ₹999',
+    note: 'One-time payment • 7-day refund'
+  }
 };
 
+// Core myHandle features — short, scannable, influencer-friendly
 const features = [
-  { label: 'Real-time Trending Topics', starter: true, pro: true },
-  { label: 'Unlimited Keywords', starter: true, pro: true },
-  { label: 'Calendar View', starter: true, pro: true },
-  { label: 'Scheduled Image Posts', starter: true, pro: true },
-  { label: 'Save Drafts', starter: true, pro: true },
-  { label: 'Rollover unused credits', starter: false, pro: true },
-  { label: 'Priority Support', starter: false, pro: true },
+  'Custom subdomain (yourname.myhandle.in)',
+  'Unlimited links & smart actions (WhatsApp, Call, Maps, Email, Socials)',
+  'UPI/Razorpay payments (tips, donations, bookings, digital items)',
+  'Analytics: Visitors vs Views, CTR, top links, referrers, device & region',
+  'Quick filters: Today • Last 7 days • Last 28 days',
+  'English + Hindi support',
+  'Branded QR code for offline sharing',
+  'Fast, secure hosting with SSL',
+  'Simple editor • drag & reorder links',
+  'Email support (24–48 business hours)'
 ];
 
 export default function PricingPage() {
   const [billing, setBilling] = useState('monthly');
   const isMobile = useMediaQuery('(max-width:600px)');
-
-  const handleBillingChange = (_, newBilling) => {
-    if (newBilling !== null) setBilling(newBilling);
-  };
-
-  // Helper to split into whole + cents (always 2 decimals)
-  const getPriceParts = (value) => {
-    const [whole, cents] = Number(value).toFixed(2).split('.');
-    return { whole, cents };
-  };
+  const active = useMemo(() => plans[billing], [billing]);
 
   return (
     <>
       <Navbar />
-      <Box sx={{ py: 10, px: isMobile ? 2 : 8 }}>
-        <Typography variant="h3" fontWeight={500} textAlign="center" mb={2}>
-          Choose Your Plan
-        </Typography>
 
-      <Box textAlign="center" mb={6}>
-          <ToggleButtonGroup
-            value={billing}
-            exclusive
-            onChange={handleBillingChange}
-            sx={{
-              borderRadius: 6,
-              p: 1,
-            }}
-          >
-            <ToggleButton
-              value="monthly"
-              sx={{
-                px: 3,
-                fontWeight: 500,
-                textTransform: 'none',
-                borderRadius: 4,
-                background: billing === 'monthly'
-                  ? 'linear-gradient(to right, #000000, #8b5cf6)'
-                  : 'transparent',
-                color: billing === 'monthly' ? '#ffffff' : '#1e293b',
-                '&:hover': {
+      {/* Background */}
+      <Box
+        sx={{
+          minHeight: '100vh',
+          mt: 4,
+          background:
+            'radial-gradient(1200px 600px at 20% -10%, #ede9fe 0%, rgba(237,233,254,0) 50%), radial-gradient(900px 500px at 120% 10%, #f0f9ff 0%, rgba(240,249,255,0) 55%), linear-gradient(180deg, #ffffff 0%, #fafafa 100%)'
+        }}
+      >
+        <Box sx={{ py: 8, px: isMobile ? 2 : 6, maxWidth: 1100, mx: 'auto' }}>
+          {/* Header */}
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Chip
+              icon={<VerifiedRoundedIcon />}
+              label="Made in India • Priced for India"
+              color="default"
+              sx={{ mb: 2, bgcolor: '#eef2ff', borderRadius: 2, fontWeight: 700, fontFamily : 'Inter' }}
+            />
+           
+          </Box>
+
+          {/* Toggle */}
+        <Box
+  sx={{
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',     // ⟵ center children horizontally
+    justifyContent: 'center',
+    gap: 1,                   // small space between group and text
+    mb: 4,
+  }}
+>
+  <ToggleButtonGroup
+    value={billing}
+    exclusive
+    onChange={(_, v) => v && setBilling(v)}
+    aria-label="Billing period"
+    sx={{
+      p: 0.5,
+      bgcolor: '#f4f4f5',
+      borderRadius: 3,
+      boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.05)',
+      '& .MuiToggleButtonGroup-grouped': {
+        border: 0,
+        mx: 0.5,
+        '&:not(:first-of-type)': { borderLeft: 0 },
+      },
+    }}
+  >
+    <ToggleButton
+      value="monthly"
+      sx={{
+        px: 2.5,
+        py: 1,
+        borderRadius: 2,
+        textTransform: 'none',
+        fontWeight: 700,
+        fontFamily : 'Inter',
+        '&.Mui-selected': {
+          bgcolor: '#111827',
+          color: '#fff',
+          '&:hover': { bgcolor: '#0f172a' },
+        },
+      }}
+    >
+      Monthly • ₹99
+    </ToggleButton>
+    <ToggleButton
+      value="lifetime"
+      sx={{
+        px: 2.5,
+        py: 1,
+        borderRadius: 2,
+        textTransform: 'none',
+        fontWeight: 700,
+        fontFamily : 'Inter',
+        '&.Mui-selected': {
+          bgcolor: '#111827',
+          color: '#fff',
+          '&:hover': { bgcolor: '#0f172a' },
+        },
+      }}
+    >
+      Lifetime • ₹999
+    </ToggleButton>
+  </ToggleButtonGroup>
+
+  <Typography
+    color="text.secondary"
+    sx={{ mt: 0.5, textAlign: 'center', fontSize: 12 }}
+  >
+    No hidden fees. Everything you need in one plan.
+  </Typography>
+</Box>
+
+
+          {/* Card */}
+          <Grid container justifyContent="center">
+            <Grid item xs={12} md={9} lg={7}>
+              <Card
+                elevation={0}
+                sx={{
+                  overflow: 'hidden',
+                  borderRadius: 4,
+                  border: '1px solid rgba(0,0,0,0.06)',
                   background:
-                    billing === 'monthly'
-                      ? 'linear-gradient(to right, #000000, #8b5cf6)'
-                      : '#e0e7ff',
-                  color: '#ffffff',
-                },
-              }}
-            >
-              Monthly
-            </ToggleButton>
+                    'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.85) 100%)',
+                  backdropFilter: 'blur(6px)',
+                  boxShadow:
+                    '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(17,24,39,0.06)'
+                }}
+              >
+                <CardContent sx={{ p: isMobile ? 3 : 5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                      mb: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography sx={{ letterSpacing: '-0.01em', fontFamily : 'Inter', fontSize : isMobile ? '18px' : '26px', fontWeight : 700 }}>
+                        {active.label} Plan
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ mt: 1}}>{active.subLabel}</Typography>
+                    </Box>
 
-            <ToggleButton
-              value="yearly"
-              sx={{
-                px: 3,
-                fontWeight: 500,
-                textTransform: 'none',
-                borderRadius: 4,
-                background: billing === 'yearly'
-                  ? 'linear-gradient(to right, #000000, #8b5cf6)'
-                  : 'transparent',
-                color: billing === 'yearly' ? '#ffffff' : '#1e293b',
-                '&:hover': {
-                  background:
-                    billing === 'yearly'
-                      ? 'linear-gradient(to right, #000000, #8b5cf6)'
-                      : '#e0e7ff',
-                  color: '#ffffff',
-                },
-              }}
-            >
-              Annually [4 months free]
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-
-        <Grid container spacing={4} justifyContent="center">
-          {['starter', 'pro'].map((plan) => {
-            const price = pricingData[billing][plan];
-            const { whole, cents } = getPriceParts(price);
-            const isPro = plan === 'pro';
-            const fgColor = isPro ? '#FFFFFF' : '#000000';
-            const subColor = isPro ? '#E5E7EB' : 'grey';
-
-            return (
-              <Grid item xs={12} md={5} key={plan}>
-                <Card
-                  sx={{
-                    p: 4,
-                    borderRadius: 4,
-                    boxShadow: 3,
-                    background: isPro
-                      ? 'linear-gradient(to right, #000000, #8b5cf6)'
-                      : '#fff',
-                  }}
-                >
-                  <CardContent>
-                    <Typography
-                      variant="h5"
-                      fontWeight={700}
-                      mb={1}
-                      color={isPro ? '#FFFFFF' : 'text.primary'}
-                    >
-                      {plan === 'starter' ? 'Starter' : 'Pro'}
-                    </Typography>
-
-                    {/* Price with .99 in top-right */}
-                    <Stack
-                      direction="row"
-                      alignItems="flex-end"
-                      spacing={1}
-                      sx={{ mb: 1 }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', lineHeight: 1 }}>
-                        <Typography
-                          sx={{
-                            fontFamily: 'Inter',
-                            fontSize: { xs: '18px', md: '20px' },
-                            fontWeight: 500,
-                            color: fgColor,
-                            mr: 0.5,
-                            lineHeight: 1,
-                          }}
-                        >
-                          $
-                        </Typography>
-
-                        <Box sx={{ position: 'relative', display: 'inline-block', lineHeight: 1 }}>
-                          <Typography
-                            sx={{
-                              fontFamily: 'Inter',
-                              fontSize: { xs: '40px', md: '48px' },
-                              fontWeight: 600,
-                              color: fgColor,
-                              lineHeight: 1,
-                            }}
-                          >
-                            {whole}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              position: 'absolute',
-                              top: { xs: '-6px', md: '-8px' },
-                              right: { xs: '-18px', md: '-20px' },
-                              fontFamily: 'Inter',
-                              fontSize: { xs: '13px', md: '14px' },
-                              fontWeight: 600,
-                              color: fgColor,
-                              lineHeight: 1,
-                            }}
-                          >
-                            .{cents}
-                          </Typography>
-                        </Box>
-                      </Box>
-
+                    <Box sx={{ textAlign: 'right' }}>
                       <Typography
-                        mb={0.5}
                         sx={{
-                          fontFamily: 'Inter',
-                          color: subColor,
-                          fontSize: { xs: '12px', md: '14px' },
+                          letterSpacing: '-0.01em',
+                          fontFamily : 'Inter', fontSize : isMobile ? '18px' : '34px', fontWeight : 700
                         }}
                       >
-                        per month
+                        ₹{active.price}
                       </Typography>
-                    </Stack>
-
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      sx={{
-                        background: !isPro
-                          ? 'linear-gradient(to right, #000000, #8b5cf6)'
-                          : 'linear-gradient(to right, #FFFFFF, #000000)',
-                        color: '#fff',
-                        fontWeight: 500,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        mb: 3,
-                        '&:hover': { backgroundColor: '#6d28d9' },
-                      }}
-                      onClick={() => (window.location.href = '/signup')}
-                    >
-                      {plan === 'starter' ? 'Start with Starter' : 'Go Pro'}
-                    </Button>
-
-                    {/* Features List */}
-                    <Box component="ul" sx={{ pl: 0, mb: 0, listStyle: 'none' }}>
-                      {/* AI Rewrite Credits */}
-                      <Box component="li" display="flex" alignItems="center" mb={1}>
-                        <CheckCircleIcon sx={{ color: '#10b981', mr: 1 }} />
-                        <Typography
-                          variant="body2"
-                          sx={{ color: fgColor }}
-                        >
-                          {plan === 'starter'
-                            ? '30 AI Rewrite Credits/month'
-                            : '100 AI Rewrite Credits/month'}
-                        </Typography>
-                      </Box>
-
-                      {/* Scheduled Posts Limit */}
-                      <Box component="li" display="flex" alignItems="center" mb={1}>
-                        <CheckCircleIcon sx={{ color: '#10b981', mr: 1 }} />
-                        <Typography
-                          variant="body2"
-                          sx={{ color: fgColor }}
-                        >
-                          {plan === 'starter'
-                            ? '15 Scheduled Posts/month'
-                            : '30 Scheduled Posts/month'}
-                        </Typography>
-                      </Box>
-
-                      {/* Remaining Features */}
-                      {features.map((feat, i) => {
-                        const available = feat[plan];
-                        return (
-                          <Box key={i} component="li" display="flex" alignItems="center" mb={1}>
-                            {available ? (
-                              <CheckCircleIcon sx={{ color: '#10b981', mr: 1 }} />
-                            ) : (
-                              <CancelIcon sx={{ color: '#ef4444', mr: 1 }} />
-                            )}
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                color: isPro
-                                  ? available ? '#ffffff' : '#d1d5db'
-                                  : available ? '#000000' : '#9ca3af',
-                              }}
-                            >
-                              {feat.label}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
+                      <Typography color="text.secondary" sx={{ mt: 1 }}>
+                        {billing === 'monthly' ? 'per month' : 'Save ₹22,761'}
+                      </Typography>
                     </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
+                  </Box>
+
+                  <Button
+                    fullWidth
+                    size="large"
+                    variant="contained"
+                    endIcon={<StarRoundedIcon />}
+                    sx={{
+                      mt: 1,
+                      mb: 3,
+                      py: 1.4,
+                      borderRadius: 2.5,
+                      textTransform: 'none',
+                      fontWeight: 800,
+                      letterSpacing: '0.02em',
+                      background:
+                        'linear-gradient(90deg, #111827 0%, #4f46e5 50%, #7c3aed 100%)',
+                      boxShadow: '0 6px 20px rgba(79,70,229,0.35)',
+                      '&:hover': { opacity: 0.95 }
+                    }}
+                    onClick={() => (window.location.href = '/signup')}
+                  >
+                    {active.cta}
+                  </Button>
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Features */}
+                  <Grid container spacing={1.25}>
+                    {features.map((text, i) => (
+                      <Grid key={i} item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <CheckCircleIcon
+                            fontSize="small"
+                            sx={{ color: '#10b981', mt: '2px', flexShrink: 0 }}
+                          />
+                          <Typography variant="body2" sx={{ color: '#111827', fontFamily : 'Inter' }}>
+                            {text}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  {/* Guarantee strip */}
+                  <Box
+                    sx={{
+                      mt: 3,
+                      p: 1.5,
+                      bgcolor: '#f0fdf4',
+                      border: '1px solid #dcfce7',
+                      borderRadius: 2
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ color: '#065f46' }}>
+                      7-day no-questions-asked refund.{' '}
+                      {billing === 'monthly'
+                        ? 'Cancel anytime from your dashboard.'
+                        : 'One-time payment covers access for up to 20 years.'}{' '}
+                      Read our{' '}
+                      <a href="/refund-policy" style={{ color: '#065f46', fontWeight: 600 }}>
+                        Refund Policy
+                      </a>
+                      .
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              {/* Tiny legal */}
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', textAlign: 'center', mt: 2 }}
+              >
+                Payment gateway fees (if any) are as per UPI/Razorpay. Taxes may apply. By subscribing you agree to our{' '}
+                <a href="/terms" style={{ color: '#4f46e5' }}>
+                  Terms
+                </a>{' '}
+                and{' '}
+                <a href="/privacy-policy" style={{ color: '#4f46e5' }}>
+                  Privacy Policy
+                </a>
+                .
+              </Typography>
+            </Grid>
+          </Grid>
+        </Box>
       </Box>
+
       <Footer />
     </>
   );

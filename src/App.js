@@ -99,7 +99,7 @@ if (initialSubdomain) {
               <Route path="/chat-window" element={<ChatWindow />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-              <Route path="/cancellation-refund-policy" element={<CancellationRefund />} />
+              <Route path="/refund-cancellation-policy" element={<CancellationRefund />} />
               <Route path="/shipping_policy" element={<ShippingPolicy />} />
               <Route path="/contact" element={<ContactUs />} />
               <Route path="/profile" element={<ProfileSettings />} />
