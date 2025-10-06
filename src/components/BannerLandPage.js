@@ -28,7 +28,7 @@ const BannerLandpage = () => {
           mb: 2,
         }}
       >
-        Ready to transform your productivity?
+        Ready to transform your Bio?
       </Typography>
 
       {/* <Typography
@@ -70,7 +70,7 @@ const BannerLandpage = () => {
           </Button>
         </Link> */}
 
-        <Link to="/join-waitlist" style={{ textDecoration: 'none' }}>
+        <Link to="/professional/login" style={{ textDecoration: 'none' }}>
           <Button
           endIcon={ <CallMadeOutlinedIcon />}
             variant="contained"
@@ -91,7 +91,7 @@ const BannerLandpage = () => {
               },
             }}
           >
-            Get Early Access
+            Try for Free
           </Button>
         </Link>
       </Box>

@@ -15,88 +15,132 @@ import { styled } from "@mui/material/styles";
 
 const faqs = [
   {
-    question: "How do I know my account won’t get banned?",
+    question: "What exactly is myHandle?",
     answer: `
-We never post blindly. Every generated post is shown to you first → you approve/edit before scheduling.
+myHandle is a **link-in-bio mini site**: one fast page with your links, actions (WhatsApp, Call, Maps), payments, and analytics — all on a **custom subdomain** like <strong>yourname.myhandle.in</strong>.
 
-- We follow subreddit-specific rules (titles, flairs, link policies, word bans) via a rules engine.  
-- If a subreddit requires karma, account age, or post history, we check your account before posting.  
-- Posts are rate-limited per Reddit’s API guidelines to avoid spam flags.  
-- If Reddit blocks a post, we don’t retry aggressively — we respect limits.  
+- Built to be **mobile-first** and super quick to launch.
+- Great for Instagram, YouTube, LinkedIn bios, QR codes, and business cards.
+- If you need multi-page content or blogs, you can still link out to your main site from myHandle.
+    `,
+  },
 
-🛡️ Your account is as safe as if you were posting manually — except we prevent mistakes that usually get founders flagged.
+    {
+    question: "Can I accept payments on my page?",
+    answer: `
+Yes — we support **UPI/Razorpay** flows that your audience already uses.
+
+- Take **tips, donations, bookings**, or sell **digital items** right from your page.
+- Payments are processed by trusted partners; myHandle **does not store** full card/UPI details.
+- You'll see **basic payment events** in your analytics for clarity.
+    `,
+  },
+
+    {
+    question: "What analytics do I get?",
+    answer: `
+Your dashboard shows **Visitors vs. Views**, **top links**, **CTR**, **referrers**, **device types**, and **region**.
+
+- Quick filters: **Today**, **Last 7 days**, **Last 28 days**.
+- We dedupe visitors for a more accurate picture (no double-counting the same person repeatedly).
+- Use insights to **double down** on what works.
+    `,
+  },
+
+    {
+    question: "Is there a free plan? What's the pricing?",
+    answer: `
+We're India-first and keep pricing simple: starting at **₹99/month**.
+
+- Transparent pricing with **no hidden fees** from our side.
+- Payment gateway charges (if any) are as per **Razorpay/UPI**.
+- You can cancel anytime to stop future renewals.
+    `,
+  },
+
+    {
+    question: "Does myHandle support Hindi or other languages?",
+    answer: `
+Yes — we support **English + Hindi** out of the box (more languages coming).
+
+- Add Hindi text to your page and blocks seamlessly.
+- We're optimizing performance for Indian networks and devices.
+    `,
+  },
+
+    {
+    question: "What is your refund policy?",
+    answer: `
+We offer a **7-day, no-questions-asked refund** on new subscriptions. After **14 days** from payment, **no refunds** are issued.
+
+- For duplicate/failed transactions, we'll refund after verification.
+- To request: email <strong>support@myhandle.in</strong> with your registered email, amount, date, and transaction ID.
+    `,
+  },
+
+  {
+    question: "How do renewals and cancellation work?",
+    answer: `
+Plans renew automatically (monthly/yearly) unless you cancel **before** the next cycle.
+
+- Refunds are **not available** after a successful renewal charge.
+- Cancel anytime from your account or by emailing <strong>support@myhandle.in</strong> to avoid future charges.
+    `,
+  },
+  
+
+  {
+    question: "Can I add WhatsApp, Call, Maps, and socials?",
+    answer: `
+Absolutely. myHandle includes **smart action blocks**:
+
+- **WhatsApp**, **Call**, **Email**, **Maps**, **YouTube**, **Instagram**, **LinkedIn**, and more.
+- Add unlimited links and reorder them easily.
+- Use **QR codes** offline to send users straight to your page.
+    `,
+  },
+
+
+  {
+    question: "Will my page show up on Google? (SEO)",
+    answer: `
+myHandle pages are **indexable**, fast, and mobile-friendly.
+
+- You can customize page title/description for better previews.
+- If you prefer **privacy**, we can limit indexability on request.
+- For deeper SEO (blogs/landing pages), link out to your main site.
     `,
   },
   {
-    question: "How do I control tone?",
+    question: "Is my data secure? Do you store payment details?",
     answer: `
-After AI generates a draft, you see it in an editor. You can rewrite parts, change voice, or inject personal tone before scheduling.
+We take security seriously: **TLS encryption**, **AES-256 at rest**, **RBAC**, and secure hosting on **GCP**.
 
-- You can set a **tone profile** (casual, professional, storytelling) once, and we’ll match that style for future posts.  
-
- 🎙️ AI helps you draft faster, but you always stay in control of your voice.
+- We **do not store** full card or UPI credentials — payments flow via PCI-compliant partners like **Razorpay**.
+- We collect **aggregated analytics** only (visitors, clicks, referrers) per our Privacy Policy and India’s **DPDP Act, 2023**.
     `,
   },
   {
-    question: "What about credibility?",
+    question: "How do I migrate from another link-in-bio platform?",
     answer: `
-We analyze comments in real-time with sentiment + category tagging:  
+Just copy your existing links into myHandle and publish — it takes minutes.
 
-- Supportive validation  
-- Critical feedback  
-- Feature requests  
-- Troll/noise  
-
-Dashboard shows **% supportive vs. critical** + highlights insightful feedback.  
-You can export top constructive comments into a report to share with co-founders/investors.  
-
-Turn Reddit feedback into **actionable validation data** instead of raw noise.
+- Keep the same order/titles and add action blocks (WhatsApp/Call) to improve conversions.
+- Replace the link in your social bios with **yourname.myhandle.in** and you’re live.
     `,
   },
+
   {
-    question: "Why should I use your tool instead of posting manually?",
+    question: "Do you track my visitors personally?",
     answer: `
-**Key advantages:**  
-- Rule Compliance Engine: Never waste time writing a post that mods remove.  
-- Best Time Slotting: We track when subreddits are most active → higher reach.  
-- Multi-Subreddit Scheduling: Distribute ideas across multiple communities automatically.  
-- Comment Analytics: No need to dig through 200 comments — we summarize insights for you.  
-- History Tracking: All validation attempts stored in one dashboard.  
+No — analytics are **aggregate-level** (visits, clicks, device types, regions). We don’t sell or rent your data.
 
-Manual posting takes 10 minutes, but serious validation takes hours. We save you **both** 🎉.
+- You can request account/data deletion anytime via <strong>support@myhandle.in</strong>.
+- See our full Privacy Policy for details.
     `,
-  },
-  {
-    question: "How do you handle different subreddit rules?",
-    answer: `
-Each subreddit has a **rule template**:  
-
-- Allowed post types (text, link, images)  
-- Flair required or not  
-- Self-promo restrictions  
-- Title formatting rules  
-
-Our AI generates subreddit-specific variations automatically.  
-If a subreddit disallows links, we suggest text-only for that one.  
-
-✔️ Every subreddit is different — we make sure you never break local rules.
-    `,
-  },
-  {
-    question: "How do you ensure feedback isn’t just vanity metrics?",
-    answer: `
-We highlight **comment categories**:  
-
-- “I’d use this now” (strong validation)  
-- “Cool idea but…” (conditional validation)  
-- “Not for me” (rejection)  
-
-You get a **Validation Score** that weighs constructive feedback more than vanity upvotes.  
-
-🏃 Stop chasing karma — start measuring real validation.
-    `,
-  },
+  }
 ];
+
 
 // 🔄 Custom Expand Icon with rotation
 const ExpandIcon = styled((props) => <ExpandMoreIcon {...props} />)(

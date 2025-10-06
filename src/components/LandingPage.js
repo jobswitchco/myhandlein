@@ -21,12 +21,12 @@ export default function LandingPage() {
   return (
     <>
   <Helmet>
-  <title>betaFounder – Growth Platform For Solo Founders</title>
+  <title>Link in Bio Tool for Indian Creators | MyHandle</title>
   <meta
     name="description"
-    content="betaFounder helps early-stage founders share authentic ideas, build in public, and grow with AI-powered content tools."
+    content="Simplify your digital presence with MyHandle, the all-in-one bio link platform for Indian creators and brands."
   />
-  <link rel="canonical" href="https://www.betafounder.co/" />
+  <link rel="canonical" href="https://myhandle.in/" />
 
 </Helmet>
 
@@ -40,8 +40,6 @@ export default function LandingPage() {
 
       {/* Lazy-loaded below pages */}
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
-       <GifShowcase />
-      <BodyMain1 />
       <FAQSection />
 
         <BannerLandpage />
