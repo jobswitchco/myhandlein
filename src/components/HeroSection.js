@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import indiaFlag from "../images/flag.png"
 
 export default function Hero({
   logos = {},
-  heroImage = "https://cdn.prod.website-files.com/666255f7f2126f4e8cec6f8f/68b80742d1d9216c45c6d6ea_group1597882005.avif"
+  heroImage = "https://storage.googleapis.com/postlnbucketcom/products/Screenshot%202025-10-06%20231051.png"
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
@@ -166,7 +165,7 @@ const inputWrapStyle = {
   position: "relative",
   display: "flex",
   alignItems: "center",
-  background: "#FAB12F",
+  background: "#FFFFFF",
   borderRadius: "14px",
   boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)",
   paddingLeft: "16px",
@@ -216,6 +215,7 @@ const inputWrapStyle = {
     boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
     transition: "transform 0.15s ease, box-shadow 0.15s ease",
     alignSelf: isMobile ? "stretch" : "auto"
+
   };
 
   const startBtnHoverStyle = isHovered
@@ -259,7 +259,7 @@ const inputWrapStyle = {
     paddingLeft: 4,
     fontSize: 15,
     fontWeight: 500,
-    marginBottom: "8px"
+  marginBottom: "8px"
 
   };
 
@@ -272,7 +272,7 @@ const inputWrapStyle = {
       ? "#92400e" // amber-700
       : availability === "error"
       ? "#7c3aed" // violet-700
-      : "#6b7280"; // gray-500
+      : "#FFFFFF"; // gray-500
 
   const renderLogo = (src, alt) => {
     const fallback = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
@@ -459,7 +459,6 @@ const inputWrapStyle = {
     return null;
   };
 
-
   return (
     <section style={containerStyle} aria-label="Hero">
       <div style={layoutStyle}>
@@ -536,7 +535,7 @@ const inputWrapStyle = {
             </div>
 
             <button
-             onClick={()=> navigate('/professional/login')}
+            onClick={()=> navigate('/professional/login')}
               style={{ ...startBtnStyle, ...startBtnHoverStyle }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}

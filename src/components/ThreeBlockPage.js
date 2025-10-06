@@ -117,30 +117,30 @@ export default function ThreeBlockPage() {
   const sections =[
     {
       bg: "#6D0011", // deep maroon
-      title: "Share your MyHandle anywhere you like!",
+      title: "One link for every platform",
       desc:
-        "Add your unique MyHandle URL to all the platforms and places you find your audience. Then use your QR code to drive your offline traffic back to your link in bio.",
+        "Share your MyHandle across Instagram, YouTube, LinkedIn, Snapchat, and beyond. Drop it in bios, descriptions, and posts—then convert offline scans via your QR code.",
       cta: "Get started for free",
       image:
-        "https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=1200&auto=format&fit=crop",
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2010_05_48%20PM.png",
     },
     {
       bg: "#0F172A", // slate-950
-      title: "Turn traffic into actions.",
+      title: "Convert clicks into results",
       desc:
-        "Collect payments, sell digital items, capture emails and direct fans to your most important links—all in one page.",
+        "Accept payments, sell downloads, build your email list, and spotlight your top links—everything on one page.",
       cta: "Create your page",
       image:
-        "https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=1200&auto=format&fit=crop",
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2010_40_17%20PM.png",
     },
     {
       bg: "#052E2B", // deep green
-      title: "Grow across every channel.",
+      title: "Grow on every channel",
       desc:
-        "Use a single, memorable link that works across Instagram, YouTube, WhatsApp, and more. Update once—everywhere is current.",
+        "Share one memorable MyHandle link across Instagram, YouTube, WhatsApp, and more. Update once—it's current everywhere.",
       cta: "Try it now",
       image:
-        "https://images.unsplash.com/photo-1526498460520-4c246339dccb?q=80&w=1200&auto=format&fit=crop",
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2010_44_25%20PM.png",
     },
   ]
 

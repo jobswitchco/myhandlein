@@ -5,26 +5,26 @@ export default function ContentShowcase() {
   const sections = [
     {
       bg: "#F4B6E5", // pink
-      text: "Share every type of content in limitless ways",
+      text: "Share anything, anywhere, any way",
       images: [
-        "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400",
-        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=402"
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2010_47_07%20PM.png",
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2010_51_14%20PM.png"
       ]
     },
     {
       bg: "#D8F94D", // lime green
-      text: "Sell products, collect payments and make monetization simple",
+      text: "Sell anything and collect payments—no friction",
       images: [
-        "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=403",
-        "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=403",
-        "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=403"
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2010_57_16%20PM.png",
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2011_00_29%20PM.png",
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2010_53_35%20PM.png"
       ]
     },
     {
       bg: "#0D1EF0", // blue
-      text: "Grow, own and engage your audience across all of your channels",
+      text: "Grow your audience, own the relationship everywhere",
       images: [
-        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=402"
+        "https://storage.googleapis.com/postlnbucketcom/products/ChatGPT%20Image%20Oct%206%2C%202025%2C%2011_05_29%20PM.png"
         
       ]
     }
