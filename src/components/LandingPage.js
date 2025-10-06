@@ -34,12 +34,13 @@ export default function LandingPage() {
 
       <Navbar />
 <HeroSection logos={{ reddit: redditLogo, linkedin: linkedinLogo, twitter: twitterLogo, facebook: facebookLogo }} />
-<ThreeBlockPage />
-      <WhatsAppProblemSolveCard />
-      <ContentShowcase />
+
 
       {/* Lazy-loaded below pages */}
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
+      <ThreeBlockPage />
+      <WhatsAppProblemSolveCard />
+      <ContentShowcase />
       <FAQSection />
 
         <BannerLandpage />
