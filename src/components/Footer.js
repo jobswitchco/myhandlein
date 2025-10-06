@@ -85,7 +85,7 @@ export default function Footer() {
               About Us
             </a>
           </Typography>
-{/* 
+
              <Typography
             variant="body2"
             sx={{
@@ -98,7 +98,7 @@ export default function Footer() {
             <a href="/contact" style={linkStyle}>
              Contact Us
             </a>
-          </Typography> */}
+          </Typography>
           
           <Typography
             variant="body2"
@@ -183,6 +183,20 @@ export default function Footer() {
           >
             <a href="/refund-cancellation-policy" target="_blank" rel="noopener noreferrer" style={linkStyle}>
               Refund & Cancellation
+            </a>
+          </Typography>
+
+              <Typography
+            variant="body2"
+            sx={{
+              color: "#ccc",
+              mb: 1,
+              transition: "color 0.3s",
+              "&:hover": { color: "#f2f2f2" },
+            }}
+          >
+            <a href="/shipping-policy" target="_blank" rel="noopener noreferrer" style={linkStyle}>
+              Shipping Policy
             </a>
           </Typography>
 

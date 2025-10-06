@@ -486,7 +486,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
 </Box>
 
             {/* Name + socials row (no avatar) */}
-            <Grid container alignItems="center" spacing={1} sx={{ mt: 0, px: 2, pb:2, textAlign : 'left', background: " #0b0b0b"}}>
+            <Grid container alignItems="center" spacing={1} sx={{ mt: 0, px: 3.5, pb:2, textAlign : 'left', background: " #0b0b0b"}}>
 
               <Grid item xs={6}>
                 <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>

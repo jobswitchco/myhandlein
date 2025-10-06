@@ -100,7 +100,7 @@ if (initialSubdomain) {
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/refund-cancellation-policy" element={<CancellationRefund />} />
-              <Route path="/shipping_policy" element={<ShippingPolicy />} />
+              <Route path="/shipping-policy" element={<ShippingPolicy />} />
               <Route path="/contact" element={<ContactUs />} />
               <Route path="/profile" element={<ProfileSettings />} />
               <Route path="/google-api-disclosure" element={<GoogleApiDisclosure />} />
