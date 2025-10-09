@@ -2366,39 +2366,85 @@ const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 
 
+// assuming express, axios already imported, and authenticateToken middleware present
 router.post("/url-metadata", authenticateToken, async (req, res) => {
   try {
-    const url = req.body?.url;
+    let url = req.body?.url;
+    console.log("Url : ", url);
+
     if (!url) return res.status(400).json({ message: "url required" });
 
-    const r = await axios.get(url, {
-      // axios follows redirects by default
-      responseType: "text",
-      maxRedirects: 10,
-      timeout: 10000,
-      headers: {
-        "User-Agent": UA,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-IN,en;q=0.9",
-        // Many sites behave better if we say we can render images/css/js
-        "Sec-Fetch-Mode": "navigate",
-      },
-    });
+    // normalize url: require protocol, default to https if missing
+    try {
+      if (!/^https?:\/\//i.test(url)) {
+        url = "https://" + url;
+      }
+      // validate via URL constructor
+      // if invalid, this will throw
+      /* eslint-disable no-new */
+      new URL(url);
+    } catch (err) {
+      return res.status(400).json({ message: "invalid url" });
+    }
 
+    // safe default User-Agent if UA not defined elsewhere
+    const defaultUA =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+
+    const headers = {
+      "User-Agent": typeof UA === "string" && UA ? UA : defaultUA,
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-IN,en;q=0.9",
+      "Sec-Fetch-Mode": "navigate",
+    };
+
+    let r;
+    try {
+      r = await axios.get(url, {
+        responseType: "text",
+        maxRedirects: 10,
+        timeout: 10000,
+        headers,
+        validateStatus: (s) => s >= 200 && s < 400, // treat 3xx as OK (axios follows redirects by default)
+      });
+    } catch (axErr) {
+      // If axios error contains response, log response details too
+      console.error("axios GET error:", axErr.message);
+      if (axErr.response) {
+        console.error("axios response status:", axErr.response.status);
+        console.error("axios response headers:", axErr.response.headers);
+        // optionally log small part of body for debugging (be careful with size)
+        // console.error("axios response data snippet:", String(axErr.response.data).slice(0, 300));
+      } else if (axErr.request) {
+        console.error("axios made request but no response (possible network/TLS issue).");
+      }
+      return res.status(502).json({ message: "Failed to fetch URL (upstream error)" });
+    }
+
+    // safe access to html
     const html = typeof r.data === "string" ? r.data : "";
-    const baseUrl =
-      r.request?.res?.responseUrl || // follow-redirects
-      r.request?.socket?._host ? `${r.request.protocol}//${r.request.socket._host}${r.request.path}` :
-      r.config?.url || url;
 
-    // Title (og:title or <title>)
+    // compute baseUrl in a safer way
+    // prefer responseUrl if available
+    let baseUrl = null;
+    if (r.request && r.request.res && r.request.res.responseUrl) {
+      baseUrl = r.request.res.responseUrl;
+    } else if (r.config && r.config.url) {
+      baseUrl = r.config.url;
+    } else {
+      // fallback to incoming url
+      baseUrl = url;
+    }
+
+    console.log("baseUrl : ", baseUrl);
+
+    // run your helper extractors (make sure they are defensive)
     const title = await getFirst(html, [
       /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+name=["']og:title["'][^>]+content=["']([^"']+)["']/i,
       /<title>([^<]+)<\/title>/i,
     ]);
 
-    // Image (support secure/url variants + twitter + Amazon fallbacks)
     let image = await getFirst(html, [
       /<meta[^>]+property=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+name=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
@@ -2406,11 +2452,21 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
     ]);
 
     if (!image) {
-      // Try Amazon-specific patterns
-      image = await extractAmazonImage(html);
+      try {
+        image = await extractAmazonImage(html);
+      } catch (err) {
+        console.warn("extractAmazonImage failed:", err?.message || err);
+      }
     }
 
-    image = await resolveUrl(baseUrl, image);
+    // resolveUrl should be defensive and handle null/undefined
+    let resolvedImage = null;
+    try {
+      resolvedImage = await resolveUrl(baseUrl, image);
+    } catch (err) {
+      console.warn("resolveUrl failed:", err?.message || err);
+      resolvedImage = null;
+    }
 
     const description = await getFirst(html, [
       /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
@@ -2418,12 +2474,14 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
       /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
     ]);
 
-    res.json({ title: title || null, image: image || null, description: description || null });
+    return res.json({ title: title || null, image: resolvedImage || null, description: description || null });
   } catch (e) {
-    console.error("url-metadata error:", e?.message);
-    res.status(500).json({ message: "Failed to fetch metadata" });
+    // log full stack for debugging
+    console.error("url-metadata error:", e && e.stack ? e.stack : e);
+    return res.status(500).json({ message: "Failed to fetch metadata" });
   }
 });
+
 
 
 // ---------- CREATE PRODUCT (sets productCategory ObjectId) ----------
