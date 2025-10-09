@@ -137,7 +137,7 @@ async function getClientIp(req) {
 
 const UA ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36";
 
-const getFirst = (html, regexes) => {
+const getFirst = async(html, regexes) => {
   for (const rx of regexes) {
     const m = html.match(rx);
     if (m && m[1]) return m[1].trim();
@@ -174,7 +174,7 @@ async function extractAmazonImage(html) {
   return null;
 }
 
-const resolveUrl = (base, maybeRelative) => {
+const resolveUrl = async(base, maybeRelative) => {
   try { return maybeRelative ? new URL(maybeRelative, base).href : null; }
   catch { return maybeRelative || null; }
 };
@@ -2392,14 +2392,14 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
       r.config?.url || url;
 
     // Title (og:title or <title>)
-    const title = getFirst(html, [
+    const title = await getFirst(html, [
       /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+name=["']og:title["'][^>]+content=["']([^"']+)["']/i,
       /<title>([^<]+)<\/title>/i,
     ]);
 
     // Image (support secure/url variants + twitter + Amazon fallbacks)
-    let image = getFirst(html, [
+    let image = await getFirst(html, [
       /<meta[^>]+property=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+name=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+name=["']twitter:image(:src)?["'][^>]+content=["']([^"']+)["']/i,
@@ -2410,7 +2410,7 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
       image = await extractAmazonImage(html);
     }
 
-    image = resolveUrl(baseUrl, image);
+    image = await resolveUrl(baseUrl, image);
 
     const description = getFirst(html, [
       /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
