@@ -10,6 +10,7 @@ import Block from "../models/Blocks.js";
 import FormsData from "../models/FormsData.js";
 import Product from "../models/ProductsCatalogue.js";
 import PageAnalytics from "../models/PageAnalytics.js";
+import NewsletterModel from "../models/Newsletter.js";
 import mongoose from 'mongoose';
 router.use(cookieParser());
 import authenticateToken from "../middleware/authenticateTokenProfessional.js";
@@ -695,6 +696,80 @@ router.post("/page-analytics", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/newsletters-subscribe", async (req, res) => {
+  try {
+    const { email, newsletterText = "", blockId = null, submittedAt = null, handle = null, meta = {} } = req.body;
+
+    // validate email presence + format
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ message: "email is required" });
+    }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: "invalid email" });
+    }
+
+    // resolve user_id by handle (if provided)
+    let userId = null;
+    if (handle && String(handle).trim()) {
+      const maybeUser = await USER.findOne({ handleUserName: String(handle).trim() }).select("_id").lean().exec();
+      if (maybeUser) userId = maybeUser._id;
+    }
+
+    // Build search query to find the correct newsletter doc:
+    // prefer matching (user_id + blockId) if blockId provided, else (user_id + newsletterText)
+    const baseQuery = { user_id: userId || null, is_del: false };
+
+    if (blockId) {
+      baseQuery.blockId = blockId;
+    } else {
+      // no blockId — try to match by newsletterText if provided, else blockId:null
+      if (newsletterText && String(newsletterText).trim()) {
+        baseQuery.newsletterText = String(newsletterText).trim();
+      } else {
+        baseQuery.blockId = null;
+      }
+    }
+
+    // look for an existing newsletter doc
+    let doc = await NewsletterModel.findOne(baseQuery).exec();
+
+    // if doc exists, check for existing email in array
+    if (doc) {
+      const exists = Array.isArray(doc.emails) && doc.emails.some((e) => String(e.email).toLowerCase() === normalizedEmail);
+      if (exists) {
+        return res.status(200).json({ message: "Already subscribed" });
+      }
+
+      // push new email entry
+      doc.emails.push({ email: normalizedEmail, subscribed_at: submittedAt ? new Date(submittedAt) : new Date(), meta });
+      doc.updatedAt = new Date();
+      await doc.save();
+
+      return res.status(201).json({ message: "Successfully subscribed", id: doc._id });
+    }
+
+    // no doc exists — create new document for this user + block/text
+    const newDoc = await NewsletterModel.create({
+      user_id: userId || null,
+      handle: handle || null,
+      blockId: blockId,
+      newsletterText: String(newsletterText || ""),
+      emails: [{ email: normalizedEmail, subscribed_at: submittedAt ? new Date(submittedAt) : new Date(), meta }],
+    });
+
+    return res.status(201).json({ message: "Successfully subscribed", id: newDoc._id });
+  } catch (err) {
+    console.error("POST /newsletters/subscribe error:", err);
+    // return success if duplicate key race (defensive)
+    if (err && err.code === 11000) {
+      return res.status(200).json({ message: "Already subscribed" });
+    }
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 

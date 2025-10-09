@@ -35,6 +35,9 @@ import Button from "@mui/material/Button";
 import Snackbar from "@mui/material/Snackbar";
 import IndiaFlag from "../../images/flag.png";
 import StorefrontIcon from "@mui/icons-material/Storefront";
+import { Checkbox } from "@mui/material";
+import newsletterBg from "../../images/newsLetterBg.jpg";
+import MailOutlinedIcon from '@mui/icons-material/MailOutlined';
 
 
 export default function PublicProfile({ handle, initialProfile = null }) {
@@ -51,8 +54,32 @@ export default function PublicProfile({ handle, initialProfile = null }) {
   const [formSubmitting, setFormSubmitting] = useState(false);
 
   const [snack, setSnack] = useState({ open: false, message: "" });
-
+  const [newsletterDialogOpen, setNewsletterDialogOpen] = useState(false);
+  const [newsletterDialogText, setNewsletterDialogText] = useState("");
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterAccept, setNewsletterAccept] = useState(true);
+  const [newsletterDialogBlock, setNewsletterDialogBlock] = useState(null); // store block opened
+  const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
   const API_BASE = "/api/usersOn";
+
+
+  
+function openNewsletterDialog(block) {
+  setNewsletterDialogBlock(block || null);
+  setNewsletterDialogText(block?.action || block?.title || "Subscribe to Newsletter");
+  setNewsletterEmail("");
+  setNewsletterAccept(true);
+  setNewsletterDialogOpen(true);
+}
+
+  
+  function closeNewsletterDialog() {
+    setNewsletterDialogOpen(false);
+  }
+
+
+
+
 
   function extractHandleFromHostname(hostname, roots = ["myhandle.in"]) {
   if (!hostname) return "";
@@ -75,7 +102,55 @@ export default function PublicProfile({ handle, initialProfile = null }) {
 
 
 const derivedHandle = handle || extractHandleFromHostname(typeof window !== "undefined" ? window.location.hostname : "", ["myhandle.in"]);
- const subdomain = derivedHandle;
+
+   async function handleSubscribe() {
+  // basic checks
+  if (!newsletterEmail || !String(newsletterEmail).trim()) {
+    return setSnack?.({ open: true, message: "Please enter your email" }) || alert("Please enter your email");
+  }
+
+  const email = String(newsletterEmail).trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return setSnack?.({ open: true, message: "Please enter a valid email" }) || alert("Invalid email");
+  }
+
+  if (!newsletterAccept) {
+    return setSnack?.({ open: true, message: "Please accept terms & conditions" }) || alert("Accept terms");
+  }
+
+  setNewsletterSubmitting(true);
+
+  try {
+    // payload includes optional metadata (blockId / newsletter text)
+const payload = {
+  email,
+  newsletterText: newsletterDialogText || "",
+  blockId: newsletterDialogBlock?._id || newsletterDialogBlock?.id || null,
+  submittedAt: new Date().toISOString(),
+  handle: derivedHandle || null, // <-- send handle so backend can resolve user_id
+};
+
+
+    // POST to your newsletter subscribe endpoint
+    const res = await axios.post(`${API_BASE}/newsletters-subscribe`, payload, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    // success feedback
+    const message = res?.data?.message || "Successfully subscribed";
+    setSnack?.({ open: true, message }); // uses your existing snack setter
+    setNewsletterDialogOpen(false);
+    setNewsletterEmail("");
+    setNewsletterDialogBlock(null);
+  } catch (err) {
+    console.error("Newsletter subscribe error:", err);
+    const msg = err?.response?.data?.message || err?.message || "Failed to subscribe";
+    setSnack?.({ open: true, message: msg });
+  } finally {
+    setNewsletterSubmitting(false);
+  }
+}
 
 useEffect(() => {
     if (!derivedHandle) return;
@@ -404,6 +479,97 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
       );
     }
 
+    
+     if (b.type === "newsletter") {
+        return (
+          <Paper
+            key={b.id}
+            sx={{
+              p: 1.5,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderRadius: 3,
+          background: (t) =>
+          t.palette.mode === "dark"
+            ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
+            : `linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.06)), url(${newsletterBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        color: "#fff",                          // ensures text is visible
+        boxShadow: "0 8px 24px rgba(2,6,23,0.08)",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "transform .12s ease, box-shadow .12s ease",
+        "&:hover": { transform: "translateY(-2px)", boxShadow: "0 12px 30px rgba(2,6,23,0.16)" },
+        // optional: ensure rounded corners clip the image
+        overflow: "hidden",
+            boxShadow: "0 8px 24px rgba(2,6,23,0.08)",
+              transition: "transform .12s ease, box-shadow .12s ease",
+              "&:hover": { transform: "translateY(-2px)", boxShadow: "0 12px 30px rgba(2,6,23,0.12)" },
+            }}
+            onClick={() => openNewsletterDialog(b)}
+            elevation={0}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box
+                sx={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 2,
+                  display: "grid",
+                  placeItems: "center",
+                  border: '1px solid #1055C9',
+                  flexShrink: 0,
+                }}
+              >
+               <MailOutlinedIcon sx={{ color: '#1055C9'}}/>
+              </Box>
+    
+              <Box sx={{display : 'flex', flexDirection : 'column', minWidth: 0 }}>
+                <Typography sx={{ fontFamily: "Inter", fontSize: 15, fontWeight: 500, mb: 1, color: '#FFFFFF' }}>
+                  {b.action || b.title || "Subscribe to Newsletter"}
+                </Typography>
+    
+         <Box
+      sx={{
+        width: '220%',
+        border: "1px solid black",
+        borderRadius: 2,
+        display: "flex",
+        alignItems: "center",  
+        justifyContent: "flex-start",
+        px: 1.25,                   
+        py: 1,
+        cursor: "pointer",
+      }}
+    >
+      <Typography
+        sx={{
+          fontFamily: "Inter",
+          fontSize: 14,
+          fontWeight: 400,
+          lineHeight: 1,  
+          mb: 0,
+          py: 1,     
+          color: '#CBDCEB'     
+        }}
+      >
+        Your Email
+      </Typography>
+    </Box>
+    
+              
+               
+              </Box>
+            </Box>
+    
+          
+          </Paper>
+        );
+      }
+
     return (
       <Paper key={b._id || url || title} elevation={0} sx={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -707,6 +873,62 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
           </Button>
         </DialogActions>
       </Dialog>
+
+
+   <Dialog open={newsletterDialogOpen} onClose={() => { if (!newsletterSubmitting) closeNewsletterDialog(); }} fullWidth maxWidth="sm">
+  <DialogTitle sx={{ fontWeight: 700 }}>{newsletterDialogText || "Subscribe to Newsletter"}</DialogTitle>
+
+  <DialogContent dividers>
+    <Stack spacing={2}>
+      <TextField
+        label="Your email"
+        type="email"
+        fullWidth
+        value={newsletterEmail}
+        onChange={(e) => setNewsletterEmail(e.target.value)}
+        placeholder="you@company.com"
+        InputProps={{ sx: { borderRadius: 2 } }}
+        disabled={newsletterSubmitting}
+      />
+
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={newsletterAccept}
+            onChange={(e) => setNewsletterAccept(e.target.checked)}
+            size="small"
+            disabled={newsletterSubmitting}
+          />
+        }
+        label={<Typography sx={{ fontSize: 13 }}>I accept all terms &amp; conditions</Typography>}
+      />
+    </Stack>
+  </DialogContent>
+
+  <DialogActions sx={{ px: 2, py: 1 }}>
+    <Box sx={{ flex: 1 }} /> {/* pushes subscribe to right */}
+    <Button onClick={() => { if (!newsletterSubmitting) closeNewsletterDialog(); }} sx={{ mr: 1 }} disabled={newsletterSubmitting}>
+      Cancel
+    </Button>
+
+    <Button
+      variant="contained"
+      onClick={handleSubscribe}
+      disabled={!newsletterAccept || newsletterSubmitting}
+      sx={{ borderRadius: 2, minWidth: 120, position: "relative" }}
+    >
+      {newsletterSubmitting ? (
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+          <CircularProgress size={18} thickness={5} />
+          <span>Subscribing...</span>
+        </Box>
+      ) : (
+        "Subscribe"
+      )}
+    </Button>
+  </DialogActions>
+</Dialog>
+
 
       <Snackbar open={snack.open} autoHideDuration={3500} onClose={() => setSnack({ open: false, message: "" })} message={snack.message} />
     </Grid>

@@ -1,0 +1,57 @@
+// models/newsletters.js
+import mongoose from "mongoose";
+const { Schema } = mongoose;
+
+const EmailEntrySchema = new Schema(
+  {
+    email: { type: String, required: true, lowercase: true, trim: true },
+    subscribed_at: { type: Date, default: Date.now },
+    // optional metadata per email (IP, source, etc.)
+    meta: { type: Schema.Types.Mixed, default: {} },
+  },
+  { _id: false } // don't create separate _id for each subdocument to save space
+);
+
+const Newsletter_Schema = new Schema(
+  {
+    user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      default: null,
+    },
+
+    handle: { type: String, default: null }, // keep original handle for auditing
+
+    blockId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "blocks",
+      default: null,
+    },
+
+    newsletterText: { type: String, default: "" },
+
+    // store emails as an array of small objects (no _id for each entry — saves space)
+    emails: {
+      type: [EmailEntrySchema],
+      default: [],
+    },
+
+    is_del: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: { createdAt: "created_at", updatedAt: "updatedAt" },
+    versionKey: false,
+  }
+);
+
+// Optional index to speed lookups by user+block
+Newsletter_Schema.index({ user_id: 1, blockId: 1 });
+
+// you could also index email if you want to find a particular email fast across docs
+// Newsletter_Schema.index({ "emails.email": 1 });
+
+const Newsletter_Schema_Model = mongoose.model("newsletters", Newsletter_Schema);
+export default Newsletter_Schema_Model;

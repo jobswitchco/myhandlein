@@ -34,6 +34,8 @@ import Collapse from "@mui/material/Collapse";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
+import AccountBoxOutlinedIcon from '@mui/icons-material/AccountBoxOutlined';
+import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 
 const theme = createTheme({
   palette: {
@@ -450,6 +452,94 @@ const ResponsiveDrawer = ({ window }) => {
             </List>
           </Collapse>
 
+             <ListItem disablePadding>
+            <Link
+              to="/professional/profile"
+              style={{ textDecoration: "none", color: "black", width: "100%" }}
+              onClick={handleDrawerToggle}
+            >
+              <ListItemButton
+                selected={location.pathname === "/professional/profile"}
+                sx={{
+                  backgroundColor:
+                    location.pathname === "/professional/profile"
+                      ? "#e3e3f3"
+                      : "transparent",
+                  borderRadius: "6px",
+                  py: 0.5,
+                }}
+              >
+                <ListItemIcon>
+                  <AccountBoxOutlinedIcon
+                    sx={{
+                      color:
+                        location.pathname === "/professional/profile"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      transition: "color 0.3s",
+                    }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Profile"
+                  primaryTypographyProps={{
+                    sx: {
+                      color:
+                        location.pathname === "/professional/profile"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      fontWeight: 400,
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </Link>
+          </ListItem>
+
+             <ListItem disablePadding>
+            <Link
+              to="/professional/support"
+              style={{ textDecoration: "none", color: "black", width: "100%" }}
+              onClick={handleDrawerToggle}
+            >
+              <ListItemButton
+                selected={location.pathname === "/professional/support"}
+                sx={{
+                  backgroundColor:
+                    location.pathname === "/professional/support"
+                      ? "#e3e3f3"
+                      : "transparent",
+                  borderRadius: "6px",
+                  py: 0.5,
+                }}
+              >
+                <ListItemIcon>
+                  <SupportAgentOutlinedIcon
+                    sx={{
+                      color:
+                        location.pathname === "/professional/support"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      transition: "color 0.3s",
+                    }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Support"
+                  primaryTypographyProps={{
+                    sx: {
+                      color:
+                        location.pathname === "/professional/support"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      fontWeight: 400,
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </Link>
+          </ListItem>
+
           {/* Profile (only on mobile) */}
           {isSmallScreen && (
             <ListItem disablePadding>
@@ -504,7 +594,7 @@ const ResponsiveDrawer = ({ window }) => {
       </Box>
 
       {/* Bottom fixed plan card */}
-      <Box
+      {/* <Box
         sx={{
           p: 2,
           borderTop: "1px solid #e0e0e0",
@@ -559,7 +649,7 @@ const ResponsiveDrawer = ({ window }) => {
             Upgrade
           </Typography>
         </Box>
-      </Box>
+      </Box> */}
     </Box>
   );
 

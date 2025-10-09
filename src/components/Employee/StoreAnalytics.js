@@ -177,6 +177,8 @@ export default function StoreAnalytics() {
   const [clicksSort, setClicksSort] = useState("desc"); // 'asc' | 'desc'
   const baseUrl = "/api/usersOn";
 
+  const userId = typeof window !== "undefined" ? window.localStorage.getItem("user_id") : null;
+
   const fetchTable = async () => {
     setLoading(true);
     try {

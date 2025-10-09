@@ -30,6 +30,8 @@ import {
   MenuItem,
   Button,
   ClickAwayListener,
+  Switch,
+  Checkbox
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { styled } from "@mui/material/styles";
@@ -39,6 +41,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteIcon from "@mui/icons-material/Delete";
 import StorefrontIcon from "@mui/icons-material/Storefront";
+import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
 import SaveIcon from "@mui/icons-material/Save";
 import ShareIcon from "@mui/icons-material/Share";
 import YouTubeIcon from "@mui/icons-material/YouTube";
@@ -53,6 +56,8 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import newsletterBg from "../images/newsLetterBg.jpg";
+import MailOutlinedIcon from '@mui/icons-material/MailOutlined';
 
 // ---------- Responsive Custom styled buttons ----------
 const PrimaryBtn = styled("button")(({ theme }) => ({
@@ -181,6 +186,30 @@ const addCloseTimer = useRef(null);
   const [formValues, setFormValues] = useState({}); // { fieldKey: value }
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState({}); // { fieldKey: "error message" }
+    const [dmEnabled, setDmEnabled] = useState(false);
+    const [toggling, setToggling] = useState(false);
+    const [newsletterText, setNewsletterText] = useState("Subscribe to Newsletter");
+    const [newsletterDialogOpen, setNewsletterDialogOpen] = useState(false);
+const [newsletterDialogText, setNewsletterDialogText] = useState("");
+const [newsletterEmail, setNewsletterEmail] = useState("");
+const [newsletterAccept, setNewsletterAccept] = useState(true);
+
+function openNewsletterDialog(block) {
+  setNewsletterDialogText(block.action || block.title || "Subscribe to Newsletter");
+  setNewsletterEmail("");
+  setNewsletterAccept(true);
+  setNewsletterDialogOpen(true);
+}
+
+function closeNewsletterDialog() {
+  setNewsletterDialogOpen(false);
+}
+function handleSubscribe() {
+  // no API call required — simply close dialog
+  setNewsletterDialogOpen(false);
+}
+
+
 
   function openFormDialog(block) {
     // block.raw.fields OR JSON in block.action
@@ -280,6 +309,44 @@ function positionForKey(key) {
       return null;
   }
 }
+
+  async function fetchStoreStatus() {
+    try {
+      // If you already have an endpoint to get status, adjust path accordingly.
+      const res = await axios.get(`${baseUrl}/dm-inbox-status`, { withCredentials: true });
+      // Expect { enabled: true/false }
+      if (res?.data?.enabled !== undefined) setDmEnabled(Boolean(res.data.enabled));
+    } catch (err) {
+      // If /store-status is not available, silently ignore. You can remove this catch or show a toast.
+      console.warn("Could not fetch store status (expected GET /store-status).", err);
+    }
+  }
+
+ async function toggleStoreEnabled(nextValue) {
+    // optimistic UI
+    const previous = dmEnabled;
+    setDmEnabled(nextValue);
+    setToggling(true);
+
+    try {
+      // backend router expected: POST /enable-store
+      // sending { enabled: true/false } in body
+      await axios.post(
+        `${baseUrl}/enable-dm-inbox`,
+        { enabled: nextValue },
+        { withCredentials: true }
+      );
+          await fetchData();
+      // success — nothing else required, state already updated
+    } catch (err) {
+      console.error("Error toggling store enable:", err);
+      // revert optimistic update
+      setDmEnabled(previous);
+      alert("Failed to update store status. Please try again.");
+    } finally {
+      setToggling(false);
+    }
+  }
 
 async function handleHeaderImageChange(e, key) {
   const file = e?.target?.files?.[0];
@@ -465,6 +532,7 @@ async function handleHeaderImageChange(e, key) {
 
   useEffect(() => {
     fetchSocials();
+    fetchStoreStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -566,7 +634,6 @@ async function handleHeaderImageChange(e, key) {
       });
       if (ress.data.success) {
         setUserDetails(ress.data.data);
-        console.log('Response : ',ress.data.data );
         setName(ress.data.data.name || "");
         // The backend may not have an intro yet; use .intro if present
         setUserIntro(ress.data.data.intro || "");
@@ -655,21 +722,37 @@ async function handleHeaderImageChange(e, key) {
   }
 
 async function saveAdd() {
-  if (tab !== "form" && !newBlockName.trim()) return;
-  if (tab === "form" && (!newBlockName.trim() && formFields.length === 0)) return;
+  // Basic validation per tab
+  if (tab === "form") {
+    if (!newBlockName.trim() && formFields.length === 0) return;
+  } else if (tab === "newsletter") {
+    if (!newsletterText || !newsletterText.trim()) return;
+  } else {
+    // link/video/other non-form types require a name as before
+    if (!newBlockName.trim()) return;
+  }
 
   setSavingBlock(true);
 
+  // map frontend tab to block type
+  const type = tab === "video" ? "video" : tab === "form" ? "form" : tab === "newsletter" ? "newsletter" : "link";
+
   const payload = {
-    name: newBlockName.trim() || (tab === "form" ? "Contact form" : "Untitled"),
-    action: newBlockAction.trim(),
-    type: tab === "video" ? "video" : tab === "form" ? "form" : "link",
+    name: newBlockName.trim() || (type === "form" ? "Contact form" : type === "newsletter" ? "Newsletter" : "Untitled"),
+    action: newBlockAction?.trim() || "", // fallback, newsletter will supply newsletterText separately
+    type,
   };
 
-  if (tab === "form") {
+  // attach newsletterText when saving a newsletter
+  if (type === "newsletter") {
+    payload.newsletterText = (newsletterText || "").trim();
+    // also populate action with the text (keeps backward compatibility & preview)
+    payload.action = payload.newsletterText;
+  }
+
+  if (type === "form") {
     // Ensure each field is normalized and includes options if present
     payload.fields = formFields.map(({ id, ...rest }) => {
-      // rest.options may be undefined, string, or array — normalize to array
       let opts = rest.options;
       if (typeof opts === "string") {
         opts = opts.split(",").map((s) => s.trim()).filter(Boolean);
@@ -713,6 +796,7 @@ async function saveAdd() {
     setSavingBlock(false);
   }
 }
+
 
 
   async function deleteBlock(id) {
@@ -1027,6 +1111,96 @@ async function saveAdd() {
       );
     }
 
+     if (b.type === "newsletter") {
+    return (
+      <Paper
+        key={b.id}
+        sx={{
+          p: 1.5,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderRadius: 3,
+      background: (t) =>
+      t.palette.mode === "dark"
+        ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
+        : `linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.06)), url(${newsletterBg})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    color: "#fff",                          // ensures text is visible
+    boxShadow: "0 8px 24px rgba(2,6,23,0.08)",
+    cursor: "pointer",
+    textAlign: "left",
+    transition: "transform .12s ease, box-shadow .12s ease",
+    "&:hover": { transform: "translateY(-2px)", boxShadow: "0 12px 30px rgba(2,6,23,0.16)" },
+    // optional: ensure rounded corners clip the image
+    overflow: "hidden",
+        boxShadow: "0 8px 24px rgba(2,6,23,0.08)",
+          transition: "transform .12s ease, box-shadow .12s ease",
+          "&:hover": { transform: "translateY(-2px)", boxShadow: "0 12px 30px rgba(2,6,23,0.12)" },
+        }}
+        onClick={() => openNewsletterDialog(b)}
+        elevation={0}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box
+            sx={{
+              width: 42,
+              height: 42,
+              borderRadius: 2,
+              display: "grid",
+              placeItems: "center",
+              border: '1px solid #1055C9',
+              flexShrink: 0,
+            }}
+          >
+           <MailOutlinedIcon sx={{ color: '#1055C9'}}/>
+          </Box>
+
+          <Box sx={{display : 'flex', flexDirection : 'column', minWidth: 0 }}>
+            <Typography sx={{ fontFamily: "Inter", fontSize: 15, fontWeight: 500, mb: 1, color: '#FFFFFF' }}>
+              {b.action || b.title || "Subscribe to Newsletter"}
+            </Typography>
+
+     <Box
+  sx={{
+    width: { xs: 140, sm: 220 },
+    border: "1px solid black",
+    borderRadius: 2,
+    display: "flex",
+    alignItems: "center",  
+    justifyContent: "flex-start",
+    px: 1.25,                   
+    py: 1,
+    cursor: "pointer",
+  }}
+>
+  <Typography
+    sx={{
+      fontFamily: "Inter",
+      fontSize: 14,
+      fontWeight: 400,
+      lineHeight: 1,  
+      mb: 0,
+      py: 1,     
+      color: '#CBDCEB'     
+    }}
+  >
+    Your Email
+  </Typography>
+</Box>
+
+          
+           
+          </Box>
+        </Box>
+
+      
+      </Paper>
+    );
+  }
+
     return (
       <Paper key={b.id} sx={{ p: 1.5 }}>
         <Typography>{b.title}</Typography>
@@ -1156,7 +1330,7 @@ async function saveAdd() {
             <Stack sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
         <Grid container spacing={1} sx={{ flex: 1 }}>
   {/* Left big image (50%) */}
-  <Grid item xs={6}>
+  <Grid item xs={12}>
     <Box
       sx={{
         width: "100%",
@@ -1204,103 +1378,8 @@ async function saveAdd() {
     </Box>
   </Grid>
 
-  {/* Right stacked images (top + bottom) */}
-  <Grid item xs={6}>
-    <Stack spacing={1} sx={{ height: "100%" }}>
-      {/* Top right image */}
-      <Box
-        sx={{
-          flex: 1,
-          borderRadius: 2,
-          bgcolor: "#f4f4f4",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          overflow: "hidden",
-        }}
-        onClick={() => document.getElementById("image-upload-2")?.click()}
-      >
-        {uploadingHeader.headerImage2 ? (
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : userDetails?.rightTopImage || userDetails?.headerImage2 ? (
-          <Box
-            component="img"
-            src={userDetails.rightTopImage ?? userDetails.headerImage2}
-            alt="Header Right Top"
-            sx={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",   // <-- avoid cropping
-              objectPosition: "center",
-              backgroundColor: "#f4f4f4",
-            }}
-          />
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            Add Image
-          </Typography>
-        )}
-
-        <input
-          id="image-upload-2"
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={(e) => handleHeaderImageChange(e, "headerImage2")}
-        />
-      </Box>
-
-      {/* Bottom right image */}
-      <Box
-        sx={{
-          flex: 1,
-          borderRadius: 2,
-          bgcolor: "#f4f4f4",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          overflow: "hidden",
-        }}
-        onClick={() => document.getElementById("image-upload-3")?.click()}
-      >
-        {uploadingHeader.headerImage3 ? (
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : userDetails?.rightBottomImage || userDetails?.headerImage3 ? (
-          <Box
-            component="img"
-            src={userDetails.rightBottomImage ?? userDetails.headerImage3}
-            alt="Header Right Bottom"
-            sx={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",   // <-- avoid cropping
-              objectPosition: "center",
-              backgroundColor: "#f4f4f4",
-            }}
-          />
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            Add Image
-          </Typography>
-        )}
-
-        <input
-          id="image-upload-3"
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={(e) => handleHeaderImageChange(e, "headerImage3")}
-        />
-      </Box>
-    </Stack>
-  </Grid>
-</Grid>
+  
+        </Grid>
 
 
 
@@ -1374,7 +1453,40 @@ async function saveAdd() {
                     </Box>
                   )}
                 </Box>
+
+                  <Box>
+            <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center', justifyContent : 'space-between', mt: 1.5}}>
+            
+            <Stack sx={{ display : 'flex', flexDirection : 'column'}}>
+
+              <Typography>
+                {toggling ? "Updating..." : "Enable DM (Direct Message)"}
+              </Typography>
+
+               <Typography>
+              Now, you can receive direct messages from users and bla bla
+              </Typography>
+            </Stack>
+
+
+                <FormControlLabel
+                    control={
+                      <Switch
+                        checked={dmEnabled}
+                        onChange={(e) => toggleStoreEnabled(e.target.checked)}
+                        disabled={toggling}
+                        inputProps={{ "aria-label": "Enable DM(Direct Message)" }}
+                      />
+                    }
+                  />
+
+            </Stack>
+                
+        
+                </Box>
+
               </Box>
+
             </Stack>
 
             {/* URL + actions: stack on mobile */}
@@ -1418,8 +1530,11 @@ async function saveAdd() {
 
       {/* ROW 2: LEFT = Blocks, RIGHT = Preview */}
       <Grid container spacing={2}>
+
+
         {/* LEFT: Blocks editor */}
         <Grid item xs={12} md={7}>
+
           <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
             {/* --- Social picker + saved socials --- */}
             <Box sx={{ mb: 2 }}>
@@ -1589,6 +1704,8 @@ async function saveAdd() {
       {/* Right Preview Images */}
 <Grid item xs={12} md={5}>
 
+
+
   <Box
     sx={{
       width: { xs: "100%", sm: "85%", md: "85%" },
@@ -1599,7 +1716,7 @@ async function saveAdd() {
     }}
   >
 
-           <Box
+       <Box
     sx={{
       position: "relative",
       overflow: "hidden",
@@ -1641,13 +1758,14 @@ async function saveAdd() {
 
 
 
+
       {/* --- Name + Socials --- */}
       <Box
         sx={{
           display: "flex",
           flexDirection: { xs: "column", sm: "row" },
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "space-between",
           gap: 1.5,
           mt: 1,
         }}
@@ -1700,13 +1818,30 @@ async function saveAdd() {
       sx={{
         color: "#fff",
         ml: 0.5,
-        border: "1px solid rgba(255,255,255,0.12)",
-        bgcolor: "rgba(255,255,255,0.03)",
+        // border: "1px solid rgba(255,255,255,0.12)",
+        // bgcolor: "rgba(255,255,255,0.03)",
       }}
     >
       <StorefrontIcon sx={{ fontSize: 22 }} />
     </IconButton>
   ) : null}
+
+    {userDetails?.dm_enabled ? (
+    <IconButton
+      onClick={() => alert("DM is enabled — open My Inbox.")}
+      title="DM Enabled"
+      sx={{
+        color: "#fff",
+        ml: 0.5,
+        // border: "1px solid rgba(255,255,255,0.12)",
+        // bgcolor: "rgba(255,255,255,0.03)",
+      }}
+    >
+      <SmsOutlinedIcon sx={{ fontSize: 22 }} />
+    </IconButton>
+  ) : null}
+
+
 </Box>
 
       </Box>
@@ -1837,6 +1972,7 @@ async function saveAdd() {
                 { label: "Link", value: "link" },
                 { label: "Video", value: "video" },
                 { label: "Form", value: "form" },
+                { label: "Newsletter", value: "newsletter" },
               ].map((t) => (
                 <Tab
                   key={t.value}
@@ -1982,7 +2118,7 @@ async function saveAdd() {
                           />
                         </Grid>
 
-                        <Grid item xs={8} sm={4}>
+                        {/* <Grid item xs={8} sm={4}>
                           <TextField
                             fullWidth
                             size="small"
@@ -1990,7 +2126,7 @@ async function saveAdd() {
                             value={f.placeholder}
                             onChange={(e) => updateFormField(f.id, { placeholder: e.target.value })}
                           />
-                        </Grid>
+                        </Grid> */}
 
                         <Grid item xs={4} sm={2} sx={{ display: "flex", justifyContent: "flex-end" }}>
                           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
@@ -2183,6 +2319,48 @@ async function saveAdd() {
               </Paper>
             </Box>
           )}
+
+            {tab === "newsletter" && (
+      <Box>
+        <Stack spacing={1.5}>
+          {/* editable pre-filled text */}
+          <TextField
+            fullWidth
+            label="Newsletter Title"
+            margin="dense"
+            value={newsletterText}
+            onChange={(e) => setNewsletterText(e.target.value)}
+            placeholder="Subscribe to Newsletter"
+          />
+
+          <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mt: 1 }}>
+            Preview
+          </Typography>
+
+          <Paper elevation={0} sx={{ borderRadius: 2, border: (t) => `1px solid ${t.palette.divider}`, p: 2, mt: 1 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2">{newsletterText || "Subscribe to Newsletter"}</Typography>
+
+
+              {/* Rounded, non-interactive email field preview */}
+              <TextField
+                fullWidth
+                label="Your Email"
+                placeholder="your@email.com"
+                disabled // makes it non-clickable (preview-only)
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2,
+                  },
+                }}
+              />
+
+           
+            </Stack>
+          </Paper>
+        </Stack>
+      </Box>
+    )}
         </DialogContent>
 
         <DialogActions sx={{ gap: 1, p: 2 }}>
@@ -2339,6 +2517,52 @@ async function saveAdd() {
           </PrimaryBtn>
         </DialogActions>
       </Dialog>
+
+      {/* Newsletter subscribe dialog */}
+<Dialog open={newsletterDialogOpen} onClose={closeNewsletterDialog} fullWidth maxWidth="sm">
+  <DialogTitle sx={{ fontWeight: 700 }}>{newsletterDialogText || "Subscribe to Newsletter"}</DialogTitle>
+
+  <DialogContent dividers>
+    <Stack spacing={2}>
+      <TextField
+        label="Your email"
+        type="email"
+        fullWidth
+        value={newsletterEmail}
+        onChange={(e) => setNewsletterEmail(e.target.value)}
+        placeholder="you@company.com"
+        InputProps={{ sx: { borderRadius: 2 } }}
+      />
+
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={newsletterAccept}
+            onChange={(e) => setNewsletterAccept(e.target.checked)}
+            size="small"
+          />
+        }
+        label={<Typography sx={{ fontSize: 13 }}>I accept all terms &amp; conditions</Typography>}
+      />
+    </Stack>
+  </DialogContent>
+
+  <DialogActions sx={{ px: 2, py: 1 }}>
+    <Box sx={{ flex: 1 }} /> {/* pushes subscribe to right */}
+    <Button onClick={closeNewsletterDialog} sx={{ mr: 1 }}>
+      Cancel
+    </Button>
+    <Button
+      variant="contained"
+      onClick={handleSubscribe}
+      disabled={!newsletterAccept} // optional: require accept to be checked
+      sx={{ borderRadius: 2 }}
+    >
+      Subscribe
+    </Button>
+  </DialogActions>
+</Dialog>
+
     </Box>
   );
 }

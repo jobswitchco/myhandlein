@@ -33,7 +33,7 @@ const BlockSchema = new Schema(
     user_id: { type: Schema.Types.ObjectId, required: true, index: true, ref: "users" },
     type: {
       type: String,
-      enum: ["link", "video", "product", "store", "form", "cta"],
+      enum: ["link", "video", "product", "store", "form", "cta", "newsletter"],
       required: true,
       index: true,
     },

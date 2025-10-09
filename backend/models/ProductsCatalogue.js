@@ -4,10 +4,24 @@ const { Schema } = mongoose;
 const ProductsCatalogue_Schema = new Schema({
 
     user_id: { type: Schema.Types.ObjectId, ref: "users", index: true, required: false },
-    title: { type: String, required: false },
-    link: { type: String, required: false },
-    imageUrl: { type: String, required: false },
-    imagePublicId: { type: String, required: false },
+  type: { type: String, enum: ["affiliate", "digital"], default: "affiliate", index: true },
+  title: { type: String },
+  link: { type: String },
+  description: { type: String },
+  price: { type: Number },
+  currency: { type: String, default: "INR" },
+  category_id: { type: Schema.Types.ObjectId, ref: "product_categories", index: true },
+  category_name: { type: String }, // denormalized for quick display
+  imageUrl: { type: String },
+  imagePublicId: { type: String },
+    productCategory: {
+    type: Schema.Types.ObjectId,
+    ref: "product_categories",   // matches the model name you exported
+    default: null,
+    index: true,
+  },
+
+
     link_click_analytics: [{
   ip: { type: String, index: true },
   user_agent: { type: String },
@@ -19,7 +33,7 @@ const ProductsCatalogue_Schema = new Schema({
   postal: { type: String },
   latitude: { type: Number },
   longitude: { type: Number },
-  created_at: { type: Date, default: Date.now },
+  created_at: { type: Date, default: Date.now }
 }],
    
       is_del: {
