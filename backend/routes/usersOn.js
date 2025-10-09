@@ -11,6 +11,7 @@ import FormsData from "../models/FormsData.js";
 import Product from "../models/ProductsCatalogue.js";
 import PageAnalytics from "../models/PageAnalytics.js";
 import NewsletterModel from "../models/Newsletter.js";
+import ProductCategory from "../models/ProductCategory.js";
 import mongoose from 'mongoose';
 router.use(cookieParser());
 import authenticateToken from "../middleware/authenticateTokenProfessional.js";
@@ -133,6 +134,50 @@ async function getClientIp(req) {
 
   return ip;
 }
+
+const UA ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36";
+
+const getFirst = (html, regexes) => {
+  for (const rx of regexes) {
+    const m = html.match(rx);
+    if (m && m[1]) return m[1].trim();
+  }
+  return null;
+};
+
+// Amazon-specific fallbacks
+async function extractAmazonImage(html) {
+  // 1) data-old-hires on landing image
+  let m = html.match(/id=["']landingImage["'][^>]+data-old-hires=["']([^"']+)["']/i);
+  if (m?.[1]) return m[1];
+
+  // 2) data-a-dynamic-image JSON with urls as keys
+  m = html.match(/data-a-dynamic-image=['"]({.*?})['"]/i);
+  if (m?.[1]) {
+    try {
+      const obj = JSON.parse(m[1]
+        .replace(/&quot;/g, '"') // sometimes encoded
+      );
+      const keys = Object.keys(obj || {});
+      if (keys.length) return keys[0];
+    } catch (_) {}
+  }
+
+  // 3) hiRes or main image in embedded JSON
+  m = html.match(/"hiRes"\s*:\s*"([^"]+)"/i);
+  if (m?.[1]) return m[1];
+
+  // 4) twitter:image as last resort (Amazon often sets this)
+  m = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+  if (m?.[1]) return m[1];
+
+  return null;
+}
+
+const resolveUrl = (base, maybeRelative) => {
+  try { return maybeRelative ? new URL(maybeRelative, base).href : null; }
+  catch { return maybeRelative || null; }
+};
 
 
 // Helper: parse date range from key
@@ -1600,6 +1645,69 @@ router.post("/product-click-analytics", async (req, res) => {
   }
 });
 
+router.get("/product-categories", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const search = (req.query.search || "").trim();
+    const safe = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const q = {
+      user_id: userId,
+      is_del: { $ne: true },
+      ...(search ? { name: { $regex: safe, $options: "i" } } : {}),
+    };
+
+    const items = await ProductCategory.find(q)
+      .sort({ name: 1 })
+      .limit(50)
+      .lean();
+
+    res.json({ data: items });
+  } catch (e) {
+    res.status(500).json({ message: "Failed to fetch categories" });
+  }
+});
+
+router.post("/product-categories", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const name = (req.body?.name || "").trim();
+    if (!name) return res.status(400).json({ message: "name required" });
+
+    // Check if category exists for THIS user (active one; allow reusing soft-deleted name by reviving it)
+    let existing = await ProductCategory.findOne({
+      user_id: userId,
+      name: new RegExp(`^${name}$`, "i"),
+    });
+
+    if (existing) {
+      // If it was soft-deleted, revive it
+      if (existing.is_del) {
+        existing.is_del = false;
+        existing.updatedAt = new Date();
+        await existing.save();
+      }
+      return res.json({ category: existing });
+    }
+
+    const created = await ProductCategory.create({
+      user_id: userId,
+      name,
+    });
+
+    res.json({ category: created });
+  } catch (e) {
+    // If you adopt a compound unique index, surfacing 11000 is useful
+    if (e?.code === 11000) {
+      return res.status(409).json({ message: "Category already exists" });
+    }
+    res.status(500).json({ message: e.message || "Failed to create category" });
+  }
+});
+
 
 router.get("/fetch-blocks", authenticateToken, async (req, res) => {
   try {
@@ -2256,61 +2364,242 @@ const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 });
 
-router.post("/upload-product", upload.single("image"), authenticateToken, async (req, res) => {
+
+
+router.post("/url-metadata", authenticateToken, async (req, res) => {
   try {
+    const url = req.body?.url;
+    if (!url) return res.status(400).json({ message: "url required" });
 
-    const userId = req.user?.user_id;
+    const r = await axios.get(url, {
+      // axios follows redirects by default
+      responseType: "text",
+      maxRedirects: 10,
+      timeout: 10000,
+      headers: {
+        "User-Agent": UA,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-IN,en;q=0.9",
+        // Many sites behave better if we say we can render images/css/js
+        "Sec-Fetch-Mode": "navigate",
+      },
+    });
 
-    const { title, link } = req.body;
-    if (!title || !link) {
-      return res.status(400).json({ message: "title and link required" });
+    const html = typeof r.data === "string" ? r.data : "";
+    const baseUrl =
+      r.request?.res?.responseUrl || // follow-redirects
+      r.request?.socket?._host ? `${r.request.protocol}//${r.request.socket._host}${r.request.path}` :
+      r.config?.url || url;
+
+    // Title (og:title or <title>)
+    const title = getFirst(html, [
+      /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+name=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+      /<title>([^<]+)<\/title>/i,
+    ]);
+
+    // Image (support secure/url variants + twitter + Amazon fallbacks)
+    let image = getFirst(html, [
+      /<meta[^>]+property=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+name=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+name=["']twitter:image(:src)?["'][^>]+content=["']([^"']+)["']/i,
+    ]);
+
+    if (!image) {
+      // Try Amazon-specific patterns
+      image = await extractAmazonImage(html);
     }
 
-    let imageUrl = null;
-    let imagePublicId = null;
+    image = resolveUrl(baseUrl, image);
 
-    if (req.file) {
-      // Case A: multer({ dest: "uploads/" }) -> req.file.path exists (disk)
-      if (req.file.path) {
-        const uploaded = await uploadFilePathToGCS(req.file.path, req.file.originalname, req.file.mimetype);
-        imageUrl = uploaded.publicUrl;
-        imagePublicId = uploaded.objectName;
-        // uploadFilePathToGCS already tries to unlink the local file after upload,
-        // but in case your helper doesn't, ensure cleanup:
-        if (fs.existsSync(req.file.path)) {
-          try { await unlinkAsync(req.file.path); } catch (e) { /* ignore */ }
-        }
-      }
-      // Case B: multer.memoryStorage() -> req.file.buffer exists
-      else if (req.file.buffer) {
-        const uploaded = await uploadBufferToGCS(req.file.buffer, req.file.originalname, req.file.mimetype);
-        imageUrl = uploaded.publicUrl;
-        imagePublicId = uploaded.objectName;
-      } else {
-        // Fallback: unexpected multer shape
-        console.warn("Uploaded file present but no path or buffer found:", req.file);
-      }
-    }
+    const description = getFirst(html, [
+      /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+name=["']og:description["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
+    ]);
 
-    const prod = await Product.create({ user_id: userId, title, link, imageUrl, imagePublicId });
-    return res.json({ product: prod });
-  } catch (err) {
-    console.error("Create product error:", err);
-
-    // attempt to remove multer temp file on error (best-effort)
-    try {
-      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-        await unlinkAsync(req.file.path);
-      }
-    } catch (cleanupErr) {
-      console.warn("Failed to cleanup temp file:", cleanupErr.message);
-    }
-
-    return res.status(500).json({ message: "Error creating product", error: err.message });
+    res.json({ title: title || null, image: image || null, description: description || null });
+  } catch (e) {
+    console.error("url-metadata error:", e?.message);
+    res.status(500).json({ message: "Failed to fetch metadata" });
   }
 });
 
 
+// ---------- CREATE PRODUCT (sets productCategory ObjectId) ----------
+router.post("/upload-product", upload.single("image"), authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.user_id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const {
+        type,               // 'affiliate' | 'digital' | etc.
+        title,
+        link,
+        description,
+        price,
+        category_id,        // optional: ObjectId string
+        category_name,      // optional: string (e.g., "Fitness")
+        imageUrlFromMeta,   // optional
+      } = req.body;
+
+      // Basic validation
+      if (!type) return res.status(400).json({ message: "type is required" });
+      if (type === "affiliate") {
+        if (!title || !link)
+          return res.status(400).json({ message: "title and link required for affiliate" });
+      } else if (type === "digital") {
+        if (!title)
+          return res.status(400).json({ message: "product name (title) required for digital" });
+      } else {
+        if (!title) return res.status(400).json({ message: "title is required" });
+      }
+
+      // ---------- Image handling (upload to GCS / or use meta) ----------
+      let imageUrl = null;
+      let imagePublicId = null;
+
+      if (req.file) {
+        if (req.file.path) {
+          const uploaded = await uploadFilePathToGCS(
+            req.file.path,
+            req.file.originalname,
+            req.file.mimetype
+          );
+          imageUrl = uploaded.publicUrl;
+          imagePublicId = uploaded.objectName;
+          if (fs.existsSync(req.file.path)) {
+            try { await unlinkAsync(req.file.path); } catch {}
+          }
+        } else if (req.file.buffer) {
+          const uploaded = await uploadBufferToGCS(
+            req.file.buffer,
+            req.file.originalname,
+            req.file.mimetype
+          );
+          imageUrl = uploaded.publicUrl;
+          imagePublicId = uploaded.objectName;
+        }
+      } else if (imageUrlFromMeta) {
+        imageUrl = imageUrlFromMeta; // allow affiliate thumbnail w/o upload
+      }
+
+      // ---------- Resolve/ensure category (ObjectId on productCategory) ----------
+      let productCategoryId = null;
+
+      // Priority 1: explicit category_id (validate it belongs to this user)
+      if (category_id) {
+        const cat = await ProductCategory.findOne(
+          { _id: category_id, user_id: userId, is_del: false },
+          { _id: 1, name: 1 }
+        ).lean();
+        if (!cat) {
+          return res.status(400).json({ message: "Invalid category_id for this user" });
+        }
+        productCategoryId = cat._id;
+      }
+      // Priority 2: category_name -> find or create (case-insensitive, per-user unique)
+      else if (category_name && String(category_name).trim()) {
+        const name = String(category_name).trim();
+        // Try find same name (case-insensitive) for this user
+        let cat = await ProductCategory.findOne(
+          { user_id: userId, is_del: false, name: new RegExp("^" + escapeRegex(name) + "$", "i") },
+          { _id: 1, name: 1 }
+        ).lean();
+
+        if (!cat) {
+          // Create a new category for this user
+          const created = await ProductCategory.create({
+            user_id: userId,
+            name,
+            is_del: false,
+          });
+          productCategoryId = created._id;
+        } else {
+          productCategoryId = cat._id;
+        }
+      }
+
+      // ---------- Create product ----------
+      const productDoc = {
+        user_id: userId,
+        type,
+        title,
+        link: link || null,
+        description: description || null,
+        price:
+          price !== undefined && price !== null && String(price).trim() !== ""
+            ? Number(price)
+            : undefined,
+        imageUrl,
+        imagePublicId,
+        productCategory: productCategoryId || null,
+        // DO NOT persist legacy fields anymore:
+        // category_id, category_name
+      };
+
+      const created = await Product.create(productDoc);
+
+      // Return populated + flat category string (for easy UI)
+      const saved = await Product.findById(created._id)
+        .populate({ path: "productCategory", select: "name", strictPopulate: false })
+        .lean();
+
+      const response = {
+        ...saved,
+        category: saved?.productCategory?.name || null,
+      };
+
+      return res.json({ product: response });
+    } catch (err) {
+      console.error("Create product error:", err);
+      return res
+        .status(500)
+        .json({ message: "Error creating product", error: err.message });
+    }
+  }
+);
+
+
+router.post("/edit-product/:id", upload.single("image"), authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type, title, link, description, price, category_id, category_name, imageUrlFromMeta } = req.body;
+
+    const update = { updated_at: new Date() };
+    if (type) update.type = type;
+    if (title !== undefined) update.title = title;
+    if (link !== undefined) update.link = link;
+    if (description !== undefined) update.description = description;
+    if (price !== undefined) update.price = Number(price);
+    if (category_id) update.category_id = category_id;
+    if (category_name) update.category_name = category_name;
+
+      if (req.file) {
+      if (req.file.path) {
+        const uploaded = await uploadFilePathToGCS(req.file.path, req.file.originalname, req.file.mimetype);
+        update.imageUrl = uploaded.publicUrl;
+        update.imagePublicId = uploaded.objectName;
+        if (fs.existsSync(req.file.path)) { try { await unlinkAsync(req.file.path); } catch {} }
+      } else if (req.file.buffer) {
+        const uploaded = await uploadBufferToGCS(req.file.buffer, req.file.originalname, req.file.mimetype);
+        update.imageUrl = uploaded.publicUrl;
+        update.imagePublicId = uploaded.objectName;
+      }
+    } else if (imageUrlFromMeta) {
+      update.imageUrl = imageUrlFromMeta;
+    }
+
+    const prod = await Product.findByIdAndUpdate(id, update, { new: true });
+    return res.json({ product: prod });
+  } catch (err) {
+    console.error("Edit product error:", err);
+    return res.status(500).json({ message: "Error editing product", error: err.message });
+  }
+});
+
+
+// GET /api/products/fet-user-products?page=1&limit=10
 router.get("/fet-user-products", authenticateToken, async (req, res) => {
 
     const userId = req.user?.user_id;
@@ -2339,77 +2628,7 @@ router.get("/fet-user-products", authenticateToken, async (req, res) => {
   }
 );
 
-router.post("/edit-product/:id", authenticateToken, upload.single("image"), async (req, res) => {
-    try {
 
-      const userId = req.user?.user_id;
-      const id = req.params.id;
-      const { title, link } = req.body;
-
-      const product = await Product.findOne({_id: id, user_id : userId});
-      if (!product) return res.status(404).json({ message: "Product not found" });
-
-      // Update fields
-      if (title) product.title = title;
-      if (link) product.link = link;
-
-      // If new image uploaded, upload to GCS and delete old object (if exists)
-      if (req.file) {
-        let uploaded;
-        // Case A: multer({ dest: "uploads/" }) -> req.file.path exists (disk)
-        if (req.file.path) {
-          uploaded = await uploadFilePathToGCS(req.file.path, req.file.originalname, req.file.mimetype);
-          // uploadFilePathToGCS already tries to unlink the local file after upload,
-          // but double-check and cleanup if still present:
-          try {
-            if (fs.existsSync(req.file.path)) {
-              await unlinkAsync(req.file.path);
-            }
-          } catch (e) {
-            console.warn("Failed to unlink temp file:", e.message);
-          }
-        }
-        // Case B: multer.memoryStorage() -> req.file.buffer exists
-        else if (req.file.buffer) {
-          uploaded = await uploadBufferToGCS(req.file.buffer, req.file.originalname, req.file.mimetype);
-        } else {
-          console.warn("Uploaded file present but neither path nor buffer found:", req.file);
-        }
-
-        if (uploaded) {
-          // delete old object if exists
-          if (product.imagePublicId && bucket) {
-            try {
-              await bucket.file(product.imagePublicId).delete();
-            } catch (err) {
-              console.warn("Failed to delete old image from GCS:", err.message);
-              // not fatal
-            }
-          }
-
-          product.imageUrl = uploaded.publicUrl;
-          product.imagePublicId = uploaded.objectName;
-        }
-      }
-
-      await product.save();
-      return res.json({ product });
-    } catch (err) {
-      console.error("Edit product error:", err);
-
-      // attempt to remove multer temp file on error (best-effort)
-      try {
-        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-          await unlinkAsync(req.file.path);
-        }
-      } catch (cleanupErr) {
-        console.warn("Failed to cleanup temp file:", cleanupErr.message);
-      }
-
-      return res.status(500).json({ message: "Error editing product", error: err.message });
-    }
-  }
-);
 
 router.delete("/delete-product/:id", authenticateToken, async (req, res) => {
     try {
@@ -2520,39 +2739,34 @@ router.post("/upload-header-image", authenticateToken, upload.single("image"),
 router.get("/fetch-influencer-products", async (req, res) => {
   try {
     console.log("Incoming URL:", req.originalUrl);
-    console.log("Query object:", req.query);
 
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
     const limit = Math.max(parseInt(req.query.limit || "10", 10), 1);
     const skip = (page - 1) * limit;
-    const qRaw = (req.query.q || "").trim();
 
+    const qRaw = (req.query.q || "").trim();
     const subdomainRaw = (req.query.subdomain || "").trim();
+    const categoryRaw = (req.query.category || "").trim(); // e.g. "Fitness"
+
     if (!subdomainRaw) {
-      // No subdomain supplied — return empty set (or treat as public/global)
-      // You can instead return all products or 400; choose what's appropriate.
       console.log("No subdomain provided");
       return res.json({ data: [], total: 0 });
     }
 
-    // Find user by handleUserName (case-insensitive); fallback to 'handle' if you have that field
-    // Use exact match (case-insensitive) rather than substring for safety.
+    // Resolve subdomain/handle -> user
     const handleRegex = new RegExp("^" + escapeRegex(subdomainRaw) + "$", "i");
     const user = await USER.findOne(
       { $or: [{ handleUserName: handleRegex }, { handle: handleRegex }] },
-      { _id: 1 } // projection: only need _id
+      { _id: 1 }
     ).lean();
 
     if (!user) {
       console.log("No user found for subdomain:", subdomainRaw);
-      // return empty result — optional: res.status(404).json({ error: "User not found" });
       return res.json({ data: [], total: 0 });
     }
-
     const userId = user._id;
-    console.log("Resolved subdomain -> userId:", userId.toString());
 
-    // Build product filter for that user
+    // Build product filter
     const filter = { user_id: userId, is_del: false };
 
     if (qRaw) {
@@ -2561,12 +2775,38 @@ router.get("/fetch-influencer-products", async (req, res) => {
       filter.$or = [{ title: re }, { name: re }, { link: re }];
     }
 
-    const projection = {}; // adjust if you want to exclude heavy fields
+    // If a category NAME is provided, resolve it to that user's category _id
+    if (categoryRaw && categoryRaw.toLowerCase() !== "all") {
+      const nameRegex = new RegExp("^" + escapeRegex(categoryRaw) + "$", "i");
+      const catDoc = await ProductCategory.findOne(
+        { user_id: userId, is_del: false, name: nameRegex },
+        { _id: 1 }
+      ).lean();
 
-    const [data, total] = await Promise.all([
-      Product.find(filter, projection).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
+      if (!catDoc) {
+        // No such category for this user -> empty result
+        return res.json({ data: [], total: 0 });
+      }
+
+      filter.productCategory = catDoc._id;
+    }
+
+    // Fetch products and populate category; then add plain `category` string into each item
+    const [rawData, total] = await Promise.all([
+      Product.find(filter)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        // strictPopulate:false guards while you ensure Product schema has `productCategory` ref
+        .populate({ path: "productCategory", select: "name", strictPopulate: false })
+        .lean(),
       Product.countDocuments(filter),
     ]);
+
+    const data = rawData.map((doc) => {
+      const categoryName = doc?.productCategory?.name || null;
+      return { ...doc, category: categoryName };
+    });
 
     return res.json({ data, total });
   } catch (err) {
