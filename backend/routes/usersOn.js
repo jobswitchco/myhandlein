@@ -2369,6 +2369,7 @@ const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 router.post("/url-metadata", authenticateToken, async (req, res) => {
   try {
     const url = req.body?.url;
+    console.log('Url : ', url);
     if (!url) return res.status(400).json({ message: "url required" });
 
     const r = await axios.get(url, {
@@ -2385,11 +2386,14 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
       },
     });
 
+    console.log('Response:::::::::::', r);
     const html = typeof r.data === "string" ? r.data : "";
     const baseUrl =
       r.request?.res?.responseUrl || // follow-redirects
       r.request?.socket?._host ? `${r.request.protocol}//${r.request.socket._host}${r.request.path}` :
       r.config?.url || url;
+
+      console.log('baseUrl : ', baseUrl);
 
     // Title (og:title or <title>)
     const title = await getFirst(html, [
@@ -2412,7 +2416,7 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
 
     image = await resolveUrl(baseUrl, image);
 
-    const description = getFirst(html, [
+    const description = await getFirst(html, [
       /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+name=["']og:description["'][^>]+content=["']([^"']+)["']/i,
       /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
@@ -2420,6 +2424,7 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
 
     res.json({ title: title || null, image: image || null, description: description || null });
   } catch (e) {
+    console.log('Errorrrrrrrrrrrrr:::::::: ', e);
     console.error("url-metadata error:", e?.message);
     res.status(500).json({ message: "Failed to fetch metadata" });
   }
