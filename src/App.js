@@ -42,6 +42,7 @@ import StoreAnalytics from './components/Employee/StoreAnalytics.js';
 import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js';
 import UserSideNavBar from './components/Employee/UserSideNavbar.js';
 
+// very critial 
 
 
 
