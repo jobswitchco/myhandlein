@@ -38,6 +38,7 @@ function escapeRegex(str = "") {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const LINKPREVIEW_API_KEY = process.env.LINKPREVIEW_API_KEY;
 
 async function lookupGeo_ipdata(ip) {
   if (!IPDATA_KEY) {
