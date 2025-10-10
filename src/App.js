@@ -40,8 +40,7 @@ import PageAnalytics from './components/Employee/PageAnalytics.js';
 import BlocksAnalytics from './components/Employee/BlockAnalytics.js';
 import StoreAnalytics from './components/Employee/StoreAnalytics.js';
 import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js';
-import UserSideNavbar from './components/Employee/UserSideNavbar.js';
-
+import UserSideNavbar from './components/Employee/UserSideNavbar.js'
 // very critial 
 
 
