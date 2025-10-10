@@ -140,12 +140,22 @@ export default function MyChatWindow({
       socket.emit("join_conversation", { conversationId: conversation._id });
     });
 
-    socket.on("message:received", ({ message }) => {
-      if (!message) return;
-      const msgConvId = message.conversation_id || message.conversationId || message.conversation;
-      if (String(msgConvId) !== String(conversation._id)) return;
-      setMessages(prev => [...prev, message]);
-    });
+ socket.on("message:received", ({ message }) => {
+  if (!message) return;
+
+  const msgConvId =
+    (message.conversation && typeof message.conversation === "object" && message.conversation._id)
+      ? String(message.conversation._id)
+      : message.conversation_id || message.conversationId || message.conversation;
+
+  if (!msgConvId || String(msgConvId) !== String(conversation._id)) return;
+
+  setMessages(prev => {
+    // optional: de-dupe
+    if (prev.some(m => String(m._id) === String(message._id))) return prev;
+    return [...prev, message];
+  });
+});
 
     socket.on("typing", (payload) => {
       try {
