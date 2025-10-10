@@ -24,6 +24,8 @@ import crypto from "crypto";
 import util from "util";
 const unlinkAsync = util.promisify(fs.unlink);
 import { Storage } from '@google-cloud/storage';
+import NodeCache from "node-cache";
+const metaCache = new NodeCache({ stdTTL: 86400 });
 const storage = new Storage();
 const bucketName = "postlnbucketcom"; 
 const bucket = storage.bucket(bucketName);
@@ -179,25 +181,6 @@ const resolveUrl = async(base, maybeRelative) => {
   catch { return maybeRelative || null; }
 };
 
-// Simple in-memory cache for URL metadata (key -> { value, expiresAt })
-const metaCache = new Map();
-const META_CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutes
-
-// helper: read cache
-function getCachedMetadata(key) {
-  const rec = metaCache.get(key);
-  if (!rec) return null;
-  if (rec.expiresAt < Date.now()) {
-    metaCache.delete(key);
-    return null;
-  }
-  return rec.value;
-}
-
-// helper: write cache
-function setCachedMetadata(key, value, ttl = META_CACHE_TTL_MS) {
-  metaCache.set(key, { value, expiresAt: Date.now() + ttl });
-}
 
 // low-level fetch wrapper
 async function tryFetch(url, headers, timeout = 10000) {
@@ -2401,160 +2384,95 @@ const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 router.post("/url-metadata", authenticateToken, async (req, res) => {
   try {
-    let url = req.body?.url;
+    const url = req.body?.url;
     if (!url) return res.status(400).json({ message: "url required" });
 
-    // normalize and validate
-    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    // Validate URL format
     try {
-      // will throw if invalid
-      new URL(url);
-    } catch (err) {
-      return res.status(400).json({ message: "invalid url" });
+      const parsedUrl = new URL(url);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return res.status(400).json({ message: "Invalid URL protocol" });
+      }
+    } catch {
+      return res.status(400).json({ message: "Invalid URL format" });
     }
 
-    // check cache first (use normalized url as key)
-    const cacheKey = url;
-    const cached = getCachedMetadata(cacheKey);
+    // Check cache first
+    const cached = metaCache.get(url);
     if (cached) {
-      return res.json({ ...cached, cached: true });
+      console.log('Returning cached metadata for:', url);
+      return res.json(cached);
+    }
+    
+    if (!LINKPREVIEW_API_KEY) {
+      console.error("LINKPREVIEW_API_KEY not set in environment variables");
+      return res.status(500).json({ message: "API configuration error" });
     }
 
-    // UAs and headers
-    const desktopUA =
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
-    const mobileUA =
-      "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36";
+    console.log('Fetching metadata from LinkPreview.net for:', url);
 
-    // conservative headers for first try
-    const headersPrimary = {
-      "User-Agent": desktopUA,
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-IN,en;q=0.9",
-      // do not include Sec-Fetch-* etc. to reduce bot-fingerprints
+    const response = await axios.post(
+      'https://api.linkpreview.net',
+      { q: url },
+      {
+        headers: {
+          'X-Linkpreview-Api-Key': LINKPREVIEW_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+
+    const data = response.data;
+
+    // LinkPreview.net returns: title, description, image, url
+    let image = data.image || null;
+
+    // Force HTTPS for images if available
+    if (image && image.startsWith('http://')) {
+      image = image.replace(/^http:\/\//, 'https://');
+    }
+
+    const result = {
+      title: data.title || null,
+      image: image,
+      description: data.description || null,
     };
 
-    // fallback headers for second try (often helps with Amazon/CloudFront)
-    const headersFallback = {
-      "User-Agent": mobileUA,
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language": "en-IN,en;q=0.9",
-      Referer: "https://www.amazon.in/",
-    };
-
-    let response = null;
-
-    // Attempt 1
-    try {
-      response = await tryFetch(url, headersPrimary, 12000); // 12s
-    } catch (axErr) {
-      // Log details for debugging
-      console.warn("url-metadata: primary fetch failed:", axErr.message, axErr.code, "status:", axErr.response?.status || null);
-
-      // If we got a 5xx or network error, try fallback
-      const status = axErr.response?.status;
-      // Try fallback for 5xx or on network errors (no response)
-      if ((status && status >= 500 && status < 600) || !axErr.response) {
-        try {
-          console.log("url-metadata: attempting fallback fetch with mobile UA + referer...");
-          response = await tryFetch(url, headersFallback, 20000); // longer timeout
-        } catch (axErr2) {
-          console.warn("url-metadata: fallback fetch failed:", axErr2.message, axErr2.code, "status:", axErr2.response?.status || null);
-
-          // graceful response: don't surface upstream HTML/errors to client
-          const graceful = { title: null, image: null, description: null, note: "Could not fetch metadata" };
-          // cache the negative result briefly to avoid immediate refetch storms
-          setCachedMetadata(cacheKey, graceful, 1000 * 30); // 30s cache for failures
-          return res.json(graceful);
-        }
-      } else {
-        // For 4xx or other non-network errors, try fallback once
-        try {
-          response = await tryFetch(url, headersFallback, 15000);
-        } catch (axErr3) {
-          console.warn("url-metadata: secondary fallback failed:", axErr3.message, axErr3.code, "status:", axErr3.response?.status || null);
-          const graceful = { title: null, image: null, description: null, note: "Could not fetch metadata" };
-          setCachedMetadata(cacheKey, graceful, 1000 * 30);
-          return res.json(graceful);
-        }
-      }
+    // Cache successful results
+    if (result.title || result.image) {
+      metaCache.set(url, result);
     }
 
-    // if still no response (shouldn't happen), return gracefully
-    if (!response || typeof response.data !== "string") {
-      const graceful = { title: null, image: null, description: null, note: "No HTML returned" };
-      setCachedMetadata(cacheKey, graceful, 1000 * 30);
-      return res.json(graceful);
-    }
+    res.json(result);
 
-    const html = response.data;
-    const baseUrl = response.request?.res?.responseUrl || response.config?.url || url;
-
-    // Extract title
-    let title = null;
-    try {
-      title = await getFirst(html, [
-        /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']og:title["'][^>]+content=["']([^"']+)["']/i,
-        /<title>([^<]+)<\/title>/i,
-      ]);
-      if (title) title = String(title).trim();
-    } catch (err) {
-      console.warn("url-metadata: title extraction error", err?.message || err);
-    }
-
-    // Extract image
-    let image = null;
-    try {
-      image = await getFirst(html, [
-        /<meta[^>]+property=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']twitter:image(:src)?["'][^>]+content=["']([^"']+)["']/i,
-      ]);
-    } catch (err) {
-      console.warn("url-metadata: og:image extraction error", err?.message || err);
-    }
-
-    // Amazon-specific fallback extractor
-    if (!image) {
-      try {
-        image = await extractAmazonImage(html);
-      } catch (err) {
-        console.warn("url-metadata: extractAmazonImage error", err?.message || err);
-      }
-    }
-
-    // Resolve relative image url to absolute
-    let resolvedImage = null;
-    try {
-      resolvedImage = await resolveUrl(baseUrl, image);
-    } catch (err) {
-      console.warn("url-metadata: resolveUrl failed", err?.message || err);
-      resolvedImage = null;
-    }
-
-    // Extract description
-    let description = null;
-    try {
-      description = await getFirst(html, [
-        /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']og:description["'][^>]+content=["']([^"']+)["']/i,
-        /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
-      ]);
-      if (description) description = String(description).trim();
-    } catch (err) {
-      console.warn("url-metadata: description extraction error", err?.message || err);
-    }
-
-    const result = { title: title || null, image: resolvedImage || null, description: description || null };
-
-    // cache success result for TTL
-    setCachedMetadata(cacheKey, result);
-
-    return res.json(result);
   } catch (e) {
-    console.error("url-metadata unexpected error:", e && e.stack ? e.stack : e);
-    return res.status(500).json({ message: "Failed to fetch metadata" });
+    console.error("url-metadata error:", e?.response?.data || e?.message);
+    
+    // Handle LinkPreview.net specific errors
+    if (e?.response?.status === 429) {
+      return res.status(200).json({
+        title: null,
+        image: null,
+        description: null,
+        error: "Rate limit exceeded. Please try again later."
+      });
+    }
+
+    if (e?.response?.status === 401) {
+      console.error("LinkPreview API authentication failed. Check your API key.");
+      return res.status(500).json({
+        message: "API authentication failed"
+      });
+    }
+
+    // Return graceful fallback for other errors
+    res.status(200).json({
+      title: null,
+      image: null,
+      description: null,
+      error: "Could not fetch metadata"
+    });
   }
 });
 
