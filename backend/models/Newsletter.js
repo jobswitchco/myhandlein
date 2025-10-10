@@ -6,6 +6,14 @@ const EmailEntrySchema = new Schema(
   {
     email: { type: String, required: true, lowercase: true, trim: true },
     subscribed_at: { type: Date, default: Date.now },
+    ip: { type: String, required: false },
+    referrer: { type: String, required: false },
+    country: { type: String, required: false },
+    region: { type: String, required: false },
+    city: { type: String, required: false },
+    postal: { type: String, required: false },
+    latitude: { type: String, required: false },
+    longitude: { type: String, required: false },
     // optional metadata per email (IP, source, etc.)
     meta: { type: Schema.Types.Mixed, default: {} },
   },

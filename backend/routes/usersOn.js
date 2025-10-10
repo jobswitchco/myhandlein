@@ -763,9 +763,16 @@ router.post("/page-analytics", authenticateToken, async (req, res) => {
 
 router.post("/newsletters-subscribe", async (req, res) => {
   try {
-    const { email, newsletterText = "", blockId = null, submittedAt = null, handle = null, meta = {} } = req.body;
+    const {
+      email,
+      newsletterText = "",
+      blockId = null,
+      submittedAt = null,
+      handle = null,
+      meta = {},
+    } = req.body || {};
 
-    // validate email presence + format
+    // validate email
     if (!email || !String(email).trim()) {
       return res.status(400).json({ message: "email is required" });
     }
@@ -775,65 +782,96 @@ router.post("/newsletters-subscribe", async (req, res) => {
       return res.status(400).json({ message: "invalid email" });
     }
 
+    // collect request context (ip, ua, referrer), and geo
+    const ip = await getClientIp(req);
+    const ua = req.headers["user-agent"] || "";
+    const ref = req.headers["referer"] || req.headers["referrer"] || "";
+    const geo = await lookupGeo_ipdata(ip);
+
     // resolve user_id by handle (if provided)
     let userId = null;
     if (handle && String(handle).trim()) {
-      const maybeUser = await USER.findOne({ handleUserName: String(handle).trim() }).select("_id").lean().exec();
+      const maybeUser = await USER.findOne({
+        handleUserName: String(handle).trim(),
+      })
+        .select("_id")
+        .lean()
+        .exec();
       if (maybeUser) userId = maybeUser._id;
     }
 
-    // Build search query to find the correct newsletter doc:
-    // prefer matching (user_id + blockId) if blockId provided, else (user_id + newsletterText)
+    // Build query to locate the correct newsletter doc
     const baseQuery = { user_id: userId || null, is_del: false };
 
     if (blockId) {
+      // if blockId provided, prefer doc for that block
       baseQuery.blockId = blockId;
+    } else if (newsletterText && String(newsletterText).trim()) {
+      // otherwise try to match by newsletterText
+      baseQuery.newsletterText = String(newsletterText).trim();
+      baseQuery.blockId = null;
     } else {
-      // no blockId — try to match by newsletterText if provided, else blockId:null
-      if (newsletterText && String(newsletterText).trim()) {
-        baseQuery.newsletterText = String(newsletterText).trim();
-      } else {
-        baseQuery.blockId = null;
-      }
+      baseQuery.blockId = null;
     }
 
-    // look for an existing newsletter doc
+    // prepare the email subdocument with geo fields
+    const emailEntry = {
+      email: normalizedEmail,
+      subscribed_at: submittedAt ? new Date(submittedAt) : new Date(),
+      ip: geo?.ip || ip || undefined,
+      referrer: ref || undefined,
+      country: geo?.country || undefined,
+      region: geo?.region || undefined,
+      city: geo?.city || undefined,
+      postal: geo?.postal || undefined,
+      latitude: geo?.latitude ? String(geo.latitude) : undefined,
+      longitude: geo?.longitude ? String(geo.longitude) : undefined,
+      meta: {
+        ...meta,
+        user_agent: ua, // keep UA in meta as well for convenience
+      },
+    };
+
+    // find existing doc
     let doc = await NewsletterModel.findOne(baseQuery).exec();
 
-    // if doc exists, check for existing email in array
     if (doc) {
-      const exists = Array.isArray(doc.emails) && doc.emails.some((e) => String(e.email).toLowerCase() === normalizedEmail);
+      // check duplicate email
+      const exists =
+        Array.isArray(doc.emails) &&
+        doc.emails.some((e) => String(e.email).toLowerCase() === normalizedEmail);
       if (exists) {
         return res.status(200).json({ message: "Already subscribed" });
       }
 
-      // push new email entry
-      doc.emails.push({ email: normalizedEmail, subscribed_at: submittedAt ? new Date(submittedAt) : new Date(), meta });
+      // push with geo fields
+      doc.emails.push(emailEntry);
       doc.updatedAt = new Date();
       await doc.save();
 
       return res.status(201).json({ message: "Successfully subscribed", id: doc._id });
     }
 
-    // no doc exists — create new document for this user + block/text
+    // create new doc with first email
     const newDoc = await NewsletterModel.create({
       user_id: userId || null,
       handle: handle || null,
-      blockId: blockId,
+      blockId: blockId || null,
       newsletterText: String(newsletterText || ""),
-      emails: [{ email: normalizedEmail, subscribed_at: submittedAt ? new Date(submittedAt) : new Date(), meta }],
+      emails: [emailEntry],
     });
 
     return res.status(201).json({ message: "Successfully subscribed", id: newDoc._id });
   } catch (err) {
     console.error("POST /newsletters/subscribe error:", err);
-    // return success if duplicate key race (defensive)
     if (err && err.code === 11000) {
+      // defensive for rare race on unique indexes (if you add one later)
       return res.status(200).json({ message: "Already subscribed" });
     }
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 
 // unchanged
