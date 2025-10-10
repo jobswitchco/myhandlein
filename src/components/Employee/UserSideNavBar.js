@@ -2,9 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
 import {
-  AppBar,
   Toolbar,
-  IconButton,
   Drawer,
   List,
   ListItem,
@@ -13,11 +11,6 @@ import {
   ListItemText,
   Box,
   useMediaQuery,
-  Typography,
-  Menu,
-  Divider,
-  MenuItem,
-  LinearProgress
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
@@ -44,7 +37,7 @@ const theme = createTheme({
   },
 });
 
-const ResponsiveDrawer = ({ window }) => {
+const UserSideNavBar = ({ window }) => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -749,8 +742,8 @@ const ResponsiveDrawer = ({ window }) => {
   );
 };
 
-ResponsiveDrawer.propTypes = {
+UserSideNavBar.propTypes = {
   window: PropTypes.func,
 };
 
-export default ResponsiveDrawer;
+export default UserSideNavBar;
