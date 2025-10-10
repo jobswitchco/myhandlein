@@ -9,248 +9,334 @@ import USER from "../models/User.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "NidkPwke9485hfKDLAndu9*#&$&$jcbPOqkPkshEYfk3848Asj";
 
-export default function attachSocket(server, expressApp) {
+// ---- helpers ----
+const OID = (v) => new mongoose.Types.ObjectId(String(v));
+const actorKey = (model, id) => `${model}:${id.toString()}`;
+const isValidId = (v) => v && mongoose.Types.ObjectId.isValid(v);
+const s = (v) => (v == null ? null : String(v));
 
- const allowed = expressApp.get("cors_origins") || ['https://myhandle.in', 'http://localhost:4800'];
-  const io = new IOServer(server, {
-    path: "/socket.io",
-    cors: {
-      origin: allowed,
-      credentials: true,
-      methods: ["GET","POST"],
-    },
-    allowEIO3: false, // you’re on EIO=4; keep strict unless you must support v2 clients
-  });
+function extractCookieIds(handshake) {
+  try {
+    const parsed = cookie.parse(handshake.headers?.cookie || "");
+    const pTok = parsed.tokenParticipantMyHandle || null;
+    const iTok = parsed.tokenMyhandleProf || null;
 
-  // See low-level handshake/upgrade failures
-  io.engine.on("connection_error", (err) => {
-    console.error("engine connection_error:", {
-      code: err.code,
-      message: err.message,
-      context: err.context,
-    });
-  });
+    let participantId = null;
+    let influencerId = null;
 
-  // helper: extract participant token from cookies (cookie name used earlier)
-  function extractParticipantFromHandshake(handshake) {
-    try {
-      const cookiesHeader = handshake.headers?.cookie || "";
-      const parsed = cookie.parse(cookiesHeader || "");
-      const token = parsed.tokenParticipantMyHandle || null;
-      if (!token) return null;
-      const payload = jwt.verify(token, JWT_SECRET);
-      // payload should contain userId/email - adapt to your generateJWTtoken
-      return { participantId: payload.userId || payload.user_id || payload.id, payload };
-    } catch (err) {
-      return null;
+    if (pTok) {
+      const p = jwt.verify(pTok, JWT_SECRET);
+      participantId = p.userId || p.user_id || p.id || null;
     }
+    if (iTok) {
+      const q = jwt.verify(iTok, JWT_SECRET);
+      influencerId = q.userId || q.user_id || q.id || null;
+    }
+    return { participantId: s(participantId), influencerId: s(influencerId) };
+  } catch {
+    return { participantId: null, influencerId: null };
+  }
+}
+
+/**
+ * Decide a single actor for this socket.
+ * Priority:
+ *  1) If payload.as is provided, honor it (when membership allows).
+ *  2) If handshake.subdomain exists (public widget), default PARTICIPANT.
+ *  3) Else if influencer cookie exists (dashboard), default INFLUENCER.
+ *  4) Else if only one cookie exists, use that one.
+ *  5) Else: reject (ambiguous / unauthenticated).
+ */
+function resolveSenderActor({ socket, convo, prefer }) {
+  const participantId = socket.data.participantId && isValidId(socket.data.participantId) ? s(socket.data.participantId) : null;
+  const influencerId  = socket.data.influencerId  && isValidId(socket.data.influencerId)  ? s(socket.data.influencerId)  : null;
+
+  const parts = Array.isArray(convo?.participants) ? convo.participants : [];
+
+  const partIsMember = participantId
+    ? parts.some((p) => p?.actor?.model === "ParticipantUser" && s(p.actor.id) === s(participantId))
+    : false;
+
+  const infIsMember = influencerId
+    ? parts.some((p) => p?.actor?.model === "User" && s(p.actor.id) === s(influencerId))
+    : false;
+
+  const preferLower = (prefer || "").toLowerCase();
+
+  // 1) explicit override
+  if (preferLower === "influencer" && infIsMember) return { model: "User", id: OID(influencerId), role: "influencer" };
+  if (preferLower === "participant" && partIsMember) return { model: "ParticipantUser", id: OID(participantId), role: "participant" };
+
+  // 2) widget sockets (have subdomain) default participant if possible
+  if (socket.handshake.subdomain && partIsMember) {
+    return { model: "ParticipantUser", id: OID(participantId), role: "participant" };
   }
 
-  // middleware for handshake: attach optional subdomain and participant info
+  // 3) dashboard sockets (have influencer cookie) default influencer if possible
+  if (!socket.handshake.subdomain && infIsMember) {
+    return { model: "User", id: OID(influencerId), role: "influencer" };
+  }
+
+  // 4) only one membership present
+  if (infIsMember && !partIsMember) return { model: "User", id: OID(influencerId), role: "influencer" };
+  if (partIsMember && !infIsMember) return { model: "ParticipantUser", id: OID(participantId), role: "participant" };
+
+  // 5) ambiguous or not a member
+  return null;
+}
+
+export default function attachSocket(server, expressApp) {
+  const io = new IOServer(server, {
+    cors: {
+      origin: expressApp.get("cors_origins") || "*",
+      credentials: true,
+    },
+  });
+
+  // enrich handshake
   io.use((socket, next) => {
     const { subdomain } = socket.handshake.query || {};
-    socket.handshake.subdomain = subdomain;
-    const participant = extractParticipantFromHandshake(socket.handshake);
-    if (participant) socket.handshake.participant = participant;
-    return next();
+    socket.handshake.subdomain = subdomain ? String(subdomain).toLowerCase() : null;
+
+    const { participantId, influencerId } = extractCookieIds(socket.handshake);
+    if (participantId) socket.data.participantId = participantId;
+    if (influencerId)  socket.data.influencerId  = influencerId;
+
+    next();
   });
 
   io.on("connection", async (socket) => {
     try {
       console.log("socket connected", socket.id, "subdomain:", socket.handshake.subdomain);
 
-      // If the client provided subdomain, resolve influencer and join a public room for that influencer
+      // If subdomain present, resolve influencer for the public room (meta only)
       if (socket.handshake.subdomain) {
-        const sub = String(socket.handshake.subdomain).toLowerCase();
         try {
-          const user = await USER.findOne({ handleUserName: sub }).lean();
-          if (user) {
-            socket.join(`influencer:${String(user._id)}`);
-            socket.data.influencer = { id: String(user._id), handle: sub, name: user.name, picture: user.picture };
+          const user = await USER.findOne({ handleUserName: socket.handshake.subdomain }).lean();
+          if (user?._id) {
+            socket.join(`influencer:${s(user._id)}`);
+            // meta used for display; not used for actor auth
+            socket.data.influencerMeta = {
+              id: s(user._id),
+              handle: socket.handshake.subdomain,
+              name: user.name,
+              picture: user.picture,
+            };
           }
         } catch (err) {
-          console.warn("influencer lookup failed:", err?.message || err);
+          console.warn("influencer lookup (subdomain) failed:", err?.message || err);
         }
       }
 
-      // If authenticated participant, also join participant room for their id
-      if (socket.handshake.participant && socket.handshake.participant.participantId) {
-        socket.join(`participant:${socket.handshake.participant.participantId}`);
-        socket.data.participantId = String(socket.handshake.participant.participantId);
+      // Join private rooms if cookies present
+      if (socket.data.influencerId) {
+        socket.join(`influencer:${s(socket.data.influencerId)}`);
+      }
+      if (socket.data.participantId) {
+        socket.join(`participant:${s(socket.data.participantId)}`);
       }
 
-      // Client can explicitly join a conversation room
       socket.on("join_conversation", async ({ conversationId }) => {
         try {
-          if (!conversationId) return;
+          if (!conversationId || !isValidId(conversationId)) return;
           socket.join(`conversation:${conversationId}`);
         } catch (err) {
           console.error("join_conversation error:", err);
         }
       });
 
-      // Typing indicator broadcast
-      socket.on("typing", ({ conversationId, isTyping }) => {
+      // find-or-create DM
+      async function findOrCreateDM({ influencerId, participantId }) {
+        const infActor = { model: "User", id: OID(influencerId) };
+        const memActor = { model: "ParticipantUser", id: OID(participantId) };
+        const keys = [actorKey(infActor.model, infActor.id), actorKey(memActor.model, memActor.id)].sort();
+        const participant_keys_sorted = keys.join("|");
+
+        let convo = await Conversation.findOne({
+          participant_keys_sorted,
+          conversation_type: "dm",
+          is_deleted: { $ne: true },
+        });
+
+        if (convo) return convo;
+
+        try {
+          convo = await Conversation.create({
+            participants: [
+              { actor: infActor, role: "influencer", joined_at: new Date(), last_read_at: null, last_read_message_id: null, muted: false },
+              { actor: memActor, role: "member", joined_at: new Date(), last_read_at: null, last_read_message_id: null, muted: false },
+            ],
+            participant_keys_sorted,
+            conversation_type: "dm",
+            last_message: null,
+            last_message_text: "",
+            last_message_at: null,
+            message_count: 0,
+            unread_counts: { [keys[0]]: 0, [keys[1]]: 0 },
+            metadata: { title: null, tags: [], pinned: false },
+            is_deleted: false,
+          });
+        } catch (err) {
+          if (err?.code === 11000) {
+            convo = await Conversation.findOne({
+              participant_keys_sorted,
+              conversation_type: "dm",
+              is_deleted: { $ne: true },
+            });
+          } else {
+            throw err;
+          }
+        }
+        return convo;
+      }
+
+      // typing
+      socket.on("typing", ({ conversationId, isTyping, fromSocketId, as }) => {
         if (!conversationId) return;
-        const fromParticipantId = socket.data.participantId || null;
-        const fromInfluencerId = socket.data.influencer?.id || null;
-        const from = fromParticipantId || fromInfluencerId || null;
+
+        // we don’t need the convo to relay typing, but we include senderRole hint
+        const role =
+          (as && String(as).toLowerCase()) ||
+          (socket.handshake.subdomain ? "participant" : (socket.data.influencerId ? "influencer" : undefined));
+
+        const from =
+          role === "influencer" && socket.data.influencerId
+            ? { model: "User", id: s(socket.data.influencerId) }
+            : role === "participant" && socket.data.participantId
+            ? { model: "ParticipantUser", id: s(socket.data.participantId) }
+            : null;
 
         socket.to(`conversation:${conversationId}`).emit("typing", {
           conversationId,
-          isTyping,
+          isTyping: !!isTyping,
           from,
-          fromSocketId: socket.id,
+          fromSocketId: fromSocketId || socket.id,
+          senderRole: role,
         });
       });
 
-      // Core: send message (client should call this)
-      // payload: { conversationId (optional), to_influencer_id, text, attachments }
-   // replace the existing "message:send" handler with this block
-socket.on("message:send", async (payload) => {
-  try {
-    const { conversationId, to_influencer_id, text, attachments } = payload || {};
-    const trimmed = (text || "").trim();
-    if (!trimmed) return;
+      // message:send (supports payload.as override)
+      // payload: { conversationId? , to_influencer_id? , text, attachments? , as? }
+      socket.on("message:send", async (payload = {}) => {
+        try {
+          const { conversationId, to_influencer_id, text, attachments, as } = payload || {};
+          const trimmed = (text || "").trim();
+          if (!trimmed) return;
 
-    // who is connected on this socket?
-    const participantId = socket.data.participantId || null; // participant_user id (follower)
-    const influencerSocketUserId = socket.data.influencer?.id || null; // influencer (User) id
+          const participantId = socket.data.participantId && isValidId(socket.data.participantId) ? s(socket.data.participantId) : null;
+          const influencerCtxId = socket.data.influencerId && isValidId(socket.data.influencerId) ? s(socket.data.influencerId) : null;
 
-    // convert to ObjectIds where appropriate
-    const participantObjectId = participantId && mongoose.Types.ObjectId.isValid(participantId)
-      ? new mongoose.Types.ObjectId(participantId)
-      : null;
-    const influencerSocketObjectId = influencerSocketUserId && mongoose.Types.ObjectId.isValid(influencerSocketUserId)
-      ? new mongoose.Types.ObjectId(influencerSocketUserId)
-      : null;
-    const explicitToInfluencerId = to_influencer_id && mongoose.Types.ObjectId.isValid(to_influencer_id)
-      ? new mongoose.Types.ObjectId(to_influencer_id)
-      : null;
+          let convo = null;
 
-    // Resolve conversation (existing or create)
-    let convo = null;
-    if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
-      convo = await Conversation.findById(conversationId);
-    } else {
-      // fallback: if payload provided to_influencer_id or socket had influencer, create/find DM
-      const influencerForDM = explicitToInfluencerId || influencerSocketObjectId;
-      if (!influencerForDM) {
-        socket.emit("error", { message: "conversationId or to_influencer_id required" });
-        return;
-      }
-      // Build deterministic participant_ids_sorted and find/create convo
-      const idsForKey = [String(influencerForDM)];
-      if (participantObjectId) idsForKey.push(String(participantObjectId));
-      const participant_ids_sorted = idsForKey.sort().join("|");
-      convo = await Conversation.findOne({
-        participant_ids_sorted,
-        "metadata.conversation_type": "dm",
-        is_deleted: { $ne: true }
+          if (conversationId && isValidId(conversationId)) {
+            convo = await Conversation.findById(conversationId).lean();
+          } else {
+            const influencerId = isValidId(to_influencer_id) ? s(to_influencer_id) : influencerCtxId;
+            if (!influencerId || !participantId) {
+              socket.emit("error", { message: "conversationId or (to_influencer_id + participant auth) required" });
+              return;
+            }
+            convo = await findOrCreateDM({ influencerId, participantId });
+            if (!convo) {
+              socket.emit("error", { message: "failed to resolve or create conversation" });
+              return;
+            }
+          }
+
+          // *** CRITICAL: resolve exactly one sender ***
+          const senderResolved = resolveSenderActor({
+            socket,
+            convo,
+            prefer: as, // "influencer" | "participant" optional
+          });
+
+          if (!senderResolved) {
+            socket.emit("error", { message: "cannot resolve sender (ambiguous or not a member)" });
+            return;
+          }
+
+          const sender = { model: senderResolved.model, id: senderResolved.id };
+          const senderRole = senderResolved.role; // "influencer" | "participant"
+
+      
+        const parts = Array.isArray(convo.participants) ? convo.participants : [];
+        const recipients = parts
+          .map((p) => p.actor)
+          .filter((a) => !(a?.model === sender.model && String(a?.id) === String(sender.id)))
+          .map((a) => ({ model: a.model, id: OID(String(a.id)) }));
+
+        if (convo.conversation_type === "dm") {
+          if (sender.model === "User") {
+            // must have exactly one recipient and it must be ParticipantUser
+            if (!(recipients.length === 1 && recipients[0].model === "ParticipantUser")) {
+              return socket.emit("error", { message: "DM invariant failed: influencer must target participant" });
+            }
+          } else if (sender.model === "ParticipantUser") {
+            if (!(recipients.length === 1 && recipients[0].model === "User")) {
+              return socket.emit("error", { message: "DM invariant failed: participant must target influencer" });
+            }
+          }
+        }
+
+          // Save message
+          const msgDoc = await Message.create({
+            conversation: OID(convo._id),
+            sender,
+            recipients,
+            text: trimmed,
+            attachments: Array.isArray(attachments) ? attachments : [],
+            status: "sent",
+            categories: [],
+            delivery: {},
+            meta: {},
+            is_deleted: false,
+          });
+
+          // Update convo denorms
+          const incPaths = {};
+          for (const r of recipients) {
+            incPaths[`unread_counts.${actorKey(r.model, r.id)}`] = 1;
+          }
+          await Conversation.findByIdAndUpdate(convo._id, {
+            $set: {
+              last_message: msgDoc._id,
+              last_message_text: trimmed.slice(0, 500),
+              last_message_at: msgDoc.createdAt || new Date(),
+            },
+            $inc: { message_count: 1, ...incPaths },
+          }).catch((e) => console.warn("convo update warn:", e?.message || e));
+
+          // ensure sender is in room
+          socket.join(`conversation:${s(convo._id)}`);
+
+          const payloadMessage = {
+            _id: s(msgDoc._id),
+            conversation: { _id: s(convo._id) },
+            sender: { model: sender.model, id: s(sender.id) },
+            recipients: recipients.map((r) => ({ model: r.model, id: s(r.id) })),
+            text: msgDoc.text,
+            attachments: msgDoc.attachments || [],
+            status: msgDoc.status,
+            createdAt: msgDoc.createdAt,
+            senderRole,
+          };
+
+          // Emit
+          for (const r of recipients) {
+            const rid = s(r.id);
+            if (!rid) continue;
+            if (r.model === "User") io.to(`influencer:${rid}`).emit("message:received", { message: payloadMessage });
+            else if (r.model === "ParticipantUser") io.to(`participant:${rid}`).emit("message:received", { message: payloadMessage });
+          }
+          io.to(`conversation:${s(convo._id)}`).emit("message:received", { message: payloadMessage });
+
+          // ack
+          socket.emit("message:saved", { message: payloadMessage });
+        } catch (err) {
+          console.error("message:send error:", err);
+          socket.emit("error", { message: "message send failed", details: err?.message || null });
+        }
       });
-      if (!convo) {
-        const participants = [
-          { user: influencerForDM, role: "influencer", joined_at: new Date() }
-        ];
-        if (participantObjectId) participants.push({ user: participantObjectId, role: "member", joined_at: new Date() });
-        convo = await Conversation.create({
-          participants,
-          participant_ids_sorted,
-          last_message: null,
-          unread_counts: participantObjectId ? { [String(influencerForDM)]: 0, [String(participantObjectId)]: 0 } : { [String(influencerForDM)]: 0 },
-          metadata: { conversation_type: "dm" }
-        });
-      }
-    }
-
-    if (!convo) {
-      socket.emit("error", { message: "failed to resolve conversation" });
-      return;
-    }
-
-    // Determine sender (prefer participant, then influencer, else guest)
-    let senderObjectId = null;
-    let senderType = "guest";
-    if (participantObjectId) {
-      // follower sending
-      senderObjectId = participantObjectId;
-      senderType = "user";
-    } else if (influencerSocketObjectId) {
-      // influencer sending
-      senderObjectId = influencerSocketObjectId;
-      senderType = "user";
-    } else {
-      senderObjectId = null;
-      senderType = "guest";
-    }
-
-    // Compute recipients: all other User IDs in the conversation participants (exclude sender)
-    const convoParticipants = Array.isArray(convo.participants) ? convo.participants : [];
-    const recipientIds = [];
-    for (const p of convoParticipants) {
-      const uid = (p && p.user) ? String(p.user) : null;
-      if (!uid) continue;
-      if (senderObjectId && String(senderObjectId) === uid) continue; // exclude sender
-      recipientIds.push(uid);
-    }
-
-    const recipientObjectIds = recipientIds
-      .filter(id => mongoose.Types.ObjectId.isValid(id))
-      .map(id => new mongoose.Types.ObjectId(id));
-
-    // Build message doc (new Message schema)
-    const messagePayload = {
-      conversation: convo._id,
-      sender: senderObjectId || null,          // User ObjectId or null for guest
-      sender_type: senderType,                 // "user" or "guest"
-      recipients: recipientObjectIds,
-      text: trimmed,
-      attachments: Array.isArray(attachments) ? attachments : [],
-      status: "sent",
-      is_deleted: false
-    };
-
-    const created = await Message.create(messagePayload);
-
-    // populate sender (for UI) if possible
-    const populatedMessage = await Message.findById(created._id)
-      .populate({ path: "sender", model: "User", select: "_id name handleUserName picture" })
-      .lean();
-
-    // Update conversation.last_message (store Message _id) and increment unread count for recipients
-    const updateOps = { $set: { last_message: created._id, updatedAt: new Date() } };
-    if (recipientIds.length) {
-      updateOps.$inc = {};
-      for (const rid of recipientIds) {
-        updateOps.$inc[`unread_counts.${rid}`] = 1;
-      }
-    }
-    await Conversation.findByIdAndUpdate(convo._id, updateOps).catch(e => {
-      console.warn("Failed to update conversation last_message/unread:", e?.message || e);
-    });
-
-    // Ensure sender socket joins conversation room
-    socket.join(`conversation:${String(convo._id)}`);
-
-    // Emit to each recipient's influencer/participant rooms and conversation room
-    // If recipient matches a User (influencer) -> emit to influencer:<id> room; if recipient is a participant-user, you might also have participant:<id> rooms
-    for (const rid of recipientIds) {
-      // try both influencer room and participant room names to be safe
-      io.to(`influencer:${String(rid)}`).emit("message:received", { message: populatedMessage });
-      io.to(`participant:${String(rid)}`).emit("message:received", { message: populatedMessage });
-    }
-
-    // emit into conversation room
-    io.to(`conversation:${String(convo._id)}`).emit("message:received", { message: populatedMessage });
-
-    // ack back to sender socket
-    socket.emit("message:saved", { message: populatedMessage });
-  } catch (err) {
-    console.error("message:send error:", err);
-    socket.emit("error", { message: "message send failed", details: err?.message || null });
-  }
-});
-
 
       socket.on("disconnect", () => {
         console.log("socket disconnected", socket.id);

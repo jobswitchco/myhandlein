@@ -31,6 +31,9 @@ const bucketName = "postlnbucketcom";
 const bucket = storage.bucket(bucketName);
 const upload = multer({ storage: multer.memoryStorage() });
 const IPDATA_KEY = process.env.IPDATA_KEY;
+const OID = (v) => new mongoose.Types.ObjectId(String(v));
+const actorKey = (model, id) => `${model}:${id.toString()}`;
+
 
 
 function escapeRegex(str = "") {
@@ -372,71 +375,115 @@ router.get("/conversations/:conversationId", authenticateToken, async (req, res)
       return res.status(400).json({ error: "conversationId required and must be a valid ObjectId" });
     }
 
-    // ensure we have requester id from authenticateToken
     const requesterId = req.user?.user_id;
     if (!requesterId || !mongoose.Types.ObjectId.isValid(requesterId)) {
       return res.status(401).json({ error: "unauthenticated" });
     }
 
-    // Populate participants.user (basic fields) and last_message (basic fields + sender)
-    const convo = await Conversation.findById(conversationId)
-      .populate({
-        path: "participants.user",
-        select: "_id name handleUserName picture email"
-      })
-      .populate({
-        path: "last_message",
-        select: "_id text sender createdAt",
-        populate: { path: "sender", select: "_id name handleUserName picture" }
-      })
+    const OID = (v) => new mongoose.Types.ObjectId(String(v));
+
+    // Pull raw conversation
+    const convo = await Conversation.findOne({
+      _id: conversationId,
+      is_deleted: { $ne: true },
+    })
+      .select(
+        "_id participants conversation_type metadata last_message last_message_text last_message_at message_count createdAt updatedAt"
+      )
       .lean();
 
-      console.log('convo : ', convo);
+    if (!convo) return res.status(404).json({ error: "conversation not found" });
 
-    if (!convo) {
-      return res.status(404).json({ error: "conversation not found" });
-    }
+    const parts = Array.isArray(convo.participants) ? convo.participants : [];
 
-    // Normalize participants: array of { user: {..}, role, last_read_at, ... }
-    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
-
-    // Find the participant entry for the requester
-    const requesterParticipant = participantsArr.find(p => {
-      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
-      return uid === requesterId;
-    });
-
-    // If requester is not part of the conversation, forbid access
-    if (!requesterParticipant) {
+    // Ensure requester is in this conversation (allow either User or ParticipantUser)
+    const requesterInConvo = parts.some(
+      (p) =>
+        (p?.actor?.model === "User" && String(p.actor?.id) === String(requesterId)) ||
+        (p?.actor?.model === "ParticipantUser" && String(p.actor?.id) === String(requesterId))
+    );
+    if (!requesterInConvo) {
       return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
     }
 
-    // Other participants (useful to show the 'influencer' or recipients)
-    const otherParticipants = participantsArr
-      .filter(p => {
-        const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
-        return uid && uid !== requesterId;
-      })
-      .map(p => p.user); // map to populated user doc or id
+    // Collect ids by model
+    const userIds = parts
+      .filter((p) => p?.actor?.model === "User" && p?.actor?.id)
+      .map((p) => OID(p.actor.id));
+    const participantUserIds = parts
+      .filter((p) => p?.actor?.model === "ParticipantUser" && p?.actor?.id)
+      .map((p) => OID(p.actor.id));
 
-    // For compatibility with previous code, pick "participant" (requester) and "influencer" (first other)
-    const participant = {
-      user: requesterParticipant.user,
-      role: requesterParticipant.role,
-      last_read_at: requesterParticipant.last_read_at,
-      joined_at: requesterParticipant.joined_at,
-      muted: requesterParticipant.muted
-    };
+    // Fetch docs via Mongoose models (NOT req.app.get('db'))
+    const [users, participants] = await Promise.all([
+      userIds.length
+        ? USER.find({ _id: { $in: userIds } })
+            .select("_id name fullName handleUserName picture email")
+            .lean()
+        : [],
+      participantUserIds.length
+        ? ParticipantUser.find({ _id: { $in: participantUserIds } })
+            .select("_id name fullName username picture email")
+            .lean()
+        : [],
+    ]);
 
-    const influencer = otherParticipants.length ? otherParticipants[0] : null;
+    const userMap = Object.fromEntries(users.map((u) => [String(u._id), u]));
+    const participantMap = Object.fromEntries(participants.map((u) => [String(u._id), u]));
 
-    // Respond with the conversation and resolved participant/influencer
+    // Hydrate participants with their profile doc
+    const hydratedParticipants = parts.map((p) => {
+      const model = p?.actor?.model;
+      const idStr = p?.actor?.id ? String(p.actor.id) : null;
+      const base = {
+        actor: { model, id: idStr },
+        role: p.role,
+        joined_at: p.joined_at,
+        last_read_at: p.last_read_at,
+        last_read_message_id: p.last_read_message_id,
+        muted: p.muted,
+      };
+      if (!model || !idStr) return { ...base, profile: null };
+
+      const profile =
+        model === "User" ? userMap[idStr] || null
+        : model === "ParticipantUser" ? participantMap[idStr] || null
+        : null;
+
+      return { ...base, profile };
+    });
+
+    // Identify follower (ParticipantUser) and influencer (User)
+    const followerEntry = hydratedParticipants.find((p) => p.actor.model === "ParticipantUser");
+    const influencerEntry = hydratedParticipants.find((p) => p.actor.model === "User");
+
     return res.json({
       ok: true,
-      conversation: convo,
-      participant,
-      influencer,
-      others: otherParticipants
+      conversation: {
+        _id: String(convo._id),
+        conversation_type: convo.conversation_type,
+        metadata: convo.metadata,
+        last_message: convo.last_message ? String(convo.last_message) : null,
+        last_message_text: convo.last_message_text || "",
+        last_message_at: convo.last_message_at || null,
+        message_count: convo.message_count || 0,
+        participants: hydratedParticipants,
+        createdAt: convo.createdAt,
+        updatedAt: convo.updatedAt,
+      },
+      participant: followerEntry?.profile || null,  // follower profile doc
+      influencer: influencerEntry?.profile || null, // influencer (User) profile doc
+      participantRole: followerEntry?.role || "member",
+      participantMetadata: {
+        role: followerEntry?.role || "member",
+        last_read_at: followerEntry?.last_read_at || null,
+        joined_at: followerEntry?.joined_at || null,
+        muted: !!followerEntry?.muted,
+      },
+      others: hydratedParticipants
+        .filter((p) => p.actor.model === "User" && p.actor.id !== String(influencerEntry?.actor?.id))
+        .map((p) => p.profile)
+        .filter(Boolean),
     });
   } catch (err) {
     console.error("DEBUG: GET conversation error:", err);
@@ -444,199 +491,268 @@ router.get("/conversations/:conversationId", authenticateToken, async (req, res)
   }
 });
 
-router.get("/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    console.log('conversation Id : ', conversationId);
-    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ error: "conversationId required and must be a valid ObjectId" });
-    }
-
-    // requester id from authenticateToken (ensure authenticateToken sets req.user.id/_id)
-    const requesterId = req.user?.user_id;
-
-    if (!requesterId || !mongoose.Types.ObjectId.isValid(requesterId)) {
-      return res.status(401).json({ error: "unauthenticated" });
-    }
-
-    // Load conversation and populate participant user docs (basic fields)
-   const convo = await Conversation.findById(conversationId)
-  .populate({ path: "participants.user", model: "User", select: "_id name handleUserName picture email" })
-  .lean();
-
-    if (!convo) return res.status(404).json({ error: "conversation not found" });
-
-    // Find requester participant entry
-    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
-    console.log('participants Array : ', participantsArr);
-    const requesterParticipantEntry = participantsArr.find(p => {
-      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
-      return uid === requesterId;
-    });
-
-    if (!requesterParticipantEntry) {
-      return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
-    }
-
-    // Resolve influencer/other participants (first other participant)
-    const otherParticipants = participantsArr
-      .filter(p => {
-        const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
-        return uid && uid !== requesterId;
-      })
-      .map(p => p.user);
-
-    const participantDoc = requesterParticipantEntry.user;
-    const influencerDoc = otherParticipants.length ? otherParticipants[0] : null;
-
-    // Fetch messages (use new Message schema fields)
-    // Message schema: conversation (ref), sender (ref to User), is_deleted, timestamps (createdAt)
-    const msgs = await Message.find({ conversation: conversationId, is_deleted: false })
-      .sort({ createdAt: 1 })
-      .populate({ path: "sender", select: "_id name handleUserName picture" })
-      .lean();
-
-    // Normalize each message to your expected shape
-    const normalized = msgs.map(m => {
-      // determine sender id (if populated sender object, use its _id)
-      const senderId = m.sender ? String(m.sender._id) : (m.senderId ? String(m.senderId) : null);
-
-      // decide whether this message is from the participant (requester) or influencer (other)
-      let senderRole = "influencer";
-      if (senderId && participantDoc && String(participantDoc._id) === senderId) {
-        senderRole = "participant";
-      } else if (senderId && influencerDoc && String(influencerDoc._id) === senderId) {
-        senderRole = "influencer";
-      } else {
-        // ambiguous — fallback to: if recipients include influencer -> participant else influencer
-        const recipients = Array.isArray(m.recipients) ? m.recipients.map(r => String(r)) : [];
-        if (recipients.length && influencerDoc && recipients.includes(String(influencerDoc._id))) {
-          senderRole = "participant";
-        } else if (senderId && participantDoc && senderId === String(participantDoc._id)) {
-          senderRole = "participant";
-        } else {
-          // default to influencer (since UI is influencer-facing)
-          senderRole = "influencer";
-        }
+  router.get("/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+        return res.status(400).json({ error: "conversationId required and must be a valid ObjectId" });
       }
 
-      return {
-        _id: m._id,
-        conversation_id: m.conversation || conversationId,
-        sender: senderRole,                 // "participant" | "influencer"
-        senderId: senderId || null,
-        text: m.text || m.body || "",
-        created_at: m.createdAt || m.created_at || new Date(),
-        raw: m // optional - remove or omit for production
-      };
-    });
+      const requesterId = req.user?.user_id;
+      if (!requesterId || !mongoose.Types.ObjectId.isValid(requesterId)) {
+        return res.status(401).json({ error: "unauthenticated" });
+      }
 
-    // optional debug log
-    console.log("GET /conversations/:id/messages normalized count:", normalized.length);
+      // Load convo just to confirm membership (as a User)
+      const convo = await Conversation.findOne({
+        _id: conversationId,
+        "participants.actor.model": "User",
+        "participants.actor.id": new mongoose.Types.ObjectId(requesterId),
+        is_deleted: { $ne: true },
+      })
+        .select("_id participants")
+        .lean();
 
-    return res.json({
-      ok: true,
-      conversation: convo,
-      participant: participantDoc,
-      influencer: influencerDoc,
-      messages: normalized
-    });
-  } catch (err) {
-    console.error("GET conversation messages error:", err);
-    return res.status(500).json({ error: "internal", details: err.message });
-  }
-});
+      if (!convo) return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
 
-router.post("/messages/send", async (req, res) => {
+      // Fetch messages (new schema)
+      const docs = await Message.find({
+        conversation: new mongoose.Types.ObjectId(conversationId),
+        is_deleted: { $ne: true },
+      })
+        .sort({ createdAt: 1 })
+        .select("_id text attachments status createdAt sender recipients")
+        .lean();
+
+     const messages = docs.map((m) => {
+        const s = m.sender || null; // { model, id }
+        const sModel = s?.model || null;
+        const sId = s?.id ? String(s.id) : null;
+
+        const senderRole =
+          sModel === "User" ? "influencer"
+          : sModel === "ParticipantUser" ? "participant"
+          : undefined;
+
+        return {
+          _id: String(m._id),
+          conversation: { _id: String(conversationId) },
+          text: m.text || "",
+          createdAt: m.createdAt,
+          sender: s ? { model: sModel, id: sId } : null,
+          senderRole,
+          attachments: m.attachments || [],
+          status: m.status || "sent",
+        };
+      });
+
+      return res.json({
+        ok: true,
+        conversation: { _id: String(conversationId) },
+        messages,
+      });
+    } catch (err) {
+      console.error("GET conversation messages error:", err);
+      return res.status(500).json({ error: "internal", details: err.message });
+    }
+  });
+
+router.post("/messages/send", authenticateParticipant, async (req, res) => {
   try {
     const { conversationId, text, attachments } = req.body || {};
-    if (!conversationId || !text) return res.status(400).json({ error: "conversationId and text required" });
-    if (!mongoose.Types.ObjectId.isValid(conversationId)) return res.status(400).json({ error: "invalid conversationId" });
+    const OID = (v) => new mongoose.Types.ObjectId(String(v));
+    const actorKey = (model, id) => `${model}:${id.toString()}`;
 
-    // --- extract participantId from cookie tokenParticipantMyHandle (same as your original flow) ---
-    const cookies = req.headers.cookie || "";
-    const parsedCookies = require("cookie").parse(cookies || "");
-    const token = parsedCookies.tokenParticipantMyHandle;
-    if (!token) return res.status(401).json({ error: "authentication tokenParticipantMyHandle required" });
-
-    const jwt = require("jsonwebtoken");
-    let participantId = null;
-    try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET || "devsecret");
-      participantId = payload.userId || payload.user_id || payload.id || null;
-    } catch (e) {
-      return res.status(401).json({ error: "invalid token" });
+    // ---- validate inputs ----
+    if (!conversationId) {
+      return res.status(400).json({ error: "conversationId required and must be a valid ObjectId" });
     }
-    if (!participantId || !mongoose.Types.ObjectId.isValid(participantId)) {
-      return res.status(401).json({ error: "invalid participant id in token" });
+    const trimmed = String(text ?? "").trim();
+    if (!trimmed) {
+      return res.status(400).json({ error: "text required" });
     }
-    const participantObjectId = new mongoose.Types.ObjectId(participantId);
 
-    // --- ensure conversation exists and requester is a participant ---
+    // ---- participant auth ----
+    const participantId = req.user?.user_id || req.user?.id;
+    if (!participantId) {
+      return res.status(401).json({ error: "unauthenticated" });
+    }
+    const participantOID = OID(participantId);
+
+    // ---- load conversation & membership check ----
     const convo = await Conversation.findById(conversationId).lean();
     if (!convo) return res.status(404).json({ error: "conversation not found" });
 
-    // participants are stored as objects: { user: ObjectId, role, ... }
-    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
-    const requesterEntry = participantsArr.find(p => {
-      const uid = p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null);
-      return uid === String(participantId);
-    });
-
-    if (!requesterEntry) {
+    const parts = Array.isArray(convo.participants) ? convo.participants : [];
+    const isInConvo = parts.some(
+      (p) => p?.actor?.model === "ParticipantUser" && String(p.actor?.id) === String(participantOID)
+    );
+    if (!isInConvo) {
       return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
     }
 
-    // Determine the "other" participant(s) — here we pick the first other user as influencer (if any)
-    const otherUsers = participantsArr
-      .map(p => (p?.user?._id ? String(p.user._id) : (p?.user ? String(p.user) : null)))
-      .filter(uid => uid && uid !== String(participantId));
+    // ---- recipients: everyone except the participant sender ----
+    const recipients = parts
+      .map((p) => p.actor)
+      .filter(Boolean)
+      .filter((a) => !(a.model === "ParticipantUser" && String(a.id) === String(participantOID)))
+      .map((a) => ({ model: a.model, id: OID(String(a.id)) }));
 
-    const influencerId = otherUsers.length ? otherUsers[0] : null;
-    const influencerObjectId = influencerId ? new mongoose.Types.ObjectId(influencerId) : null;
-
-    // --- build message doc according to new Message schema ---
-    const messagePayload = {
-      conversation: new mongoose.Types.ObjectId(conversationId),
-      sender: participantObjectId,
-      sender_type: "user",
-      recipients: influencerObjectId ? [influencerObjectId] : [],
-      text: String(text || ""),
-      attachments: Array.isArray(attachments) ? attachments : [], // attachments must match your AttachmentSchema shape
+    // ---- persist message ----
+    const created = await Message.create({
+      conversation: OID(conversationId),
+      sender: { model: "ParticipantUser", id: participantOID },
+      recipients,
+      text: trimmed,
+      attachments: Array.isArray(attachments) ? attachments : [],
       status: "sent",
-      is_deleted: false
-    };
+      categories: [],
+      delivery: {},
+      meta: {},
+      is_deleted: false,
+    });
 
-    const created = await Message.create(messagePayload);
-
-    // populate sender for emission & response (lightweight)
-    const populatedMessage = await Message.findById(created._id)
-      .populate({ path: "sender", select: "_id name handleUserName picture" })
-      .lean();
-
-    // --- update conversation: set last_message to message _id and increment unread count for influencer ---
-    const updateOps = {
-      $set: { last_message: created._id, updatedAt: new Date() }
-    };
-    if (influencerId) {
-      updateOps.$inc = { [`unread_counts.${influencerId}`]: 1 };
+    // ---- denorm updates (unread_counts) ----
+    const incPaths = {};
+    for (const r of recipients) {
+      incPaths[`unread_counts.${actorKey(r.model, r.id)}`] = 1;
     }
-    await Conversation.findByIdAndUpdate(convo._id, updateOps);
+    await Conversation.findByIdAndUpdate(convo._id, {
+      $set: {
+        last_message: created._id,
+        last_message_text: trimmed.slice(0, 500),
+        last_message_at: created.createdAt || new Date(),
+      },
+      $inc: { message_count: 1, ...incPaths },
+    });
 
-    // --- socket emission (if io exists on app) ---
+    // ---- response payload (same shape as socket) ----
+    const responseMessage = {
+      _id: String(created._id),
+      conversation: { _id: String(conversationId) },
+      sender: { model: "ParticipantUser", id: String(participantOID) },
+      recipients: recipients.map((r) => ({ model: r.model, id: String(r.id) })),
+      text: created.text,
+      attachments: created.attachments || [],
+      status: created.status,
+      createdAt: created.createdAt,
+      senderRole: "participant",
+    };
+
+    // ---- realtime fanout ----
     const io = req.app.get("io");
     if (io) {
-      // emit to influencer-specific room and conversation room
-      if (influencerId) {
-        io.to(`influencer:${String(influencerId)}`).emit("message:received", { message: populatedMessage });
+      io.to(`conversation:${String(convo._id)}`).emit("message:received", { message: responseMessage });
+      for (const r of recipients) {
+        const rid = String(r.id);
+        if (r.model === "User") io.to(`influencer:${rid}`).emit("message:received", { message: responseMessage });
+        if (r.model === "ParticipantUser") io.to(`participant:${rid}`).emit("message:received", { message: responseMessage });
       }
-      io.to(`conversation:${String(convo._id)}`).emit("message:received", { message: populatedMessage });
     }
 
-    return res.json({ ok: true, message: populatedMessage });
+    return res.json({ ok: true, message: responseMessage });
   } catch (err) {
     console.error("POST /messages/send error:", err);
-    return res.status(500).json({ error: "internal", details: err.message });
+    return res.status(500).json({ error: "internal", details: err?.message || String(err) });
+  }
+});
+
+router.post("/messages/send-as-influencer", authenticateToken, async (req, res) => {
+  try {
+    const { conversationId, text, attachments } = req.body || {};
+
+    // 1) input validation
+    if (!conversationId ) {
+      return res.status(400).json({ error: "conversationId required and must be a valid ObjectId" });
+    }
+    const trimmed = String(text ?? "").trim();
+    if (!trimmed) return res.status(400).json({ error: "text required" });
+
+    // 2) requester (influencer) identity
+    const requesterId = req.user?.user_id || req.user?.id;
+    if (!requesterId) {
+      return res.status(401).json({ error: "unauthenticated" });
+    }
+    const requesterOID = OID(requesterId);
+
+    // 3) ensure requester is a 'User' participant in the conversation
+    const convo = await Conversation.findOne({
+      _id: OID(conversationId),
+      "participants.actor.model": "User",
+      "participants.actor.id": requesterOID,
+      is_deleted: { $ne: true },
+    }).lean();
+
+    if (!convo) {
+      return res.status(403).json({ error: "forbidden - you are not a participant of this conversation" });
+    }
+
+    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
+
+    // 4) compute recipients = everyone except the influencer sender
+    const recipients = participantsArr
+      .map((p) => p?.actor)
+      .filter(Boolean)
+      .filter((a) => !(a.model === "User" && String(a.id) === String(requesterOID)))
+      .map((a) => ({ model: a.model, id: OID(String(a.id)) }));
+
+    // 5) persist message
+    const created = await Message.create({
+      conversation: OID(conversationId),
+      sender: { model: "User", id: requesterOID },
+      recipients,
+      text: trimmed,
+      attachments: Array.isArray(attachments) ? attachments : [],
+      status: "sent",
+      categories: [],
+      delivery: {},
+      meta: {},
+      is_deleted: false,
+    });
+
+    // 6) denorm updates (IMPORTANT: use actorKey for unread_counts to match schema)
+    const incPaths = {};
+    for (const r of recipients) {
+      incPaths[`unread_counts.${actorKey(r.model, r.id)}`] = 1;
+    }
+
+    await Conversation.findByIdAndUpdate(convo._id, {
+      $set: {
+        last_message: created._id,
+        last_message_text: trimmed.slice(0, 500),
+        last_message_at: created.createdAt || new Date(),
+      },
+      $inc: { message_count: 1, ...incPaths },
+    });
+
+    // 7) build response payload consistent with socket path
+    const responseMessage = {
+      _id: String(created._id),
+      conversation: { _id: String(conversationId) },
+      sender: { model: "User", id: String(requesterOID) },
+      recipients: recipients.map((r) => ({ model: r.model, id: String(r.id) })),
+      text: created.text,
+      attachments: created.attachments || [],
+      status: created.status,
+      createdAt: created.createdAt,
+      senderRole: "influencer",
+    };
+
+    // 8) realtime fanout
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`conversation:${String(convo._id)}`).emit("message:received", { message: responseMessage });
+      for (const r of recipients) {
+        const rid = String(r.id);
+        if (r.model === "User") io.to(`influencer:${rid}`).emit("message:received", { message: responseMessage });
+        if (r.model === "ParticipantUser") io.to(`participant:${rid}`).emit("message:received", { message: responseMessage });
+      }
+    }
+
+    return res.json({ ok: true, message: responseMessage });
+  } catch (err) {
+    console.error("POST /messages/send-as-influencer error:", err);
+    return res.status(500).json({ error: "internal", details: err?.message || String(err) });
   }
 });
 
@@ -1575,84 +1691,6 @@ router.post("/enable-dm-inbox", authenticateToken, async (req, res) => {
   }
 });
 
-router.get("/messages/:conversationId", authenticateParticipant, async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-
-    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ error: "invalid conversation id" });
-    }
-
-    // Participant id coming from authenticateParticipant
-    const participantId = req.user?.user_id;
-    if (!participantId || !mongoose.Types.ObjectId.isValid(participantId)) {
-      return res.status(401).json({ error: "unauthenticated" });
-    }
-
-    // Load conversation and ensure requester is a participant
-    const convo = await Conversation.findOne({
-      _id: conversationId,
-      "participants.user": new mongoose.Types.ObjectId(participantId),
-      is_deleted: { $ne: true }
-    })
-      .select("_id participants metadata")
-      .lean();
-
-    if (!convo) {
-      return res.status(403).json({ error: "not authorized for this conversation" });
-    }
-
-    // Identify influencer + participant from the conversation (by role or by comparison)
-    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
-    const influencerEntry = participantsArr.find(p => p.role === "influencer");
-    const participantEntry = participantsArr.find(p => String(p.user) === String(participantId));
-
-    const influencerId = influencerEntry ? String(influencerEntry.user) : null;
-    const memberId = participantEntry ? String(participantEntry.user) : String(participantId);
-
-    if (!influencerId || !memberId) {
-      return res.status(500).json({ error: "conversation participants malformed" });
-    }
-
-    // Fetch messages ONLY for this conversation
-    const docs = await Message.find({
-      conversation: new mongoose.Types.ObjectId(conversationId),
-      is_deleted: { $ne: true }
-    })
-      .sort({ createdAt: 1 })
-      .select("_id text createdAt conversation sender")
-      .lean();
-
-    // OPTIONAL: small lookup for names/avatars if you want (kept minimal here)
-    // const senderIds = [...new Set(docs.map(d => String(d.sender)).filter(Boolean))];
-    // const users = await USER.find({ _id: { $in: senderIds } }).select("_id name handleUserName picture").lean();
-    // const userMap = Object.fromEntries(users.map(u => [String(u._id), u]));
-
-    const messages = docs.map(d => {
-      const sId = d.sender ? String(d.sender) : null;
-      const senderRole =
-        sId && sId === influencerId ? "influencer"
-        : sId && sId === memberId ? "member"
-        : undefined;
-
-      return {
-        _id: d._id,
-        text: d.text || "",
-        createdAt: d.createdAt,
-        conversation: { _id: String(conversationId) },
-        sender: sId ? { _id: sId } : undefined,
-        senderRole
-      };
-    });
-
-    return res.json({ messages });
-  } catch (err) {
-    console.error("GET /usersOn/messages/:conversationId error:", err);
-    return res.status(500).json({ error: "internal", details: err.message });
-  }
-});
-
-
 router.post("/conversations/find-or-create", authenticateParticipant, async (req, res) => {
   try {
     const { subdomain } = req.body || {};
@@ -1661,7 +1699,7 @@ router.post("/conversations/find-or-create", authenticateParticipant, async (req
     const influencer = await USER.findOne({ handleUserName: subdomain }).lean();
     if (!influencer) return res.status(404).json({ error: "influencer not found" });
 
-    // participant id strictly from authenticateParticipant
+    // participant id strictly from authenticateParticipant (ParticipantUser)
     const participantIdRaw = req.user?.user_id;
     if (!participantIdRaw || !mongoose.Types.ObjectId.isValid(participantIdRaw)) {
       return res.status(401).json({ error: "participant not authenticated" });
@@ -1674,42 +1712,69 @@ router.post("/conversations/find-or-create", authenticateParticipant, async (req
       return res.status(400).json({ error: "cannot create conversation with yourself" });
     }
 
-    const participant_ids_sorted = [influencerId, participantId].sort().join("|");
+    // Build actor keys and sorted key used by the unique index
+    const infKey = actorKey("User", influencerId);
+    const memKey = actorKey("ParticipantUser", participantId);
+    const participant_keys_sorted = [infKey, memKey].sort().join("|");
 
-    // Find existing DM
+    // Find existing DM by unique compound index
     const existing = await Conversation.findOne({
-      participant_ids_sorted,
-      "metadata.conversation_type": "dm",
-      is_deleted: { $ne: true }
+      participant_keys_sorted,
+      conversation_type: "dm",
+      is_deleted: { $ne: true },
     }).lean();
 
     if (existing) {
       return res.json({ conversation: existing });
     }
 
-    // Create DM
+    // Create DM participants using new ActorSubSchema shape
     const participants = [
-      { user: new mongoose.Types.ObjectId(influencerId), role: "influencer", joined_at: new Date() },
-      { user: new mongoose.Types.ObjectId(participantId), role: "member",     joined_at: new Date() }
+      {
+        actor: { model: "User", id: new mongoose.Types.ObjectId(influencerId) },
+        role: "influencer",
+        joined_at: new Date(),
+        last_read_at: null,
+        last_read_message_id: null,
+        muted: false,
+      },
+      {
+        actor: { model: "ParticipantUser", id: new mongoose.Types.ObjectId(participantId) },
+        role: "member",
+        joined_at: new Date(),
+        last_read_at: null,
+        last_read_message_id: null,
+        muted: false,
+      },
     ];
 
     const toInsert = {
       participants,
-      participant_ids_sorted,
+      participant_keys_sorted,
+      conversation_type: "dm",
       last_message: null,
-      unread_counts: { [influencerId]: 0, [participantId]: 0 },
-      metadata: { conversation_type: "dm", title: null, tags: [], pinned: false }
+      last_message_text: "",
+      last_message_at: null,
+      message_count: 0,
+      // unread_counts map must use the actorKey strings as keys
+      unread_counts: {
+        [infKey]: 0,
+        [memKey]: 0,
+      },
+      metadata: { title: null, tags: [], pinned: false },
+      is_deleted: false,
     };
 
     let convo = null;
     try {
       convo = await Conversation.create(toInsert);
     } catch (err) {
+      // Handle race: unique index on (participant_keys_sorted, conversation_type)
       if (err && err.code === 11000) {
         const again = await Conversation.findOne({
-          participant_ids_sorted,
-          "metadata.conversation_type": "dm",
-          is_deleted: { $ne: true }
+          participant_keys_sorted,
+          conversation_type: "dm",
+          is_deleted: { $ne: true },
         }).lean();
         if (again) return res.json({ conversation: again });
       }
@@ -1719,6 +1784,99 @@ router.post("/conversations/find-or-create", authenticateParticipant, async (req
     return res.json({ conversation: convo });
   } catch (err) {
     console.error("POST /usersOn/conversations/find-or-create error:", err);
+    return res.status(500).json({ error: "internal", details: err.message });
+  }
+});
+
+router.get("/messages/:conversationId", authenticateParticipant, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ error: "invalid conversation id" });
+    }
+
+    // ParticipantUser id from auth
+    const participantId = req.user?.user_id;
+    if (!participantId || !mongoose.Types.ObjectId.isValid(participantId)) {
+      return res.status(401).json({ error: "unauthenticated" });
+    }
+
+    // Ensure requester is a participant (by ActorSubSchema fields)
+    const convo = await Conversation.findOne({
+      _id: conversationId,
+      "participants.actor.model": "ParticipantUser",
+      "participants.actor.id": new mongoose.Types.ObjectId(participantId),
+      is_deleted: { $ne: true },
+    })
+      .select("_id participants conversation_type metadata")
+      .lean();
+
+    if (!convo) {
+      return res.status(403).json({ error: "not authorized for this conversation" });
+    }
+
+    // Identify influencer & member from participants
+    const participantsArr = Array.isArray(convo.participants) ? convo.participants : [];
+
+    // Influencer: role === "influencer" OR actor.model === "User"
+    const influencerEntry =
+      participantsArr.find((p) => p.role === "influencer") ||
+      participantsArr.find((p) => p.actor?.model === "User");
+
+    // Member: actor.model === "ParticipantUser" && id == requester
+    const participantEntry = participantsArr.find(
+      (p) =>
+        p.actor?.model === "ParticipantUser" &&
+        String(p.actor?.id) === String(participantId)
+    );
+
+    const influencerId = influencerEntry ? String(influencerEntry.actor?.id) : null;
+    const memberId = participantEntry ? String(participantEntry.actor?.id) : String(participantId);
+
+    if (!influencerId || !memberId) {
+      return res.status(500).json({ error: "conversation participants malformed" });
+    }
+
+    // Fetch messages for this conversation
+    const docs = await Message.find({
+      conversation: new mongoose.Types.ObjectId(conversationId),
+      is_deleted: { $ne: true },
+    })
+      .sort({ createdAt: 1 })
+      .select("_id text createdAt conversation sender sender_key attachments status")
+      .lean();
+
+    const messages = docs.map((d) => {
+      const s = d.sender || null; // { model, id }
+      const sModel = s?.model;
+      const sId = s?.id ? String(s.id) : null;
+
+      const senderRole =
+        sModel === "User" && sId === influencerId
+          ? "influencer"
+          : sModel === "ParticipantUser" && sId === memberId
+          ? "member"
+          : undefined;
+
+      return {
+        _id: d._id,
+        text: d.text || "",
+        createdAt: d.createdAt,
+        conversation: { _id: String(conversationId) },
+        sender: s
+          ? { model: sModel, id: sId }
+          : undefined,
+        senderRole,
+        // include if you want on client:
+        // attachments: d.attachments || [],
+        // status: d.status,
+      };
+    });
+
+    return res.json({ messages });
+  } catch (err) {
+    console.error("GET /usersOn/messages/:conversationId error:", err);
     return res.status(500).json({ error: "internal", details: err.message });
   }
 });
@@ -1734,145 +1892,155 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
     if (!user_id || !mongoose.Types.ObjectId.isValid(user_id)) {
       return res.status(400).json({ error: "user_id required and must be valid" });
     }
+
     const influencerObjectId = new mongoose.Types.ObjectId(user_id);
-    const ObjectId = mongoose.Types.ObjectId;
+    const participantCollection = "participant_user"; // your collection name
 
-   const participantCollection = "participant_user"; 
+    // We want the latest inbound message per conversation TO the influencer (User).
+    // Inbound means: sender is NOT the influencer AND either:
+    //   (A) recipients contains { model:"User", id: influencerId } OR
+    //   (B) conversation includes influencer as a participant.
+    const pipeline = [
+      { $match: { is_deleted: false } },
 
-const pipeline = [
-  { $match: { is_deleted: false } },
+      // Join the conversation
+      {
+        $lookup: {
+          from: "conversations",
+          localField: "conversation",
+          foreignField: "_id",
+          as: "conversation"
+        }
+      },
+      { $unwind: { path: "$conversation", preserveNullAndEmptyArrays: false } },
 
-  {
-    $lookup: {
-      from: "conversations",
-      localField: "conversation",
-      foreignField: "_id",
-      as: "conversation"
-    }
-  },
-  { $unwind: { path: "$conversation", preserveNullAndEmptyArrays: true } },
-
-  // Only messages incoming to influencer
-  {
-    $match: {
-      $or: [
-        { recipients: influencerObjectId },
-        {
+      // Filter to only "incoming to influencer"
+      {
+        $match: {
           $and: [
-            { "conversation.participants.user": influencerObjectId },
-            { $expr: { $ne: ["$sender", influencerObjectId] } }
+            {
+              $or: [
+                // recipients include influencer actor
+                {
+                  recipients: {
+                    $elemMatch: {
+                      model: "User",
+                      id: influencerObjectId
+                    }
+                  }
+                },
+                // OR influencer is a participant of the conversation
+                {
+                  "conversation.participants": {
+                    $elemMatch: {
+                      "actor.model": "User",
+                      "actor.id": influencerObjectId
+                    }
+                  }
+                }
+              ]
+            },
+            // AND sender is not the influencer
+            {
+              $or: [
+                { "sender.model": { $ne: "User" } },
+                { "sender.id": { $ne: influencerObjectId } }
+              ]
+            }
           ]
         }
-      ]
-    }
-  },
+      },
 
-  // Normalize sender to ObjectId for lookups
-  {
-    $addFields: {
-      senderObjId: {
-        $cond: [
-          { $eq: [{ $type: "$sender" }, "string"] },
-          { $toObjectId: "$sender" },
-          "$sender"
-        ]
-      }
-    }
-  },
+      // Sort newest first, then group to pick the latest per conversation
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$conversation._id",
+          doc: { $first: "$$ROOT" }
+        }
+      },
+      { $replaceRoot: { newRoot: "$doc" } },
 
-  { $sort: { createdAt: -1 } },
-  {
-    $group: {
-      _id: { $ifNull: ["$conversation._id", "$senderObjId"] },
-      doc: { $first: "$$ROOT" }
-    }
-  },
-  { $replaceRoot: { newRoot: "$doc" } },
+      // Pagination
+      { $skip: skip },
+      { $limit: limit },
 
-  // Pagination
-  { $skip: skip },
-  { $limit: limit },
+      // Look up sender details depending on sender.model
+      // user_sender if sender.model === "User"
+      {
+        $lookup: {
+          from: "users",
+          let: { sid: "$sender.id", smodel: "$sender.model" },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ["$$smodel", "User"] }, { $eq: ["$_id", "$$sid"] }] } } },
+            { $project: { _id: 1, name: 1, fullName: 1, handleUserName: 1, email: 1 } }
+          ],
+          as: "user_sender"
+        }
+      },
+      { $unwind: { path: "$user_sender", preserveNullAndEmptyArrays: true } },
 
-  // Lookups
-  {
-    $lookup: {
-      from: "users",
-      localField: "senderObjId",
-      foreignField: "_id",
-      as: "user_sender"
-    }
-  },
-  { $unwind: { path: "$user_sender", preserveNullAndEmptyArrays: true } },
+      // participant_sender if sender.model === "ParticipantUser"
+      {
+        $lookup: {
+          from: participantCollection,
+          let: { sid: "$sender.id", smodel: "$sender.model" },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ["$$smodel", "ParticipantUser"] }, { $eq: ["$_id", "$$sid"] }] } } },
+            { $project: { _id: 1, name: 1, fullName: 1, username: 1, email: 1 } }
+          ],
+          as: "participant_sender"
+        }
+      },
+      { $unwind: { path: "$participant_sender", preserveNullAndEmptyArrays: true } },
 
-  {
-    $lookup: {
-      from: participantCollection,
-      localField: "senderObjId",
-      foreignField: "_id",
-      as: "participant_sender"
-    }
-  },
-  { $unwind: { path: "$participant_sender", preserveNullAndEmptyArrays: true } },
-
-  // Build robust name/email fallbacks in the pipeline itself
-  {
-    $addFields: {
-      from_name: {
-        $ifNull: [
-          { $ifNull: ["$participant_sender.name", "$participant_sender.fullName"] },
-          {
+      // Build robust name fallback
+      {
+        $addFields: {
+          from_name: {
             $ifNull: [
-              { $ifNull: ["$user_sender.name", "$user_sender.fullName"] },
+              { $ifNull: ["$participant_sender.name", "$participant_sender.fullName"] },
               {
                 $ifNull: [
-                  "$participant_sender.username",
+                  { $ifNull: ["$user_sender.name", "$user_sender.fullName"] },
                   {
                     $ifNull: [
-                      "$user_sender.handleUserName",
-                      {
-                        $ifNull: [
-                          "$participant_sender.email",
-                          { $ifNull: ["$user_sender.email", { $ifNull: ["$guest_info.name", "Unknown"] }] }
-                        ]
-                      }
+                      "$participant_sender.username",
+                      { $ifNull: ["$user_sender.handleUserName", { $ifNull: ["$participant_sender.email", "$user_sender.email"] }] }
                     ]
                   }
                 ]
               }
             ]
           }
-        ]
+        }
       },
-      conversation_id: { $ifNull: ["$conversation._id", "$conversation"] } // ensure an id
-    }
-  },
 
-  {
-    $project: {
-      _id: 1,
-      conversation_id: 1,
-      sender: "$senderObjId",
-      text: 1,
-      createdAt: 1,
-      from_name: 1
-    }
-  }
-];
+      {
+        $project: {
+          _id: 1,
+          conversation_id: "$conversation._id",
+          sender: "$sender", // { model, id }
+          text: 1,
+          createdAt: 1,
+          from_name: 1
+        }
+      }
+    ];
 
-const results = await Message.aggregate(pipeline).exec();
+    const results = await Message.aggregate(pipeline).exec();
 
-const rows = results.map(m => ({
-  _id: m._id,
-  conversation_id: m.conversation_id ? String(m.conversation_id) : null,
-  from_id: m.sender ? String(m.sender) : null,
-  from_name: m.from_name || "Unknown",
-  text: m.text || "",
-  created_at: m.createdAt || null
-}));
+    const rows = results.map((m) => ({
+      _id: m._id,
+      conversation_id: m.conversation_id ? String(m.conversation_id) : null,
+      from_id: m?.sender?.id ? String(m.sender.id) : null,
+      from_model: m?.sender?.model || null,
+      from_name: m.from_name || "Unknown",
+      text: m.text || "",
+      created_at: m.createdAt || null
+    }));
 
-return res.json({ ok: true, conversations: rows, total: rows.length });
-
-
+    return res.json({ ok: true, conversations: rows, total: rows.length });
   } catch (err) {
     console.error("POST /influencer/messages error:", err);
     return res.status(500).json({ error: "internal", details: err.message });

@@ -9,6 +9,7 @@ import SendIcon from "@mui/icons-material/Send";
 
 const API_BASE = "/api";
 
+
 function initials(name = "") {
   return (name || "").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
 }
@@ -19,8 +20,20 @@ function toIdString(v) {
   return String(v);
 }
 
-export default function MyChatWindow() {
-  const { conversationId: paramConversationId, participantId: paramParticipantId } = useParams();
+// Modified to accept props for embedded usage
+export default function MyChatWindow({ 
+  conversationId: propConversationId, 
+  participantId: propParticipantId,
+  embedded = false 
+}) {
+  // Get params from URL (for standalone route usage)
+  const params = useParams();
+  const { conversationId: paramConversationId, participantId: paramParticipantId } = params || {};
+  
+  // Use props if provided (embedded mode), otherwise use URL params
+  const conversationId = propConversationId || paramConversationId;
+  const participantId = propParticipantId || paramParticipantId;
+
   const [conversation, setConversation] = useState(null);
   const [participant, setParticipant] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -46,12 +59,12 @@ export default function MyChatWindow() {
         setLoading(true);
 
         let convoResp = null;
-        if (paramConversationId) {
-          convoResp = await axios.get(`${API_BASE}/usersOn/conversations/${paramConversationId}`, { withCredentials: true });
-        } else if (paramParticipantId) {
-          convoResp = await axios.post(`${API_BASE}/usersOn/conversations/find-or-create-by-participant`, { participantId: paramParticipantId }, { withCredentials: true });
+        if (conversationId) {
+          convoResp = await axios.get(`${API_BASE}/usersOn/conversations/${conversationId}`, { withCredentials: true });
+        } else if (participantId) {
+          convoResp = await axios.post(`${API_BASE}/usersOn/conversations/find-or-create-by-participant`, { participantId: participantId }, { withCredentials: true });
         } else {
-          setErrorMsg("No conversationId or participantId provided in URL.");
+          setErrorMsg("No conversationId or participantId provided.");
           return;
         }
 
@@ -76,7 +89,7 @@ export default function MyChatWindow() {
         influencerIdRef.current = derived.influencerId;
         participantIdRef.current = derived.participantId;
 
-        const convIdToFetch = paramConversationId || convoData._id || convoData.conversation_id;
+        const convIdToFetch = conversationId || convoData._id || convoData.conversation_id;
         if (!convIdToFetch) {
           setMessages([]);
           return;
@@ -106,14 +119,14 @@ export default function MyChatWindow() {
     }
     load();
     return () => { cancelled = true; };
-  }, [paramConversationId, paramParticipantId]);
+  }, [conversationId, participantId]);
 
   // socket
   useEffect(() => {
     if (!conversation) return;
+ 
 
-
-       const socket = io("https://myhandle.in", {
+           const socket = io("https://myhandle.in", {
        path: "/socket.io",
        transports: ["websocket", "polling"], // ok to start with both
        withCredentials: true, // keep ONLY if you actually rely on cookies (you do for participant token)
@@ -178,26 +191,28 @@ export default function MyChatWindow() {
     if (!t || !conversation) return;
     setText("");
 
-    // optimistic -> mark sender as participant (current user in this UI)
-    const tmp = {
-      _id: `tmp-${Date.now()}`,
-      text: t,
-      createdAt: new Date().toISOString(),
-      sender: { _id: participantIdRef.current || null },
-      status: "sending"
-    };
+    // optimistic
+ const tmp = {
+   _id: `tmp-${Date.now()}`,
+   text: t,
+   createdAt: new Date().toISOString(),
+   // mark as coming from influencer so it shows on the RIGHT
+   sender: { _id: influencerIdRef.current || null },
+   from_influencer: true,
+   status: "sending"
+ };
     setMessages(prev => [...prev, tmp]);
 
     const socket = socketRef.current;
     if (socket && socket.connected) {
-      socket.emit("message:send", { conversationId: conversation._id, text: t });
+      socket.emit("message:send", { conversationId: conversation._id, text: t, as: "influencer" });
       socket.emit("typing", { conversationId: conversation._id, isTyping: false, fromSocketId: socket.id });
       setTypingFromParticipant(false);
       return;
     }
 
     try {
-      const res = await axios.post(`${API_BASE}/usersOn/messages/send`, { conversationId: conversation._id, text: t }, { withCredentials: true });
+      const res = await axios.post(`${API_BASE}/usersOn/messages/send-as-influencer`, { conversationId: conversation._id, text: t }, { withCredentials: true });
       const saved = res?.data?.message;
       setMessages(prev => prev.map(m => (String(m._id).startsWith("tmp-") ? saved : m)));
     } catch (err) {
@@ -208,97 +223,126 @@ export default function MyChatWindow() {
 
   if (loading) return <Box display="flex" alignItems="center" justifyContent="center" sx={{ py: 6 }}><CircularProgress /></Box>;
 
-  // ===== classification helpers =====
-  function deriveParticipantInfluencerIds(convo, participantObj) {
-    // Try multiple shapes to find participantId and influencerId
-    let pid = null;
-    if (participantObj) {
-      pid = toIdString(participantObj._id || participantObj.id || participantObj.user_id || participantObj);
-    }
-    // Conversation's participants array may be populated objects or ids
-    let influencerId = null;
-    let participantId = pid;
+  // Helper functions
+function deriveParticipantInfluencerIds(convo, participantObj) {
+  // Prefer explicit ids returned by the API
+  let participantId = participantObj?._id ? String(participantObj._id) : null;
+  let influencerId =
+    (convo?.influencer && convo.influencer._id) ? String(convo.influencer._id) : null;
 
-    const parts = Array.isArray(convo?.participants) ? convo.participants : [];
-    for (const p of parts) {
-      // p.user may be populated object or raw id
-      const uid = p?.user ? toIdString(p.user) : (p?._id ? toIdString(p._id) : (p ? toIdString(p) : null));
-      const role = (p?.role || "").toString().toLowerCase();
-      if (!uid) continue;
-      if (participantId && uid === participantId) {
-        // already participant
-      } else if (role === "influencer" || role === "admin" || (!participantId && role === "member")) {
-        influencerId = uid;
-      } else if (!participantId) {
-        // if no explicit participant provided, choose first non-influencer as participant
-        if (!participantId) participantId = uid;
-      }
-      // lastly if not set influencer yet and this uid is not participantId, use it
-      if (!influencerId && participantId && uid !== participantId) influencerId = uid;
+  const parts = Array.isArray(convo?.participants) ? convo.participants : [];
+
+  for (const p of parts) {
+    const model = String(p?.actor?.model || "").toLowerCase();   // "User" | "ParticipantUser"
+    const uid = p?.actor?.id ? String(p.actor.id) : null;
+    const role = String(p?.role || "").toLowerCase();            // optional, may be "influencer" | "member" | etc.
+    if (!uid) continue;
+
+    // New schema truth: model === "user" ⇒ influencer, model === "participantuser" ⇒ participant
+    if (!influencerId && model === "user") {
+      influencerId = uid;
+      continue;
+    }
+    if (!participantId && model === "participantuser") {
+      participantId = uid;
+      continue;
     }
 
-    // fallback: some responses include conversation.influencer_id / conversation.influencer
-    if (!influencerId) {
-      if (convo?.influencer_id) influencerId = toIdString(convo.influencer_id);
-      else if (convo?.influencer) influencerId = toIdString(convo.influencer._id || convo.influencer);
+    // If some records still carry a role string, use it as a fallback
+    if (!influencerId && (role === "influencer" || role === "admin")) {
+      influencerId = uid;
+      continue;
     }
-
-    // final fallback: if conversation.participant_ids_sorted exists, pick the first id as influencer if no participant known
-    if (!influencerId && convo?.participant_ids_sorted) {
-      const partsSorted = convo.participant_ids_sorted.split("|").filter(Boolean);
-      if (partsSorted.length === 2) {
-        // choose the id that's not participantId
-        influencerId = partsSorted.find(x => x !== participantId) || partsSorted[0];
-      }
+    if (!participantId && (role === "member" || role === "participant" || role === "user")) {
+      participantId = uid;
+      continue;
     }
-
-    return { influencerId: influencerId || null, participantId: participantId || null };
   }
 
-  function getSenderIdFromMessage(m) {
-    if (!m) return null;
-    if (m?.sender && (m.sender._id || m.sender.id)) return String(m.sender._id || m.sender.id);
-    if (m?.senderId) return String(m.senderId);
-    if (m?.from_user) return String(m.from_user);
-    if (m?.fromUser) return String(m.fromUser);
-    if (m?.from_participant_id) return String(m.from_participant_id);
-    if (m?.from_participant) return String(m.from_participant);
-    return null;
+  // Fallbacks from conversation fields if present
+  if (!influencerId) {
+    if (convo?.influencer_id) influencerId = toIdString(convo.influencer_id);
+    else if (convo?.influencer) influencerId = toIdString(convo.influencer._id || convo.influencer);
   }
 
-  function isFromInfluencer(m) {
-    const infId = influencerIdRef.current;
-    if (!infId) return false;
+  // If still missing one side, infer “the other person” in a 1:1 chat
+  if ((!influencerId || !participantId) && parts.length >= 2) {
+    const ids = parts
+      .map(p => (p?.actor?.id ? String(p.actor.id) : null))
+      .filter(Boolean);
 
-    // direct matches
-    const sid = getSenderIdFromMessage(m);
-    if (sid && String(sid) === String(infId)) return true;
-
-    // flags
-    if (m?.senderRole && String(m.senderRole).toLowerCase() === "influencer") return true;
-    if (m?.sender_type && String(m.sender_type).toLowerCase() === "influencer") return true;
-    if (m?.from_influencer || m?.fromInfluencer) return true;
-
-    return false;
+    if (!participantId && influencerId) {
+      participantId = ids.find(id => id !== influencerId) || participantId;
+    } else if (!influencerId && participantId) {
+      influencerId = ids.find(id => id !== participantId) || influencerId;
+    }
   }
 
-  function isFromParticipant(m) {
-    const pId = participantIdRef.current;
-    if (!pId) return false;
-
-    const sid = getSenderIdFromMessage(m);
-    if (sid && String(sid) === String(pId)) return true;
-
-    if (m?.senderRole && String(m.senderRole).toLowerCase() === "participant") return true;
-    if (m?.sender_type && String(m.sender_type).toLowerCase() === "participant") return true;
-    if (m?.from_participant || m?.fromParticipant) return true;
-
-    return false;
+  // Final fallback: participant_ids_sorted ("a|b") -> take the other one
+  if (convo?.participant_ids_sorted) {
+    const sorted = String(convo.participant_ids_sorted).split("|").filter(Boolean);
+    if (!influencerId && participantId && sorted.length === 2) {
+      influencerId = sorted.find(x => x !== participantId) || influencerId;
+    }
+    if (!participantId && influencerId && sorted.length === 2) {
+      participantId = sorted.find(x => x !== influencerId) || participantId;
+    }
   }
+
+  return { influencerId: influencerId || null, participantId: participantId || null };
+}
+
+
+
+function isFromInfluencer(m) {
+  const infId = influencerIdRef.current;
+
+  // Explicit role/flags first
+  if (m?.senderRole && String(m.senderRole).toLowerCase() === "influencer") return true;
+  if (m?.sender_type && String(m.sender_type).toLowerCase() === "influencer") return true;
+  if (m?.from_influencer === true || m?.fromInfluencer === true) return true;
+
+  // Then compare IDs
+  if (!infId) return false;
+  const sid = getSenderIdFromMessage(m);
+  return !!(sid && String(sid) === String(infId));
+}
+
+function isFromParticipant(m) {
+  const pId = participantIdRef.current;
+
+  // Explicit role/flags first
+  if (m?.senderRole && String(m.senderRole).toLowerCase() === "participant") return true;
+  if (m?.sender_type && String(m.sender_type).toLowerCase() === "participant") return true;
+  if (m?.from_participant === true || m?.fromParticipant === true) return true;
+
+  // Then compare IDs
+  if (!pId) return false;
+  const sid = getSenderIdFromMessage(m);
+  return !!(sid && String(sid) === String(pId));
+}
+
+function getSenderIdFromMessage(m) {
+  if (!m) return null;
+  if (m?.sender && (m.sender._id || m.sender.id)) return String(m.sender._id || m.sender.id);
+  if (m?.user && (m.user._id || m.user.id)) return String(m.user._id || m.user.id);
+  if (m?.author && (m.author._id || m.author.id)) return String(m.author._id || m.author.id);
+  if (m?.senderId) return String(m.senderId);
+  if (m?.from_user) return String(m.from_user);
+  if (m?.fromUser) return String(m.fromUser);
+  // ❌ do NOT treat existence of from_participant_id as the *sender*
+  // It may just be conversation metadata.
+  return null;
+}
+
 
   // Render
+  const containerSx = embedded 
+    ? { p: 2 } 
+    : { p: 2 };
+
   return (
-    <Paper sx={{ p: 2 }}>
+    <Paper sx={containerSx} elevation={embedded ? 0 : 3}>
       {!!errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
 
       <Box display="flex" alignItems="center" gap={2} sx={{ mb: 2 }}>
@@ -309,169 +353,100 @@ export default function MyChatWindow() {
         </Box>
       </Box>
 
-   {/* === REPLACE THIS ENTIRE BLOCK: messages container === */}
-<Box
-  ref={scrollRef}
-  sx={{
-    height: 420,
-    overflowY: "auto",
-    bgcolor: "#fafafa",
-    p: 2,
-    borderRadius: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: 1
-  }}
->
-  {messages.length === 0 ? (
-    <Typography color="text.secondary">No messages yet</Typography>
-  ) : (
-    messages.map((m) => {
-      // classification helpers (reuse your functions above)
-      const fromParticipant = isFromParticipant(m);
-      const fromInfluencer = isFromInfluencer(m);
+      {/* Messages container - WhatsApp style */}
+      <Box
+        ref={scrollRef}
+        sx={{
+          height: embedded ? "calc(100vh - 200px)" : 420,
+          overflowY: "auto",
+          bgcolor: "#e5ddd5",
+          p: 2,
+          borderRadius: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1
+        }}
+      >
+        {messages.length === 0 ? (
+          <Typography color="text.secondary" sx={{ textAlign: "center" }}>No messages yet</Typography>
+        ) : (
+      messages.map((m) => {
+  const left = isFromParticipant(m);
+  const right = isFromInfluencer(m) || (!left); // fallback to right if unknown
 
-      // determine final role
-      const isParticipant =
-        fromParticipant ||
-        (!fromInfluencer &&
-          (m.from_participant ||
-            m.from_participant_id ||
-            m.fromParticipant ||
-            (getSenderIdFromMessage(m) &&
-              participantIdRef.current &&
-              String(getSenderIdFromMessage(m)) === String(participantIdRef.current))));
+  const bubbleBg = right ? "#dcf8c6" : "#ffffff";
+  const borderRadius = right ? "8px 8px 0px 8px" : "8px 8px 8px 0px";
+  const msgKey = m._id || m.id || `${m.createdAt || m.created_at || Date.now()}-${Math.random()}`;
 
-      const isInfluencer = fromInfluencer || (!isParticipant && !fromParticipant);
 
-      // debug log — remove after verifying
-      // eslint-disable-next-line no-console
-      console.log("MSG CLASSIFY:", { id: getSenderIdFromMessage(m), isParticipant, isInfluencer, inf: influencerIdRef.current, part: participantIdRef.current });
-
-      // bubble styling
-      const bubbleBg = isInfluencer ? "#dcf8c6" : "#ffffff";
-      const bubbleTextAlign = isInfluencer ? "right" : "left";
-      const borderRadius = isInfluencer ? "16px 16px 6px 16px" : "16px 16px 16px 6px";
-
-      const msgKey = m._id || m.id || `${m.createdAt || m.created_at || Date.now()}-${Math.random()}`;
-
-      return (
-        <Box
-          key={msgKey}
-          sx={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            gap: 0.25
-          }}
-        >
-          {/* row with two columns: left (participant) and right (influencer).
-              We use two flex children and change order so bubble/avatar end up on correct side. */}
-          <Box sx={{ display: "flex", width: "100%", alignItems: "flex-end" }}>
-            {/* LEFT CELL: participant avatar/bubble */}
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "flex-end",
-                // If participant message => show bubble here, else keep empty space
-                justifyContent: isParticipant ? "flex-start" : "flex-start",
-                width: "50%"
-              }}
-            >
-              {isParticipant ? (
-                <>
-                  <Avatar
-                    src={participant?.picture || ""}
-                    sx={{ width: 32, height: 32, fontSize: 12, mr: 1, flexShrink: 0 }}
-                  >
-                    {!participant?.picture && initials(participant?.name || participant?.email || "P")}
-                  </Avatar>
-
-                  <Box
-                    sx={{
-                      maxWidth: "82%",
-                      p: 1.25,
-                      bgcolor: bubbleBg,
-                      boxShadow: 0.5,
-                      borderRadius,
-                      borderRadius,
-                      wordBreak: "break-word"
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", textAlign: bubbleTextAlign }}>
-                      {m.text || m.message || m.body}
-                    </Typography>
-                  </Box>
-                </>
-              ) : (
-                /* keep the left half empty for influencer messages so layout stays stable */
-                <Box sx={{ width: "100%" }} />
-              )}
+  return (
+    <Box key={msgKey}
+         sx={{ display: "flex", justifyContent: right ? "flex-end" : "flex-start", mb: 0.5 }}>
+      {/* left */}
+      {!right && (
+        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
+          <Avatar src={participant?.picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
+            {!participant?.picture && initials(participant?.name || participant?.email || "P")}
+          </Avatar>
+          <Box>
+            <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
+                       borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                {m.text || m.message || m.body}
+              </Typography>
             </Box>
-
-            {/* RIGHT CELL: influencer avatar/bubble */}
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: isInfluencer ? "flex-end" : "flex-end",
-                width: "50%"
-              }}
-            >
-              {isInfluencer ? (
-                <>
-                  <Box
-                    sx={{
-                      maxWidth: "82%",
-                      p: 1.25,
-                      bgcolor: bubbleBg,
-                      boxShadow: 0.5,
-                      borderRadius,
-                      wordBreak: "break-word",
-                      mr: 1,
-                      textAlign: bubbleTextAlign
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", textAlign: bubbleTextAlign }}>
-                      {m.text || m.message || m.body}
-                    </Typography>
-                  </Box>
-
-                  <Avatar
-                    src={conversation?.influencer_picture || ""}
-                    sx={{ width: 32, height: 32, fontSize: 12, flexShrink: 0 }}
-                  >
-                    {!conversation?.influencer_picture && initials(conversation?.influencer_name || conversation?.influencer?.name || "M")}
-                  </Avatar>
-                </>
-              ) : (
-                <Box sx={{ width: "100%" }} />
-              )}
-            </Box>
-          </Box>
-
-          {/* timestamp row aligned with bubble side */}
-          <Box
-            sx={{
-              width: "100%",
-              display: "flex",
-              justifyContent: isInfluencer ? "flex-end" : "flex-start",
-              pl: isParticipant ? 5 : 0,
-              pr: isInfluencer ? 5 : 0
-            }}
-          >
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              {m.created_at ? new Date(m.created_at).toLocaleString() : m.createdAt ? new Date(m.createdAt).toLocaleString() : ""}
+            <Typography variant="caption" sx={{ color: "text.secondary", pl: 1, display: "block", mt: 0.25 }}>
+              {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : ""}
+              {m.status && ` • ${m.status}`}
             </Typography>
-            {m.status && <Typography variant="caption" sx={{ color: "text.secondary", ml: 1 }}>{m.status}</Typography>}
           </Box>
         </Box>
-      );
-    })
-  )}
-</Box>
-{/* === END REPLACEMENT === */}
+      )}
 
+      {/* right */}
+      {right && (
+        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
+          <Box>
+            <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
+                       borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                {m.text || m.message || m.body}
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ color: "text.secondary", pr: 1, display: "block", mt: 0.25, textAlign: "right" }}>
+              {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : ""}
+              {m.status && ` • ${m.status}`}
+            </Typography>
+          </Box>
+          <Avatar src={conversation?.influencer_picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
+            {!conversation?.influencer_picture && initials(conversation?.influencer_name || conversation?.influencer?.name || "M")}
+          </Avatar>
+        </Box>
+      )}
+    </Box>
+  );
+})
+
+        )}
+
+        {typingFromParticipant && (
+          <Box sx={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 1 }}>
+            <Avatar
+              src={participant?.picture || ""}
+              sx={{ width: 32, height: 32, fontSize: 12 }}
+            >
+              {!participant?.picture && initials(participant?.name || participant?.email || "P")}
+            </Avatar>
+            <Typography variant="caption" sx={{ fontStyle: "italic", color: "text.secondary" }}>
+              {participant?.name || "Participant"} is typing...
+            </Typography>
+          </Box>
+        )}
+      </Box>
 
       <Box display="flex" gap={1} sx={{ mt: 2 }}>
         <TextField
@@ -489,13 +464,23 @@ export default function MyChatWindow() {
             }
           }}
           fullWidth
-          placeholder="Reply..."
+          placeholder="Type a message..."
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "24px"
+            }
+          }}
         />
-        <Button variant="contained" endIcon={<SendIcon />} onClick={sendMessage}>Send</Button>
+        <Button 
+          variant="contained" 
+          endIcon={<SendIcon />} 
+          onClick={sendMessage}
+          sx={{ borderRadius: "24px", minWidth: "100px" }}
+        >
+          Send
+        </Button>
       </Box>
-
-      {typingFromParticipant && <Typography variant="caption" sx={{ mt: 1 }}>{participant?.name || "Participant"} is typing...</Typography>}
     </Paper>
   );
 }

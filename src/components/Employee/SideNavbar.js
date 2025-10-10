@@ -30,6 +30,8 @@ import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import AccountBoxOutlinedIcon from '@mui/icons-material/AccountBoxOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import MailOutlineOutlinedIcon from '@mui/icons-material/MailOutlineOutlined';
+import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
+
 
 const theme = createTheme({
   palette: {

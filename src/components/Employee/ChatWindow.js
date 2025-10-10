@@ -61,9 +61,15 @@ export default function ChatWindow() {
         if (!cancelled) {
           setConversation(res.data.conversation);
           if (res.data.conversation && res.data.conversation._id) {
-            const msgRes = await axios.get(`${API_BASE}/usersOn/messages/${res.data.conversation._id}`, { withCredentials: true });
-            // server returns { messages: [...] } (normalized shape)
-            setMessages(msgRes.data.messages || []);
+          const msgRes = await axios.get(`${API_BASE}/usersOn/messages/${res.data.conversation._id}`, { withCredentials: true });
+ const normalized = (msgRes.data.messages || []).map(m => {
+   if (m.senderRole) return m;
+   if (m?.sender?.model === "User") return { ...m, senderRole: "influencer" };
+   if (m?.sender?.model === "ParticipantUser") return { ...m, senderRole: "participant" };
+   return m;
+ });
+ setMessages(normalized);
+
           }
         }
       } catch (err) {
@@ -77,7 +83,7 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!influencer) return;
 
-    const socket = io("https://myhandle.in", {
+  const socket = io("https://myhandle.in", {
    path: "/socket.io",
    transports: ["websocket", "polling"], // ok to start with both
    withCredentials: true, // keep ONLY if you actually rely on cookies (you do for participant token)
@@ -126,7 +132,17 @@ export default function ChatWindow() {
         if (!conversation || String(conversation._id) !== String(payload.conversationId)) return;
         if (payload.fromSocketId && payload.fromSocketId === socket.id) return; // ignore our own typing
         // If payload came from a user whose id equals influencer id OR payload lacks sender, treat as influencer typing
-        const isFromInfluencer = !!payload.from && influencer && String(payload.from) === String(influencer._id);
+
+          let isFromInfluencer = false;
+   if (typeof payload.senderRole === "string") {
+     isFromInfluencer = payload.senderRole.toLowerCase() === "influencer";
+   } else if (payload.from && typeof payload.from === "object") {
+     if (payload.from.model === "User") isFromInfluencer = true;
+     else if (payload.from.model === "ParticipantUser") isFromInfluencer = false;
+     else if (payload.from.id && influencer?._id) {
+       isFromInfluencer = String(payload.from.id) === String(influencer._id);
+     }
+   }
         setTypingFromInfluencer(Boolean(payload.isTyping) && isFromInfluencer);
       } catch (err) {
         console.error("[ChatWidget] typing handler error:", err);
@@ -183,18 +199,21 @@ export default function ChatWindow() {
     }
 
     // optimistic UI: use same minimal fields server will reply with (try to follow new shape)
-    const optimistic = {
-      _id: "temp-" + Date.now(),
-      text: text.trim(),
-      createdAt: new Date().toISOString(),
-      // try to mimic server: conversation ref available as id
-      conversation: { _id: conversation._id },
-      // sender will be empty until server returns; frontend treats missing sender as 'me'
-    };
+   const optimistic = {
+     _id: "temp-" + Date.now(),
+     text: text.trim(),
+     createdAt: new Date().toISOString(),
+     conversation: { _id: conversation._id },
+    senderRole: "participant",                  // <-- important for alignment
+    sender: { model: "ParticipantUser", id: "__me__" }, // harmless hint for your helper
+   };
     setMessages(prev => [...prev, optimistic]);
 
-    // emit actual message
-    socket.emit("message:send", { conversationId: conversation._id, to_influencer_id: influencer._id, text: text.trim() });
+     socket.emit("message:send", { 
+      conversationId: conversation._id, 
+      text: text.trim(),
+    as: "participant" });
+
     console.debug("[ChatWidget] emitted message:send", { conversationId: conversation._id, to_influencer_id: influencer._id });
 
     // clear typing
@@ -209,21 +228,26 @@ export default function ChatWindow() {
     setTypingFromInfluencer(false);
   };
 
-  // decide alignment of a message: influencer => left, else right
-  const isFromInfluencer = (m) => {
+const isFromInfluencer = (m) => {
     if (!m) return false;
-    // if server supplied normalized sender role
-    if (m.senderRole && m.senderRole === "influencer") return true;
-    // if server populated sender object
-    if (m.sender && (m.sender._id || m.sender === influencer._id || m.sender === influencer?._id)) {
-      const sid = String(m.sender._id || m.sender);
-      return influencer && String(influencer._id) === sid;
+    // 1) explicit role wins
+    if (typeof m.senderRole === "string") {
+      return m.senderRole.toLowerCase() === "influencer";
     }
-    // fallback: if message has from_user/from_participant shape, treat from_user === influencer
+    // 2) new schema: sender = { model, id }
+    if (m.sender && typeof m.sender === "object") {
+      if (m.sender.model === "User") return true;               // influencer side
+      if (m.sender.model === "ParticipantUser") return false;    // participant side
+      // if model missing but id present, compare ids as a last resort
+      if (m.sender.id && influencer?._id) {
+        return String(m.sender.id) === String(influencer._id);
+      }
+    }
+    // 3) legacy fallbacks
     if (m.from_user && influencer && String(m.from_user) === String(influencer._id)) return true;
-    if (m.from_participant) return false;
     return false;
   };
+
 
   return (
     <Paper elevation={6} sx={{ width: 400, p: 1 }}>

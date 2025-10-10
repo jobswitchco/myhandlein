@@ -1,81 +1,103 @@
+// models/Conversation.js
 import mongoose from "mongoose";
 const { Schema } = mongoose;
 
-/**
- * Conversation schema
- *
- * - participants: array of objects for per-user metadata (last_read_at, role, muted)
- * - participant_ids_sorted: string join of sorted user ids (useful for quick DM lookup & unique constraint)
- * - last_message: ObjectId ref to Message (small and fast to populate)
- * - unread_counts: Map<userId, Number>
- * - metadata: flexible tagging/pinning/etc.
- *
- * Timestamps add createdAt and updatedAt automatically.
- */
-
-const ParticipantSubSchema = new Schema({
-  user: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  role: { type: String, enum: ["member", "influencer", "admin", "guest"], default: "member" },
-  joined_at: { type: Date, default: Date.now },
-  last_read_at: { type: Date, default: null }, // used to compute unread client-side if needed
-  muted: { type: Boolean, default: false },
-}, { _id: false });
-
-const ConversationSchema = new Schema({
-  participants: { type: [ParticipantSubSchema], validate: v => Array.isArray(v) && v.length > 0 },
-
-  // deterministic sorted participant ids for quick DM lookup and unique constraint for 1:1
-  participant_ids_sorted: { type: String, index: true }, // automatically computed before save
-
-  // reference to the last message (fast to populate in inbox queries)
-  last_message: { type: Schema.Types.ObjectId, ref: "Message", default: null },
-
-  // unread counts per participant (Map<userId, Number>)
-  unread_counts: { type: Map, of: Number, default: {} },
-
-  metadata: {
-    title: { type: String, default: null }, // optional for group chats
-    tags: { type: [String], default: [] },
-    pinned: { type: Boolean, default: false },
-    conversation_type: { type: String, enum: ["dm", "group", "system"], default: "dm" }
+const ActorSubSchema = new Schema(
+  {
+    model: { type: String, enum: ["User", "ParticipantUser"], required: true },
+    id: { type: Schema.Types.ObjectId, required: true },
   },
+  { _id: false }
+);
 
-  is_deleted: { type: Boolean, default: false },
+const ParticipantSubSchema = new Schema(
+  {
+    actor: { type: ActorSubSchema, required: true },
+    role: {
+      type: String,
+      enum: ["member", "influencer", "admin", "guest"],
+      default: "member",
+    },
+    joined_at: { type: Date, default: Date.now },
+    last_read_at: { type: Date, default: null },
+    last_read_message_id: { type: Schema.Types.ObjectId, default: null },
+    muted: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
 
-}, {
-  timestamps: true // createdAt, updatedAt
-});
+const ConversationSchema = new Schema(
+  {
+    participants: {
+      type: [ParticipantSubSchema],
+      validate: (v) => Array.isArray(v) && v.length > 0,
+    },
 
-/**
- * Build participant_ids_sorted from participants before validate.
- * Sorting by string form of ObjectId ensures deterministic order.
- */
-ConversationSchema.pre("validate", function(next) {
+    // String keys like "User:650...|ParticipantUser:651..."
+    participant_keys_sorted: { type: String, index: true },
+
+    // DM/Group typing
+    conversation_type: {
+      type: String,
+      enum: ["dm", "group", "system"],
+      default: "dm",
+      index: true,
+    },
+
+    // Denormalized inbox helpers
+    last_message: {
+      type: Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+      index: true,
+    },
+    last_message_text: { type: String, default: "" },
+    last_message_at: { type: Date, default: null, index: true },
+    message_count: { type: Number, default: 0 },
+
+    // O(1) unread counters — map key must be the actorKey (model:id)
+    unread_counts: { type: Map, of: Number, default: {} },
+
+    metadata: {
+      title: { type: String, default: null },
+      tags: { type: [String], default: [] },
+      pinned: { type: Boolean, default: false },
+    },
+
+    is_deleted: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
+// derive participant_keys_sorted
+ConversationSchema.pre("validate", function (next) {
   try {
-    if (Array.isArray(this.participants) && this.participants.length > 0) {
-      const ids = this.participants
-        .map(p => p && p.user && p.user.toString())
-        .filter(Boolean)
-        .sort(); // lexicographic sort of ObjectId string
-      this.participant_ids_sorted = ids.join("|");
-    } else {
-      this.participant_ids_sorted = undefined;
-    }
-  } catch (err) {
-    // don't break save on unexpected errors, but surface
-    return next(err);
+    const keys = (this.participants || [])
+      .map((p) => `${p.actor?.model}:${p.actor?.id?.toString()}`)
+      .filter(Boolean)
+      .sort();
+    this.participant_keys_sorted = keys.length ? keys.join("|") : undefined;
+  } catch (e) {
+    return next(e);
   }
   next();
 });
 
-/**
- * Indexes
- * - fast inbox queries by participants array and updatedAt
- * - fast lookup by participant_ids_sorted (useful for ensuring single DM exists between two users)
- */
-ConversationSchema.index({ "participants.user": 1, updatedAt: -1 });
-ConversationSchema.index({ participant_ids_sorted: 1, "metadata.conversation_type": 1 }); // can be unique if you want one DM per pair
-ConversationSchema.index({ last_message: -1 });
+// Indexes (tuned for inbox + DM uniqueness + membership filter)
+ConversationSchema.index(
+  { participant_keys_sorted: 1, conversation_type: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { conversation_type: "dm", is_deleted: { $ne: true } },
+  }
+);
+ConversationSchema.index({
+  "participants.actor.model": 1,
+  "participants.actor.id": 1,
+  updatedAt: -1,
+});
+ConversationSchema.index({ last_message_at: -1 });
+ConversationSchema.index({ is_deleted: 1 });
 
-const Conversation = mongoose.model("Conversation", ConversationSchema);
-export default Conversation;
+export default mongoose.models.Conversation ||
+  mongoose.model("Conversation", ConversationSchema);
