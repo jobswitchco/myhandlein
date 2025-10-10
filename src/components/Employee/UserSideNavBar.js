@@ -37,7 +37,8 @@ const theme = createTheme({
   },
 });
 
-const UserSideNavBar = ({ window }) => {
+export default function UserSideNavBar({ window }) {
+
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -742,8 +743,7 @@ const UserSideNavBar = ({ window }) => {
   );
 };
 
+
 UserSideNavBar.propTypes = {
   window: PropTypes.func,
 };
-
-export default UserSideNavBar;
