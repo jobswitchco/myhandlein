@@ -2479,7 +2479,6 @@ router.post("/url-metadata", authenticateToken, async (req, res) => {
 
 
 
-// ---------- CREATE PRODUCT (sets productCategory ObjectId) ----------
 router.post("/upload-product", upload.single("image"), authenticateToken, async (req, res) => {
     try {
       const userId = req.user?.user_id;
@@ -2617,37 +2616,163 @@ router.post("/upload-product", upload.single("image"), authenticateToken, async 
 router.post("/edit-product/:id", upload.single("image"), authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { type, title, link, description, price, category_id, category_name, imageUrlFromMeta } = req.body;
+    const userId = req.user?.user_id;
+    
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
+    const {
+      type,
+      title,
+      link,
+      description,
+      price,
+      category_id,
+      category_name,
+      imageUrlFromMeta,
+    } = req.body;
+
+    // Find existing product and verify ownership
+    const existingProduct = await Product.findOne({ _id: id, user_id: userId });
+    if (!existingProduct) {
+      return res.status(404).json({ message: "Product not found or unauthorized" });
+    }
+
+    // Build update object
     const update = { updated_at: new Date() };
+    
     if (type) update.type = type;
     if (title !== undefined) update.title = title;
     if (link !== undefined) update.link = link;
     if (description !== undefined) update.description = description;
-    if (price !== undefined) update.price = Number(price);
-    if (category_id) update.category_id = category_id;
-    if (category_name) update.category_name = category_name;
-
-      if (req.file) {
-      if (req.file.path) {
-        const uploaded = await uploadFilePathToGCS(req.file.path, req.file.originalname, req.file.mimetype);
-        update.imageUrl = uploaded.publicUrl;
-        update.imagePublicId = uploaded.objectName;
-        if (fs.existsSync(req.file.path)) { try { await unlinkAsync(req.file.path); } catch {} }
-      } else if (req.file.buffer) {
-        const uploaded = await uploadBufferToGCS(req.file.buffer, req.file.originalname, req.file.mimetype);
-        update.imageUrl = uploaded.publicUrl;
-        update.imagePublicId = uploaded.objectName;
-      }
-    } else if (imageUrlFromMeta) {
-      update.imageUrl = imageUrlFromMeta;
+    
+    // Handle price (allow null/empty to clear it)
+    if (price !== undefined && price !== null && String(price).trim() !== "") {
+      update.price = Number(price);
+    } else if (price === null || price === "") {
+      update.price = null;
     }
 
-    const prod = await Product.findByIdAndUpdate(id, update, { new: true });
-    return res.json({ product: prod });
+    // ---------- Image handling (same priority as upload) ----------
+    if (req.file) {
+      // Priority 1: New manual upload
+      if (req.file.path) {
+        const uploaded = await uploadFilePathToGCS(
+          req.file.path,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        update.imageUrl = uploaded.publicUrl;
+        update.imagePublicId = uploaded.objectName;
+        
+        // Clean up temp file
+        if (fs.existsSync(req.file.path)) {
+          try { await unlinkAsync(req.file.path); } catch {}
+        }
+        
+        // Optional: Delete old image from GCS if it exists
+        if (existingProduct.imagePublicId) {
+          try {
+            await deleteFromGCS(existingProduct.imagePublicId);
+          } catch (err) {
+            console.warn("Failed to delete old image:", err);
+          }
+        }
+      } else if (req.file.buffer) {
+        const uploaded = await uploadBufferToGCS(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        update.imageUrl = uploaded.publicUrl;
+        update.imagePublicId = uploaded.objectName;
+        
+        // Optional: Delete old image from GCS
+        if (existingProduct.imagePublicId) {
+          try {
+            await deleteFromGCS(existingProduct.imagePublicId);
+          } catch (err) {
+            console.warn("Failed to delete old image:", err);
+          }
+        }
+      }
+    } else if (imageUrlFromMeta) {
+      // Priority 2: Auto-fetched URL from metadata
+      update.imageUrl = imageUrlFromMeta;
+      // Note: Don't set imagePublicId since this is an external URL
+      update.imagePublicId = null;
+    }
+
+    // ---------- Category handling (same logic as upload) ----------
+    let productCategoryId = existingProduct.productCategory; // Keep existing by default
+
+    // Priority 1: explicit category_id
+    if (category_id) {
+      const cat = await ProductCategory.findOne(
+        { _id: category_id, user_id: userId, is_del: false },
+        { _id: 1, name: 1 }
+      ).lean();
+      
+      if (!cat) {
+        return res.status(400).json({ message: "Invalid category_id for this user" });
+      }
+      productCategoryId = cat._id;
+    }
+    // Priority 2: category_name -> find or create
+    else if (category_name && String(category_name).trim()) {
+      const name = String(category_name).trim();
+      
+      // Try find same name (case-insensitive) for this user
+      let cat = await ProductCategory.findOne(
+        { 
+          user_id: userId, 
+          is_del: false, 
+          name: new RegExp("^" + escapeRegex(name) + "$", "i") 
+        },
+        { _id: 1, name: 1 }
+      ).lean();
+
+      if (!cat) {
+        // Create a new category for this user
+        const created = await ProductCategory.create({
+          user_id: userId,
+          name,
+          is_del: false,
+        });
+        productCategoryId = created._id;
+      } else {
+        productCategoryId = cat._id;
+      }
+    }
+    // If category_name is explicitly empty string, clear the category
+    else if (category_name === "") {
+      productCategoryId = null;
+    }
+
+    update.productCategory = productCategoryId;
+
+    // Update product
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      update,
+      { new: true }
+    )
+      .populate({ path: "productCategory", select: "name", strictPopulate: false })
+      .lean();
+
+    // Return with flat category field for UI compatibility
+    const response = {
+      ...updatedProduct,
+      category: updatedProduct?.productCategory?.name || null,
+    };
+
+    return res.json({ product: response });
+    
   } catch (err) {
     console.error("Edit product error:", err);
-    return res.status(500).json({ message: "Error editing product", error: err.message });
+    return res.status(500).json({ 
+      message: "Error editing product", 
+      error: err.message 
+    });
   }
 });
 

@@ -38,6 +38,8 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import { Checkbox } from "@mui/material";
 import newsletterBg from "../../images/newsLetterBg.jpg";
 import MailOutlinedIcon from '@mui/icons-material/MailOutlined';
+import 'react-toastify/dist/ReactToastify.css';
+import { toast } from "react-toastify";
 
 
 export default function PublicProfile({ handle, initialProfile = null }) {
@@ -139,7 +141,7 @@ const payload = {
 
     // success feedback
     const message = res?.data?.message || "Successfully subscribed";
-    setSnack?.({ open: true, message }); // uses your existing snack setter
+    toast.success(message);
     setNewsletterDialogOpen(false);
     setNewsletterEmail("");
     setNewsletterDialogBlock(null);

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -32,10 +31,11 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import axios from "axios";
 import format from "date-fns/format";
 
-axios.defaults.withCredentials = true; // apply globally for this file
+axios.defaults.withCredentials = true;
 
 const API_BASE = "/api/usersOn";
 
@@ -47,10 +47,8 @@ function AffiliateThumb({ product }) {
   React.useEffect(() => {
     let cancelled = false;
 
-    // If we already have an image or it's not affiliate, do nothing
     if (product?.imageUrl || product?.type === "digital" || !product?.link) return;
 
-    // Fetch thumbnail from backend metadata once per product/link
     (async () => {
       try {
         const { data } = await axios.post(`${API_BASE}/url-metadata`, { url: product.link });
@@ -62,11 +60,9 @@ function AffiliateThumb({ product }) {
     })();
 
     return () => { cancelled = true; };
-  }, [key]); // re-run if link/image changes
+  }, [key]);
 
-  // Render
   if (!src || error) {
-    // fallback initials (like your NU)
     return (
       <Avatar variant="rounded" sx={{ width: 64, height: 64, bgcolor: "#f4f4f5", fontSize: 12 }}>
         {product?.title ? product.title.slice(0, 2).toUpperCase() : "NA"}
@@ -82,12 +78,11 @@ function AffiliateThumb({ product }) {
       sx={{ width: 64, height: 64 }}
       imgProps={{
         onError: () => setError(true),
-        referrerPolicy: "no-referrer", // helps when hosts block referrers
+        referrerPolicy: "no-referrer",
       }}
     />
   );
 }
-
 
 function a11yProps(index) {
   return { id: `add-prod-tab-${index}`, "aria-controls": `add-prod-tabpanel-${index}` };
@@ -114,24 +109,24 @@ export default function Store() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Store enabled toggle state
   const [storeEnabled, setStoreEnabled] = useState(false);
   const [toggling, setToggling] = useState(false);
 
-  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
 
-  // Form shared
-  const [activeTab, setActiveTab] = useState(0); // 0 = Affiliate Link, 1 = Digital Product
+  const [activeTab, setActiveTab] = useState(0);
 
   // Affiliate Link form
   const [affTitle, setAffTitle] = useState("");
   const [affUrl, setAffUrl] = useState("");
-  const [affCategory, setAffCategory] = useState(null); // { _id, name }
-  const [affThumb, setAffThumb] = useState(null); // thumbnail from url-metadata
+  const [affCategory, setAffCategory] = useState(null);
+  const [affThumb, setAffThumb] = useState(null);
+  const [affManualFile, setAffManualFile] = useState(null); // NEW: Manual upload file
+  const [affManualPreview, setAffManualPreview] = useState(null); // NEW: Manual preview
   const [metaLoading, setMetaLoading] = useState(false);
+  const [metaError, setMetaError] = useState(null);
 
   // Digital Product form
   const [digCategory, setDigCategory] = useState(null);
@@ -141,12 +136,10 @@ export default function Store() {
   const [digFile, setDigFile] = useState(null);
   const [digPreview, setDigPreview] = useState(null);
 
-  // Categories
-  const [catOptions, setCatOptions] = useState([]); // [{_id, name}]
+  const [catOptions, setCatOptions] = useState([]);
   const [catLoading, setCatLoading] = useState(false);
   const catSearchRef = useRef("");
   const catDebounce = useRef();
-
   const [catQuery, setCatQuery] = useState("");
 
   const MAX_LINK_LEN = 30;
@@ -158,7 +151,6 @@ export default function Store() {
   useEffect(() => {
     fetchProducts(page + 1, limit);
     fetchStoreStatus();
-    // pre-load some categories
     fetchCategories("");
     // eslint-disable-next-line
   }, [page, limit]);
@@ -168,7 +160,7 @@ export default function Store() {
       const res = await axios.get(`${API_BASE}/store-status`);
       if (res?.data?.enabled !== undefined) setStoreEnabled(Boolean(res.data.enabled));
     } catch (err) {
-      console.warn("Could not fetch store status (expected GET /store-status).", err);
+      console.warn("Could not fetch store status.", err);
     }
   }
 
@@ -202,7 +194,6 @@ export default function Store() {
     }
   }
 
-  // ---------- Categories -----------
   async function fetchCategories(search) {
     setCatLoading(true);
     try {
@@ -216,18 +207,17 @@ export default function Store() {
   }
 
   function handleCatSearch(inputValue) {
+    setCatQuery(inputValue);
     catSearchRef.current = inputValue;
     clearTimeout(catDebounce.current);
     catDebounce.current = setTimeout(() => fetchCategories(inputValue), 350);
   }
 
   async function handleAddCategoryIfNeeded(label) {
-    // Called when user presses Enter on a non-existing category or clicks "+ Add \"xyz\""
     try {
       const res = await axios.post(`${API_BASE}/product-categories`, { name: label });
       const newCat = res?.data?.category;
       if (newCat) {
-        // update options and set in whichever tab is active
         setCatOptions((prev) => [newCat, ...prev]);
         if (activeTab === 0) setAffCategory(newCat);
         else setDigCategory(newCat);
@@ -238,31 +228,56 @@ export default function Store() {
     }
   }
 
-  // ---------- Affiliate: URL metadata ----------
+  // Auto-fetch metadata
   const urlDebounce = useRef();
+
   useEffect(() => {
     if (!affUrl) {
       setAffThumb(null);
+      setMetaError(null);
       return;
     }
+
     clearTimeout(urlDebounce.current);
+    setMetaError(null);
+
     urlDebounce.current = setTimeout(async () => {
       try {
         setMetaLoading(true);
-        const res = await axios.post(`${API_BASE}/url-metadata`, { url: affUrl });
-        const { title, image, description } = res?.data || {};
+        const res = await axios.post(
+          `${API_BASE}/url-metadata`,
+          { url: affUrl },
+          { timeout: 20000 }
+        );
+
+        const { title, image, description, error } = res?.data || {};
+
+        if (error) {
+          setMetaError(error);
+        }
+
         if (!affTitle && title) setAffTitle(title);
         setAffThumb(image || null);
       } catch (e) {
-        // ignore errors but clear thumb
+        console.warn("Metadata fetch failed:", e.message);
+        setMetaError("Could not load preview");
         setAffThumb(null);
       } finally {
         setMetaLoading(false);
       }
     }, 500);
+
+    return () => clearTimeout(urlDebounce.current);
   }, [affUrl]);
 
-  // ---------- Image upload (Digital Product) ----------
+  // NEW: Handle manual image upload for affiliate
+  function handleAffManualFileChange(e) {
+    const f = e.target.files?.[0];
+    setAffManualFile(f || null);
+    setAffManualPreview(f ? URL.createObjectURL(f) : null);
+  }
+
+  // Digital product image upload
   function handleDigFileChange(e) {
     const f = e.target.files?.[0];
     setDigFile(f || null);
@@ -274,13 +289,13 @@ export default function Store() {
     setEditingProductId(null);
     setActiveTab(0);
 
-    // reset affiliate fields
     setAffTitle("");
     setAffUrl("");
     setAffCategory(null);
     setAffThumb(null);
+    setAffManualFile(null);
+    setAffManualPreview(null);
 
-    // reset digital fields
     setDigCategory(null);
     setDigName("");
     setDigDesc("");
@@ -292,7 +307,6 @@ export default function Store() {
   }
 
   function openEditDialog(product) {
-    // For simplicity, treat everything as Affiliate when editing existing schema
     setIsEditing(true);
     setEditingProductId(product._id);
 
@@ -307,18 +321,20 @@ export default function Store() {
       setDigFile(null);
       setDigPreview(product.imageUrl || null);
 
-      // clear affiliate fields
       setAffTitle("");
       setAffUrl(product.link || "");
       setAffCategory(product.category || null);
       setAffThumb(product.imageUrl || null);
+      setAffManualFile(null);
+      setAffManualPreview(null);
     } else {
       setAffTitle(product.title || "");
       setAffUrl(product.link || "");
       setAffCategory(product.category || null);
       setAffThumb(product.imageUrl || null);
+      setAffManualFile(null);
+      setAffManualPreview(product.imageUrl || null);
 
-      // clear digital fields
       setDigName("");
       setDigDesc("");
       setDigPrice("");
@@ -343,116 +359,103 @@ export default function Store() {
 
   const [saving, setSaving] = useState(false);
 
-  
+  async function handleSave() {
+    setSaving(true);
+    try {
+      if (activeTab === 0) {
+        // Affiliate Link
+        if (!affTitle || !affUrl) {
+          alert("Please enter Product Title and a valid URL.");
+          setSaving(false);
+          return;
+        }
+        const payload = new FormData();
+        payload.append("type", "affiliate");
+        payload.append("title", affTitle);
+        payload.append("link", affUrl);
+        if (affCategory?._id) payload.append("category_id", affCategory._id);
+        if (affCategory?.name) payload.append("category_name", affCategory.name);
 
- async function handleSave() {
-  setSaving(true);
-  try {
-    if (activeTab === 0) {
-      // Affiliate Link
-      if (!affTitle || !affUrl) {
-        alert("Please enter Product Title and a valid URL.");
-        setSaving(false);
-        return;
-      }
-      const payload = new FormData();
-      payload.append("type", "affiliate");
-      payload.append("title", affTitle);
-      payload.append("link", affUrl);
-      if (affCategory?._id) payload.append("category_id", affCategory._id);
-      if (affCategory?.name) payload.append("category_name", affCategory.name);
-      if (affThumb) payload.append("imageUrlFromMeta", affThumb);
+        // Priority: manual upload > auto-fetched thumb
+        if (affManualFile) {
+          payload.append("image", affManualFile);
+        } else if (affThumb) {
+          payload.append("imageUrlFromMeta", affThumb);
+        }
 
-      if (isEditing && editingProductId) {
-        await axios.post(`${API_BASE}/edit-product/${editingProductId}`, payload);
+        if (isEditing && editingProductId) {
+          await axios.post(`${API_BASE}/edit-product/${editingProductId}`, payload);
+        } else {
+          await axios.post(`${API_BASE}/upload-product`, payload);
+        }
       } else {
-        // ✅ fixed backtick/quote here
-        await axios.post(`${API_BASE}/upload-product`, payload);
-      }
-    } else {
-      // Digital Product
-      if (!digName) {
-        alert("Please enter Product Name.");
-        setSaving(false);
-        return;
-      }
-      const payload = new FormData();
-      payload.append("type", "digital");
-      payload.append("title", digName);
-      payload.append("description", digDesc || "");
-      if (digPrice !== "") payload.append("price", String(digPrice));
-      if (digCategory?._id) payload.append("category_id", digCategory._id);
-      if (digCategory?.name) payload.append("category_name", digCategory.name);
-      if (digFile) payload.append("image", digFile);
+        // Digital Product
+        if (!digName) {
+          alert("Please enter Product Name.");
+          setSaving(false);
+          return;
+        }
+        const payload = new FormData();
+        payload.append("type", "digital");
+        payload.append("title", digName);
+        payload.append("description", digDesc || "");
+        if (digPrice !== "") payload.append("price", String(digPrice));
+        if (digCategory?._id) payload.append("category_id", digCategory._id);
+        if (digCategory?.name) payload.append("category_name", digCategory.name);
+        if (digFile) payload.append("image", digFile);
 
-      if (isEditing && editingProductId) {
-        await axios.post(`${API_BASE}/edit-product/${editingProductId}`, payload);
-      } else {
-        await axios.post(`${API_BASE}/upload-product`, payload);
+        if (isEditing && editingProductId) {
+          await axios.post(`${API_BASE}/edit-product/${editingProductId}`, payload);
+        } else {
+          await axios.post(`${API_BASE}/upload-product`, payload);
+        }
       }
+
+      await fetchProducts(page + 1, limit);
+      setDialogOpen(false);
+    } catch (err) {
+      console.error("Save product error:", err);
+      alert(err?.response?.data?.message || "Error saving product.");
+    } finally {
+      setSaving(false);
     }
-
-    await fetchProducts(page + 1, limit);
-    setDialogOpen(false);
-  } catch (err) {
-    console.error("Save product error:", err);
-    alert(err?.response?.data?.message || "Error saving product.");
-  } finally {
-    setSaving(false);
   }
-}
 
-const handleChangePage = (_, newPage) => setPage(newPage);
+  const handleChangePage = (_, newPage) => setPage(newPage);
 
-const handleChangeRowsPerPage = (event) => {
-  const rows = parseInt(event.target.value, 10);
-  setLimit(rows);
-  setPage(0);
-};
+  const handleChangeRowsPerPage = (event) => {
+    const rows = parseInt(event.target.value, 10);
+    setLimit(rows);
+    setPage(0);
+  };
 
+  const categoryOptionLabel = (opt) => (typeof opt === "string" ? opt : opt?.name || "");
 
-
-// debounce fetch still OK
-function handleCatSearch(inputValue) {
-  setCatQuery(inputValue);                 // <-- add this
-  catSearchRef.current = inputValue;
-  clearTimeout(catDebounce.current);
-  catDebounce.current = setTimeout(() => fetchCategories(inputValue), 350);
-}
-
-// options with "+ Add"
-const categoryOptionLabel = (opt) => (typeof opt === "string" ? opt : opt?.name || "");
-
-const catOptionsWithAdd = useMemo(() => {
-  const q = (catQuery || "").trim();      // <-- use state, not ref
-  const exists = catOptions.some((c) => c.name?.toLowerCase() === q.toLowerCase());
-  return q && !exists
-    ? [{ _id: "__add__", name: `+ Add "${q}"` }, ...catOptions]
-    : catOptions;
-}, [catOptions, catQuery]);                // <-- include catQuery
-
-
+  const catOptionsWithAdd = useMemo(() => {
+    const q = (catQuery || "").trim();
+    const exists = catOptions.some((c) => c.name?.toLowerCase() === q.toLowerCase());
+    return q && !exists ? [{ _id: "__add__", name: `+ Add "${q}"` }, ...catOptions] : catOptions;
+  }, [catOptions, catQuery]);
 
   function renderCategoryAutocomplete(value, onChange) {
     return (
-    <Autocomplete
-  options={catOptionsWithAdd}
-  loading={catLoading}
-  value={value}
-  onChange={(_, newVal) => {
-    if (newVal?._id === "__add__") {
-      const label = (catQuery || "").trim();
-      if (label) handleAddCategoryIfNeeded(label);
-      return;
-    }
-    onChange(newVal);
-  }}
-  onInputChange={(_, newInput) => handleCatSearch(newInput)} // updates catQuery + debounced fetch
-  getOptionLabel={categoryOptionLabel}
-  isOptionEqualToValue={(o, v) => o._id === v?._id}
-  renderInput={(params) => <TextField {...params} label="Category" placeholder="Search or add" />}
-/>
-
+      <Autocomplete
+        options={catOptionsWithAdd}
+        loading={catLoading}
+        value={value}
+        onChange={(_, newVal) => {
+          if (newVal?._id === "__add__") {
+            const label = (catQuery || "").trim();
+            if (label) handleAddCategoryIfNeeded(label);
+            return;
+          }
+          onChange(newVal);
+        }}
+        onInputChange={(_, newInput) => handleCatSearch(newInput)}
+        getOptionLabel={categoryOptionLabel}
+        isOptionEqualToValue={(o, v) => o._id === v?._id}
+        renderInput={(params) => <TextField {...params} label="Category" placeholder="Search or add" />}
+      />
     );
   }
 
@@ -506,12 +509,13 @@ const catOptionsWithAdd = useMemo(() => {
                     <TableRow key={p._id} hover>
                       <TableCell>{page * limit + idx + 1}</TableCell>
                       <TableCell>{displayDate ? format(new Date(displayDate), "yyyy-MM-dd HH:mm") : "-"}</TableCell>
-                     <TableCell>
-                    {p.type === "affiliate"
-                      ? <AffiliateThumb product={p} />
-                      : <Avatar variant="rounded" src={p.imageUrl || undefined} alt={p.title} sx={{ width: 64, height: 64 }} />
-                    }
-                  </TableCell>
+                      <TableCell>
+                        {p.type === "affiliate" ? (
+                          <AffiliateThumb product={p} />
+                        ) : (
+                          <Avatar variant="rounded" src={p.imageUrl || undefined} alt={p.title} sx={{ width: 64, height: 64 }} />
+                        )}
+                      </TableCell>
 
                       <TableCell>
                         <Stack spacing={0.25}>
@@ -533,12 +537,18 @@ const catOptionsWithAdd = useMemo(() => {
                             </a>
                           </Tooltip>
                         ) : (
-                          <Typography variant="caption" color="text.secondary">-</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            -
+                          </Typography>
                         )}
                       </TableCell>
                       <TableCell align="center">
-                        <IconButton onClick={() => openEditDialog(p)} size="small"><EditIcon /></IconButton>
-                        <IconButton onClick={() => handleDelete(p._id)} size="small" color="error"><DeleteIcon /></IconButton>
+                        <IconButton onClick={() => openEditDialog(p)} size="small">
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton onClick={() => handleDelete(p._id)} size="small" color="error">
+                          <DeleteIcon />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   );
@@ -576,17 +586,51 @@ const catOptionsWithAdd = useMemo(() => {
               <TextField label="Product Title" fullWidth value={affTitle} onChange={(e) => setAffTitle(e.target.value)} />
               <TextField label="Product URL (https://...)" fullWidth value={affUrl} onChange={(e) => setAffUrl(e.target.value)} />
 
-              <Stack direction="row" spacing={2} alignItems="center">
-                {metaLoading && <CircularProgress size={22} />}
-                {(affThumb || metaLoading) && (
-                  <Avatar variant="rounded" src={affThumb || undefined} alt="preview" sx={{ width: 80, height: 80 }} />
-                )}
-                {!affThumb && !metaLoading && (
-                  <Typography variant="caption" color="text.secondary">
-                    Paste a product URL to auto-load the thumbnail.
-                  </Typography>
-                )}
-              </Stack>
+              {/* Image Preview Section */}
+              <Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Product Image
+                </Typography>
+                <Stack spacing={2}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    {metaLoading && <CircularProgress size={22} />}
+                    
+                    {/* Show manual upload preview if exists, otherwise auto-fetched */}
+                    {(affManualPreview || affThumb) && !metaLoading && (
+                      <Avatar
+                        variant="rounded"
+                        src={affManualPreview || affThumb || undefined}
+                        alt="preview"
+                        sx={{ width: 80, height: 80 }}
+                      />
+                    )}
+
+                    {!affManualPreview && !affThumb && !metaLoading && !metaError && (
+                      <Typography variant="caption" color="text.secondary">
+                        Paste a URL above to auto-load thumbnail
+                      </Typography>
+                    )}
+
+                    {metaError && !affManualPreview && (
+                      <Typography variant="caption" color="warning.main">
+                        ⚠️ Auto-fetch failed. Upload manually below.
+                      </Typography>
+                    )}
+                  </Stack>
+
+                  {/* Manual Upload Button - Always visible */}
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<CloudUploadIcon />}
+                    size="small"
+                    sx={{ alignSelf: "flex-start" }}
+                  >
+                    {affManualPreview ? "Change Image" : "Upload Image Manually"}
+                    <input hidden accept="image/*" type="file" onChange={handleAffManualFileChange} />
+                  </Button>
+                </Stack>
+              </Box>
             </Stack>
           </TabPanel>
 
@@ -611,12 +655,14 @@ const catOptionsWithAdd = useMemo(() => {
         </DialogContent>
 
         <DialogActions sx={{ pr: 3, pb: 2 }}>
-          <Button onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+          <Button onClick={() => setDialogOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
 }
-
-
