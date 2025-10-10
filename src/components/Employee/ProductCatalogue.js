@@ -583,8 +583,8 @@ export default function Store() {
           <TabPanel value={activeTab} index={0}>
             <Stack spacing={2} sx={{ mt: 1 }}>
               {renderCategoryAutocomplete(affCategory, setAffCategory)}
-              <TextField label="Product Title" fullWidth value={affTitle} onChange={(e) => setAffTitle(e.target.value)} />
               <TextField label="Product URL (https://...)" fullWidth value={affUrl} onChange={(e) => setAffUrl(e.target.value)} />
+              <TextField label="Product Title" fullWidth value={affTitle} onChange={(e) => setAffTitle(e.target.value)} />
 
               {/* Image Preview Section */}
               <Box>
