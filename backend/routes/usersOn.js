@@ -872,9 +872,132 @@ router.post("/newsletters-subscribe", async (req, res) => {
   }
 });
 
+router.post("/newsletter-list-emails", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { page = 1, limit = 10, blockId = null } = req.body || {};
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const perPage = Math.max(parseInt(limit, 10) || 10, 1);
+    const skip = (pageNum - 1) * perPage;
+
+    const matchStage = {
+      user_id: new mongoose.Types.ObjectId(String(userId)),
+      is_del: false,
+      ...(blockId ? { blockId: new mongoose.Types.ObjectId(String(blockId)) } : {}),
+    };
+
+    const now = new Date();
+    const last7 = new Date(now); last7.setDate(now.getDate() - 7);
+    const last28 = new Date(now); last28.setDate(now.getDate() - 28);
+
+    const [result] = await NewsletterModel.aggregate([
+      { $match: matchStage },
+      {
+        $facet: {
+          // 1) Paginated rows
+          rows: [
+            { $unwind: "$emails" },
+            { $sort: { "emails.subscribed_at": -1 } },
+            { $skip: skip },
+            { $limit: perPage },
+            {
+              $project: {
+                _id: 0,
+                email: "$emails.email",
+                subscribed_at: "$emails.subscribed_at",
+              },
+            },
+          ],
+
+          // 2) Stats for counts
+          stats: [
+            { $unwind: "$emails" },
+            {
+              $group: {
+                _id: null,
+                total: { $sum: 1 },
+                last7: {
+                  $sum: {
+                    $cond: [{ $gte: ["$emails.subscribed_at", last7] }, 1, 0],
+                  },
+                },
+                last28: {
+                  $sum: {
+                    $cond: [{ $gte: ["$emails.subscribed_at", last28] }, 1, 0],
+                  },
+                },
+              },
+            },
+          ],
+
+          // 3) Top Cities
+          topCities: [
+            { $unwind: "$emails" },
+            {
+              $project: {
+                city: {
+                  $trim: { input: { $ifNull: ["$emails.city", "Unknown"] } },
+                },
+              },
+            },
+            { $group: { _id: "$city", count: { $sum: 1 } } },
+            { $sort: { count: -1, _id: 1 } },
+            { $limit: 10 },
+            { $project: { _id: 0, name: "$_id", count: 1 } },
+          ],
+
+          // 4) Top Regions (State/Region)
+          topRegions: [
+            { $unwind: "$emails" },
+            {
+              $project: {
+                region: {
+                  $trim: {
+                    input: {
+                      $ifNull: [
+                        { $ifNull: ["$emails.region", "$emails.state"] },
+                        "Unknown",
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+            { $group: { _id: "$region", count: { $sum: 1 } } },
+            { $sort: { count: -1, _id: 1 } },
+            { $limit: 10 },
+            { $project: { _id: 0, name: "$_id", count: 1 } },
+          ],
+        },
+      },
+    ]);
+
+    const rows = result?.rows || [];
+    const statsDoc = (result?.stats && result.stats[0]) || { total: 0, last7: 0, last28: 0 };
+    const topCities = result?.topCities || [];
+    const topRegions = result?.topRegions || [];
+
+    return res.json({
+      rows,                            // [{ email, subscribed_at }]
+      pagination: { page: pageNum, limit: perPage },
+      total: statsDoc.total || 0,      // for TablePagination
+      stats: {
+        totalSubscribers: statsDoc.total || 0,
+        last7Days: statsDoc.last7 || 0,
+        last28Days: statsDoc.last28 || 0,
+      },
+      topCities,
+      topRegions,
+    });
+  } catch (err) {
+    console.error("list-emails error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
 
 
-// unchanged
 router.get("/blocks/options", authenticateToken, async (req, res) => {
   try {
     const userId =

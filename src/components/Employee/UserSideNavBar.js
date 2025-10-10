@@ -452,6 +452,50 @@ const ResponsiveDrawer = ({ window }) => {
             </List>
           </Collapse>
 
+              <ListItem disablePadding>
+            <Link
+              to="/professional/newsletter/emails"
+              style={{ textDecoration: "none", color: "black", width: "100%" }}
+              onClick={handleDrawerToggle}
+            >
+              <ListItemButton
+                selected={location.pathname === "/professional/newsletter/emails"}
+                sx={{
+                  backgroundColor:
+                    location.pathname === "/professional/newsletter/emails"
+                      ? "#e3e3f3"
+                      : "transparent",
+                  borderRadius: "6px",
+                  py: 0.5,
+                }}
+              >
+                <ListItemIcon>
+                  <EmailOutlinedIcon
+                    sx={{
+                      color:
+                        location.pathname === "/professional/newsletter/emails"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      transition: "color 0.3s",
+                    }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Newsletter List"
+                  primaryTypographyProps={{
+                    sx: {
+                      color:
+                        location.pathname === "/professional/newsletter/emails"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      fontWeight: 400,
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </Link>
+          </ListItem>
+
              <ListItem disablePadding>
             <Link
               to="/professional/profile"
