@@ -40,7 +40,8 @@ import PageAnalytics from './components/Employee/PageAnalytics.js';
 import BlocksAnalytics from './components/Employee/BlockAnalytics.js';
 import StoreAnalytics from './components/Employee/StoreAnalytics.js';
 import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js';
-import UserSideNavbar from './components/Employee/UserSideNavbar.js'
+import UserSideNavBar from './components/Employee/UserSideNavbar.js';
+
 // very critial yes
 
 
@@ -115,7 +116,7 @@ if (initialSubdomain) {
               <Route path="/products-affiliate" element={<ProductGallery />} />
 
            
-              <Route path="/professional/*" element={<UserSideNavbar />}>
+              <Route path="/professional/*" element={<UserSideNavBar />}>
 
                 <Route path="user/bio" element={<UserBioDashboard />} />
                 <Route path="support" element={<Support />} />

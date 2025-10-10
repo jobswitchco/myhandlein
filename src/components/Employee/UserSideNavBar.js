@@ -29,6 +29,7 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import AccountBoxOutlinedIcon from '@mui/icons-material/AccountBoxOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
+import MailOutlineOutlinedIcon from '@mui/icons-material/MailOutlineOutlined';
 
 const theme = createTheme({
   palette: {
@@ -37,7 +38,7 @@ const theme = createTheme({
   },
 });
 
-export default function UserSideNavbar({ window }) {
+export default function UserSideNavBar({ window }) {
 
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -464,7 +465,7 @@ export default function UserSideNavbar({ window }) {
                 }}
               >
                 <ListItemIcon>
-                  <EmailOutlinedIcon
+                  <MailOutlineOutlinedIcon
                     sx={{
                       color:
                         location.pathname === "/professional/newsletter/emails"
@@ -744,6 +745,6 @@ export default function UserSideNavbar({ window }) {
 };
 
 
-UserSideNavbar.propTypes = {
+UserSideNavBar.propTypes = {
   window: PropTypes.func,
 };
