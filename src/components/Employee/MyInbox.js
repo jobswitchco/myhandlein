@@ -17,7 +17,7 @@ import { Search } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import MyChatWindow from "./MyChatWindow";
 
-const API_BASE = "/api/usersOn";
+const API_BASE = "/api";
 
 function formatTime(dateStr) {
   if (!dateStr) return "";
