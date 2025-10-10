@@ -182,6 +182,52 @@ export default function SideNavbar({ window }) {
         </Toolbar>
 
         <List sx={{ px: 1 }}>
+
+             <ListItem disablePadding>
+            <Link
+              to="/professional/dashboard/analytics"
+              style={{ textDecoration: "none", color: "black", width: "100%" }}
+              onClick={handleDrawerToggle}
+            >
+              <ListItemButton
+                selected={location.pathname === "/professional/dashboard/analytics"}
+                sx={{
+                  backgroundColor:
+                    location.pathname === "/professional/dashboard/analytics"
+                      ? "#e3e3f3"
+                      : "transparent",
+                  borderRadius: "6px",
+                  py: 0.5,
+                }}
+              >
+                <ListItemIcon>
+                  <SpaceDashboardOutlinedIcon
+                    sx={{
+                      color:
+                        location.pathname === "/professional/dashboard/analytics"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      transition: "color 0.3s",
+                    }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Dashboard"
+                  primaryTypographyProps={{
+                    sx: {
+                      color:
+                        location.pathname === "/professional/dashboard/analytics"
+                          ? "#093FB4"
+                          : "#7F8CAA",
+                      fontWeight: 400,
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </Link>
+          </ListItem>
+
+
           {/* Dashboard */}
           <ListItem disablePadding>
             <Link
@@ -212,7 +258,7 @@ export default function SideNavbar({ window }) {
                   />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Dashboard"
+                  primary="My Bio Page"
                   primaryTypographyProps={{
                     sx: {
                       color:
@@ -715,7 +761,7 @@ export default function SideNavbar({ window }) {
             variant="permanent"
             sx={{
               display: { xs: "none", sm: "block" },
-              "& .MuiDrawer-paper": { width: 220 },
+              "& .MuiDrawer-paper": { width: 240 },
             }}
             open
           >

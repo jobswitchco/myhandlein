@@ -997,6 +997,141 @@ router.post("/newsletter-list-emails", authenticateToken, async (req, res) => {
   }
 });
 
+router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id; // set by authenticateToken
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { startDate, endDate } = req.body || {};
+    const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 27));
+    const end = endDate ? new Date(endDate) : new Date();
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // Parallelize queries
+    const [
+      totalViewsPromise,
+      totalClicksAggPromise,
+      totalSubscribersAggPromise,
+      topCitiesAggPromise,
+      topRegionsAggPromise,
+      totalDMsAggPromise,
+    ] = [
+      // 1) Total Views (bio link visitors)
+      PageAnalytics.countDocuments({
+        user_id: userObjectId,
+        is_del: { $ne: true },
+        created_at: { $gte: start, $lte: end },
+      }),
+
+      // 2) Total Link/Block Clicks (sum link_click_analytics entries for this user in range)
+      Block.aggregate([
+        { $match: { user_id: userObjectId, is_del: { $ne: true } } },
+        { $unwind: "$link_click_analytics" },
+        { $match: { "link_click_analytics.created_at": { $gte: start, $lte: end } } },
+        { $count: "total" },
+      ]),
+
+      // 3) Total Subscribers (unwind newsletters.emails with subscribed_at in range)
+      NewsletterModel.aggregate([
+        { $match: { user_id: userObjectId, is_del: { $ne: true } } },
+        { $unwind: "$emails" },
+        { $match: { "emails.subscribed_at": { $gte: start, $lte: end } } },
+        { $count: "total" },
+      ]),
+
+      // 4a) Top 10 Cities by visitors (from page_analytics)
+      PageAnalytics.aggregate([
+        { $match: { user_id: userObjectId, is_del: { $ne: true }, created_at: { $gte: start, $lte: end } } },
+        { $group: { _id: { city: "$city" }, visitors: { $sum: 1 } } },
+        { $project: { _id: 0, city: "$_id.city", visitors: 1 } },
+        { $sort: { visitors: -1 } },
+        { $limit: 10 },
+      ]),
+
+      // 4b) Top 10 Regions by visitors (from page_analytics)
+      PageAnalytics.aggregate([
+        { $match: { user_id: userObjectId, is_del: { $ne: true }, created_at: { $gte: start, $lte: end } } },
+        { $group: { _id: { region: "$region" }, visitors: { $sum: 1 } } },
+        { $project: { _id: 0, region: "$_id.region", visitors: 1 } },
+        { $sort: { visitors: -1 } },
+        { $limit: 10 },
+      ]),
+
+    
+Conversation.aggregate([
+  { $match: { "participants.user": userObjectId, is_deleted: { $ne: true } } },
+  {
+    $lookup: {
+      from: "messages",
+      let: { convId: "$_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$conversation", "$$convId"] },
+            createdAt: { $gte: start, $lte: end },
+            is_deleted: { $ne: true },
+            sender: { $ne: userObjectId }, // inbound only
+          },
+        },
+        { $limit: 1 }, // we only need to know this conversation qualifies
+      ],
+      as: "msgs_in_range",
+    },
+  },
+  { $match: { msgs_in_range: { $ne: [] } } }, // keep convs with >=1 inbound msg in range
+  { $count: "total" },
+]).catch(() => [])
+
+    ];
+
+    const [
+      totalViews,
+      totalClicksAgg,
+      totalSubscribersAgg,
+      topCitiesAgg,
+      topRegionsAgg,
+      totalDMsAgg,
+    ] = await Promise.all([
+      totalViewsPromise,
+      totalClicksAggPromise,
+      totalSubscribersAggPromise,
+      topCitiesAggPromise,
+      topRegionsAggPromise,
+      totalDMsAggPromise,
+    ]);
+
+    const totalClicks = totalClicksAgg?.[0]?.total || 0;
+    const totalSubscribers = totalSubscribersAgg?.[0]?.total || 0;
+    const totalDMs = totalDMsAgg?.[0]?.total || 0;
+
+    // Normalize arrays for frontend
+    const cities = (topCitiesAgg || []).map((c) => ({
+      city: c.city || "Unknown",
+      visitors: c.visitors || 0,
+    }));
+
+    const regions = (topRegionsAgg || []).map((r) => ({
+      region: r.region || "Unknown",
+      visitors: r.visitors || 0,
+    }));
+
+    return res.json({
+      summary: {
+        totalViews,
+        totalClicks,
+        totalSubscribers,
+        totalDMs,
+      },
+      cities,
+      regions,
+    });
+  } catch (err) {
+    console.error("dashboard-analytics error:", err);
+    return res.status(500).json({ message: "Failed to load dashboard analytics" });
+  }
+});
+
 
 router.get("/blocks/options", authenticateToken, async (req, res) => {
   try {

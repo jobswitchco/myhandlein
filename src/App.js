@@ -41,6 +41,7 @@ import BlocksAnalytics from './components/Employee/BlockAnalytics.js';
 import StoreAnalytics from './components/Employee/StoreAnalytics.js';
 import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js';
 import SideNavbar from './components/Employee/SideNavbar.js';
+import DashboardAnalytics from './components/Employee/DashboardAnalytics.js';
 
 // very critial yes
 
@@ -129,6 +130,7 @@ if (initialSubdomain) {
                 <Route path="my/store/analytics" element={<StoreAnalytics />} />
                 <Route path="my/block/analytics" element={<BlocksAnalytics />} />
                 <Route path="newsletter/emails" element={<NewsletterEmailsTable />} />
+                <Route path="dashboard/analytics" element={<DashboardAnalytics />} />
 
 
 

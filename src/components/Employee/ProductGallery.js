@@ -59,7 +59,27 @@ export default function ProductGallery() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState(null);
   const Transition = (props) => <Slide direction="up" {...props} />;
-  const openDigitalDetails = (p) => {
+   const openDigitalDetails = (p) => {
+
+    const apiEndpoint = `${API_BASE}/product-click-analytics`;
+    const linkKey = p._id || p.id || p.document_id || null;
+    const payload = {
+      link_key: linkKey ? String(linkKey) : undefined,
+      block_name: p.title || p.name || undefined,
+    };
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+        const queued = navigator.sendBeacon(apiEndpoint, blob);
+        if (!queued) axios.post(apiEndpoint, payload).catch(() => {});
+      } else {
+        axios.post(apiEndpoint, payload).catch(() => {});
+      }
+    } catch {
+      axios.post(apiEndpoint, payload).catch(() => {});
+    }
+
+
     setDetailProduct(p || null);
     setDetailOpen(true);
   };
