@@ -36,11 +36,11 @@ import UserParticipant from './components/Employee/UserParticipant.js';
 import ChatWindow from './components/Employee/ChatWindow.js';
 import MyInbox from './components/Employee/MyInbox.js';
 import MyChatWindow from './components/Employee/MyChatWindow.js';
-import UserSideNavbar from './components/Employee/UserSideNavbar.js';
 import PageAnalytics from './components/Employee/PageAnalytics.js';
 import BlocksAnalytics from './components/Employee/BlockAnalytics.js';
 import StoreAnalytics from './components/Employee/StoreAnalytics.js';
 import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js';
+import ResponsiveDrawer from './components/Employee/UserSideNavbar.js';
 
 
 
@@ -115,7 +115,7 @@ if (initialSubdomain) {
               <Route path="/products-affiliate" element={<ProductGallery />} />
 
            
-              <Route path="/professional/*" element={<UserSideNavbar />}>
+              <Route path="/professional/*" element={<ResponsiveDrawer />}>
 
                 <Route path="user/bio" element={<UserBioDashboard />} />
                 <Route path="support" element={<Support />} />
