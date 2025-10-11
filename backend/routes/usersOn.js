@@ -350,7 +350,7 @@ function normalizePosition(pos) {
 router.post("/logout", authenticateToken, (req, res) => {
   res.clearCookie("tokenMyhandleProf", {
     httpOnly: true,
-    secure: false, // Set to true in production with HTTPS
+    secure: true, // Set to true in production with HTTPS
     sameSite: "Strict",
   });
   res.status(200).json({ message: "Logged out successfully" });
