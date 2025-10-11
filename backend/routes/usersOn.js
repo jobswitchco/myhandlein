@@ -352,8 +352,10 @@ router.post("/logout", authenticateToken, (req, res) => {
     httpOnly: true,
     secure: true,
     sameSite: "none",
-    path: "/"
+    domain: ".myhandle.in",  // CRITICAL: Must match cookie creation
+    path: "/",
   });
+  
   res.status(200).json({ message: "Logged out successfully" });
 });
 

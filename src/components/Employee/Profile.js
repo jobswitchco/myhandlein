@@ -19,16 +19,52 @@ function Profile() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [userDetails, setUserDetails] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
+  
   // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl="/api/usersOn";
+  const baseUrl = "/api/usersOn";
 
   const handleSignOut = async () => {
+    if (loggingOut) return; // Prevent double-clicks
+    
     try {
-      await axios.post(baseUrl + "/logout", {}, { withCredentials: true });
+      setLoggingOut(true);
+      
+      // Call logout endpoint
+      await axios.post(
+        baseUrl + "/logout", 
+        {}, 
+        { 
+          withCredentials: true,
+          timeout: 5000 
+        }
+      );
+      
+      // Clear Redux state
       dispatch(logout());
-      window.location.href = "/professional/login";
+      
+      toast.success("Logged out successfully");
+      
+      // Small delay to show toast, then redirect
+      setTimeout(() => {
+        window.location.href = "/professional/login";
+      }, 500);
+      
     } catch (err) {
       console.error("Logout error:", err);
+      setLoggingOut(false);
+      
+      // Even if backend fails, clear frontend state
+      dispatch(logout());
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      sessionStorage.clear();
+      
+      toast.error("Logout failed, but clearing local session");
+      
+      setTimeout(() => {
+        window.location.href = "/professional/login";
+      }, 1000);
     }
   };
 
@@ -42,10 +78,14 @@ function Profile() {
         setLoading(false);
       } catch (e) {
         console.error(e);
+        // If unauthorized, redirect to login
+        if (e.response?.status === 401) {
+          navigate("/professional/login");
+        }
       }
     };
     fetchData();
-  }, []);
+  }, [navigate]);
 
   return (
     <>
@@ -54,13 +94,13 @@ function Profile() {
           <Box sx={{ mt: 3 }}>
             {/* Name */}
             <Box sx={{ mb: 3 }}>
-              <Typography mb={1.5} sx={{ fontSize : '16px', fontWeight : 500}}>
+              <Typography mb={1.5} sx={{ fontSize: '16px', fontWeight: 500 }}>
                 Name
               </Typography>
               {loading ? (
                 <Skeleton variant="text" width="60%" height={30} />
               ) : (
-                <Typography variant="body1">{userDetails.data.name}</Typography>
+                <Typography variant="body1">{userDetails?.data?.name || 'N/A'}</Typography>
               )}
             </Box>
 
@@ -68,13 +108,13 @@ function Profile() {
 
             {/* LinkedIn URL */}
             <Box sx={{ my: 3 }}>
-              <Typography mb={1.5} sx={{ fontSize : '16px', fontWeight : 500}}>
+              <Typography mb={1.5} sx={{ fontSize: '16px', fontWeight: 500 }}>
                 LinkedIn URL
               </Typography>
               {loading ? (
                 <Skeleton variant="text" width="80%" height={30} />
               ) : (
-                <Typography variant="body1">{userDetails.data.linkedInUrl}</Typography>
+                <Typography variant="body1">{userDetails?.data?.linkedInUrl || 'N/A'}</Typography>
               )}
             </Box>
 
@@ -82,13 +122,17 @@ function Profile() {
 
             {/* Last Login */}
             <Box sx={{ my: 3 }}>
-              <Typography mb={1.5} sx={{ fontSize : '16px', fontWeight : 500}}>
+              <Typography mb={1.5} sx={{ fontSize: '16px', fontWeight: 500 }}>
                 Last Login
               </Typography>
               {loading ? (
                 <Skeleton variant="text" width="50%" height={30} />
               ) : (
-                <Typography variant="body1">{userDetails.data.lastLogin}</Typography>
+                <Typography variant="body1">
+                  {userDetails?.data?.lastLogin 
+                    ? new Date(userDetails.data.lastLogin).toLocaleString() 
+                    : 'N/A'}
+                </Typography>
               )}
             </Box>
 
@@ -96,8 +140,14 @@ function Profile() {
 
             {/* Signout Button */}
             <Box sx={{ textAlign: 'start', mt: 3 }}>
-              <Button variant="outlined" color="secondary" onClick={handleSignOut} sx={{ textTransform : 'none'}}>
-                Log Out
+              <Button 
+                variant="outlined" 
+                color="secondary" 
+                onClick={handleSignOut} 
+                disabled={loggingOut}
+                sx={{ textTransform: 'none' }}
+              >
+                {loggingOut ? "Logging out..." : "Log Out"}
               </Button>
             </Box>
           </Box>
