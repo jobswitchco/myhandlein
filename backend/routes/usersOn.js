@@ -1119,89 +1119,145 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
     const userId = req.user?.user_id; // set by authenticateToken
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
+    // Parse date range; default to last 28 days (inclusive)
     const { startDate, endDate } = req.body || {};
-    const start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 27));
-    const end = endDate ? new Date(endDate) : new Date();
+    const now = new Date();
+
+    const start = startDate ? new Date(startDate) : new Date(now);
+    if (!startDate) start.setDate(start.getDate() - 27);
+    start.setHours(0, 0, 0, 0);
+
+    const end = endDate ? new Date(endDate) : new Date(now);
+    end.setHours(23, 59, 59, 999);
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    // Parallelize queries
-    const [
-      totalViewsPromise,
-      totalClicksAggPromise,
-      totalSubscribersAggPromise,
-      topCitiesAggPromise,
-      topRegionsAggPromise,
-      totalDMsAggPromise,
-    ] = [
-      // 1) Total Views (bio link visitors)
-      PageAnalytics.countDocuments({
-        user_id: userObjectId,
-        is_del: { $ne: true },
-        created_at: { $gte: start, $lte: end },
-      }),
+    // The authenticated dashboard owner is a "User" actor in Conversation.participants
+    const myActorModel = "User";
 
-      // 2) Total Link/Block Clicks (sum link_click_analytics entries for this user in range)
-      Block.aggregate([
-        { $match: { user_id: userObjectId, is_del: { $ne: true } } },
-        { $unwind: "$link_click_analytics" },
-        { $match: { "link_click_analytics.created_at": { $gte: start, $lte: end } } },
-        { $count: "total" },
-      ]),
+    // ---------------------------
+    // Build parallel promises
+    // ---------------------------
+    const totalViewsPromise = PageAnalytics.countDocuments({
+      user_id: userObjectId,
+      is_del: { $ne: true },
+      created_at: { $gte: start, $lte: end },
+    });
 
-      // 3) Total Subscribers (unwind newsletters.emails with subscribed_at in range)
-      NewsletterModel.aggregate([
-        { $match: { user_id: userObjectId, is_del: { $ne: true } } },
-        { $unwind: "$emails" },
-        { $match: { "emails.subscribed_at": { $gte: start, $lte: end } } },
-        { $count: "total" },
-      ]),
+    const totalClicksAggPromise = Block.aggregate([
+      { $match: { user_id: userObjectId, is_del: { $ne: true } } },
+      { $unwind: "$link_click_analytics" },
+      {
+        $match: {
+          "link_click_analytics.created_at": { $gte: start, $lte: end },
+        },
+      },
+      { $count: "total" },
+    ]);
 
-      // 4a) Top 10 Cities by visitors (from page_analytics)
-      PageAnalytics.aggregate([
-        { $match: { user_id: userObjectId, is_del: { $ne: true }, created_at: { $gte: start, $lte: end } } },
-        { $group: { _id: { city: "$city" }, visitors: { $sum: 1 } } },
-        { $project: { _id: 0, city: "$_id.city", visitors: 1 } },
-        { $sort: { visitors: -1 } },
-        { $limit: 10 },
-      ]),
+    const totalSubscribersAggPromise = NewsletterModel.aggregate([
+      { $match: { user_id: userObjectId, is_del: { $ne: true } } },
+      { $unwind: "$emails" },
+      {
+        $match: {
+          "emails.subscribed_at": { $gte: start, $lte: end },
+        },
+      },
+      { $count: "total" },
+    ]);
 
-      // 4b) Top 10 Regions by visitors (from page_analytics)
-      PageAnalytics.aggregate([
-        { $match: { user_id: userObjectId, is_del: { $ne: true }, created_at: { $gte: start, $lte: end } } },
-        { $group: { _id: { region: "$region" }, visitors: { $sum: 1 } } },
-        { $project: { _id: 0, region: "$_id.region", visitors: 1 } },
-        { $sort: { visitors: -1 } },
-        { $limit: 10 },
-      ]),
+    const topCitiesAggPromise = PageAnalytics.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          is_del: { $ne: true },
+          created_at: { $gte: start, $lte: end },
+        },
+      },
+      { $group: { _id: { city: "$city" }, visitors: { $sum: 1 } } },
+      { $project: { _id: 0, city: "$_id.city", visitors: 1 } },
+      { $sort: { visitors: -1 } },
+      { $limit: 10 },
+    ]);
 
-    
-Conversation.aggregate([
-  { $match: { "participants.user": userObjectId, is_deleted: { $ne: true } } },
-  {
-    $lookup: {
-      from: "messages",
-      let: { convId: "$_id" },
-      pipeline: [
-        {
-          $match: {
-            $expr: { $eq: ["$conversation", "$$convId"] },
-            createdAt: { $gte: start, $lte: end },
-            is_deleted: { $ne: true },
-            sender: { $ne: userObjectId }, // inbound only
+    const topRegionsAggPromise = PageAnalytics.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          is_del: { $ne: true },
+          created_at: { $gte: start, $lte: end },
+        },
+      },
+      { $group: { _id: { region: "$region" }, visitors: { $sum: 1 } } },
+      { $project: { _id: 0, region: "$_id.region", visitors: 1 } },
+      { $sort: { visitors: -1 } },
+      { $limit: 10 },
+    ]);
+
+    // ----- Total DMs RECEIVED (inbound) in range -----
+    // Works with new Conversation.participants.actor shape.
+    // It counts messages in conversations that include the dashboard owner,
+    // where the sender is NOT the owner (inbound only), and within [start, end].
+    const totalDMsAggPromise = Message.aggregate([
+      // Filter messages by time & not deleted first for efficiency
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: end },
+          is_deleted: { $ne: true },
+        },
+      },
+      // Link to conversation to check membership and active state
+      {
+        $lookup: {
+          from: "conversations",
+          localField: "conversation",
+          foreignField: "_id",
+          as: "conv",
+        },
+      },
+      { $unwind: "$conv" },
+      { $match: { "conv.is_deleted": { $ne: true } } },
+      {
+        $match: {
+          "conv.participants": {
+            $elemMatch: {
+              "actor.model": myActorModel,
+              "actor.id": userObjectId,
+            },
           },
         },
-        { $limit: 1 }, // we only need to know this conversation qualifies
-      ],
-      as: "msgs_in_range",
-    },
-  },
-  { $match: { msgs_in_range: { $ne: [] } } }, // keep convs with >=1 inbound msg in range
-  { $count: "total" },
-]).catch(() => [])
+      },
 
-    ];
+      // Normalize sender across possible historical shapes
+      {
+        $addFields: {
+          sender_actor_id: {
+            $ifNull: ["$sender.actor.id", { $ifNull: ["$sender.id", "$sender"] }],
+          },
+          sender_actor_model: {
+            $ifNull: ["$sender.actor.model", "$sender.model"],
+          },
+        },
+      },
 
+      // Keep only inbound (sender != this user actor)
+      {
+        $match: {
+          $expr: {
+            $not: {
+              $and: [
+                { $eq: ["$sender_actor_model", myActorModel] },
+                { $eq: ["$sender_actor_id", userObjectId] },
+              ],
+            },
+          },
+        },
+      },
+
+      { $count: "total" },
+    ]).catch(() => []);
+
+    // Run all in parallel
     const [
       totalViews,
       totalClicksAgg,
@@ -1218,11 +1274,11 @@ Conversation.aggregate([
       totalDMsAggPromise,
     ]);
 
+    // Normalize results
     const totalClicks = totalClicksAgg?.[0]?.total || 0;
     const totalSubscribers = totalSubscribersAgg?.[0]?.total || 0;
     const totalDMs = totalDMsAgg?.[0]?.total || 0;
 
-    // Normalize arrays for frontend
     const cities = (topCitiesAgg || []).map((c) => ({
       city: c.city || "Unknown",
       visitors: c.visitors || 0,
@@ -1238,7 +1294,7 @@ Conversation.aggregate([
         totalViews,
         totalClicks,
         totalSubscribers,
-        totalDMs,
+        totalDMs, // inbound only
       },
       cities,
       regions,
@@ -1895,12 +1951,8 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
     }
 
     const influencerObjectId = new mongoose.Types.ObjectId(user_id);
-    const participantCollection = "participant_user"; // your collection name
+    const participantCollection = "participant_user";
 
-    // We want the latest inbound message per conversation TO the influencer (User).
-    // Inbound means: sender is NOT the influencer AND either:
-    //   (A) recipients contains { model:"User", id: influencerId } OR
-    //   (B) conversation includes influencer as a participant.
     const pipeline = [
       { $match: { is_deleted: false } },
 
@@ -1921,7 +1973,6 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
           $and: [
             {
               $or: [
-                // recipients include influencer actor
                 {
                   recipients: {
                     $elemMatch: {
@@ -1930,7 +1981,6 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
                     }
                   }
                 },
-                // OR influencer is a participant of the conversation
                 {
                   "conversation.participants": {
                     $elemMatch: {
@@ -1941,7 +1991,6 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
                 }
               ]
             },
-            // AND sender is not the influencer
             {
               $or: [
                 { "sender.model": { $ne: "User" } },
@@ -1966,8 +2015,7 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
       { $skip: skip },
       { $limit: limit },
 
-      // Look up sender details depending on sender.model
-      // user_sender if sender.model === "User"
+      // Look up sender details
       {
         $lookup: {
           from: "users",
@@ -1981,7 +2029,6 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
       },
       { $unwind: { path: "$user_sender", preserveNullAndEmptyArrays: true } },
 
-      // participant_sender if sender.model === "ParticipantUser"
       {
         $lookup: {
           from: participantCollection,
@@ -2021,10 +2068,14 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
         $project: {
           _id: 1,
           conversation_id: "$conversation._id",
-          sender: "$sender", // { model, id }
+          sender: "$sender",
           text: 1,
           createdAt: 1,
-          from_name: 1
+          from_name: 1,
+          // NEW: Include category fields
+          category: "$conversation.category",
+          category_confidence: "$conversation.category_confidence",
+          category_analyzed_at: "$conversation.category_analyzed_at"
         }
       }
     ];
@@ -2038,7 +2089,11 @@ router.post("/influencer/messages", authenticateToken, async (req, res) => {
       from_model: m?.sender?.model || null,
       from_name: m.from_name || "Unknown",
       text: m.text || "",
-      created_at: m.createdAt || null
+      created_at: m.createdAt || null,
+      // NEW: Include category data
+      category: m.category || "Uncategorized",
+      category_confidence: m.category_confidence || null,
+      category_analyzed_at: m.category_analyzed_at || null
     }));
 
     return res.json({ ok: true, conversations: rows, total: rows.length });

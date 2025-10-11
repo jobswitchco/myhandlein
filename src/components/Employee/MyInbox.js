@@ -11,9 +11,12 @@ import {
   Divider,
   Avatar,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Chip,
+  ToggleButton,
+  ToggleButtonGroup
 } from "@mui/material";
-import { Search } from "@mui/icons-material";
+import { Search, Handshake, Chat, FilterList } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import MyChatWindow from "./MyChatWindow";
 
@@ -40,11 +43,43 @@ function truncate(text = "", n = 50) {
   return text.slice(0, n - 1) + "…";
 }
 
+// Category chip configuration
+function getCategoryChipProps(category) {
+  switch (category) {
+    case "Collaboration":
+      return {
+        label: "Collaboration",
+        color: "secondary",
+        icon: <Handshake sx={{ fontSize: 16 }} />,
+        bgcolor: "#9c27b0",
+        textColor: "#fff"
+      };
+    case "General":
+      return {
+        label: "General",
+        color: "default",
+        icon: <Chat sx={{ fontSize: 14 }} />,
+        bgcolor: "#757575",
+        textColor: "#fff"
+      };
+    case "Uncategorized":
+    default:
+      return {
+        label: "Uncategorized",
+        color: "default",
+        icon: null,
+        bgcolor: "#e0e0e0",
+        textColor: "#666"
+      };
+  }
+}
+
 export default function MyInbox() {
   const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   useEffect(() => {
     fetchConversations();
@@ -77,10 +112,34 @@ export default function MyInbox() {
     setSelectedConv(conv);
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.from_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.text?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleCategoryFilter = (event, newFilter) => {
+    if (newFilter !== null) {
+      setCategoryFilter(newFilter);
+    }
+  };
+
+  const filteredConversations = conversations
+    .filter(conv => {
+      // Category filter
+      if (categoryFilter !== "all" && conv.category !== categoryFilter) {
+        return false;
+      }
+      
+      // Search filter
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        conv.from_name?.toLowerCase().includes(searchLower) ||
+        conv.text?.toLowerCase().includes(searchLower) ||
+        conv.category?.toLowerCase().includes(searchLower)
+      );
+    });
+
+  // Count conversations by category
+  const categoryCounts = conversations.reduce((acc, conv) => {
+    const cat = conv.category || "Uncategorized";
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <Box sx={{ display: "flex", height: "100vh", bgcolor: "#f5f5f5" }}>
@@ -97,6 +156,9 @@ export default function MyInbox() {
       >
         <Box sx={{ p: 2, bgcolor: "#1976d2", color: "white" }}>
           <Typography variant="h6" fontWeight="bold">Messages</Typography>
+          <Typography variant="caption" sx={{ opacity: 0.9 }}>
+            {filteredConversations.length} conversation{filteredConversations.length !== 1 ? 's' : ''}
+          </Typography>
         </Box>
 
         <Box sx={{ p: 2 }}>
@@ -116,6 +178,39 @@ export default function MyInbox() {
           />
         </Box>
 
+        {/* Category Filter */}
+        <Box sx={{ px: 2, pb: 2 }}>
+         
+          <ToggleButtonGroup
+            value={categoryFilter}
+            exclusive
+            onChange={handleCategoryFilter}
+            size="small"
+            fullWidth
+            sx={{ 
+              display: "flex",
+              "& .MuiToggleButton-root": {
+                fontSize: "0.7rem",
+                py: 0.5,
+                textTransform: "none",
+                flex: 1
+              }
+            }}
+          >
+            <ToggleButton value="all">
+              All ({conversations.length})
+            </ToggleButton>
+            <ToggleButton value="Collaboration">
+              <Handshake sx={{ fontSize: 14, mr: 0.5 }} />
+              {categoryCounts.Collaboration || 0}
+            </ToggleButton>
+            <ToggleButton value="General">
+              <Chat sx={{ fontSize: 14, mr: 0.5 }} />
+              {categoryCounts.General || 0}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
         <Divider />
 
         <Box sx={{ flexGrow: 1, overflow: "auto" }}>
@@ -125,47 +220,80 @@ export default function MyInbox() {
             </Box>
           ) : filteredConversations.length === 0 ? (
             <Box sx={{ p: 3, textAlign: "center" }}>
-              <Typography color="text.secondary">No conversations found</Typography>
+              <Typography color="text.secondary">
+                {searchTerm || categoryFilter !== "all" 
+                  ? "No conversations match your filters" 
+                  : "No conversations found"}
+              </Typography>
             </Box>
           ) : (
             <List disablePadding>
-              {filteredConversations.map((conv) => (
-                <React.Fragment key={conv._id}>
-                  <ListItemButton
-                    selected={selectedConv?._id === conv._id}
-                    onClick={() => handleSelectConversation(conv)}
-                    sx={{
-                      py: 2,
-                      "&.Mui-selected": {
-                        bgcolor: "#e3f2fd",
-                        "&:hover": { bgcolor: "#bbdefb" }
-                      }
-                    }}
-                  >
-                    <Avatar sx={{ mr: 2, bgcolor: "#1976d2" }}>
-                      {(conv.from_name || "U")[0].toUpperCase()}
-                    </Avatar>
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle2" fontWeight="600">
-                          {conv.from_name || "Unknown"}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" noWrap>
-                            {truncate(conv.text, 40)}
-                          </Typography>
-                          <Typography variant="caption" color="text.disabled">
-                            {formatTime(conv.created_at)}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
-                  <Divider />
-                </React.Fragment>
-              ))}
+              {filteredConversations.map((conv) => {
+                const chipProps = getCategoryChipProps(conv.category);
+                
+                return (
+                  <React.Fragment key={conv._id}>
+                    <ListItemButton
+                      selected={selectedConv?._id === conv._id}
+                      onClick={() => handleSelectConversation(conv)}
+                      sx={{
+                        py: 2,
+                        "&.Mui-selected": {
+                          bgcolor: "#e3f2fd",
+                          "&:hover": { bgcolor: "#bbdefb" }
+                        }
+                      }}
+                    >
+                      <Avatar sx={{ mr: 2, bgcolor: "#1976d2" }}>
+                        {(conv.from_name || "U")[0].toUpperCase()}
+                      </Avatar>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="subtitle2" fontWeight="600">
+                              {conv.from_name || "Unknown"}
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            {/* Category Chip */}
+                            <Box sx={{ mb: 0.5, mt: 0.5 }}>
+                              <Chip
+                                icon={chipProps.icon}
+                                label={chipProps.label}
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: "0.7rem",
+                                  fontWeight: 600,
+                                  bgcolor: chipProps.bgcolor,
+                                  color: chipProps.textColor,
+                                  "& .MuiChip-icon": {
+                                    color: chipProps.textColor,
+                                    marginLeft: "4px"
+                                  }
+                                }}
+                              />
+                            </Box>
+                            
+                            {/* Message preview */}
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {truncate(conv.text, 40)}
+                            </Typography>
+                            
+                            {/* Timestamp */}
+                            <Typography variant="caption" color="text.disabled">
+                              {formatTime(conv.created_at)}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </ListItemButton>
+                    <Divider />
+                  </React.Fragment>
+                );
+              })}
             </List>
           )}
         </Box>
@@ -187,7 +315,6 @@ export default function MyInbox() {
           </Box>
         ) : (
           <Box sx={{ height: "100%", overflow: "auto" }}>
-            {/* Render MyChatWindow with conversationId and participantId */}
             <MyChatWindow
               conversationId={selectedConv.conversation_id}
               participantId={selectedConv.from_id}

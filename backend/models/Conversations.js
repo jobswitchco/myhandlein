@@ -64,6 +64,16 @@ const ConversationSchema = new Schema(
       pinned: { type: Boolean, default: false },
     },
 
+    // NEW: AI-based categorization from first participant message
+    category: {
+      type: String,
+      enum: ["General", "Collaboration", "Uncategorized"],
+      default: "Uncategorized",
+      index: true,
+    },
+    category_analyzed_at: { type: Date, default: null },
+    category_confidence: { type: Number, min: 0, max: 1, default: null },
+
     is_deleted: { type: Boolean, default: false },
   },
   { timestamps: true }
@@ -98,6 +108,7 @@ ConversationSchema.index({
 });
 ConversationSchema.index({ last_message_at: -1 });
 ConversationSchema.index({ is_deleted: 1 });
+ConversationSchema.index({ category: 1, updatedAt: -1 });
 
 export default mongoose.models.Conversation ||
   mongoose.model("Conversation", ConversationSchema);
