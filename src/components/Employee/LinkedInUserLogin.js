@@ -1,296 +1,256 @@
-import { useState, useEffect } from 'react'
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
-  Grid
-} from '@mui/material';
-import {login} from '../../store/professionalSlice';
-import { useDispatch} from 'react-redux';
+  Grid,
+  Paper,
+  Stack,
+  Button,
+  Divider,
+  Link as MLink,
+  CircularProgress
+} from "@mui/material";
+import { login } from "../../store/professionalSlice";
+import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
-import CircularProgress from '@mui/material/CircularProgress';
-import { useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useGoogleLogin } from '@react-oauth/google';
-import GmailIcon from '../../images/google.png';
-import wallBack from '../../images/wallback.jpg';
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useGoogleLogin } from "@react-oauth/google";
+import GmailIcon from "../../images/google.png";
+import wallBack from "../../images/4159942_89781.jpg";
 
-function WaitlistSignup() {
+/**
+ * Influencer-focused auth screen
+ * - Polished hero on the left (desktop) + glass card on the right
+ * - Single prominent Google button
+ * - Preserves your original login flow and redirects
+ */
+export default function WaitlistSignup() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
-  // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl="/api/usersOn";
+  const baseUrl = "/api/usersOn";
   const theme = useTheme();
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("md"));
 
-
+  // Lock body scroll while mounted (fullscreen background)
   useEffect(() => {
-    // lock body scroll while component is mounted
     const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
-      useEffect(() => {
-      const verifyToken = async () => {
-        try {
-          const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
-          if (res.data.valid) {
-            navigate("/professional/user/bio");
-          } else {
-            setIsLoading(false);
-          }
-        } catch (error) {
-          setIsLoading(false);
+  // Verify existing session and redirect if valid
+  useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
+        if (res.data.valid) {
+          navigate("/professional/dashboard/analytics");
         }
-      };
-  
-      verifyToken();
-    }, []);
+      } catch (error) {
+        // ignore -> show login
+      }
+    };
+    verifyToken();
+  }, []);
 
+  const handleLoginSuccess = async (email_gm, firstName, lastName, picture) => {
+    setIsLoading(true);
+    try {
+      const res = await axios.post(
+        baseUrl + "/user-login-gmail",
+        { email: email_gm, firstName, lastName, picture },
+        { withCredentials: true }
+      );
 
-const handleLoginSuccess = async (email_gm, firstName, lastName, picture) => {
-  setIsLoading(true);
-  try {
-    console.log('email_gm : ', email_gm);
-    const res = await axios.post(
-      baseUrl + "/user-login-gmail",
-      { email: email_gm, firstName, lastName, picture },
-      { withCredentials: true }
-    );
-
-    setIsLoading(false);
-
-    // safe guard: check data object
-    const data = res?.data || {};
-
-    if(data.success && data.wasNew){
-      dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
-       setIsLoading(false);
-      navigate("/creator/onboarding");
-
+      const data = res?.data || {};
+      if (data.success && data.wasNew) {
+        dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
+        navigate("/creator/onboarding");
+      } else if (data.success && !data.wasNew) {
+        dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
+        navigate("/professional/dashboard/analytics");
+      } else {
+        toast.error("Something went wrong. Please login again.");
+        setTimeout(() => navigate("/professional/login"), 1200);
+      }
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+      setTimeout(() => navigate("/professional/login"), 1200);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-      else if(data.success && !data.wasNew){
-      dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
-       setIsLoading(false);
-      navigate("/professional/user/bio");
-
-    }
-    else{
-
-      toast.error("Something Wrong. Please login again.");
-            setTimeout(() => {
-            navigate('/professional/login');
-            }, 1500);
-
-    }
-
-  } catch (err) {
-    setIsLoading(false);
-
-    console.log('Error : ', err);
-
-    // If server responded with a message, show it
-   toast.error("Something Wrong. Please try again.");
-    setTimeout(() => {
-      navigate('/professional/login');
-   
-    }, 1500);
-  }
-};
-
-
-  const loginWithGoogle  = useGoogleLogin({
+  const loginWithGoogle = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-    // inside onSuccess
-try {
-  console.log("google tokenResponse:", tokenResponse);
-  const accessToken = tokenResponse?.access_token;
-  if (!accessToken) {
-    toast.error("Google sign-in did not return an access token. Please try again.");
-    return;
-  }
-
-  // Force no credentials for this cross-origin Google call
-  const profileRes = await axios.get(
-    "https://www.googleapis.com/oauth2/v3/userinfo",
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      // important: ensure no credentials are sent to Google
-      withCredentials: false,
-      timeout: 8000,
-    }
-  );
-
-  const { email: gmEmail, given_name, family_name, picture } = profileRes.data || {};
-  handleLoginSuccess(gmEmail, given_name, family_name, picture);
-} catch (err) {
-  console.error("client-side userinfo failed:", err);
-  // fallback to server-side approach...
-}
-
+      try {
+        const accessToken = tokenResponse?.access_token;
+        if (!accessToken) {
+          toast.error("Google sign-in did not return an access token. Please try again.");
+          return;
+        }
+        const profileRes = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          withCredentials: false,
+          timeout: 8000
+        });
+        const { email: gmEmail, given_name, family_name, picture } = profileRes.data || {};
+        handleLoginSuccess(gmEmail, given_name, family_name, picture);
+      } catch (err) {
+        toast.error("Google sign-in failed. Please try again.");
+      }
     },
     onError: () => {
       toast.error("Google sign-in failed. Please try again.");
-    },
+    }
   });
 
+  const GoogleButton = (
+    <Button
+      onClick={() => loginWithGoogle()}
+      fullWidth
+      disabled={isLoading}
+      sx={{
+        textTransform: "none",
+        borderRadius: 2,
+        py: 1.5,
+        gap: 1.5,
+        fontWeight: 600,
+        fontSize: 16,
+        background: "#246be9",
+        color: "#fff",
+        "&:hover": { background: "#1c54b3" },
+        boxShadow: "0 8px 20px rgba(36,107,233,0.35)"
+      }}
+    >
+      <Box component="img" src={GmailIcon} alt="Google" sx={{ width: 24, height: 24, bgcolor: "#fff", p: 0.5, borderRadius: 1 }} />
+     <Typography sx={{ fontFamily : 'Inter', fontSize : isSmallScreen ? '15px' : '18px'}}>
+      {isLoading ? "Signing you in…" : "Continue with Google"}
 
-
-
+     </Typography>
+      {isLoading && <CircularProgress size={18} sx={{ ml: 1 }} />}
+    </Button>
+  );
 
   return (
-    <>
-      {isSmallScreen ? (
-<Box
-sx={{
-        position: 'fixed',   // keep it pinned
+    <Box
+      sx={{
+        position: "fixed",
         inset: 0,
-        boxSizing: 'border-box',
-        backgroundImage: `linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)), url(${wallBack})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        p: { xs: 2, sm: 4 },
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", md: "1.1fr 0.9fr" },
+        minHeight: "100dvh",
+        backgroundImage: `linear-gradient( to bottom right, rgba(5,11,40,0.65), rgba(5,11,40,0.35) ), url(${wallBack})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
->
-  <Grid item xs={12} paddingX={2} sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-      {isLoading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
-          <CircularProgress color='success' />
-        </div>
-      ) : (
-        <Box
-          display='flex'
-          flexDirection={'column'}
-          margin='0 auto'
-          padding={1}
-          alignItems="center"
-          sx={{ width: '100%' }}
-        >
-          <Typography textAlign='center' mb={2} sx={{ fontFamily : 'Inter', fontWeight : 400, fontSize : '20px', color: '#7F8CAA'}}>Get Early Access</Typography>
-
-          {/* Google button + divider */}
-          <Box display="flex" flexDirection="column" alignItems="center" width="100%">
+    >
+      {/* Left hero (hidden on small) */}
+      <Box
+        sx={{
+          display: { xs: "none", md: "flex" },
+          alignItems: "center",
+          px: 8,
+          color: "#fff",
+        }}
+      >
+        <Box maxWidth={560}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3 }}>
             <Box
-              onClick={() => loginWithGoogle()}
               sx={{
-                border: '1px solid #ccc',
-                backgroundColor: '#246be9',
+                width: 36,
+                height: 36,
+                bgcolor: "rgba(255,255,255,0.15)",
                 borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                width: '100%',
-                justifyContent: 'center',
-                gap: 1.5,
-                py: 1,
-                px: 3,
-                cursor: 'pointer',
-                '&:hover': { backgroundColor: '#1c54b3' }
+                backdropFilter: "blur(4px)",
               }}
-            >
-              <img
-                src={GmailIcon}
-                alt="Google"
-                style={{ width: 28, height: 28, objectFit: 'contain', padding: 6, background: '#fff', borderRadius: 4 }}
-              />
-              <Typography sx={{ fontFamily: 'Inter', fontWeight: 500, fontSize: 15, color: '#FFFFFF' }}>
-                Proceed with Google
-              </Typography>
-            </Box>
-
+            />
+            <Typography variant="h6" sx={{ letterSpacing: 1, fontWeight: 700 }}>myhandle.in</Typography>
           </Box>
 
+          <Typography variant="h3" sx={{ fontWeight: 700, lineHeight: 1.1, mb: 2, fontFamily : 'Inter' }}>
+            The fastest way for creators to manage brand deals.
+          </Typography>
+          <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400, mb: 4, fontFamily : 'Inter' }}>
+            Join top influencers who streamline pitches, inbox, and payments in one place.
+          </Typography>
+
+          <Stack direction="row" spacing={3} sx={{ opacity: 0.9 }}>
+            <Stack>
+              <Typography variant="h4" fontWeight={800}>10k+</Typography>
+              <Typography variant="body2">Link in Bio Pages</Typography>
+            </Stack>
+            <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(255,255,255,0.2)" }} />
+            <Stack>
+              <Typography variant="h4" fontWeight={800}>4.9★</Typography>
+              <Typography variant="body2">Creator satisfaction</Typography>
+            </Stack>
+          </Stack>
         </Box>
-      )}
+      </Box>
+
+      {/* Right auth card */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", p: { xs: 2.5, md: 6 }, height : '100vh' }}>
+        <Paper
+          elevation={0}
+          sx={{
+            width: "100%",
+            maxWidth: 420,
+            borderRadius: 4,
+            px: { xs: 4, md: 6 },
+            py: { xs: 4, md: 6 },
+            bgcolor: "rgba(255,255,255,0.9)",
+            backdropFilter: "blur(8px)",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
+            display : 'flex',
+            justifyContent : 'center'
+          }}
+        >
+          <Stack spacing={2.5}>
+            <Box>
+              <Typography variant="overline" sx={{ color: "text.secondary", fontWeight: 700, letterSpacing: 1.6, fontFamily : 'Inter', fontSize : isSmallScreen ? '10px' : '16px' }}>
+                Influencer Access
+              </Typography>
+              <Typography variant="h4" sx={{fontFamily : 'Inter', fontSize : isSmallScreen ? '22px' : '36px', fontWeight: 700, mt: 0.5, mb: 3 }}>
+                Sign in or create your account
+              </Typography>
+            
+            </Box>
+
+            {GoogleButton}
+
+            <Divider>or</Divider>
+
+            {/* Optional: placeholders for future email/password flow */}
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled
+              sx={{ textTransform: "none", borderRadius: 2, py: 1.3 }}
+            >
+              Email sign-in (coming soon)
+            </Button>
+
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                By continuing you agree to our {" "}
+                <MLink href="https://myhandle.in/terms" underline="hover">Terms</MLink> & {" "}
+                <MLink href="https://myhandle.in/privacy-policy" underline="hover">Privacy Policy</MLink>.
+              </Typography>
+            </Stack>
+          </Stack>
+        </Paper>
+      </Box>
 
       <ToastContainer autoClose={2000} />
-  </Grid>
-</Box>
-
-  
-      ) : (
-        <Box sx={{ mx: 2, my: 2 }}>
-          <Grid container spacing="1" >
-          
-
-<Box
-sx={{
-        position: 'fixed',   // keep it pinned
-        inset: 0,
-        boxSizing: 'border-box',
-        backgroundImage: `linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)), url(${wallBack})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        p: { xs: 2, sm: 4 },
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
->
-            <Grid item xs={12} md={12} lg={12}>
-                {isLoading ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-                    <CircularProgress color='success' />
-                  </div>
-                ) : (
-                  <Box display='flex' flexDirection={'column'} maxWidth={350} margin='auto' marginTop={8}>
-                    <Typography textAlign='center' marginBottom={4} sx={{ fontFamily : 'Inter', fontWeight : 400, fontSize : '26px', color: '#7F8CAA'}}>Get Early Access</Typography>
-
-                    <Box display="flex" justifyContent="center">
-                      <Box
-                        minWidth={350}
-                        onClick={() => loginWithGoogle()}
-                        sx={{
-                          border: '1px solid #ccc',
-                          backgroundColor: '#246be9',
-                          borderRadius: 2,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 1.5,
-                          paddingY: 1,
-                          paddingX: 3,
-                          cursor: 'pointer',
-                          '&:hover': {
-                            backgroundColor: '#1c54b3',
-                          },
-                        }}
-                      >
-                        <img
-                          src={GmailIcon}
-                          alt="Google"
-                          style={{ width: 28, height: 28, objectFit: 'contain', padding: 6, background: '#FFFFFF', borderRadius: 4 }}
-                        />
-                        <Typography sx={{ fontFamily: 'Inter', fontWeight: 500, fontSize: 15, color: '#FFFFFF' }}>
-                          Proceed with Google
-                        </Typography>
-                      </Box>
-                    </Box>
-
-
-                  </Box>
-                )}
-
-                <ToastContainer autoClose={2000} />
-            </Grid>
-
-            </Box>
-          </Grid>
-        </Box>
-      )}
-
-    </>
-  )
+    </Box>
+  );
 }
-
-export default WaitlistSignup

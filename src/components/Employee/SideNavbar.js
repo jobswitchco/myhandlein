@@ -11,6 +11,7 @@ import {
   ListItemText,
   Box,
   useMediaQuery,
+  CircularProgress
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
@@ -30,7 +31,7 @@ import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import AccountBoxOutlinedIcon from '@mui/icons-material/AccountBoxOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import MailOutlineOutlinedIcon from '@mui/icons-material/MailOutlineOutlined';
-import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
+import UpiMandateModern from "./UpiMandate";
 
 
 const theme = createTheme({
@@ -50,8 +51,10 @@ export default function SideNavbar({ window }) {
   const [userName, setUserName] = useState("");
   const [freeTrialDaysLeft, setFreeTrialLeftDays] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
+  const [hasAccess, setHasAccess] = useState(false);
   const baseUrl = "/api/usersOn";
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   // Routes considered part of Analytics
@@ -84,37 +87,32 @@ export default function SideNavbar({ window }) {
   }, []);
 
   useEffect(() => {
-    const getGreeting = () => {
-      const now = new Date();
-      const hour = now.getHours();
-      if (hour < 12) return "Good morning";
-      else if (hour < 18) return "Good afternoon";
-      else return "Good evening";
-    };
-    setGreeting(getGreeting());
 
-    const fetchUserName = async () => {
-      // try {
-      //   const response = await axios.get(`${baseUrl}/get-user-name-image`, {
-      //     withCredentials: true,
-      //   });
-      //   setUserName(response.data.name);
-      //   setProfilePicture(response.data.profilePicture);
-      //   setFreeTrialLeftDays(response.data.freeTrialDaysLeft);
-      // } catch (error) {
-      //   if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      //     handleSessionExpired();
-      //   } else {
-      //     console.error("Failed to fetch user name:", error);
-      //     handleSessionExpired();
-      //     setUserName("");
-      //     toast.error("Failed to fetch user information.");
-      //   }
-      // }
+    const fetchPaymentDetails = async () => {
+      try {
+
+      setLoading(true);
+
+        const response = await axios.get(`${baseUrl}/fetch-payment-details`, {
+          withCredentials: true,
+        });
+        setHasAccess(response.data.hasAccess);
+      } catch (error) {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          handleSessionExpired();
+        } else {
+          console.log('error : ', error);
+          handleSessionExpired();
+        }
+      }
+
+      finally {
+      setLoading(false);
+    }
     };
 
-    fetchUserName();
-  }, []);
+    fetchPaymentDetails();
+  }, [0]);
 
   const getHeaderTitle = () => {
     switch (location.pathname) {
@@ -783,9 +781,18 @@ export default function SideNavbar({ window }) {
           }}
         >
           {/* Page Content */}
-          <Box sx={{ px: 2, py: 0 }}>
-            <Outlet />
+         {loading ? (
+        <Box sx={{ py: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+
+         <Box sx={{ px: 2, py: 0 }}>
+            {hasAccess ? <Outlet /> : <UpiMandateModern />}
+            
           </Box>
+
+      )}
         </Box>
       </Box>
     </ThemeProvider>

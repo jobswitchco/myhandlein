@@ -42,6 +42,7 @@ import StoreAnalytics from './components/Employee/StoreAnalytics.js';
 import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js';
 import SideNavbar from './components/Employee/SideNavbar.js';
 import DashboardAnalytics from './components/Employee/DashboardAnalytics.js';
+import UpiMandateModern from './components/Employee/UpiMandate.js';
 
 // very critial yes
 
@@ -98,6 +99,7 @@ if (initialSubdomain) {
               <Route path="/professional/login" element={<LinkedInUserLogin />} />
               <Route path="/influencer/participant/login" element={<UserParticipant />} />
               <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/subscribe/plan" element={<UpiMandateModern />} />
               <Route path="/chat-window" element={<ChatWindow />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />

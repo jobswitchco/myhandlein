@@ -5,6 +5,7 @@ const router = express.Router();
 import USER from "../models/User.js";
 import ParticipantUser from "../models/ParticipantUser.js";
 import Conversation from "../models/Conversations.js";
+import Subscriptions from "../models/Subscriptions.js";
 import Message from "../models/Messages.js";
 import Block from "../models/Blocks.js";
 import FormsData from "../models/FormsData.js";
@@ -260,15 +261,6 @@ const isValidSubdomain = (s) =>
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s);
 
 
-router.post("/logout", authenticateToken, (req, res) => {
-  res.clearCookie("token_professional", {
-    httpOnly: true,
-    secure: true, // Set to true in production with HTTPS
-    sameSite: "Strict",
-  });
-  res.status(200).json({ message: "Logged out successfully" });
-});
-
 async function uploadBufferToGCS(buffer, originalName, mimeType) {
   if (!bucket) throw new Error("GCS bucket not configured.");
   const ext = path.extname(originalName) || "";
@@ -354,6 +346,138 @@ function normalizePosition(pos) {
   if (["rightbottom", "right_bottom", "headerimage3", "headerimage_3", "3"].includes(p)) return "rightBottomImage";
   return null;
 }
+
+router.post("/logout", authenticateToken, (req, res) => {
+  res.clearCookie("tokenMyhandleProf", {
+    httpOnly: true,
+    secure: false, // Set to true in production with HTTPS
+    sameSite: "Strict",
+  });
+  res.status(200).json({ message: "Logged out successfully" });
+});
+
+
+
+router.get('/details-for-mandate', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const user = await USER.findById(userId).lean();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    return res.json({
+      name: user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+    });
+  } catch (err) {
+    console.error('GET /usersOn/me/profile error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post("/create-subscription", authenticateToken, async (req, res) => {
+  try {
+    const { plan_id } = req.body;
+      const userId = req.user?.user_id;
+
+    const startAt = Math.floor((Date.now() + 7 * 24 * 60 * 60 * 1000) / 1000);
+
+    // total_count is required; pick a big number or store your own end/cancel logic.
+    const sub = await rz.subscriptions.create({
+      plan_id,
+      total_count: 48,             // ~83 years if monthly
+      start_at: startAt,            // first charge after 7 days
+      customer_notify: 1,           // Razorpay can send emails/SMS if configured
+      notes: { userId: userId || "anonymous" },
+    });
+
+    res.json({ subscription_id: sub.id, plan_id });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/subscription/verify", authenticateToken, async (req, res) => {
+  try {
+
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { payment_id, subscription_id, signature } = req.body;
+    if (!payment_id || !subscription_id || !signature) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    const body = `${payment_id}|${subscription_id}`;
+    const expected = crypto
+      .createHmac("sha256", RZP_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    if (expected !== signature) {
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    // Signature is valid — save/update the subscription
+    // Decide subscription_starts_at: if you offer a 7-day trial, set now+7 days
+    const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const update = {
+      user_id: userId,
+      razorpay_payment_id: payment_id,
+      razorpay_subscription_id: subscription_id,
+      razorpay_signature: signature,
+      subscription_starts_at: startsAt,
+      status: "pending_activation", // you can flip to 'active' on webhook
+      updatedAt: new Date(),
+    };
+
+    await Subscriptions.updateOne(
+      { user_id : userId },                 // unique per user
+      { $set: update, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true }
+    );
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get('/fetch-payment-details', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    // If user_id is not available, return hasAccess: false (no 401)
+    if (!userId) {
+      return res.json({ hasAccess: false });
+    }
+
+    const user = await Subscriptions.findOne({ user_id : userId}).lean();
+
+
+    if (!user) {
+
+      return res.status(201).json({ error: 'User not found', hasAccess: false });
+    }
+
+    // Check subscription status
+    const sub = await Subscriptions.findOne({ user_id: userId }).select('status').lean();
+
+    const hasAccess = !!(sub && ['pending_activation', 'active'].includes(sub.status));
+
+    return res.json({
+      hasAccess,
+    });
+  } catch (err) {
+    console.error('GET /fetch-payment-details error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
 
 router.get("/influencer/:subdomain", async (req, res) => {
   try {
@@ -1114,6 +1238,7 @@ router.post("/newsletter-list-emails", authenticateToken, async (req, res) => {
   }
 });
 
+
 router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id; // set by authenticateToken
@@ -1194,68 +1319,18 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
       { $limit: 10 },
     ]);
 
-    // ----- Total DMs RECEIVED (inbound) in range -----
-    // Works with new Conversation.participants.actor shape.
-    // It counts messages in conversations that include the dashboard owner,
-    // where the sender is NOT the owner (inbound only), and within [start, end].
-    const totalDMsAggPromise = Message.aggregate([
-      // Filter messages by time & not deleted first for efficiency
-      {
-        $match: {
-          createdAt: { $gte: start, $lte: end },
-          is_deleted: { $ne: true },
+    // ----- Total CONVERSATIONS (DMs) where user is a participant -----
+    // Count distinct conversations created in the date range where the user is a participant
+    const totalDMsPromise = Conversation.countDocuments({
+      is_deleted: { $ne: true },
+      createdAt: { $gte: start, $lte: end },
+      participants: {
+        $elemMatch: {
+          "actor.model": myActorModel,
+          "actor.id": userObjectId,
         },
       },
-      // Link to conversation to check membership and active state
-      {
-        $lookup: {
-          from: "conversations",
-          localField: "conversation",
-          foreignField: "_id",
-          as: "conv",
-        },
-      },
-      { $unwind: "$conv" },
-      { $match: { "conv.is_deleted": { $ne: true } } },
-      {
-        $match: {
-          "conv.participants": {
-            $elemMatch: {
-              "actor.model": myActorModel,
-              "actor.id": userObjectId,
-            },
-          },
-        },
-      },
-
-      // Normalize sender across possible historical shapes
-      {
-        $addFields: {
-          sender_actor_id: {
-            $ifNull: ["$sender.actor.id", { $ifNull: ["$sender.id", "$sender"] }],
-          },
-          sender_actor_model: {
-            $ifNull: ["$sender.actor.model", "$sender.model"],
-          },
-        },
-      },
-
-      // Keep only inbound (sender != this user actor)
-      {
-        $match: {
-          $expr: {
-            $not: {
-              $and: [
-                { $eq: ["$sender_actor_model", myActorModel] },
-                { $eq: ["$sender_actor_id", userObjectId] },
-              ],
-            },
-          },
-        },
-      },
-
-      { $count: "total" },
-    ]).catch(() => []);
+    });
 
     // Run all in parallel
     const [
@@ -1264,20 +1339,19 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
       totalSubscribersAgg,
       topCitiesAgg,
       topRegionsAgg,
-      totalDMsAgg,
+      totalDMs,
     ] = await Promise.all([
       totalViewsPromise,
       totalClicksAggPromise,
       totalSubscribersAggPromise,
       topCitiesAggPromise,
       topRegionsAggPromise,
-      totalDMsAggPromise,
+      totalDMsPromise,
     ]);
 
     // Normalize results
     const totalClicks = totalClicksAgg?.[0]?.total || 0;
     const totalSubscribers = totalSubscribersAgg?.[0]?.total || 0;
-    const totalDMs = totalDMsAgg?.[0]?.total || 0;
 
     const cities = (topCitiesAgg || []).map((c) => ({
       city: c.city || "Unknown",
@@ -1294,7 +1368,7 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
         totalViews,
         totalClicks,
         totalSubscribers,
-        totalDMs, // inbound only
+        totalDMs, // total conversations count
       },
       cities,
       regions,

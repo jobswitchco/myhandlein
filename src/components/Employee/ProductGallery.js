@@ -41,6 +41,9 @@ function getCategoryName(p) {
   return p?.category || p?.productCategory?.name || "Other";
 }
 
+// Transition component defined outside to prevent recreation
+const Transition = (props) => <Slide direction="up" {...props} />;
+
 export default function ProductGallery() {
   const [products, setProducts] = useState([]);
   const [page, setPage] = useState(1);
@@ -58,9 +61,8 @@ export default function ProductGallery() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState(null);
-  const Transition = (props) => <Slide direction="up" {...props} />;
-   const openDigitalDetails = (p) => {
 
+  const openDigitalDetails = (p) => {
     const apiEndpoint = `${API_BASE}/product-click-analytics`;
     const linkKey = p._id || p.id || p.document_id || null;
     const payload = {
@@ -79,13 +81,13 @@ export default function ProductGallery() {
       axios.post(apiEndpoint, payload).catch(() => {});
     }
 
-
     setDetailProduct(p || null);
     setDetailOpen(true);
   };
+
   const closeDigitalDetails = () => {
     setDetailOpen(false);
-    setTimeout(() => setDetailProduct(null), 200);
+    setDetailProduct(null);
   };
 
   const formatPrice = (val, currency = "INR") => {
@@ -108,7 +110,8 @@ export default function ProductGallery() {
   const lastParamsRef = useRef(null);
 
   // thumb cache
-  const thumbCache = new Map();
+  const thumbCache = useRef(new Map());
+  
   function useAffiliateThumb(p) {
     const [src, setSrc] = useState(() => {
       const initial = p.imageUrl || p.image || p.thumbnail || null;
@@ -122,7 +125,7 @@ export default function ProductGallery() {
       let cancelled = false;
       if (src || !p?.link) return;
 
-      const cached = thumbCache.get(p.link);
+      const cached = thumbCache.current.get(p.link);
       if (cached) {
         setSrc(cached);
         return;
@@ -135,7 +138,7 @@ export default function ProductGallery() {
           const img = data?.image || null;
           if (!cancelled && img) {
             const httpsImg = img.startsWith("http://") ? img.replace(/^http:\/\//, "https://") : img;
-            thumbCache.set(p.link, httpsImg);
+            thumbCache.current.set(p.link, httpsImg);
             setSrc(httpsImg);
           }
         } catch {
@@ -222,7 +225,7 @@ export default function ProductGallery() {
         setProducts(list);
         setTotal(res.data?.total ?? list.length ?? 0);
 
-        // 👇 derive/merge categories from the returned items
+        // derive/merge categories from the returned items
         upsertCategoriesFromList(list);
 
         // ensure selected category exists (e.g., after search changing dataset)
@@ -526,15 +529,27 @@ export default function ProductGallery() {
             </>
           )}
         </Box>
-
-        {/* <Box sx={{ mt: 2 }}>
-          <Typography variant="caption">subdomain: {subdomainForUI || "(none)"}</Typography>
-        </Box> */}
       </Box>
 
       {/* Full-screen dialog for digital products */}
-      <Dialog fullScreen open={detailOpen} onClose={closeDigitalDetails} TransitionComponent={Transition}>
-        <AppBar elevation={0} sx={{ position: "relative", bgcolor: "white", color: "inherit", borderBottom: "1px solid #eee" }}>
+      <Dialog 
+        fullScreen 
+        open={detailOpen} 
+        onClose={closeDigitalDetails} 
+        TransitionComponent={Transition}
+        keepMounted={false}
+        disablePortal={false}
+        sx={{ zIndex: 1300 }}
+      >
+        <AppBar 
+          elevation={0} 
+          sx={{ 
+            position: "relative", 
+            bgcolor: "white", 
+            color: "inherit", 
+            borderBottom: "1px solid #eee" 
+          }}
+        >
           <Toolbar sx={{ gap: 1 }}>
             <IconButton edge="start" onClick={closeDigitalDetails} aria-label="close">
               <CloseIcon />
@@ -546,74 +561,76 @@ export default function ProductGallery() {
         </AppBar>
 
         <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: "auto", width: "100%" }}>
-          <Grid container spacing={3}>
-            {/* Image */}
-            <Grid item xs={12} md={6}>
-              <Box
-                sx={{
-                  borderRadius: 2,
-                  overflow: "hidden",
-                  border: "1px solid #eee",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minHeight: 320,
-                  bgcolor: "#fafafa",
-                }}
-              >
-                {detailProduct?.imageUrl ? (
-                  <Box
-                    component="img"
-                    src={
-                      detailProduct.imageUrl.startsWith("http://")
-                        ? detailProduct.imageUrl.replace(/^http:\/\//, "https://")
-                        : detailProduct.imageUrl
-                    }
-                    alt={detailProduct?.title || "product"}
-                    referrerPolicy="no-referrer"
-                    style={{ maxWidth: "100%", maxHeight: 520, objectFit: "contain" }}
-                  />
-                ) : (
-                  <Typography color="text.secondary">No image</Typography>
-                )}
-              </Box>
-            </Grid>
-
-            {/* Details */}
-            <Grid item xs={12} md={6}>
-              <Stack spacing={2}>
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  {detailProduct?.title || "-"}
-                </Typography>
-
-                {detailProduct?.description ? (
-                  <Typography sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>
-                    {detailProduct.description}
-                  </Typography>
-                ) : (
-                  <Typography color="text.secondary">No description</Typography>
-                )}
-
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {formatPrice(detailProduct?.price, detailProduct?.currency || "INR") || ""}
-                  </Typography>
-                </Stack>
-
-                <Box sx={{ pt: 1 }}>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={() => {
-                      console.log("Buy Now clicked for", detailProduct?._id || detailProduct?.id);
-                    }}
-                  >
-                    Buy Now
-                  </Button>
+          {detailProduct && (
+            <Grid container spacing={3}>
+              {/* Image */}
+              <Grid item xs={12} md={6}>
+                <Box
+                  sx={{
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    border: "1px solid #eee",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 320,
+                    bgcolor: "#fafafa",
+                  }}
+                >
+                  {detailProduct?.imageUrl ? (
+                    <Box
+                      component="img"
+                      src={
+                        detailProduct.imageUrl.startsWith("http://")
+                          ? detailProduct.imageUrl.replace(/^http:\/\//, "https://")
+                          : detailProduct.imageUrl
+                      }
+                      alt={detailProduct?.title || "product"}
+                      referrerPolicy="no-referrer"
+                      style={{ maxWidth: "100%", maxHeight: 520, objectFit: "contain" }}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">No image</Typography>
+                  )}
                 </Box>
-              </Stack>
+              </Grid>
+
+              {/* Details */}
+              <Grid item xs={12} md={6}>
+                <Stack spacing={2}>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                    {detailProduct?.title || "-"}
+                  </Typography>
+
+                  {detailProduct?.description ? (
+                    <Typography sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>
+                      {detailProduct.description}
+                    </Typography>
+                  ) : (
+                    <Typography color="text.secondary">No description</Typography>
+                  )}
+
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      {formatPrice(detailProduct?.price, detailProduct?.currency || "INR") || ""}
+                    </Typography>
+                  </Stack>
+
+                  <Box sx={{ pt: 1 }}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      onClick={() => {
+                        console.log("Buy Now clicked for", detailProduct?._id || detailProduct?.id);
+                      }}
+                    >
+                      Buy Now
+                    </Button>
+                  </Box>
+                </Stack>
+              </Grid>
             </Grid>
-          </Grid>
+          )}
         </Box>
       </Dialog>
     </>
