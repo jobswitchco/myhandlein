@@ -280,49 +280,64 @@ export default function ChatWindow() {
   };
 
   return (
-    <Paper elevation={6} sx={{ width: '100%', height: '100vh', display : 'flex', flexDirection: "column", p: 1 }}>
-      <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
+     <Paper elevation={6} sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: "column", overflow: 'hidden' }}>
+      {/* Fixed Header */}
+      <Box display="flex" alignItems="center" gap={1} sx={{ p: 2, borderBottom: '1px solid #e0e0e0', flexShrink: 0 }}>
         <Avatar src={influencer?.picture || ""} />
         <Box>
-          <Typography fontSize={14}>{influencer?.name || influencer?.handleUserName || "Influencer"}</Typography>
+          <Typography fontSize={14} fontWeight={600}>{influencer?.name || influencer?.handleUserName || "Influencer"}</Typography>
           <Typography fontSize={12} color="text.secondary">Chat with {influencer?.handleUserName}</Typography>
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, overflowY: "auto", mb: 1, p: 1, bgcolor: "#fafafa", borderRadius: 1 }}>
+      {/* Scrollable Messages Area */}
+      <Box sx={{ flex: 1, overflowY: "auto", p: 2, bgcolor: "#fafafa" }}>
         {messages.map((m) => {
           const align = isFromInfluencer(m) ? "left" : "right";
           return (
-            <Box key={m._id} sx={{ display: "flex", justifyContent: align === "right" ? "flex-end" : "flex-start", mb: 1 }}>
-              <Box sx={{ maxWidth: "80%", p: 1, borderRadius: 1, bgcolor: align === "right" ? "#DCF8C6" : "#BADFDB", boxShadow: 0.5 }}>
+            <Box key={m._id} sx={{ display: "flex", justifyContent: align === "right" ? "flex-end" : "flex-start", mb: 1.5 }}>
+              <Box sx={{ maxWidth: "80%", p: 1.5, borderRadius: 2, bgcolor: align === "right" ? "#DCF8C6" : "#BADFDB", boxShadow: 1 }}>
                 <Typography variant="body2">{m.text}</Typography>
-                <Typography variant="caption" sx={{ display: "block", textAlign: "right", mt: 0.5 }}>
+                <Typography variant="caption" sx={{ display: "block", textAlign: "right", mt: 0.5, opacity: 0.7 }}>
                   {messageCreatedAt(m).toLocaleTimeString()}
                 </Typography>
               </Box>
             </Box>
           );
         })}
+        <div ref={messagesEndRef} />
       </Box>
 
-      <Box display="flex" gap={1} mb={10}>
-        <TextField
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            emitTyping(true);
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = setTimeout(() => emitTyping(false), 900);
-          }}
-          variant="outlined"
-          size="small"
-          fullWidth
-          placeholder="Write a message..."
-        />
-        <IconButton onClick={sendMessage} color="primary"><SendIcon /></IconButton>
+      {/* Fixed Input Area */}
+      <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', bgcolor: 'white', flexShrink: 0 }}>
+        {typingFromInfluencer && (
+          <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+            {influencer?.name || "Influencer"} is typing...
+          </Typography>
+        )}
+        <Box display="flex" gap={1}>
+          <TextField
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              emitTyping(true);
+              if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+              typingTimeoutRef.current = setTimeout(() => emitTyping(false), 900);
+            }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            variant="outlined"
+            size="small"
+            fullWidth
+            placeholder="Write a message..."
+          />
+          <IconButton onClick={sendMessage} color="primary"><SendIcon /></IconButton>
+        </Box>
       </Box>
-
-      {typingFromInfluencer && <Typography variant="caption" sx={{ mt: 1 }}>{influencer?.name || "Influencer"} is typing...</Typography>}
     </Paper>
   );
 }
