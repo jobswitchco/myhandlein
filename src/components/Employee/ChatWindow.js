@@ -7,12 +7,12 @@ import { useLocation } from "react-router-dom";
 
 const API_BASE = "/api";
 
+
 function useQuery() {
   return new URLSearchParams(useLocation().search);
 }
 
 function messageConversationId(message) {
-  // message may carry conversation id in several shapes
   if (!message) return null;
   if (message.conversation && typeof message.conversation === "object" && message.conversation._id) return String(message.conversation._id);
   if (message.conversation && typeof message.conversation === "string") return String(message.conversation);
@@ -35,6 +35,8 @@ export default function ChatWindow() {
   const [typingFromInfluencer, setTypingFromInfluencer] = useState(false);
   const socketRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const pendingMessagesRef = useRef(new Set()); // Track optimistic message IDs
+  const messagesEndRef = useRef(null);
 
   // fetch influencer
   useEffect(() => {
@@ -62,8 +64,13 @@ export default function ChatWindow() {
           setConversation(res.data.conversation);
           if (res.data.conversation && res.data.conversation._id) {
             const msgRes = await axios.get(`${API_BASE}/usersOn/messages/${res.data.conversation._id}`, { withCredentials: true });
-            // server returns { messages: [...] } (normalized shape)
-            setMessages(msgRes.data.messages || []);
+            const normalized = (msgRes.data.messages || []).map(m => {
+              if (m.senderRole) return m;
+              if (m?.sender?.model === "User") return { ...m, senderRole: "influencer" };
+              if (m?.sender?.model === "ParticipantUser") return { ...m, senderRole: "participant" };
+              return m;
+            });
+            setMessages(normalized);
           }
         }
       } catch (err) {
@@ -77,7 +84,7 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!influencer) return;
 
-    const socket = io("https://myhandle.in", {
+     const socket = io("https://myhandle.in", {
    path: "/socket.io",
    transports: ["websocket", "polling"], // ok to start with both
    withCredentials: true, // keep ONLY if you actually rely on cookies (you do for participant token)
@@ -98,8 +105,27 @@ export default function ChatWindow() {
           console.log("[ChatWidget] ignoring message for other conversation:", msgConvId);
           return;
         }
+        
+        // Add or update message (don't duplicate)
         setMessages(prev => {
-          if (prev.some(m => String(m._id) === String(message._id))) return prev;
+          const exists = prev.some(m => String(m._id) === String(message._id));
+          if (exists) return prev;
+          
+          // Check if this is replacing an optimistic message
+          const optimisticIndex = prev.findIndex(m => 
+            String(m._id).startsWith("temp-") && 
+            m.text === message.text &&
+            pendingMessagesRef.current.has(m._id)
+          );
+          
+          if (optimisticIndex !== -1) {
+            // Replace optimistic with real message
+            const newMessages = [...prev];
+            newMessages[optimisticIndex] = message;
+            pendingMessagesRef.current.delete(prev[optimisticIndex]._id);
+            return newMessages;
+          }
+          
           return [...prev, message];
         });
       } catch (err) {
@@ -110,8 +136,26 @@ export default function ChatWindow() {
     socket.on("message:saved", ({ message }) => {
       try {
         if (!message) return;
+        
+        // Replace optimistic message with saved one
         setMessages(prev => {
-          if (prev.some(m => String(m._id) === String(message._id))) return prev;
+          const exists = prev.some(m => String(m._id) === String(message._id));
+          if (exists) return prev;
+          
+          // Find and replace the optimistic message
+          const optimisticIndex = prev.findIndex(m => 
+            String(m._id).startsWith("temp-") && 
+            m.text === message.text &&
+            pendingMessagesRef.current.has(m._id)
+          );
+          
+          if (optimisticIndex !== -1) {
+            const newMessages = [...prev];
+            newMessages[optimisticIndex] = message;
+            pendingMessagesRef.current.delete(prev[optimisticIndex]._id);
+            return newMessages;
+          }
+          
           return [...prev, message];
         });
       } catch (err) {
@@ -119,14 +163,22 @@ export default function ChatWindow() {
       }
     });
 
-    // typing event: show only when it comes from another socket (someone else typing in same conversation)
     socket.on("typing", (payload) => {
       try {
         if (!payload) return;
         if (!conversation || String(conversation._id) !== String(payload.conversationId)) return;
-        if (payload.fromSocketId && payload.fromSocketId === socket.id) return; // ignore our own typing
-        // If payload came from a user whose id equals influencer id OR payload lacks sender, treat as influencer typing
-        const isFromInfluencer = !!payload.from && influencer && String(payload.from) === String(influencer._id);
+        if (payload.fromSocketId && payload.fromSocketId === socket.id) return;
+
+        let isFromInfluencer = false;
+        if (typeof payload.senderRole === "string") {
+          isFromInfluencer = payload.senderRole.toLowerCase() === "influencer";
+        } else if (payload.from && typeof payload.from === "object") {
+          if (payload.from.model === "User") isFromInfluencer = true;
+          else if (payload.from.model === "ParticipantUser") isFromInfluencer = false;
+          else if (payload.from.id && influencer?._id) {
+            isFromInfluencer = String(payload.from.id) === String(influencer._id);
+          }
+        }
         setTypingFromInfluencer(Boolean(payload.isTyping) && isFromInfluencer);
       } catch (err) {
         console.error("[ChatWidget] typing handler error:", err);
@@ -145,10 +197,8 @@ export default function ChatWindow() {
       try { socket.disconnect(); } catch (e) {}
       socketRef.current = null;
     };
-    // IMPORTANT: do not include conversation in deps here; create socket once per influencer
   }, [influencer, subdomain]);
 
-  // ensure join_conversation whenever conversation becomes available (no socket recreation)
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket || !conversation || !conversation._id) return;
@@ -162,7 +212,6 @@ export default function ChatWindow() {
     }
   }, [conversation && conversation._id]);
 
-  // emitTyping helper — include fromSocketId and a small guard/log
   const emitTyping = (isTyping) => {
     const socket = socketRef.current;
     if (!socket || !conversation || !conversation._id) {
@@ -173,7 +222,6 @@ export default function ChatWindow() {
     socket.emit("typing", payload);
   };
 
-  // send message
   const sendMessage = async () => {
     if (!text.trim()) return;
     const socket = socketRef.current;
@@ -182,22 +230,28 @@ export default function ChatWindow() {
       return;
     }
 
-    // optimistic UI: use same minimal fields server will reply with (try to follow new shape)
+    const optimisticId = "temp-" + Date.now() + "-" + Math.random();
     const optimistic = {
-      _id: "temp-" + Date.now(),
+      _id: optimisticId,
       text: text.trim(),
       createdAt: new Date().toISOString(),
-      // try to mimic server: conversation ref available as id
       conversation: { _id: conversation._id },
-      // sender will be empty until server returns; frontend treats missing sender as 'me'
+      senderRole: "participant",
+      sender: { model: "ParticipantUser", id: "__me__" },
     };
+    
+    // Track this optimistic message
+    pendingMessagesRef.current.add(optimisticId);
     setMessages(prev => [...prev, optimistic]);
 
-    // emit actual message
-    socket.emit("message:send", { conversationId: conversation._id, to_influencer_id: influencer._id, text: text.trim(), as: "participant" });
+    socket.emit("message:send", { 
+      conversationId: conversation._id, 
+      text: text.trim(),
+      as: "participant"
+    });
+
     console.debug("[ChatWidget] emitted message:send", { conversationId: conversation._id, to_influencer_id: influencer._id });
 
-    // clear typing
     const clearPayload = { conversationId: conversation._id, isTyping: false, fromSocketId: socket.id };
     socket.emit("typing", clearPayload);
 
@@ -209,19 +263,19 @@ export default function ChatWindow() {
     setTypingFromInfluencer(false);
   };
 
-  // decide alignment of a message: influencer => left, else right
   const isFromInfluencer = (m) => {
     if (!m) return false;
-    // if server supplied normalized sender role
-    if (m.senderRole && m.senderRole === "influencer") return true;
-    // if server populated sender object
-    if (m.sender && (m.sender._id || m.sender === influencer._id || m.sender === influencer?._id)) {
-      const sid = String(m.sender._id || m.sender);
-      return influencer && String(influencer._id) === sid;
+    if (typeof m.senderRole === "string") {
+      return m.senderRole.toLowerCase() === "influencer";
     }
-    // fallback: if message has from_user/from_participant shape, treat from_user === influencer
+    if (m.sender && typeof m.sender === "object") {
+      if (m.sender.model === "User") return true;
+      if (m.sender.model === "ParticipantUser") return false;
+      if (m.sender.id && influencer?._id) {
+        return String(m.sender.id) === String(influencer._id);
+      }
+    }
     if (m.from_user && influencer && String(m.from_user) === String(influencer._id)) return true;
-    if (m.from_participant) return false;
     return false;
   };
 

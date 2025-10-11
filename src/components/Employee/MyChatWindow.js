@@ -45,6 +45,8 @@ export default function MyChatWindow({
   const typingTimeoutRef = useRef(null);
   const scrollRef = useRef(null);
   const debugEmittedRef = useRef(false);
+  const pendingMessagesRef = useRef(new Set()); // Track optimistic messages
+  const messagesEndRef = useRef(null);
 
   // derived ids
   const influencerIdRef = useRef(null);
@@ -124,9 +126,8 @@ export default function MyChatWindow({
   // socket
   useEffect(() => {
     if (!conversation) return;
- 
-
-           const socket = io("https://myhandle.in", {
+  
+       const socket = io("https://myhandle.in", {
        path: "/socket.io",
        transports: ["websocket", "polling"], // ok to start with both
        withCredentials: true, // keep ONLY if you actually rely on cookies (you do for participant token)
@@ -140,22 +141,38 @@ export default function MyChatWindow({
       socket.emit("join_conversation", { conversationId: conversation._id });
     });
 
- socket.on("message:received", ({ message }) => {
-  if (!message) return;
+    socket.on("message:received", ({ message }) => {
+      if (!message) return;
 
-  const msgConvId =
-    (message.conversation && typeof message.conversation === "object" && message.conversation._id)
-      ? String(message.conversation._id)
-      : message.conversation_id || message.conversationId || message.conversation;
+      const msgConvId =
+        (message.conversation && typeof message.conversation === "object" && message.conversation._id)
+          ? String(message.conversation._id)
+          : message.conversation_id || message.conversationId || message.conversation;
 
-  if (!msgConvId || String(msgConvId) !== String(conversation._id)) return;
+      if (!msgConvId || String(msgConvId) !== String(conversation._id)) return;
 
-  setMessages(prev => {
-    // optional: de-dupe
-    if (prev.some(m => String(m._id) === String(message._id))) return prev;
-    return [...prev, message];
-  });
-});
+      setMessages(prev => {
+        // Check if message already exists
+        if (prev.some(m => String(m._id) === String(message._id))) return prev;
+        
+        // Check if this is replacing an optimistic message
+        const optimisticIndex = prev.findIndex(m => 
+          String(m._id).startsWith("tmp-") && 
+          m.text === message.text &&
+          pendingMessagesRef.current.has(m._id)
+        );
+        
+        if (optimisticIndex !== -1) {
+          // Replace optimistic with real message
+          const newMessages = [...prev];
+          newMessages[optimisticIndex] = message;
+          pendingMessagesRef.current.delete(prev[optimisticIndex]._id);
+          return newMessages;
+        }
+        
+        return [...prev, message];
+      });
+    });
 
     socket.on("typing", (payload) => {
       try {
@@ -201,16 +218,19 @@ export default function MyChatWindow({
     if (!t || !conversation) return;
     setText("");
 
-    // optimistic
- const tmp = {
-   _id: `tmp-${Date.now()}`,
-   text: t,
-   createdAt: new Date().toISOString(),
-   // mark as coming from influencer so it shows on the RIGHT
-   sender: { _id: influencerIdRef.current || null },
-   from_influencer: true,
-   status: "sending"
- };
+    // optimistic - with unique ID
+    const optimisticId = `tmp-${Date.now()}-${Math.random()}`;
+    const tmp = {
+      _id: optimisticId,
+      text: t,
+      createdAt: new Date().toISOString(),
+      sender: { _id: influencerIdRef.current || null },
+      from_influencer: true,
+      status: "sending"
+    };
+    
+    // Track this optimistic message
+    pendingMessagesRef.current.add(optimisticId);
     setMessages(prev => [...prev, tmp]);
 
     const socket = socketRef.current;
@@ -220,131 +240,108 @@ export default function MyChatWindow({
       setTypingFromParticipant(false);
       return;
     }
-
-    try {
-      const res = await axios.post(`${API_BASE}/usersOn/messages/send-as-influencer`, { conversationId: conversation._id, text: t }, { withCredentials: true });
-      const saved = res?.data?.message;
-      setMessages(prev => prev.map(m => (String(m._id).startsWith("tmp-") ? saved : m)));
-    } catch (err) {
-      console.error("HTTP send error", err);
-      setMessages(prev => prev.map(m => (String(m._id).startsWith("tmp-") ? { ...m, status: "failed" } : m)));
-    }
   };
 
   if (loading) return <Box display="flex" alignItems="center" justifyContent="center" sx={{ py: 6 }}><CircularProgress /></Box>;
 
   // Helper functions
-function deriveParticipantInfluencerIds(convo, participantObj) {
-  // Prefer explicit ids returned by the API
-  let participantId = participantObj?._id ? String(participantObj._id) : null;
-  let influencerId =
-    (convo?.influencer && convo.influencer._id) ? String(convo.influencer._id) : null;
+  function deriveParticipantInfluencerIds(convo, participantObj) {
+    // Prefer explicit ids returned by the API
+    let participantId = participantObj?._id ? String(participantObj._id) : null;
+    let influencerId =
+      (convo?.influencer && convo.influencer._id) ? String(convo.influencer._id) : null;
 
-  const parts = Array.isArray(convo?.participants) ? convo.participants : [];
+    const parts = Array.isArray(convo?.participants) ? convo.participants : [];
 
-  for (const p of parts) {
-    const model = String(p?.actor?.model || "").toLowerCase();   // "User" | "ParticipantUser"
-    const uid = p?.actor?.id ? String(p.actor.id) : null;
-    const role = String(p?.role || "").toLowerCase();            // optional, may be "influencer" | "member" | etc.
-    if (!uid) continue;
+    for (const p of parts) {
+      const model = String(p?.actor?.model || "").toLowerCase();
+      const uid = p?.actor?.id ? String(p.actor.id) : null;
+      const role = String(p?.role || "").toLowerCase();
+      if (!uid) continue;
 
-    // New schema truth: model === "user" ⇒ influencer, model === "participantuser" ⇒ participant
-    if (!influencerId && model === "user") {
-      influencerId = uid;
-      continue;
-    }
-    if (!participantId && model === "participantuser") {
-      participantId = uid;
-      continue;
+      if (!influencerId && model === "user") {
+        influencerId = uid;
+        continue;
+      }
+      if (!participantId && model === "participantuser") {
+        participantId = uid;
+        continue;
+      }
+
+      if (!influencerId && (role === "influencer" || role === "admin")) {
+        influencerId = uid;
+        continue;
+      }
+      if (!participantId && (role === "member" || role === "participant" || role === "user")) {
+        participantId = uid;
+        continue;
+      }
     }
 
-    // If some records still carry a role string, use it as a fallback
-    if (!influencerId && (role === "influencer" || role === "admin")) {
-      influencerId = uid;
-      continue;
+    if (!influencerId) {
+      if (convo?.influencer_id) influencerId = toIdString(convo.influencer_id);
+      else if (convo?.influencer) influencerId = toIdString(convo.influencer._id || convo.influencer);
     }
-    if (!participantId && (role === "member" || role === "participant" || role === "user")) {
-      participantId = uid;
-      continue;
+
+    if ((!influencerId || !participantId) && parts.length >= 2) {
+      const ids = parts
+        .map(p => (p?.actor?.id ? String(p.actor.id) : null))
+        .filter(Boolean);
+
+      if (!participantId && influencerId) {
+        participantId = ids.find(id => id !== influencerId) || participantId;
+      } else if (!influencerId && participantId) {
+        influencerId = ids.find(id => id !== participantId) || influencerId;
+      }
     }
+
+    if (convo?.participant_ids_sorted) {
+      const sorted = String(convo.participant_ids_sorted).split("|").filter(Boolean);
+      if (!influencerId && participantId && sorted.length === 2) {
+        influencerId = sorted.find(x => x !== participantId) || influencerId;
+      }
+      if (!participantId && influencerId && sorted.length === 2) {
+        participantId = sorted.find(x => x !== influencerId) || participantId;
+      }
+    }
+
+    return { influencerId: influencerId || null, participantId: participantId || null };
   }
 
-  // Fallbacks from conversation fields if present
-  if (!influencerId) {
-    if (convo?.influencer_id) influencerId = toIdString(convo.influencer_id);
-    else if (convo?.influencer) influencerId = toIdString(convo.influencer._id || convo.influencer);
+  function isFromInfluencer(m) {
+    const infId = influencerIdRef.current;
+
+    if (m?.senderRole && String(m.senderRole).toLowerCase() === "influencer") return true;
+    if (m?.sender_type && String(m.sender_type).toLowerCase() === "influencer") return true;
+    if (m?.from_influencer === true || m?.fromInfluencer === true) return true;
+
+    if (!infId) return false;
+    const sid = getSenderIdFromMessage(m);
+    return !!(sid && String(sid) === String(infId));
   }
 
-  // If still missing one side, infer “the other person” in a 1:1 chat
-  if ((!influencerId || !participantId) && parts.length >= 2) {
-    const ids = parts
-      .map(p => (p?.actor?.id ? String(p.actor.id) : null))
-      .filter(Boolean);
+  function isFromParticipant(m) {
+    const pId = participantIdRef.current;
 
-    if (!participantId && influencerId) {
-      participantId = ids.find(id => id !== influencerId) || participantId;
-    } else if (!influencerId && participantId) {
-      influencerId = ids.find(id => id !== participantId) || influencerId;
-    }
+    if (m?.senderRole && String(m.senderRole).toLowerCase() === "participant") return true;
+    if (m?.sender_type && String(m.sender_type).toLowerCase() === "participant") return true;
+    if (m?.from_participant === true || m?.fromParticipant === true) return true;
+
+    if (!pId) return false;
+    const sid = getSenderIdFromMessage(m);
+    return !!(sid && String(sid) === String(pId));
   }
 
-  // Final fallback: participant_ids_sorted ("a|b") -> take the other one
-  if (convo?.participant_ids_sorted) {
-    const sorted = String(convo.participant_ids_sorted).split("|").filter(Boolean);
-    if (!influencerId && participantId && sorted.length === 2) {
-      influencerId = sorted.find(x => x !== participantId) || influencerId;
-    }
-    if (!participantId && influencerId && sorted.length === 2) {
-      participantId = sorted.find(x => x !== influencerId) || participantId;
-    }
+  function getSenderIdFromMessage(m) {
+    if (!m) return null;
+    if (m?.sender && (m.sender._id || m.sender.id)) return String(m.sender._id || m.sender.id);
+    if (m?.user && (m.user._id || m.user.id)) return String(m.user._id || m.user.id);
+    if (m?.author && (m.author._id || m.author.id)) return String(m.author._id || m.author.id);
+    if (m?.senderId) return String(m.senderId);
+    if (m?.from_user) return String(m.from_user);
+    if (m?.fromUser) return String(m.fromUser);
+    return null;
   }
-
-  return { influencerId: influencerId || null, participantId: participantId || null };
-}
-
-
-
-function isFromInfluencer(m) {
-  const infId = influencerIdRef.current;
-
-  // Explicit role/flags first
-  if (m?.senderRole && String(m.senderRole).toLowerCase() === "influencer") return true;
-  if (m?.sender_type && String(m.sender_type).toLowerCase() === "influencer") return true;
-  if (m?.from_influencer === true || m?.fromInfluencer === true) return true;
-
-  // Then compare IDs
-  if (!infId) return false;
-  const sid = getSenderIdFromMessage(m);
-  return !!(sid && String(sid) === String(infId));
-}
-
-function isFromParticipant(m) {
-  const pId = participantIdRef.current;
-
-  // Explicit role/flags first
-  if (m?.senderRole && String(m.senderRole).toLowerCase() === "participant") return true;
-  if (m?.sender_type && String(m.sender_type).toLowerCase() === "participant") return true;
-  if (m?.from_participant === true || m?.fromParticipant === true) return true;
-
-  // Then compare IDs
-  if (!pId) return false;
-  const sid = getSenderIdFromMessage(m);
-  return !!(sid && String(sid) === String(pId));
-}
-
-function getSenderIdFromMessage(m) {
-  if (!m) return null;
-  if (m?.sender && (m.sender._id || m.sender.id)) return String(m.sender._id || m.sender.id);
-  if (m?.user && (m.user._id || m.user.id)) return String(m.user._id || m.user.id);
-  if (m?.author && (m.author._id || m.author.id)) return String(m.author._id || m.author.id);
-  if (m?.senderId) return String(m.senderId);
-  if (m?.from_user) return String(m.from_user);
-  if (m?.fromUser) return String(m.fromUser);
-  // ❌ do NOT treat existence of from_participant_id as the *sender*
-  // It may just be conversation metadata.
-  return null;
-}
-
 
   // Render
   const containerSx = embedded 
@@ -380,67 +377,65 @@ function getSenderIdFromMessage(m) {
         {messages.length === 0 ? (
           <Typography color="text.secondary" sx={{ textAlign: "center" }}>No messages yet</Typography>
         ) : (
-      messages.map((m) => {
-  const left = isFromParticipant(m);
-  const right = isFromInfluencer(m) || (!left); // fallback to right if unknown
+          messages.map((m) => {
+            const left = isFromParticipant(m);
+            const right = isFromInfluencer(m) || (!left);
 
-  const bubbleBg = right ? "#dcf8c6" : "#ffffff";
-  const borderRadius = right ? "8px 8px 0px 8px" : "8px 8px 8px 0px";
-  const msgKey = m._id || m.id || `${m.createdAt || m.created_at || Date.now()}-${Math.random()}`;
+            const bubbleBg = right ? "#dcf8c6" : "#ffffff";
+            const borderRadius = right ? "8px 8px 0px 8px" : "8px 8px 8px 0px";
+            const msgKey = m._id || m.id || `${m.createdAt || m.created_at || Date.now()}-${Math.random()}`;
 
+            return (
+              <Box key={msgKey}
+                   sx={{ display: "flex", justifyContent: right ? "flex-end" : "flex-start", mb: 0.5 }}>
+                {/* left */}
+                {!right && (
+                  <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
+                    <Avatar src={participant?.picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
+                      {!participant?.picture && initials(participant?.name || participant?.email || "P")}
+                    </Avatar>
+                    <Box>
+                      <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
+                                 borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                          {m.text || m.message || m.body}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" sx={{ color: "text.secondary", pl: 1, display: "block", mt: 0.25 }}>
+                        {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                      : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                      : ""}
+                        {m.status && ` • ${m.status}`}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
 
-  return (
-    <Box key={msgKey}
-         sx={{ display: "flex", justifyContent: right ? "flex-end" : "flex-start", mb: 0.5 }}>
-      {/* left */}
-      {!right && (
-        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
-          <Avatar src={participant?.picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
-            {!participant?.picture && initials(participant?.name || participant?.email || "P")}
-          </Avatar>
-          <Box>
-            <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
-                       borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                {m.text || m.message || m.body}
-              </Typography>
-            </Box>
-            <Typography variant="caption" sx={{ color: "text.secondary", pl: 1, display: "block", mt: 0.25 }}>
-              {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : ""}
-              {m.status && ` • ${m.status}`}
-            </Typography>
-          </Box>
-        </Box>
-      )}
-
-      {/* right */}
-      {right && (
-        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
-          <Box>
-            <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
-                       borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                {m.text || m.message || m.body}
-              </Typography>
-            </Box>
-            <Typography variant="caption" sx={{ color: "text.secondary", pr: 1, display: "block", mt: 0.25, textAlign: "right" }}>
-              {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : ""}
-              {m.status && ` • ${m.status}`}
-            </Typography>
-          </Box>
-          <Avatar src={conversation?.influencer_picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
-            {!conversation?.influencer_picture && initials(conversation?.influencer_name || conversation?.influencer?.name || "M")}
-          </Avatar>
-        </Box>
-      )}
-    </Box>
-  );
-})
-
+                {/* right */}
+                {right && (
+                  <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
+                    <Box>
+                      <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
+                                 borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                          {m.text || m.message || m.body}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" sx={{ color: "text.secondary", pr: 1, display: "block", mt: 0.25, textAlign: "right" }}>
+                        {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                      : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                      : ""}
+                        {m.status && ` • ${m.status}`}
+                      </Typography>
+                    </Box>
+                    <Avatar src={conversation?.influencer_picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
+                      {!conversation?.influencer_picture && initials(conversation?.influencer_name || conversation?.influencer?.name || "M")}
+                    </Avatar>
+                  </Box>
+                )}
+              </Box>
+            );
+          })
         )}
 
         {typingFromParticipant && (
