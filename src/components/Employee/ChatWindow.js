@@ -280,7 +280,8 @@ export default function ChatWindow() {
   };
 
   return (
-     <Paper elevation={6} sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: "column", overflow: 'hidden' }}>
+   <Box sx={{ bgcolor: "#FFFFFF", margin: 'auto', height : '100vh'}}>
+    <Box sx={{ width: '100%', minHeight: '90vh', display: 'flex', flexDirection: "column", overflow: 'hidden' }}>
       {/* Fixed Header */}
       <Box display="flex" alignItems="center" gap={1} sx={{ p: 2, borderBottom: '1px solid #e0e0e0', flexShrink: 0 }}>
         <Avatar src={influencer?.picture || ""} />
@@ -338,6 +339,8 @@ export default function ChatWindow() {
           <IconButton onClick={sendMessage} color="primary"><SendIcon /></IconButton>
         </Box>
       </Box>
-    </Paper>
+
+    </Box>
+    </Box>
   );
 }
