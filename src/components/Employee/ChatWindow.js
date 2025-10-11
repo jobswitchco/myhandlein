@@ -280,67 +280,134 @@ export default function ChatWindow() {
   };
 
   return (
-   <Box sx={{ bgcolor: "#FFFFFF", margin: 'auto', height : '100vh'}}>
-    <Box sx={{ width: '100%', minHeight: '90vh', display: 'flex', flexDirection: "column", overflow: 'hidden' }}>
-      {/* Fixed Header */}
-      <Box display="flex" alignItems="center" gap={1} sx={{ p: 2, borderBottom: '1px solid #e0e0e0', flexShrink: 0 }}>
-        <Avatar src={influencer?.picture || ""} />
-        <Box>
-          <Typography fontSize={14} fontWeight={600}>{influencer?.name || influencer?.handleUserName || "Influencer"}</Typography>
-          <Typography fontSize={12} color="text.secondary">Chat with {influencer?.handleUserName}</Typography>
-        </Box>
+  <Box sx={{ bgcolor: "#FFFFFF", margin: 'auto', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+  <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: "column" }}>
+    {/* Fixed Header - Sticky at top */}
+    <Box 
+      display="flex" 
+      alignItems="center" 
+      gap={1} 
+      sx={{ 
+        p: 2, 
+        borderBottom: '1px solid #e0e0e0', 
+        flexShrink: 0,
+        bgcolor: 'white',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10
+      }}
+    >
+      <Avatar src={influencer?.picture || ""} />
+      <Box>
+        <Typography fontSize={14} fontWeight={600}>
+          {influencer?.name || influencer?.handleUserName || "Influencer"}
+        </Typography>
+        <Typography fontSize={12} color="text.secondary">
+          Chat with {influencer?.handleUserName}
+        </Typography>
       </Box>
+    </Box>
 
-      {/* Scrollable Messages Area */}
-      <Box sx={{ flex: 1, overflowY: "auto", p: 2, bgcolor: "#fafafa" }}>
-        {messages.map((m) => {
-          const align = isFromInfluencer(m) ? "left" : "right";
-          return (
-            <Box key={m._id} sx={{ display: "flex", justifyContent: align === "right" ? "flex-end" : "flex-start", mb: 1.5 }}>
-              <Box sx={{ maxWidth: "80%", p: 1.5, borderRadius: 2, bgcolor: align === "right" ? "#DCF8C6" : "#BADFDB", boxShadow: 1 }}>
-                <Typography variant="body2">{m.text}</Typography>
-                <Typography variant="caption" sx={{ display: "block", textAlign: "right", mt: 0.5, opacity: 0.7 }}>
-                  {messageCreatedAt(m).toLocaleTimeString()}
-                </Typography>
-              </Box>
+    {/* Scrollable Messages Area - Only this scrolls */}
+    <Box 
+      sx={{ 
+        flex: 1, 
+        overflowY: "auto", 
+        overflowX: "hidden",
+        p: 2, 
+        bgcolor: "#fafafa",
+        minHeight: 0 // Important for flex scrolling
+      }}
+    >
+      {messages.map((m) => {
+        const align = isFromInfluencer(m) ? "left" : "right";
+        return (
+          <Box 
+            key={m._id} 
+            sx={{ 
+              display: "flex", 
+              justifyContent: align === "right" ? "flex-end" : "flex-start", 
+              mb: 1.5 
+            }}
+          >
+            <Box 
+              sx={{ 
+                maxWidth: "80%", 
+                p: 1.5, 
+                borderRadius: 2, 
+                bgcolor: align === "right" ? "#DCF8C6" : "#BADFDB", 
+                boxShadow: 1 
+              }}
+            >
+              <Typography variant="body2">{m.text}</Typography>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  display: "block", 
+                  textAlign: "right", 
+                  mt: 0.5, 
+                  opacity: 0.7 
+                }}
+              >
+                {messageCreatedAt(m).toLocaleTimeString()}
+              </Typography>
             </Box>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </Box>
-
-      {/* Fixed Input Area */}
-      <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', bgcolor: 'white', flexShrink: 0 }}>
-        {typingFromInfluencer && (
-          <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
-            {influencer?.name || "Influencer"} is typing...
-          </Typography>
-        )}
-        <Box display="flex" gap={1}>
-          <TextField
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              emitTyping(true);
-              if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-              typingTimeoutRef.current = setTimeout(() => emitTyping(false), 900);
-            }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-              }
-            }}
-            variant="outlined"
-            size="small"
-            fullWidth
-            placeholder="Write a message..."
-          />
-          <IconButton onClick={sendMessage} color="primary"><SendIcon /></IconButton>
-        </Box>
-      </Box>
-
+          </Box>
+        );
+      })}
+      <div ref={messagesEndRef} />
     </Box>
+
+    {/* Fixed Input Area - Sticky at bottom */}
+    <Box 
+      sx={{ 
+        p: 2, 
+        borderTop: '1px solid #e0e0e0', 
+        bgcolor: 'white', 
+        flexShrink: 0,
+        position: 'sticky',
+        bottom: 0,
+        zIndex: 10
+      }}
+    >
+      {typingFromInfluencer && (
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            display: 'block', 
+            mb: 1, 
+            color: 'text.secondary' 
+          }}
+        >
+          {influencer?.name || "Influencer"} is typing...
+        </Typography>
+      )}
+      <Box display="flex" gap={1}>
+        <TextField
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            emitTyping(true);
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => emitTyping(false), 900);
+          }}
+          onKeyPress={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          variant="outlined"
+          size="small"
+          fullWidth
+          placeholder="Write a message..."
+        />
+        <IconButton onClick={sendMessage} color="primary">
+          <SendIcon />
+        </IconButton>
+      </Box>
     </Box>
+  </Box>
+</Box>
   );
 }
