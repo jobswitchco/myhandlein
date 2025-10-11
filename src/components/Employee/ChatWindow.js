@@ -280,7 +280,7 @@ export default function ChatWindow() {
   };
 
   return (
-    <Paper elevation={6} sx={{ width: 400, p: 1 }}>
+    <Paper elevation={6} sx={{ width: '100%', height: '100vh', display : 'flex', flexDirection: "column", p: 1 }}>
       <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
         <Avatar src={influencer?.picture || ""} />
         <Box>
@@ -289,12 +289,12 @@ export default function ChatWindow() {
         </Box>
       </Box>
 
-      <Box sx={{ height: 320, overflowY: "auto", mb: 1, p: 1, bgcolor: "#fafafa", borderRadius: 1 }}>
+      <Box sx={{ flex: 1, overflowY: "auto", mb: 1, p: 1, bgcolor: "#fafafa", borderRadius: 1 }}>
         {messages.map((m) => {
           const align = isFromInfluencer(m) ? "left" : "right";
           return (
             <Box key={m._id} sx={{ display: "flex", justifyContent: align === "right" ? "flex-end" : "flex-start", mb: 1 }}>
-              <Box sx={{ maxWidth: "80%", p: 1, borderRadius: 1, bgcolor: align === "right" ? "#DCF8C6" : "#fff", boxShadow: 0.5 }}>
+              <Box sx={{ maxWidth: "80%", p: 1, borderRadius: 1, bgcolor: align === "right" ? "#DCF8C6" : "#BADFDB", boxShadow: 0.5 }}>
                 <Typography variant="body2">{m.text}</Typography>
                 <Typography variant="caption" sx={{ display: "block", textAlign: "right", mt: 0.5 }}>
                   {messageCreatedAt(m).toLocaleTimeString()}
