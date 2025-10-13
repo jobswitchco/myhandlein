@@ -12,6 +12,18 @@ const User_Schema = new Schema({
   rightBottomImage: { type: String },
   is_google_user: { type: Boolean },
   handleUserName: { type: String },
+  
+  instagramConnected: { type: Boolean, default: false },
+  igUserId: { type: String },
+  fbPageAccessToken: { type: String },
+  igUsername: { type: String },
+  igProfilePic: { type: String },
+  igFollowersCount: { type: Number },
+  igMediaCount: { type: Number },
+  fbLongLivedToken: { type: String },
+  fbTokenExpiry: { type: Number },
+
+
   socials: [{
     platform: { type: String },
     url: { type: String },

@@ -43,6 +43,7 @@ import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js
 import SideNavbar from './components/Employee/SideNavbar.js';
 import DashboardAnalytics from './components/Employee/DashboardAnalytics.js';
 import UpiMandateModern from './components/Employee/UpiMandate.js';
+import InstagramConnect from './components/Employee/InstagramConnect.js';
 
 // very critial yes
 
@@ -123,8 +124,7 @@ if (initialSubdomain) {
 
                 <Route path="user/bio" element={<UserBioDashboard />} />
                 <Route path="support" element={<Support />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="account/details" element={<AccountDetails />} />
+                <Route path="profile" element={<AccountDetails />} />
                 <Route path="store/products" element={<ProductCatalogue />} />
                 <Route path="my/inbox" element={<MyInbox />} />
                 <Route path="my/chatwindow/:conversationId" element={<MyChatWindow />} />
@@ -133,6 +133,7 @@ if (initialSubdomain) {
                 <Route path="my/block/analytics" element={<BlocksAnalytics />} />
                 <Route path="newsletter/emails" element={<NewsletterEmailsTable />} />
                 <Route path="dashboard/analytics" element={<DashboardAnalytics />} />
+                <Route path="fb_insta_redirect" element={<InstagramConnect />} />
 
 
 

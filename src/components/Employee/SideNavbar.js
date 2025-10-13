@@ -11,7 +11,10 @@ import {
   ListItemText,
   Box,
   useMediaQuery,
-  CircularProgress
+  CircularProgress,
+  Typography,
+  Divider,
+  Collapse
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
@@ -24,15 +27,20 @@ import "react-toastify/dist/ReactToastify.css";
 import { toast } from "react-toastify";
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
-import Collapse from "@mui/material/Collapse";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import AccountBoxOutlinedIcon from '@mui/icons-material/AccountBoxOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import MailOutlineOutlinedIcon from '@mui/icons-material/MailOutlineOutlined';
+import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
+import LinkIcon from '@mui/icons-material/Link';
+import InstagramIcon from '@mui/icons-material/Instagram';
+import ConnectWithoutContactIcon from '@mui/icons-material/ConnectWithoutContact';
+import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
+import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
+import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import UpiMandateModern from "./UpiMandate";
-
 
 const theme = createTheme({
   palette: {
@@ -42,32 +50,66 @@ const theme = createTheme({
 });
 
 export default function SideNavbar({ window }) {
-
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState(null);
   const location = useLocation();
   const [greeting, setGreeting] = useState("");
   const [userName, setUserName] = useState("");
+  const [hasAccess, setHasAccess] = useState(false);
   const [freeTrialDaysLeft, setFreeTrialLeftDays] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
-  const [hasAccess, setHasAccess] = useState(false);
   const baseUrl = "/api/usersOn";
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Routes considered part of Analytics
+  // Main menu states
+  const [linkInBioOpen, setLinkInBioOpen] = useState(true);
+  const [instagramOpen, setInstagramOpen] = useState(true);
+  
+  // Sub-menu states
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [mentionsOpen, setMentionsOpen] = useState(false);
+
+  // Routes for Analytics (nested under Link In Bio)
   const analyticsRoutes = [
     "/professional/my/page/analytics",
-    "/professional/store/analytics",
+    "/professional/my/store/analytics",
     "/professional/my/block/analytics",
   ];
 
-  const isAnalyticsRoute = analyticsRoutes.includes(location.pathname);
+  // Routes for Mentions (nested under Instagram)
+  const mentionsRoutes = [
+    "/professional/instagram/mentions/comments",
+    "/professional/instagram/mentions/messages",
+  ];
 
-  // IMPORTANT: purely controlled by clicking the Analytics main item.
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  // Routes for Link In Bio section
+  const linkInBioRoutes = [
+    "/professional/dashboard/analytics",
+    "/professional/user/bio",
+    "/professional/my/inbox",
+    "/professional/store/products",
+    ...analyticsRoutes,
+    "/professional/newsletter/emails",
+    "/professional/profile",
+    "/professional/support",
+  ];
+
+  // Routes for Instagram section
+  const instagramRoutes = [
+    "/professional/fb_insta_redirect",
+    "/professional/instagram/dm",
+    "/professional/instagram/mentions",
+    ...mentionsRoutes,
+    "/professional/instagram/create-post",
+  ];
+
+  const isAnalyticsRoute = analyticsRoutes.includes(location.pathname);
+  const isMentionsRoute = mentionsRoutes.includes(location.pathname);
+  const isLinkInBioSection = linkInBioRoutes.includes(location.pathname);
+  const isInstagramSection = instagramRoutes.includes(location.pathname);
 
   const goTo = (path) => {
     navigate(path);
@@ -87,12 +129,9 @@ export default function SideNavbar({ window }) {
   }, []);
 
   useEffect(() => {
-
     const fetchPaymentDetails = async () => {
       try {
-
-      setLoading(true);
-
+        setLoading(true);
         const response = await axios.get(`${baseUrl}/fetch-payment-details`, {
           withCredentials: true,
         });
@@ -104,41 +143,19 @@ export default function SideNavbar({ window }) {
           console.log('error : ', error);
           handleSessionExpired();
         }
+      } finally {
+        setLoading(false);
       }
-
-      finally {
-      setLoading(false);
-    }
     };
 
     fetchPaymentDetails();
-  }, [0]);
-
-  const getHeaderTitle = () => {
-    switch (location.pathname) {
-      case "/professional/myposts":
-        return {
-          title: "My posts",
-          subtitle: "Posts you've created with PostLn."
-        };
-      case "/professional/newsletters":
-        return {
-          title: "Newsletters",
-          subtitle: "Your latest AI-crafted newsletters"
-        };
-      default:
-        return {
-          title: `${greeting}, ${userName}! 🖐️`,
-          subtitle: null
-        };
-    }
-  };
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
   };
 
-  const drawerWidth = 220;
+  const drawerWidth = 260;
 
   const drawerContent = (
     <Box
@@ -146,13 +163,35 @@ export default function SideNavbar({ window }) {
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        backgroundColor: "#F5F7F8",
+        backgroundColor: "#FAFBFC",
         pt: isSmallScreen ? "64px" : 0,
       }}
     >
       {/* Top section (logo + nav links) */}
-      <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
-        <Toolbar sx={{ justifyContent: "space-between" }}>
+   <Box sx={{ 
+  flexGrow: 1, 
+  overflowY: "auto", 
+  overflowX: "hidden",
+  // Custom Scrollbar Styling
+  '&::-webkit-scrollbar': {
+    width: '6px',
+  },
+  '&::-webkit-scrollbar-track': {
+    backgroundColor: '#F3F4F6',
+    borderRadius: '10px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: '#CBD5E1',
+    borderRadius: '10px',
+    '&:hover': {
+      backgroundColor: '#94A3B8',
+    },
+  },
+  // Firefox scrollbar
+  scrollbarWidth: 'none',
+  scrollbarColor: '#CBD5E1 #F3F4F6',
+}}>
+        <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 2 }}>
           <Link
             to="/"
             style={{
@@ -171,9 +210,12 @@ export default function SideNavbar({ window }) {
             />
             <div
               style={{
-                marginLeft: 2,
-                fontWeight: 600,
-                fontSize: "1.2rem",
+                marginLeft: 8,
+                fontWeight: 700,
+                fontSize: "1.25rem",
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
               }}
             >
               PostLn
@@ -181,310 +223,736 @@ export default function SideNavbar({ window }) {
           </Link>
         </Toolbar>
 
-        <List sx={{ px: 1 }}>
-
-             <ListItem disablePadding>
-            <Link
-              to="/professional/dashboard/analytics"
-              style={{ textDecoration: "none", color: "black", width: "100%" }}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemButton
-                selected={location.pathname === "/professional/dashboard/analytics"}
-                sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/dashboard/analytics"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
-                }}
-              >
-                <ListItemIcon>
-                  <SpaceDashboardOutlinedIcon
-                    sx={{
-                      color:
-                        location.pathname === "/professional/dashboard/analytics"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Dashboard"
-                  primaryTypographyProps={{
-                    sx: {
-                      color:
-                        location.pathname === "/professional/dashboard/analytics"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </Link>
-          </ListItem>
-
-
-          {/* Dashboard */}
-          <ListItem disablePadding>
-            <Link
-              to="/professional/user/bio"
-              style={{ textDecoration: "none", color: "black", width: "100%" }}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemButton
-                selected={location.pathname === "/professional/user/bio"}
-                sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/user/bio"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
-                }}
-              >
-                <ListItemIcon>
-                  <SpaceDashboardOutlinedIcon
-                    sx={{
-                      color:
-                        location.pathname === "/professional/user/bio"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="My Bio Page"
-                  primaryTypographyProps={{
-                    sx: {
-                      color:
-                        location.pathname === "/professional/user/bio"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </Link>
-          </ListItem>
-
-          {/* My Inbox */}
-          <ListItem disablePadding>
-            <Link
-              to="/professional/my/inbox"
-              style={{ textDecoration: "none", color: "black", width: "100%" }}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemButton
-                selected={location.pathname === "/professional/my/inbox"}
-                sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/my/inbox"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
-                }}
-              >
-                <ListItemIcon>
-                  <InboxOutlinedIcon
-                    sx={{
-                      color:
-                        location.pathname === "/professional/my/inbox"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="My Inbox"
-                  primaryTypographyProps={{
-                    sx: {
-                      color:
-                        location.pathname === "/professional/my/inbox"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </Link>
-          </ListItem>
-
-          {/* Store */}
-          <ListItem disablePadding>
-            <Link
-              to="/professional/store/products"
-              style={{ textDecoration: "none", color: "black", width: "100%" }}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemButton
-                selected={location.pathname === "/professional/store/products"}
-                sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/store/products"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
-                }}
-              >
-                <ListItemIcon>
-                  <StorefrontOutlinedIcon
-                    sx={{
-                      color:
-                        location.pathname === "/professional/store/products"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Store"
-                  primaryTypographyProps={{
-                    sx: {
-                      color:
-                        location.pathname === "/professional/store/products"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </Link>
-          </ListItem>
-
-          {/* Analytics (parent) */}
-          <ListItem disablePadding>
+        <List sx={{ px: 2, pt: 1 }}>
+          {/* ===== LINK IN BIO MAIN MENU ===== */}
+          <ListItem disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
-              onClick={() => setAnalyticsOpen((p) => !p)} // toggle only, no navigation
-              selected={isAnalyticsRoute}                 // highlight when on any analytics route
+              onClick={() => setLinkInBioOpen((p) => !p)}
               sx={{
-                backgroundColor: isAnalyticsRoute ? "#e3e3f3" : "transparent",
-                borderRadius: "6px",
-                py: 0.5,
+                borderRadius: "10px",
+                py: 1,
+                px: 1.5,
+                backgroundColor: isLinkInBioSection ? "#0046FF" : "transparent",
+                "&:hover": {
+                  backgroundColor: isLinkInBioSection ? "rgba(102, 126, 234, 0.12)" : "rgba(0,0,0,0.03)",
+                },
+                transition: "all 0.2s ease",
               }}
             >
-              <ListItemIcon>
-                <BarChartOutlinedIcon
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <LinkIcon
                   sx={{
-                    color: isAnalyticsRoute ? "#093FB4" : "#7F8CAA",
-                    transition: "color 0.3s",
+                    color: isLinkInBioSection ? "#FFFFFF" : "#6B7280",
+                    fontSize: "1.3rem",
                   }}
                 />
               </ListItemIcon>
-
               <ListItemText
-                primary="Analytics"
+                primary="Link In Bio"
                 primaryTypographyProps={{
                   sx: {
-                    color: isAnalyticsRoute ? "#093FB4" : "#7F8CAA",
-                    fontWeight: 400,
+                    color: isLinkInBioSection ? "#FFFFFF" : "#374151",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                    fontFamily: "Inter"
                   },
                 }}
               />
-
-              {analyticsOpen ? (
-                <ExpandLessIcon sx={{ color: isAnalyticsRoute ? "#093FB4" : "#7F8CAA" }} />
+              {linkInBioOpen ? (
+                <ExpandLessIcon sx={{ color: isLinkInBioSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
               ) : (
-                <ExpandMoreIcon sx={{ color: isAnalyticsRoute ? "#093FB4" : "#7F8CAA" }} />
+                <ExpandMoreIcon sx={{ color: isLinkInBioSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
               )}
             </ListItemButton>
           </ListItem>
 
-          {/* Analytics submenu */}
-          <Collapse in={analyticsOpen} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding sx={{ mt: 0.5 }}>
-              {/* Page Analytics */}
-              <ListItem disablePadding>
-                <ListItemButton
-                  onClick={() => goTo("/professional/my/page/analytics")}
-                  selected={location.pathname === "/professional/my/page/analytics"}
+          {/* Link In Bio Submenu */}
+<Collapse in={linkInBioOpen} timeout="auto" unmountOnExit>
+  <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
+    {/* Dashboard */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/dashboard/analytics")}
+        selected={location.pathname === "/professional/dashboard/analytics"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+          backgroundColor: location.pathname === "/professional/dashboard/analytics" ? "#6E8CFB" : "transparent",
+          "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <SpaceDashboardOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/dashboard/analytics" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Dashboard"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/dashboard/analytics" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/dashboard/analytics" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+
+    {/* Bio Page */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/user/bio")}
+        selected={location.pathname === "/professional/user/bio"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+          backgroundColor: location.pathname === "/professional/user/bio" ? "#6E8CFB" : "transparent",
+          "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <ContactPageOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/user/bio" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Bio Page"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/user/bio" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/user/bio" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+
+    {/* Inbox */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/my/inbox")}
+        selected={location.pathname === "/professional/my/inbox"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+           backgroundColor: location.pathname === "/professional/my/inbox" ? "#6E8CFB" : "transparent",
+          "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <InboxOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/my/inbox" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Inbox"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/my/inbox" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/my/inbox" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+
+    {/* Store */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/store/products")}
+        selected={location.pathname === "/professional/store/products"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+            backgroundColor: location.pathname === "/professional/store/products" ? "#6E8CFB" : "transparent",
+          "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <StorefrontOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/store/products" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Store"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/store/products" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/store/products" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+
+    {/* Analytics (nested) */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => setAnalyticsOpen((p) => !p)}
+        selected={isAnalyticsRoute}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+           backgroundColor: isAnalyticsRoute ? "#6E8CFB" : "transparent",
+          "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <BarChartOutlinedIcon
+            sx={{
+              color: isAnalyticsRoute ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Analytics"
+          primaryTypographyProps={{
+            sx: {
+              color: isAnalyticsRoute ? "#FFFFFF" : "#6B7280",
+              fontWeight: isAnalyticsRoute ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+        {analyticsOpen ? (
+          <ExpandLessIcon sx={{ color: isAnalyticsRoute ? "#FFFFFF" : "#9CA3AF", fontSize: "1rem" }} />
+        ) : (
+          <ExpandMoreIcon sx={{ color: isAnalyticsRoute ? "#FFFFFF" : "#9CA3AF", fontSize: "1rem" }} />
+        )}
+      </ListItemButton>
+    </ListItem>
+
+    {/* Analytics submenu */}
+    <Collapse in={analyticsOpen} timeout="auto" unmountOnExit>
+
+      <List component="div" disablePadding>
+        <ListItem disablePadding sx={{ mb: 0.5, pl: 4 }}>
+          <ListItemButton
+            onClick={() => goTo("/professional/my/page/analytics")}
+            selected={location.pathname === "/professional/my/page/analytics"}
+            sx={{
+              borderRadius: "8px",
+              py: 0.6,
+              backgroundColor: location.pathname === "/professional/my/page/analytics" ? "#6E8CFB" : "transparent",
+          "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+            }}
+          >
+            <ListItemText
+              primary="Page Analytics"
+              primaryTypographyProps={{
+                sx: {
+                  color: location.pathname === "/professional/my/page/analytics" ? "#FFFFFF" : "#9CA3AF",
+                  fontWeight: 400,
+                  fontSize: "0.82rem",
+                },
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+
+        <ListItem disablePadding sx={{ mb: 0.5, pl: 4 }}>
+          <ListItemButton
+            onClick={() => goTo("/professional/my/store/analytics")}
+            selected={location.pathname === "/professional/my/store/analytics"}
+            sx={{
+              borderRadius: "8px",
+              py: 0.6,
+              backgroundColor: location.pathname === "/professional/my/store/analytics" ? "#6E8CFB" : "transparent",
+              "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+            }}
+          >
+            <ListItemText
+              primary="Store Analytics"
+              primaryTypographyProps={{
+                sx: {
+                  color: location.pathname === "/professional/my/store/analytics" ? "#FFFFFF" : "#9CA3AF",
+                  fontWeight: 400,
+                  fontSize: "0.82rem",
+                },
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+
+        <ListItem disablePadding sx={{ mb: 0.5, pl: 4 }}>
+          <ListItemButton
+            onClick={() => goTo("/professional/my/block/analytics")}
+            selected={location.pathname === "/professional/my/block/analytics"}
+            sx={{
+           
+              borderRadius: "8px",
+              py: 0.6,
+              backgroundColor: location.pathname === "/professional/my/block/analytics" ? "#6E8CFB" : "transparent",
+             "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+            }}
+          >
+            <ListItemText
+              primary="Block Analytics"
+              primaryTypographyProps={{
+                sx: {
+                  color: location.pathname === "/professional/my/block/analytics" ? "#FFFFFF" : "#9CA3AF",
+                  fontWeight: 400,
+                  fontSize: "0.82rem",
+                },
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+      </List>
+    </Collapse>
+
+    {/* Newsletter List */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/newsletter/emails")}
+        selected={location.pathname === "/professional/newsletter/emails"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+          backgroundColor: location.pathname === "/professional/newsletter/emails" ? "#6E8CFB" : "transparent",
+           "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <MailOutlineOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/newsletter/emails" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Newsletter List"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/newsletter/emails" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/newsletter/emails" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+
+    {/* Profile */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/profile")}
+        selected={location.pathname === "/professional/profile"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+          backgroundColor: location.pathname === "/professional/profile" ? "#6E8CFB" : "transparent",
+           "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <AccountBoxOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/profile" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Profile"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/profile" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/profile" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+
+    {/* Support */}
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/support")}
+        selected={location.pathname === "/professional/support"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+          backgroundColor: location.pathname === "/professional/support" ? "#6E8CFB" : "transparent",
+          "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <SupportAgentOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/support" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="Support"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/support" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/support" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+  </List>
+</Collapse>
+          {/* ===== DIVIDER ===== */}
+          <Divider 
+            sx={{ 
+              my: 2, 
+              mx: 1,
+              borderColor: "#E5E7EB",
+              borderWidth: 1
+            }} 
+          />
+
+          {/* ===== INSTAGRAM MAIN MENU ===== */}
+          <ListItem disablePadding sx={{ mb: 0.5 }}>
+            <ListItemButton
+              onClick={() => setInstagramOpen((p) => !p)}
+              sx={{
+                borderRadius: "10px",
+                py: 1,
+                px: 1.5,
+                backgroundColor: isInstagramSection ? "rgba(225, 48, 108, 0.08)" : "transparent",
+                "&:hover": {
+                  backgroundColor: isInstagramSection ? "rgba(225, 48, 108, 0.12)" : "rgba(0,0,0,0.03)",
+                },
+                transition: "all 0.2s ease",
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <InstagramIcon
                   sx={{
-                    pl: 7,
-                    borderRadius: "6px",
-                    py: 0.5,
-                    "&.Mui-selected": { backgroundColor: "#F1F1F1" },
-                    "&.Mui-selected:hover": { backgroundColor: "#d5d5d5" },
-                    "&:hover": { backgroundColor: "#f3f4f6" },
+                    color: isInstagramSection ? "#E1306C" : "#6B7280",
+                    fontSize: "1.3rem",
+                  }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary="Instagram"
+                primaryTypographyProps={{
+                  sx: {
+                    color: isInstagramSection ? "#E1306C" : "#374151",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                  },
+                }}
+              />
+              {instagramOpen ? (
+                <ExpandLessIcon sx={{ color: isInstagramSection ? "#E1306C" : "#9CA3AF", fontSize: "1.2rem" }} />
+              ) : (
+                <ExpandMoreIcon sx={{ color: isInstagramSection ? "#E1306C" : "#9CA3AF", fontSize: "1.2rem" }} />
+              )}
+            </ListItemButton>
+          </ListItem>
+
+          {/* Instagram Submenu */}
+          <Collapse in={instagramOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
+              {/* Connect Instagram */}
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/fb_insta_redirect")}
+                  selected={location.pathname === "/professional/fb_insta_redirect"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/fb_insta_redirect" ? "#F3F4F6" : "transparent",
+                    "&:hover": { backgroundColor: "#F3F4F6" },
+                    transition: "all 0.2s ease",
                   }}
                 >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ConnectWithoutContactIcon
+                      sx={{
+                        color: location.pathname === "/professional/fb_insta_redirect" ? "#E1306C" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
                   <ListItemText
-                    primary="Page Analytics"
+                    primary="Connect Instagram"
                     primaryTypographyProps={{
                       sx: {
-                        color:
-                          location.pathname === "/professional/my/page/analytics"
-                            ? "#111"
-                            : "#7F8CAA",
-                        fontWeight: 400,
+                        color: location.pathname === "/professional/fb_insta_redirect" ? "#1F2937" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/fb_insta_redirect" ? 500 : 400,
+                        fontSize: "0.875rem",
                       },
                     }}
                   />
                 </ListItemButton>
               </ListItem>
 
-              {/* Store Analytics */}
-              <ListItem disablePadding>
+              {/* DM */}
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
-                  onClick={() => goTo("/professional/my/store/analytics")}
-                  selected={location.pathname === "/professional/my/store/analytics"}
+                  onClick={() => goTo("/professional/instagram/dm")}
+                  selected={location.pathname === "/professional/instagram/dm"}
                   sx={{
-                    pl: 7,
-                    borderRadius: "6px",
-                    py: 0.5,
-                    "&.Mui-selected": { backgroundColor: "#F1F1F1" },
-                    "&.Mui-selected:hover": { backgroundColor: "#d5d5d5" },
-                    "&:hover": { backgroundColor: "#d5d5d5" },
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/instagram/dm" ? "#F3F4F6" : "transparent",
+                    "&:hover": { backgroundColor: "#F3F4F6" },
+                    transition: "all 0.2s ease",
                   }}
                 >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ForumOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/instagram/dm" ? "#E1306C" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
                   <ListItemText
-                    primary="Store Analytics"
+                    primary="DM"
                     primaryTypographyProps={{
                       sx: {
-                        color:
-                          location.pathname === "/professional/my/store/analytics"
-                            ? "#111"
-                            : "#7F8CAA",
-                        fontWeight: 400,
+                        color: location.pathname === "/professional/instagram/dm" ? "#1F2937" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/instagram/dm" ? 500 : 400,
+                        fontSize: "0.875rem",
                       },
                     }}
                   />
                 </ListItemButton>
               </ListItem>
 
-              {/* Block Analytics */}
-              <ListItem disablePadding>
+              {/* Mentions (nested) */}
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
-                  onClick={() => goTo("/professional/my/block/analytics")}
-                  selected={location.pathname === "/professional/my/block/analytics"}
+                  onClick={() => setMentionsOpen((p) => !p)}
+                  selected={isMentionsRoute}
                   sx={{
-                    pl: 7,
-                    borderRadius: "6px",
-                    py: 0.5,
-                    "&.Mui-selected": { backgroundColor: "#F1F1F1" },
-                    "&.Mui-selected:hover": { backgroundColor: "#d5d5d5" },
-                    "&:hover": { backgroundColor: "#d5d5d5" },
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: isMentionsRoute ? "#F3F4F6" : "transparent",
+                    "&:hover": { backgroundColor: "#F3F4F6" },
+                    transition: "all 0.2s ease",
                   }}
                 >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <NotificationsActiveOutlinedIcon
+                      sx={{
+                        color: isMentionsRoute ? "#E1306C" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
                   <ListItemText
-                    primary="Block Analytics"
+                    primary="Mentions"
                     primaryTypographyProps={{
                       sx: {
-                        color:
-                          location.pathname === "/professional/my/block/analytics"
-                            ? "#111"
-                            : "#7F8CAA",
-                        fontWeight: 400,
+                        color: isMentionsRoute ? "#1F2937" : "#6B7280",
+                        fontWeight: isMentionsRoute ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                  {mentionsOpen ? (
+                    <ExpandLessIcon sx={{ color: "#9CA3AF", fontSize: "1rem" }} />
+                  ) : (
+                    <ExpandMoreIcon sx={{ color: "#9CA3AF", fontSize: "1rem" }} />
+                  )}
+                </ListItemButton>
+              </ListItem>
+
+              {/* Mentions submenu */}
+              <Collapse in={mentionsOpen} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  <ListItem disablePadding sx={{ mb: 0.5 }}>
+                    <ListItemButton
+                      onClick={() => goTo("/professional/instagram/mentions/comments")}
+                      selected={location.pathname === "/professional/instagram/mentions/comments"}
+                      sx={{
+                        pl: 8,
+                        borderRadius: "8px",
+                        py: 0.6,
+                        backgroundColor: location.pathname === "/professional/instagram/mentions/comments" ? "#E5E7EB" : "transparent",
+                        "&:hover": { backgroundColor: "#E5E7EB" },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <ListItemText
+                        primary="Comments Analytics"
+                        primaryTypographyProps={{
+                          sx: {
+                            color: location.pathname === "/professional/instagram/mentions/comments" ? "#374151" : "#9CA3AF",
+                            fontWeight: 400,
+                            fontSize: "0.8rem",
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+
+                  <ListItem disablePadding sx={{ mb: 0.5 }}>
+                    <ListItemButton
+                      onClick={() => goTo("/professional/instagram/mentions/messages")}
+                      selected={location.pathname === "/professional/instagram/mentions/messages"}
+                      sx={{
+                        pl: 8,
+                        borderRadius: "8px",
+                        py: 0.6,
+                        backgroundColor: location.pathname === "/professional/instagram/mentions/messages" ? "#E5E7EB" : "transparent",
+                        "&:hover": { backgroundColor: "#E5E7EB" },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <ListItemText
+                        primary="Messages Analytics"
+                        primaryTypographyProps={{
+                          sx: {
+                            color: location.pathname === "/professional/instagram/mentions/messages" ? "#374151" : "#9CA3AF",
+                            fontWeight: 400,
+                            fontSize: "0.8rem",
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                </List>
+              </Collapse>
+
+              {/* Create Post */}
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/instagram/create-post")}
+                  selected={location.pathname === "/professional/instagram/create-post"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/instagram/create-post" ? "#F3F4F6" : "transparent",
+                    "&:hover": { backgroundColor: "#F3F4F6" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <AddPhotoAlternateOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/instagram/create-post" ? "#E1306C" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Create Post"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/instagram/create-post" ? "#1F2937" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/instagram/create-post" ? 500 : 400,
+                        fontSize: "0.875rem",
                       },
                     }}
                   />
@@ -493,75 +961,26 @@ export default function SideNavbar({ window }) {
             </List>
           </Collapse>
 
-              <ListItem disablePadding>
-            <Link
-              to="/professional/newsletter/emails"
-              style={{ textDecoration: "none", color: "black", width: "100%" }}
-              onClick={handleDrawerToggle}
-            >
+          {/* Profile (only on mobile) */}
+          {isSmallScreen && (
+            <ListItem disablePadding sx={{ mt: 2 }}>
               <ListItemButton
-                selected={location.pathname === "/professional/newsletter/emails"}
-                sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/newsletter/emails"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
-                }}
-              >
-                <ListItemIcon>
-                  <MailOutlineOutlinedIcon
-                    sx={{
-                      color:
-                        location.pathname === "/professional/newsletter/emails"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Newsletter List"
-                  primaryTypographyProps={{
-                    sx: {
-                      color:
-                        location.pathname === "/professional/newsletter/emails"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </Link>
-          </ListItem>
-
-             <ListItem disablePadding>
-            <Link
-              to="/professional/profile"
-              style={{ textDecoration: "none", color: "black", width: "100%" }}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemButton
+                onClick={() => goTo("/professional/profile")}
                 selected={location.pathname === "/professional/profile"}
                 sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/profile"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
+                  borderRadius: "8px",
+                  py: 0.75,
+                  pl: 2,
+                  backgroundColor: location.pathname === "/professional/profile" ? "#F3F4F6" : "transparent",
+                  "&:hover": { backgroundColor: "#F3F4F6" },
+                  transition: "all 0.2s ease",
                 }}
               >
-                <ListItemIcon>
-                  <AccountBoxOutlinedIcon
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <AccountCircleOutlinedIcon
                     sx={{
-                      color:
-                        location.pathname === "/professional/profile"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
+                      color: location.pathname === "/professional/profile" ? "#667eea" : "#9CA3AF",
+                      fontSize: "1.2rem",
                     }}
                   />
                 </ListItemIcon>
@@ -569,121 +988,24 @@ export default function SideNavbar({ window }) {
                   primary="Profile"
                   primaryTypographyProps={{
                     sx: {
-                      color:
-                        location.pathname === "/professional/profile"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
+                      color: location.pathname === "/professional/profile" ? "#1F2937" : "#6B7280",
+                      fontWeight: location.pathname === "/professional/profile" ? 500 : 400,
+                      fontSize: "0.875rem",
                     },
                   }}
                 />
               </ListItemButton>
-            </Link>
-          </ListItem>
-
-             <ListItem disablePadding>
-            <Link
-              to="/professional/support"
-              style={{ textDecoration: "none", color: "black", width: "100%" }}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemButton
-                selected={location.pathname === "/professional/support"}
-                sx={{
-                  backgroundColor:
-                    location.pathname === "/professional/support"
-                      ? "#e3e3f3"
-                      : "transparent",
-                  borderRadius: "6px",
-                  py: 0.5,
-                }}
-              >
-                <ListItemIcon>
-                  <SupportAgentOutlinedIcon
-                    sx={{
-                      color:
-                        location.pathname === "/professional/support"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      transition: "color 0.3s",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Support"
-                  primaryTypographyProps={{
-                    sx: {
-                      color:
-                        location.pathname === "/professional/support"
-                          ? "#093FB4"
-                          : "#7F8CAA",
-                      fontWeight: 400,
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </Link>
-          </ListItem>
-
-          {/* Profile (only on mobile) */}
-          {isSmallScreen && (
-            <ListItem disablePadding>
-              <Link
-                to="/professional/profile"
-                style={{
-                  textDecoration: "none",
-                  color: "black",
-                  width: "100%",
-                }}
-                onClick={handleDrawerToggle}
-              >
-                <ListItemButton
-                  selected={location.pathname === "/professional/profile"}
-                  sx={{
-                    backgroundColor:
-                      location.pathname === "/professional/profile"
-                        ? "#e3e3f3"
-                        : "transparent",
-                    borderRadius: "6px",
-                    py: 0.5,
-                  }}
-                >
-                  <ListItemIcon>
-                    <AccountCircleOutlinedIcon
-                      sx={{
-                        color:
-                          location.pathname === "/professional/profile"
-                            ? "#093FB4"
-                            : "#7F8CAA",
-                        transition: "color 0.3s",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Profile"
-                    primaryTypographyProps={{
-                      sx: {
-                        color:
-                          location.pathname === "/professional/profile"
-                            ? "#093FB4"
-                            : "#7F8CAA",
-                        fontWeight: 400,
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </Link>
             </ListItem>
           )}
         </List>
       </Box>
 
-      {/* Bottom fixed plan card */}
-      {/* <Box
+      {/* Bottom fixed section */}
+      <Box
         sx={{
           p: 2,
-          borderTop: "1px solid #e0e0e0",
-          backgroundColor: "#F5F7F8",
+          borderTop: "1px solid #E5E7EB",
+          backgroundColor: "#FAFBFC",
           flexShrink: 0,
           ...(isSmallScreen && {
             position: "fixed",
@@ -694,47 +1016,8 @@ export default function SideNavbar({ window }) {
           }),
         }}
       >
-        <Typography sx={{ fontWeight: 500, mb: 1, fontFamily: "Inter", fontSize: "14px" }}>
-          Free trial expires in {freeTrialDaysLeft} days
-        </Typography>
-
-        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-          <Box sx={{ flexGrow: 1, mr: 2 }}>
-            <LinearProgress
-              variant="determinate"
-              value={(freeTrialDaysLeft / 7) * 100}
-              sx={{
-                height: 8,
-                borderRadius: 5,
-                backgroundColor: "#e0e0e0",
-                "& .MuiLinearProgress-bar": { backgroundColor: "#4f46e5" },
-              }}
-            />
-          </Box>
-          <Typography color="text.secondary" sx={{ fontSize: "12px" }}>
-            {freeTrialDaysLeft} / 7 days
-          </Typography>
-        </Box>
-
-        <Typography variant="body2" sx={{ color: "#555", mb: 1 }}>
-          Upgrade to $9/mo to get{" "}
-          <span style={{ fontWeight: 500, color: "#000" }}>30 AI Rewrites</span> instantly.
-        </Typography>
-
-        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-          <Typography
-            variant="body2"
-            sx={{
-              color: "#4f46e5",
-              fontWeight: 500,
-              cursor: "pointer",
-              "&:hover": { textDecoration: "underline" },
-            }}
-          >
-            Upgrade
-          </Typography>
-        </Box>
-      </Box> */}
+        {/* You can add premium upgrade card or user info here */}
+      </Box>
     </Box>
   );
 
@@ -742,7 +1025,7 @@ export default function SideNavbar({ window }) {
     <ThemeProvider theme={theme}>
       <Box sx={{ display: "flex", height: "100vh" }}>
         {/* Sidebar */}
-        <Box component="nav" sx={{ width: { sm: 220 }, flexShrink: { sm: 0 } }}>
+        <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
           <Drawer
             anchor="left"
             variant="temporary"
@@ -751,7 +1034,7 @@ export default function SideNavbar({ window }) {
             ModalProps={{ keepMounted: true }}
             sx={{
               display: { xs: "block", sm: "none" },
-              "& .MuiDrawer-paper": { width: 220 },
+              "& .MuiDrawer-paper": { width: drawerWidth, boxShadow: "0 0 40px rgba(0,0,0,0.05)" },
             }}
           >
             {drawerContent}
@@ -761,7 +1044,11 @@ export default function SideNavbar({ window }) {
             variant="permanent"
             sx={{
               display: { xs: "none", sm: "block" },
-              "& .MuiDrawer-paper": { width: 240 },
+              "& .MuiDrawer-paper": { 
+                width: drawerWidth, 
+                borderRight: "1px solid #E5E7EB",
+                boxShadow: "0 0 40px rgba(0,0,0,0.02)"
+              },
             }}
             open
           >
@@ -775,30 +1062,26 @@ export default function SideNavbar({ window }) {
           sx={{
             flexGrow: 1,
             width: "100%",
-            maxWidth: { sm: `calc(100% - 220px)` },
+            maxWidth: { sm: `calc(100% - ${drawerWidth}px)` },
             px: 2,
-            overflow: 'auto'
+            overflow: 'auto',
+            backgroundColor: "#FAFBFC"
           }}
         >
-          {/* Page Content */}
-         {loading ? (
-        <Box sx={{ py: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-
-         <Box sx={{ px: 2, py: 0 }}>
-            {hasAccess ? <Outlet /> : <UpiMandateModern />}
-            
-          </Box>
-
-      )}
+          {loading ? (
+            <Box sx={{ py: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <CircularProgress sx={{ color: "#667eea" }} />
+            </Box>
+          ) : (
+            <Box sx={{ px: 2, py: 0 }}>
+              {hasAccess ? <Outlet /> : <UpiMandateModern />}
+            </Box>
+          )}
         </Box>
       </Box>
     </ThemeProvider>
   );
-};
-
+}
 
 SideNavbar.propTypes = {
   window: PropTypes.func,
