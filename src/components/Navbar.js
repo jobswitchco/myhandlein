@@ -306,7 +306,7 @@ export default function Navbar() {
       {/* CENTER: main nav (centered on large screens) */}
       <div style={centerWrapStyle}>
         <nav aria-label="Primary" style={navListStyle}>
-          <div
+          {/* <div
             ref={featuresRef}
             style={featuresBtnStyle}
             onMouseEnter={() => !isMobile && setFeaturesOpen(true)}
@@ -347,7 +347,7 @@ export default function Navbar() {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
 
           <Link to="/pricing" style={navItemStyle}>Pricing</Link>
           <Link to="/trust-center" style={navItemStyle}>Trust Center</Link>
@@ -394,7 +394,7 @@ export default function Navbar() {
               </span>
             </button>
 
-            {featuresOpen && (
+            {/* {featuresOpen && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8 }}>
                 {submenu.map((s) => (
                   <Link key={s.key} to={s.to} style={{ textDecoration: "none", color: "#0f1724", padding: "10px 8px", borderRadius: 8 }}>
@@ -408,7 +408,7 @@ export default function Navbar() {
                   </Link>
                 ))}
               </div>
-            )}
+            )} */}
 
             <Link to="/pricing" style={mobileLinkStyle}>Pricing</Link>
             <Link to="/trust-center" style={mobileLinkStyle}>Trust Center</Link>
