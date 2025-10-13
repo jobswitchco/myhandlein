@@ -40,7 +40,7 @@ export default function LandingPage() {
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
       <ThreeBlockPage />
       <WhatsAppProblemSolveCard />
-      <ContentShowcase />
+      {/* <ContentShowcase /> */}
       <FAQSection />
 
         <BannerLandpage />

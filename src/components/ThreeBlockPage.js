@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from 'react-router-dom';
+
 
 export default function ThreeBlockPage() {
   // Track small-screen (<= 900px)
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" && window.matchMedia("(max-width:900px)").matches
   );
+    const navigate = useNavigate();
+  
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -159,6 +163,7 @@ export default function ThreeBlockPage() {
                   style={ctaStyle}
                   onMouseDown={(e) => (e.currentTarget.style.transform = "translateY(1px)")}
                   onMouseUp={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                  onClick={()=> navigate('professional/login')}
                 >
                   {s.cta}
                 </button>

@@ -385,14 +385,14 @@ export default function Navbar() {
       {isMobile && (
         <div style={mobileMenuStyle}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button onClick={() => setFeaturesOpen((s) => !s)} aria-expanded={featuresOpen} style={mobileLinkStyle}>
+            {/* <button onClick={() => setFeaturesOpen((s) => !s)} aria-expanded={featuresOpen} style={mobileLinkStyle}>
               <span style={{ fontWeight: 700, fontSize : '15px' }}>Features</span>
               <span style={{ transform: featuresOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
                   <path d="M6 9l6 6 6-6" stroke="#0f1724" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                 </svg>
               </span>
-            </button>
+            </button> */}
 
             {/* {featuresOpen && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8 }}>
