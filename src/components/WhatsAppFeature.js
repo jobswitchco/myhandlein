@@ -51,6 +51,7 @@ export default function InstagramDataUseBlock_Compact() {
         width: '100%',
         display: 'flex',
         justifyContent: 'center',
+        alignItems: 'center',
         px: { xs: 2, md: 6 },
         background: 'linear-gradient(180deg,#ffffff, #FFBDBD)'
       }}
@@ -65,7 +66,7 @@ export default function InstagramDataUseBlock_Compact() {
         }}
       >
         <CardContent sx={{ p: 0 }}>
-          <Stack spacing={4} alignItems="center" sx={{ maxWidth: 1100, mx: 'auto', textAlign: 'center' }}>
+          <Stack spacing={4} alignItems="center" sx={{ textAlign: 'center' }}>
             {/* Header row */}
             <Stack
               direction="row"
@@ -104,16 +105,18 @@ export default function InstagramDataUseBlock_Compact() {
             </Stack>
 
             {/* Two feature cards: Bio page + Dashboard */}
-            <Grid container spacing={2.5} sx={{ width: '100%'}}>
+            <Stack sx={{ gap: 2, alignItems : 'center'}}>
+
+            <Grid container spacing={2.5} sx={{ width: '100%', alignItems : 'center'}}>
               <Grid item xs={12} md={6}>
-                <Card variant="outlined" sx={{ borderRadius: 3, height: '100%' }}>
+                <Card variant="outlined" sx={{ borderRadius: 3, height: 320}}>
                   <CardContent sx={{ p: { xs: 2.25, md: 4 } }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                       <LinkOutlinedIcon />
                       <Typography variant="overline">On your link-in-bio</Typography>
                     </Stack>
                     <Typography sx={{fontFamily : 'Inter', fontSize : isSm ? '22px' : '28px', fontWeight: 800, mb: 1 }}>
-                      Authentic Instagram presence
+                      Instagram presence
                     </Typography>
                     <List dense>
                       {[
@@ -131,7 +134,7 @@ export default function InstagramDataUseBlock_Compact() {
                 </Card>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Card variant="outlined" sx={{ borderRadius: 3, height: '100%' }}>
+                <Card variant="outlined" sx={{ borderRadius: 3, height: 320 }}>
                   <CardContent sx={{ p: { xs: 2.25, md: 3 } }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                       <InsightsOutlinedIcon />
@@ -139,7 +142,7 @@ export default function InstagramDataUseBlock_Compact() {
                     </Stack>
                     <Typography sx={{fontFamily : 'Inter', fontSize : isSm ? '22px' : '28px', fontWeight: 800, mb: 1 }}>
 
-                      Important Actionable insights
+                      Actionable insights
                     </Typography>
                     <List dense>
                       {[
@@ -159,10 +162,10 @@ export default function InstagramDataUseBlock_Compact() {
             </Grid>
 
             {/* Visual steps */}
-            <Grid container spacing={1.5} sx={{ width: '100%', maxWidth: 960 }}>
+            <Grid container spacing={1.5} sx={{ width: '100%'}}>
               {[
                 { icon: <InstagramIcon />, title: 'Connect', sub: 'Secure OAuth — revoke anytime' },
-                { icon: <VerifiedOutlinedIcon />, title: 'Showcase', sub: 'Handle & followers on your bio page' },
+                { icon: <VerifiedOutlinedIcon />, title: 'Showcase', sub: 'Followers on your bio page' },
                 { icon: <TimelineOutlinedIcon />, title: 'Grow', sub: 'Use insights to double down' }
               ].map((s, i) => (
                 <Grid key={s.title} item xs={12} sm={4}>
@@ -182,6 +185,9 @@ export default function InstagramDataUseBlock_Compact() {
                 </Grid>
               ))}
             </Grid>
+
+            </Stack>
+
 
             <Divider sx={{ width: '100%', maxWidth: 1000 }} />
 
