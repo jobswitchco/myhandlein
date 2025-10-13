@@ -32,7 +32,7 @@ function SupportContact() {
   <meta property="og:url" content="https://myhandle.in/contact" />
   <meta
     property="og:image"
-    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+    content="https://storage.googleapis.com/postlnbucketcom/products/maximize.png"
   />
 
   {/* Twitter */}
@@ -44,7 +44,7 @@ function SupportContact() {
   />
   <meta
     name="twitter:image"
-    content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
+    content="https://storage.googleapis.com/postlnbucketcom/products/maximize.png"
   />
 </Helmet>
 

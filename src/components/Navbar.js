@@ -292,7 +292,7 @@ export default function Navbar() {
 >
   <img
     src={logo}
-    alt="betaFounder Logo"
+    alt="MyHandle Logo"
     width="36"
     height="36"
     loading="eager"

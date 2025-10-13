@@ -8,7 +8,7 @@ const securitySections = [
   {
     title: 'Infrastructure & Hosting',
     points: [
-      'PostLn is hosted on industry-leading cloud infrastructure: Google Cloud Platform(GCP) known for its robust security and scalability.',
+      'MyHandle is hosted on industry-leading cloud infrastructure: Google Cloud Platform(GCP) known for its robust security and scalability.',
       'All data is stored in secure, access-controlled environments with multi-region backup strategies.',
       '24/7 monitoring and disaster recovery plans are in place to ensure business continuity.',
     ],
@@ -24,7 +24,7 @@ const securitySections = [
   {
     title: 'Reliability & Availability',
     points: [
-      'PostLn is built for high availability with auto-scaling and failover support.',
+      'MyHandle is built for high availability with auto-scaling and failover support.',
       'Our uptime goal is 99.9%+, supported by advanced monitoring tools and alerting systems.',
       'Service Status is monitored and communicated proactively.',
     ],
@@ -49,7 +49,7 @@ const securitySections = [
     title: 'Responsible Disclosure',
     points: [
       'We encourage security researchers to responsibly disclose vulnerabilities.',
-      'Report potential issues at security@PostLn.com',
+      'Report potential issues at security@myhandle.in',
       'All reports are investigated thoroughly and treated with the highest priority.',
     ],
   },
@@ -62,23 +62,23 @@ const Security = () => {
     <>
 
       <Helmet>
-  <title>Data Security & Privacy | PostLn</title>
+  <title>Data Security & Privacy | MyHandle</title>
   <meta
     name="description"
-    content="Learn how PostLn protects your data with enterprise-grade security: AES-256 encryption, GCP hosting, 99.9% uptime, OAuth 2.0 authentication, and strict compliance practices."
+    content="Learn how MyHandle protects your data with enterprise-grade security: AES-256 encryption, GCP hosting, 99.9% uptime, OAuth 2.0 authentication, and strict compliance practices."
   />
 
   {/* Canonical URL */}
-  <link rel="canonical" href="https://www.postln.com/security" />
+  <link rel="canonical" href="https://myhandle.in/security" />
 
   {/* Open Graph */}
-  <meta property="og:title" content="Data Security & Privacy | PostLn" />
+  <meta property="og:title" content="Data Security & Privacy | MyHandle" />
   <meta
     property="og:description"
-    content="PostLn ensures your trust with AES-256 encryption, secure Google Cloud hosting, 24/7 monitoring, OAuth 2.0 authentication, and compliance with industry standards."
+    content="MyHandle ensures your trust with AES-256 encryption, secure Google Cloud hosting, 24/7 monitoring, OAuth 2.0 authentication, and compliance with industry standards."
   />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://www.postln.com/security" />
+  <meta property="og:url" content="https://myhandle.in/security" />
   <meta
     property="og:image"
     content="https://storage.googleapis.com/postlnbucketcom/logo_512x512-removebg-preview.png"
@@ -86,10 +86,10 @@ const Security = () => {
 
   {/* Twitter */}
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Data Security & Privacy | PostLn" />
+  <meta name="twitter:title" content="Data Security & Privacy | MyHandle" />
   <meta
     name="twitter:description"
-    content="PostLn protects your data with enterprise-grade security: encryption, compliance, and 24/7 monitoring."
+    content="MyHandle protects your data with enterprise-grade security: encryption, compliance, and 24/7 monitoring."
   />
   <meta
     name="twitter:image"
@@ -101,7 +101,7 @@ const Security = () => {
       <Navbar />
       <Box sx={{ px: isMobile ? 3 : 10, py: 10, mt: 3 }}>
         <Typography variant="h3" sx={{ fontWeight: 600, mb: 3 }}>
-          Security at PostLn
+          Security at MyHandle
         </Typography>
 
         <Typography variant="h6" sx={{ fontWeight: 400, mb: 5, color: 'gray' }}>

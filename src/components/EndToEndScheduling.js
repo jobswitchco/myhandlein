@@ -8,18 +8,18 @@ export default function EndToEndScheduling() {
   return (
     <>
       <Helmet>
-        <title>End-to-End Scheduling & Publishing | PostLn</title>
+        <title>End-to-End Scheduling & Publishing | MyHandle</title>
         <meta
           name="description"
-          content="Go from idea to scheduled LinkedIn post in minutes with PostLn. Discover trending topics, rewrite in your tone, and schedule—all in one place."
+          content="Go from idea to scheduled Instagram post in minutes with MyHandle. Discover trending topics, rewrite in your tone, and schedule—all in one place."
         />
         <meta
           property="og:title"
-          content="End-to-End Scheduling & Publishing | PostLn"
+          content="End-to-End Scheduling & Publishing | MyHandle"
         />
         <meta
           property="og:description"
-          content="PostLn handles your entire LinkedIn content flow—from topic inspiration to tone-accurate rewrite to scheduled publishing. All in one clean workflow."
+          content="MyHandle handles your entire Instagram content flow—from topic inspiration to tone-accurate rewrite to scheduled publishing. All in one clean workflow."
         />
         <meta property="og:type" content="website" />
       </Helmet>
@@ -44,7 +44,7 @@ export default function EndToEndScheduling() {
             <Box
               component="img"
               src={directEmployerImage}
-              alt="Scheduling LinkedIn Posts"
+              alt="Scheduling Instagram Posts"
               sx={{ width: '100%', borderRadius: 3, boxShadow: 3 }}
             />
           </Grid>
@@ -56,11 +56,11 @@ export default function EndToEndScheduling() {
             </Typography>
 
             <Typography variant="body1" color="text.secondary" paragraph>
-              Creating a high-quality LinkedIn post usually means switching between tabs, researching topics, rewriting multiple drafts, and then setting up scheduling tools. PostLn brings all of that under one roof.
+              Creating a high-quality Instagram post usually means switching between tabs, researching topics, rewriting multiple drafts, and then setting up scheduling tools. MyHandle brings all of that under one roof.
             </Typography>
 
             <Typography variant="body1" color="text.secondary" paragraph>
-              You choose a trending topic (we fetch them for you), personalize it in your tone using AI trained on your past writing, and schedule it instantly with our built-in LinkedIn publisher.
+              You choose a trending topic (we fetch them for you), personalize it in your tone using AI trained on your past writing, and schedule it instantly with our built-in Instagram publisher.
             </Typography>
 
             <Typography variant="body1" color="text.secondary" paragraph>
