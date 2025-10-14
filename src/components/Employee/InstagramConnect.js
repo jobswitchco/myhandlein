@@ -41,6 +41,7 @@ import FeaturedPlayListOutlinedIcon from '@mui/icons-material/FeaturedPlayListOu
 import 'react-toastify/dist/ReactToastify.css';
 import { toast } from "react-toastify";
 
+
 const FB_APP_ID = "1811723003562002";
 const BACKEND_CONNECT_URL = "/api/usersOn/connect-instagram";
 const BACKEND_STATUS_URL = "/api/usersOn/instagram-status";
@@ -102,6 +103,7 @@ export default function InstagramConnect() {
           setConnectedAccount({
             username: response.data.igUsername,
             profilePic: response.data.igProfilePic,
+            followersCount: response.data.followersCount,
           });
         }
       } catch (err) {
@@ -164,6 +166,7 @@ export default function InstagramConnect() {
           setConnectedAccount({
             username: data.igUsername,
             profilePic: data.igProfilePic,
+            followersCount: data.followersCount,
           });
           } else {
             setError(data?.message || "Failed to fetch Instagram accounts");
@@ -185,12 +188,11 @@ export default function InstagramConnect() {
     },
     {
       scope:
-        "instagram_basic,pages_show_list,pages_read_engagement,public_profile",
+        "instagram_basic,pages_show_list,pages_read_engagement,public_profile,instagram_manage_comments,instagram_manage_messages",
       return_scopes: true,
     }
   );
 }, [sdkReady]);
-
 
 
   // Open unlink dialog
@@ -311,7 +313,7 @@ export default function InstagramConnect() {
 
               <Box flex={1} minWidth={0}>
                 <Typography gutterBottom noWrap sx={{fontFamily : 'Inter', fontWeight : 600, fontSize : '20px' }}>
-                  @{connectedAccount.username}
+                  @{connectedAccount.username} | {connectedAccount.followersCount} Followers
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <Chip

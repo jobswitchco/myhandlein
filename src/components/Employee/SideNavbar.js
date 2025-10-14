@@ -20,7 +20,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import { deepOrange, green } from "@mui/material/colors";
-import logo from "../../images/postln_logo.svg";
+import logo from "../../images/myhandle_logo.png";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
@@ -203,8 +203,8 @@ export default function SideNavbar({ window }) {
           >
             <img
               src={logo}
-              alt="PostLn Logo"
-              width="32"
+              alt="MyHandle Logo"
+              width="30"
               height="auto"
               style={{ display: "block" }}
             />
@@ -213,12 +213,14 @@ export default function SideNavbar({ window }) {
                 marginLeft: 8,
                 fontWeight: 700,
                 fontSize: "1.25rem",
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                // background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                 WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
+                // WebkitTextFillColor: "transparent",
+                color: '#000000'
+
               }}
             >
-              PostLn
+              MyHandle
             </div>
           </Link>
         </Toolbar>
