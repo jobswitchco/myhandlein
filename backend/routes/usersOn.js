@@ -380,6 +380,8 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
 
     const userAccessToken = data.accessToken;
 
+    console.log('user access token : ',userAccessToken );
+
     // ---------------------------------------------------------------------
     // 1) List Pages to find linked Instagram Business/Creator account(s)
     //    Minimal fields: we don't need the Page access_token for this use case.
@@ -396,6 +398,8 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
     );
 
     const igAccounts = [];
+
+    console.log('page response : ', pageResponse);
 
     if (pagesResponse?.data?.length) {
       for (const page of pagesResponse.data) {
@@ -421,6 +425,8 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
           }
         );
 
+
+
         igAccounts.push({
           pageId: page.id,
           pageName: page.name,
@@ -438,6 +444,9 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
         });
       }
     }
+
+    console.log('igDetail : ', igDetail);
+
 
     // ---------------------------------------------------------------------
     // 2) Exchange for long-lived user token (optional but recommended)
