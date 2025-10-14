@@ -94,30 +94,69 @@ export default function InstagramConnect() {
   const [unlinking, setUnlinking] = useState(false);
 
   // Check Instagram connection status on mount
-  useEffect(() => {
-    const checkConnectionStatus = async () => {
-      try {
-        const response = await axios.get(BACKEND_STATUS_URL, { withCredentials: true });
-        console.log('respose : ', response.data);
+// Check Instagram connection status on mount
+useEffect(() => {
+  const checkConnectionStatus = async () => {
+    try {
+      const response = await axios.get(BACKEND_STATUS_URL, { withCredentials: true });
+      console.log('response : ', response.data);
 
-        if (response?.data?.instagramConnected) {
-          setIsConnected(true);
-          setConnectedAccount({
-            username: response.data.igUsername,
-            profilePic: response.data.igProfilePic,
-            followersCount: response.data.followersCount,
+      if (response?.data?.instagramConnected) {
+        setIsConnected(true);
+        setConnectedAccount({
+          username: response.data.igUsername,
+          profilePic: response.data.igProfilePic,
+          followersCount: response.data.followersCount,
+        });
+      } else {
+        // Instagram not connected - clear Facebook session
+        if (window.FB) {
+          window.FB.logout(() => {
+            console.log('Cleared stale Facebook session');
           });
         }
-      } catch (err) {
-        console.error("Error checking Instagram status:", err);
-      } finally {
-        setCheckingStatus(false);
+        
+        const fbSessionKey = `fbssls_${FB_APP_ID}`;
+        sessionStorage.removeItem(fbSessionKey);
+        
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('fbssls_') || key.startsWith('fb_')) {
+            sessionStorage.removeItem(key);
+          }
+        });
+        
+        setAuth(null);
       }
-    };
+    } catch (err) {
+      console.error("Error checking Instagram status:", err);
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
 
-    checkConnectionStatus();
-  }, []);
+  checkConnectionStatus();
+}, []);
 
+useEffect(() => {
+  let mounted = true;
+  loadFacebookSDK().then(() => {
+    if (!mounted) return;
+    setSdkReady(true);
+
+    window.FB.getLoginStatus((res) => {
+      // Only set auth if Facebook is connected AND Instagram is connected
+      if (res.status === "connected" && isConnected) {
+        setAuth(res.authResponse);
+      } else {
+        // Clear auth state if Instagram is not connected
+        setAuth(null);
+      }
+    });
+  });
+  return () => {
+    mounted = false;
+  };
+}, [isConnected]); // Add isConnected as dependency
 
   // Login and immediately fetch Instagram accounts
  const login = useCallback(() => {
