@@ -188,7 +188,7 @@ export default function InstagramConnect() {
     },
     {
       scope:
-        "instagram_basic,pages_show_list,pages_read_engagement,public_profile,instagram_business_basic",
+        "instagram_basic,pages_show_list,pages_read_engagement,public_profile,business_management",
 
       return_scopes: true,
     }
