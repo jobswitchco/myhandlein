@@ -118,22 +118,6 @@ export default function InstagramConnect() {
     checkConnectionStatus();
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    loadFacebookSDK().then(() => {
-      if (!mounted) return;
-      setSdkReady(true);
-
-      window.FB.getLoginStatus((res) => {
-        if (res.status === "connected") {
-          setAuth(res.authResponse);
-        }
-      });
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // Login and immediately fetch Instagram accounts
  const login = useCallback(() => {
