@@ -98,6 +98,8 @@ export default function InstagramConnect() {
     const checkConnectionStatus = async () => {
       try {
         const response = await axios.get(BACKEND_STATUS_URL, { withCredentials: true });
+        console.log('respose : ', response.data);
+
         if (response?.data?.instagramConnected) {
           setIsConnected(true);
           setConnectedAccount({
