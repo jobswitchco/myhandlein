@@ -795,7 +795,7 @@ export default function SideNavbar({ window }) {
               </ListItem>
 
               {/* DM */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
+              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/instagram/dm")}
                   selected={location.pathname === "/professional/instagram/dm"}
@@ -829,7 +829,6 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-              {/* Mentions (nested) */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => setMentionsOpen((p) => !p)}
@@ -869,7 +868,6 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-              {/* Mentions submenu */}
               <Collapse in={mentionsOpen} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   <ListItem disablePadding sx={{ mb: 0.5 }}>
@@ -926,7 +924,6 @@ export default function SideNavbar({ window }) {
                 </List>
               </Collapse>
 
-              {/* Create Post */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/instagram/create-post")}
@@ -959,7 +956,9 @@ export default function SideNavbar({ window }) {
                     }}
                   />
                 </ListItemButton>
-              </ListItem>
+              </ListItem> */}
+
+
             </List>
           </Collapse>
 
