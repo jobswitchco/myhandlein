@@ -359,6 +359,9 @@ router.post("/logout", authenticateToken, (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 });
 
+const DEMO_EMAIL = "demoaccount@myhandle.in";
+const DEMO_PASS = "demoaccount";
+
 router.post("/demo-login", async (req, res) => {
 try {
 const { demoEmail, demoPass } = req.body || {};
