@@ -44,6 +44,7 @@ import SideNavbar from './components/Employee/SideNavbar.js';
 import DashboardAnalytics from './components/Employee/DashboardAnalytics.js';
 import UpiMandateModern from './components/Employee/UpiMandate.js';
 import InstagramConnect from './components/Employee/InstagramConnect.js';
+import DemoLogin from './components/Employee/DemoLogin.js';
 
 // very critial yes
 
@@ -98,6 +99,7 @@ if (initialSubdomain) {
               <Route path="/" element={<LandingPage />} />
               <Route path="/creator/onboarding" element={<CreatorOnboarding />} />
               <Route path="/professional/login" element={<LinkedInUserLogin />} />
+              <Route path="/professional/login/d" element={<DemoLogin />} />
               <Route path="/influencer/participant/login" element={<UserParticipant />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/subscribe/plan" element={<UpiMandateModern />} />

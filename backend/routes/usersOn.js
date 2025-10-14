@@ -359,7 +359,50 @@ router.post("/logout", authenticateToken, (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 });
 
+router.post("/demo-login", async (req, res) => {
+try {
+const { demoEmail, demoPass } = req.body || {};
 
+
+if (!demoEmail || !demoPass) {
+return res.status(400).json({ success: false, message: "Missing email or password" });
+}
+
+
+// Constant-time-ish comparison for tiny hardcoded creds
+const ok = demoEmail.trim().toLowerCase() === DEMO_EMAIL.toLowerCase() && demoPass === DEMO_PASS;
+
+
+if (!ok) {
+return res.status(401).json({ success: false, message: "Invalid demo credentials" });
+}
+
+
+    const token = await generateJWTtoken('68cbc39db5f421a8a043046f', 'techiebhaskar7@gmail.com');
+
+    // Cookie options: adjust for your environment (see notes below)
+      res.cookie("tokenMyhandleProf", token, {
+  httpOnly: true,
+  secure: true,                  // required when SameSite=None
+  sameSite: "none",              // critical for iOS/Safari & any cross-site/iframe usage
+   domain: ".myhandle.in",// needed if crossing subdomains
+  path: "/",             // ensure all routes get it
+  maxAge: 7 * 24 * 60 * 60 * 1000
+});
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        user_id: '68cbc39db5f421a8a043046f',
+        user_email: 'techiebhaskar7@gmail.com',
+      },
+      token
+    });
+} catch (err) {
+console.error("demo-login error", err);
+return res.status(500).json({ success: false, message: "Server error" });
+}
+});
 
 router.post("/connect-instagram", authenticateToken, async (req, res) => {
   try {
