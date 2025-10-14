@@ -385,14 +385,12 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
       {
         params: {
           fields:
-            "name,id,instagram_business_account{id,username,profile_picture_url,followers_count,media_count}",
+            "name,id,access_token,instagram_business_account{id,username,profile_picture_url,followers_count,media_count}",
           access_token: userAccessToken,
         },
       }
     );
 
-    console.log('Page response : ', pagesResponse);
-    
     const igAccounts = [];
     if (pagesResponse?.data?.length) {
       for (const page of pagesResponse.data) {
