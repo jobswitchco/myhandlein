@@ -208,27 +208,49 @@ export default function InstagramConnect() {
   };
 
   // Actual unlink handler
-  const handleUnlink = useCallback(async () => {
-    setUnlinking(true);
-    try {
-      const unlinkStatus = await axios.post(BACKEND_UNLINK_URL, {}, { withCredentials: true });
+// Actual unlink handler
+const handleUnlink = useCallback(async () => {
+  setUnlinking(true);
+  try {
+    const unlinkStatus = await axios.post(BACKEND_UNLINK_URL, {}, { withCredentials: true });
 
-      if(unlinkStatus.data.success){
-          setUnlinkDialogOpen(false);
-        toast.success('Instagram is Disconnected!');
-        setTimeout(() => {
-          setIsConnected(false);
-          setConnectedAccount(null);
-          setError("");
-        }, 1000);
+    if(unlinkStatus.data.success){
+      // Clear Facebook SDK session
+      if (window.FB) {
+        window.FB.logout(() => {
+          console.log('Facebook session cleared');
+        });
       }
-    } catch (err) {
-      console.error("Unlink failed:", err);
-      setError(err.response?.data?.error || err.message || "Failed to unlink Instagram");
-    } finally {
-      setUnlinking(false);
+      
+      // Clear Facebook session storage
+      const fbSessionKey = `fbssls_${FB_APP_ID}`;
+      sessionStorage.removeItem(fbSessionKey);
+      
+      // Also clear any other Facebook-related storage
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('fbssls_') || key.startsWith('fb_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+
+      setUnlinkDialogOpen(false);
+      toast.success('Instagram is Disconnected!');
+      
+      setTimeout(() => {
+        setIsConnected(false);
+        setConnectedAccount(null);
+        setAuth(null); // Also clear auth state
+        setIgAccounts([]); // Clear accounts list
+        setError("");
+      }, 1000);
     }
-  }, []);
+  } catch (err) {
+    console.error("Unlink failed:", err);
+    setError(err.response?.data?.error || err.message || "Failed to unlink Instagram");
+  } finally {
+    setUnlinking(false);
+  }
+}, []);
 
   if (checkingStatus) {
     return (
