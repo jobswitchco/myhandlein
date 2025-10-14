@@ -399,7 +399,7 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
 
     const igAccounts = [];
 
-    console.log('page response : ', pageResponse);
+    console.log('page response : ', pagesResponse);
 
     if (pagesResponse?.data?.length) {
       for (const page of pagesResponse.data) {
