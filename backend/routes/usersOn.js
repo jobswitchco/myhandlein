@@ -369,8 +369,8 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
     }
 
     // Move these to env vars in production
-    const FB_APP_ID = "1492060722122259";
-    const FB_APP_SECRET = "c30f7640f9b09e4f6c3d1078729e34fa";
+    const FB_APP_ID = process.env.FB_APP_ID;
+    const FB_APP_SECRET = process.env.FB_APP_SECRET;
 
     const { data } = req.body;
     if (!data || !data.accessToken || !data.userID) {
