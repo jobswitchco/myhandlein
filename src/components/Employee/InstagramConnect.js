@@ -188,13 +188,14 @@ export default function InstagramConnect() {
     },
     {
       scope:
-        "instagram_basic,pages_show_list,public_profile,business_management",
-
+        "instagram_basic,pages_show_list,public_profile",
       return_scopes: true,
     }
   );
 }, [sdkReady]);
 
+
+ 
 
   // Open unlink dialog
   const handleUnlinkClick = () => {

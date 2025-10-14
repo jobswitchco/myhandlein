@@ -455,11 +455,15 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
     // 4) Update USER immediately (pick FIRST IG account if available)
     let igUsername = null;
     let igProfilePic = null;
+    let followersCount = null;
+
 
     if (igAccounts.length > 0) {
       const first = igAccounts[0];
       igUsername = first.username || null;
       igProfilePic = first.profilePic || null;
+      followersCount = first.followersCount ?? null;
+
 
       await USER.updateOne(
         { _id: userId },
@@ -503,6 +507,7 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
       igAccounts,
       igUsername,
       igProfilePic,
+      followersCount,
       message:
         igAccounts.length > 0
           ? `Found ${igAccounts.length} Instagram account(s)`
@@ -532,7 +537,7 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
   
       if(result){
   
-      res.status(200).send({ instagramConnected : result.instagramConnected, igProfilePic : result.igProfilePic, igUsername : result.igUsername});
+      res.status(200).send({ instagramConnected : result.instagramConnected, igProfilePic : result.igProfilePic, igUsername : result.igUsername, followersCount : result.igFollowersCount});
       res.end();
 
   
