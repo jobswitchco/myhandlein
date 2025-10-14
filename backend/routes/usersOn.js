@@ -361,6 +361,8 @@ router.post("/logout", authenticateToken, (req, res) => {
 
 
 
+
+
 router.post("/connect-instagram", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id; // set by authenticateToken (Mongo _id)
@@ -368,7 +370,6 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Move these to env vars in production
     const FB_APP_ID = process.env.FB_APP_ID;
     const FB_APP_SECRET = process.env.FB_APP_SECRET;
 
@@ -379,38 +380,68 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
 
     const userAccessToken = data.accessToken;
 
-    // 1) Fetch pages (with IG business account fields)
+    // ---------------------------------------------------------------------
+    // 1) List Pages to find linked Instagram Business/Creator account(s)
+    //    Minimal fields: we don't need the Page access_token for this use case.
+    // ---------------------------------------------------------------------
     const { data: pagesResponse } = await axios.get(
       "https://graph.facebook.com/v20.0/me/accounts",
       {
         params: {
-          fields:
-            "name,id,access_token,instagram_business_account{id,username,profile_picture_url,followers_count,media_count}",
+          fields: "name,id,instagram_business_account{id}",
           access_token: userAccessToken,
         },
+        timeout: 15000,
       }
     );
 
     const igAccounts = [];
+
     if (pagesResponse?.data?.length) {
       for (const page of pagesResponse.data) {
-        if (page.instagram_business_account) {
-          const ig = page.instagram_business_account;
-          igAccounts.push({
-            pageId: page.id,
-            pageName: page.name,
-            pageAccessToken: page.access_token,
-            igUserId: ig.id,
-            username: ig.username,
-            profilePic: ig.profile_picture_url || null,
-            followersCount: ig.followers_count || 0,
-            mediaCount: ig.media_count || 0,
-          });
-        }
+        const igNode = page?.instagram_business_account;
+        if (!igNode?.id) continue;
+
+        const igUserId = igNode.id;
+
+        // -----------------------------------------------------------------
+        // 1b) Canonical IG User fetch for the fields you actually display
+        // -----------------------------------------------------------------
+        const tokenForIG = userAccessToken; // will switch to longLivedToken if we get one below
+
+        const { data: igDetail } = await axios.get(
+          `https://graph.facebook.com/v20.0/${igUserId}`,
+          {
+            params: {
+              fields:
+                "username,profile_picture_url,followers_count,media_count",
+              access_token: tokenForIG,
+            },
+            timeout: 15000,
+          }
+        );
+
+        igAccounts.push({
+          pageId: page.id,
+          pageName: page.name,
+          igUserId,
+          username: igDetail?.username || null,
+          profilePic: igDetail?.profile_picture_url || null,
+          followersCount:
+            typeof igDetail?.followers_count === "number"
+              ? igDetail.followers_count
+              : 0,
+          mediaCount:
+            typeof igDetail?.media_count === "number"
+              ? igDetail.media_count
+              : 0,
+        });
       }
     }
 
-    // 2) Exchange for long-lived user token (best effort)
+    // ---------------------------------------------------------------------
+    // 2) Exchange for long-lived user token (optional but recommended)
+    // ---------------------------------------------------------------------
     let longLivedToken = null;
     try {
       const { data: tokenExchange } = await axios.get(
@@ -422,6 +453,7 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
             client_secret: FB_APP_SECRET,
             fb_exchange_token: userAccessToken,
           },
+          timeout: 15000,
         }
       );
       longLivedToken = tokenExchange?.access_token || null;
@@ -429,7 +461,9 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
       console.warn("Could not exchange for long-lived token:", e?.message);
     }
 
-    // 3) Derive token expiry using debug_token (works for both short/long)
+    // ---------------------------------------------------------------------
+    // 3) Derive token expiry using debug_token (works for short/long)
+    // ---------------------------------------------------------------------
     let tokenExpiry = null;
     try {
       const appAccessToken = `${FB_APP_ID}|${FB_APP_SECRET}`;
@@ -442,17 +476,19 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
             input_token: tokenToInspect,
             access_token: appAccessToken,
           },
+          timeout: 15000,
         }
       );
 
-      // debug_token response: { data: { expires_at, ... } }
       const expiresAt = debugResp?.data?.expires_at; // unix seconds
       if (expiresAt) tokenExpiry = new Date(expiresAt * 1000).toISOString();
     } catch (e) {
       console.warn("Could not fetch token expiry via debug_token:", e?.message);
     }
 
-    // 4) Update USER immediately (pick FIRST IG account if available)
+    // ---------------------------------------------------------------------
+    // 4) Persist minimal fields (pick FIRST IG account, or adapt to your UI)
+    // ---------------------------------------------------------------------
     let igUsername = null;
     let igProfilePic = null;
     let followersCount = null;
@@ -461,7 +497,7 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
       const first = igAccounts[0];
       igUsername = first.username || null;
       igProfilePic = first.profilePic || null;
-      followersCount = first.followersCount || null;
+      followersCount = first.followersCount ?? null;
 
       await USER.updateOne(
         { _id: userId },
@@ -469,13 +505,17 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
           $set: {
             instagramConnected: true,
             igUserId: first.igUserId,
-            fbPageAccessToken: first.pageAccessToken,
             igUsername: igUsername,
             igProfilePic: igProfilePic,
             igFollowersCount: first.followersCount,
             igMediaCount: first.mediaCount,
             fbLongLivedToken: longLivedToken || userAccessToken,
             fbTokenExpiry: tokenExpiry || null,
+          },
+          // If you previously stored Page tokens/IDs and want to clean them up:
+          $unset: {
+            fbPageAccessToken: 1,
+            fbPageId: 1,
           },
         }
       );
@@ -487,19 +527,22 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
           $set: { instagramConnected: false },
           $unset: {
             igUserId: 1,
-            fbPageAccessToken: 1,
             igUsername: 1,
             igProfilePic: 1,
             igFollowersCount: 1,
             igMediaCount: 1,
             fbLongLivedToken: 1,
-            fbTokenExpiry: 1, // fixed key
+            fbTokenExpiry: 1,
+            fbPageAccessToken: 1,
+            fbPageId: 1,
           },
         }
       );
     }
 
+    // ---------------------------------------------------------------------
     // 5) Respond with ONLY what the UI needs
+    // ---------------------------------------------------------------------
     return res.json({
       success: true,
       igAccounts,
@@ -509,7 +552,7 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
       message:
         igAccounts.length > 0
           ? `Found ${igAccounts.length} Instagram account(s)`
-          : "No Instagram accounts found. Please ensure your Instagram Business account is linked to a Facebook Page.",
+          : "No Instagram accounts found. Please ensure your Instagram Business/Creator account is linked to a Facebook Page.",
     });
   } catch (err) {
     console.error("IG connect error:", err?.response?.data || err.message);
@@ -522,6 +565,7 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
     });
   }
 });
+
 
 
 
