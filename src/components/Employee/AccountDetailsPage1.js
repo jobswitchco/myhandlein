@@ -329,7 +329,7 @@ const AccountDetailsPage1 = () => {
             </Grid>
 
 
-             <Grid container fullWidth sx={{  borderStyle : 'solid', borderWidth :'1px', borderColor : '#BCCCDC', marginBottom : '22px', paddingY : '12px', paddingX : '12px'}}>
+             {/* <Grid container fullWidth sx={{  borderStyle : 'solid', borderWidth :'1px', borderColor : '#BCCCDC', marginBottom : '22px', paddingY : '12px', paddingX : '12px'}}>
                 
                 <Grid item md={4}>
                 <Typography sx={{ fontSize : '14px', fontWeight : '500'}}>Work Mail</Typography>
@@ -373,7 +373,7 @@ const AccountDetailsPage1 = () => {
                         
                 </Grid>
 
-            </Grid>
+            </Grid> */}
 
             
        
@@ -388,7 +388,7 @@ const AccountDetailsPage1 = () => {
 
 
 
-                  <Grid
+                  {/* <Grid
   container
   fullWidth
   sx={{
@@ -399,16 +399,16 @@ const AccountDetailsPage1 = () => {
     alignItems: 'center',
     mt: 16,
   }}
->
+> */}
   {/* Left side text */}
-  <Grid item xs={12} md={6}>
+  {/* <Grid item xs={12} md={6}>
     <Typography sx={{ fontSize: '14px', fontWeight: 500 }}>
       Delete my account & erase data
     </Typography>
-  </Grid>
+  </Grid> */}
 
   {/* Right side button */}
-  <Grid item xs={12} md={6}>
+  {/* <Grid item xs={12} md={6}>
     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
       {loading ? (
         <Skeleton variant="rectangular" width={80} height={32} />
@@ -428,8 +428,8 @@ const AccountDetailsPage1 = () => {
         </Box>
       )}
     </Box>
-  </Grid>
-</Grid>
+  </Grid> */}
+{/* </Grid> */}
 
 
 
