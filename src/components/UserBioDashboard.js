@@ -1464,7 +1464,7 @@ async function saveAdd() {
               </Typography>
 
                <Typography>
-              Now, you can receive direct messages from users and bla bla
+              Now, you can receive direct messages from your users
               </Typography>
             </Stack>
 

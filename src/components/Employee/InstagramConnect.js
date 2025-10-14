@@ -213,7 +213,7 @@ export default function InstagramConnect() {
     try {
       const unlinkStatus = await axios.post(BACKEND_UNLINK_URL, {}, { withCredentials: true });
 
-      if(unlinkStatus.status){
+      if(unlinkStatus.data.success){
           setUnlinkDialogOpen(false);
         toast.success('Instagram is Disconnected!');
         setTimeout(() => {
