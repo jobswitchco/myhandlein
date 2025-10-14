@@ -192,7 +192,7 @@ const AccountDetailsPage1 = () => {
           const fetchData = async () => {
             try {
       
-                    await axios.post(baseUrl + "/get-user-details", { }, { withCredentials : true}).then(ress=>{
+                    await axios.get(baseUrl + "/get-user-details", { withCredentials : true}).then(ress=>{
 
                       if(ress.data.success){
                         setUserDetails(ress.data.data);
