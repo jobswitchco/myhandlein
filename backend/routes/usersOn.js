@@ -33,7 +33,29 @@ const metaCache = new NodeCache({ stdTTL: 86400 });
 const storage = new Storage();
 const bucketName = "postlnbucketcom"; 
 const bucket = storage.bucket(bucketName);
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB - adjust based on your needs
+    files: 1, // Only allow 1 file per request
+  },
+  fileFilter: (req, file, cb) => {
+    // Optional but recommended: validate file types
+    const allowedMimes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images are allowed.'));
+    }
+  },
+});
 const IPDATA_KEY = process.env.IPDATA_KEY;
 const OID = (v) => new mongoose.Types.ObjectId(String(v));
 const actorKey = (model, id) => `${model}:${id.toString()}`;
