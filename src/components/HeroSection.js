@@ -78,19 +78,13 @@ export default function Hero({
   };
 
 const layoutStyle = {
-  width: "100%",
-  paddingLeft: '3%',
-  paddingRight: '3%',
-  margin: "0 auto",
   display: "flex",
   flexDirection: isMobile ? "column" : "row",
   alignItems: "center",
   justifyContent: "space-between",
   gap: isMobile ? "48px" : "80px",
   position: "relative",
-  zIndex: 1,
-  // Add these:
-  maxWidth: "100%",
+  maxWidth: "96%",
   boxSizing: "border-box",
 };
 
