@@ -27,12 +27,19 @@ import crypto from "crypto";
 import util from "util";
 import Razorpay from "razorpay";
 const unlinkAsync = util.promisify(fs.unlink);
-import { Storage } from '@google-cloud/storage';
 import NodeCache from "node-cache";
 const metaCache = new NodeCache({ stdTTL: 86400 });
- const storage = new Storage({
-     keyFilename: path.join(__dirname, 'service-account-key.json'),
-   });
+import { Storage } from '@google-cloud/storage';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const storage = new Storage({
+  keyFilename: join(__dirname, 'service-account-key.json')});
+  
 const bucketName = "postlnbucketcom"; 
 const bucket = storage.bucket(bucketName);
 const upload = multer({
