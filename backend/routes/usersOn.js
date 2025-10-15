@@ -295,37 +295,81 @@ const isValidSubdomain = (s) =>
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s);
 
 
-async function uploadBufferToGCS(buffer, originalName, mimeType) {
-  if (!bucket) throw new Error("GCS bucket not configured.");
-  const ext = path.extname(originalName) || "";
-  const objectName = `products/${Date.now()}-${crypto
-    .randomBytes(6)
-    .toString("hex")}${ext}`;
-  const file = bucket.file(objectName);
+// async function uploadBufferToGCS(buffer, originalName, mimeType) {
+//   if (!bucket) throw new Error("GCS bucket not configured.");
+//   const ext = path.extname(originalName) || "";
+//   const objectName = `products/${Date.now()}-${crypto
+//     .randomBytes(6)
+//     .toString("hex")}${ext}`;
+//   const file = bucket.file(objectName);
 
-  return new Promise((resolve, reject) => {
-    const stream = file.createWriteStream({
-      metadata: { contentType: mimeType },
+//   return new Promise((resolve, reject) => {
+//     const stream = file.createWriteStream({
+//       metadata: { contentType: mimeType },
+//       resumable: false,
+//     });
+
+//     stream.on("error", (err) => reject(err));
+//     stream.on("finish", async () => {
+//       try {
+//         await file.makePublic();
+//         const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
+//         resolve({ publicUrl, objectName });
+//       } catch (err) {
+//         reject(err);
+//       }
+//     });
+
+//     // 🔑 Actually write the in-memory buffer to GCS
+//     stream.end(buffer);
+//   });
+// }
+
+
+
+async function uploadBufferToGCS(buffer, filename, mimetype) {
+  try {
+    console.log('uploadBufferToGCS called:', { 
+      bufferSize: buffer.length, 
+      filename, 
+      mimetype 
+    });
+
+    const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+    const blob = bucket.file(`uploads/${Date.now()}-${filename}`);
+    
+    const blobStream = blob.createWriteStream({
       resumable: false,
+      metadata: {
+        contentType: mimetype,
+      },
     });
 
-    stream.on("error", (err) => reject(err));
-    stream.on("finish", async () => {
-      try {
-        await file.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
-        resolve({ publicUrl, objectName });
-      } catch (err) {
+    return new Promise((resolve, reject) => {
+      blobStream.on('error', (err) => {
+        console.error('GCS stream error:', err);
         reject(err);
-      }
+      });
+
+      blobStream.on('finish', async () => {
+        try {
+          await blob.makePublic();
+          const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+          console.log('GCS upload successful:', publicUrl);
+          resolve({ publicUrl, objectName: blob.name });
+        } catch (err) {
+          console.error('Error making file public:', err);
+          reject(err);
+        }
+      });
+
+      blobStream.end(buffer);
     });
-
-    // 🔑 Actually write the in-memory buffer to GCS
-    stream.end(buffer);
-  });
+  } catch (err) {
+    console.error('uploadBufferToGCS error:', err);
+    throw err;
+  }
 }
-
-
 // Upload from a local file path (works with multer({ dest: "uploads/" }))
 async function uploadFilePathToGCS(filePath, originalName, mimeType) {
   if (!bucket) throw new Error("GCS bucket not configured.");
@@ -370,6 +414,8 @@ async function uploadFilePathToGCS(filePath, originalName, mimeType) {
     readStream.pipe(writeStream);
   });
 }
+
+
 
 
 function normalizePosition(pos) {
@@ -3999,20 +4045,112 @@ router.delete("/delete-product/:id", authenticateToken, async (req, res) => {
   }
 );
 
-router.post("/upload-header-image", authenticateToken, upload.single("image"),
+// router.post("/upload-header-image", authenticateToken, upload.single("image"),
+//   async (req, res) => {
+//     try {
+//       const userId = req.user?.user_id;
+//       if (!userId) {
+//         return res.status(401).json({ success: false, message: "Unauthorized" });
+//       }
+
+//       // Multer memoryStorage provides file.buffer
+//       const file = req.file;
+//       const rawPosition = req.body?.position;
+
+//       // Basic validation
+//       if (!file || !file.buffer) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "No file uploaded. Ensure you send multipart/form-data with field name 'image'.",
+//         });
+//       }
+
+//       const targetField = normalizePosition(rawPosition);
+//       if (!targetField) {
+//         return res.status(400).json({
+//           success: false,
+//           message:
+//             "Invalid position value. Acceptable values: left | headerImage1 | 1, rightTop | headerImage2 | 2, rightBottom | headerImage3 | 3",
+//         });
+//       }
+
+//       // Upload buffer to GCS (your helper) - it should return { publicUrl, objectName }
+//       const { publicUrl, objectName } = await uploadBufferToGCS(
+//         file.buffer,
+//         file.originalname || `upload-${Date.now()}`,
+//         file.mimetype || "application/octet-stream"
+//       );
+
+//       if (!publicUrl) {
+//         return res.status(500).json({ success: false, message: "Failed to upload to storage" });
+//       }
+
+//       // Update user doc
+//       const update = { [targetField]: publicUrl, updated_at: new Date() };
+//       const updatedUser = await USER.findByIdAndUpdate(userId, { $set: update }, { new: true }).lean();
+
+//       if (!updatedUser) {
+//         return res.status(404).json({ success: false, message: "User not found" });
+//       }
+
+//       return res.json({
+//         success: true,
+//         url: publicUrl,
+//         updatedField: targetField,
+//         objectName,
+//         user: {
+//           _id: updatedUser._id,
+//           leftHeadImage: updatedUser.leftHeadImage,
+//           rightTopImage: updatedUser.rightTopImage,
+//           rightBottomImage: updatedUser.rightBottomImage,
+//         },
+//       });
+//     } catch (err) {
+//       console.error("upload-header-image error:", err);
+//       return res.status(500).json({
+//         success: false,
+//         message: "Upload failed",
+//         error: err?.message || String(err),
+//       });
+//     }
+//   }
+// );
+
+
+router.post("/upload-header-image", 
+  authenticateToken, 
+  (req, res, next) => {
+    console.log('=== Upload Request Started ===');
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Content-Length:', req.headers['content-length']);
+    console.log('User:', req.user?.user_id);
+    next();
+  },
+  upload.single("image"),
   async (req, res) => {
     try {
+      console.log('=== After Multer Middleware ===');
+      console.log('File received:', !!req.file);
+      console.log('File details:', req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        hasBuffer: !!req.file.buffer,
+        bufferLength: req.file.buffer?.length
+      } : 'NO FILE');
+      console.log('Body:', req.body);
+      
       const userId = req.user?.user_id;
       if (!userId) {
+        console.error('No userId found');
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
-      // Multer memoryStorage provides file.buffer
       const file = req.file;
       const rawPosition = req.body?.position;
 
-      // Basic validation
       if (!file || !file.buffer) {
+        console.error('File validation failed:', { hasFile: !!file, hasBuffer: !!file?.buffer });
         return res.status(400).json({
           success: false,
           message: "No file uploaded. Ensure you send multipart/form-data with field name 'image'.",
@@ -4021,6 +4159,7 @@ router.post("/upload-header-image", authenticateToken, upload.single("image"),
 
       const targetField = normalizePosition(rawPosition);
       if (!targetField) {
+        console.error('Invalid position:', rawPosition);
         return res.status(400).json({
           success: false,
           message:
@@ -4028,24 +4167,38 @@ router.post("/upload-header-image", authenticateToken, upload.single("image"),
         });
       }
 
-      // Upload buffer to GCS (your helper) - it should return { publicUrl, objectName }
+      console.log('Uploading to GCS...', {
+        bufferSize: file.buffer.length,
+        filename: file.originalname,
+        mimetype: file.mimetype
+      });
+
+      // Upload buffer to GCS
       const { publicUrl, objectName } = await uploadBufferToGCS(
         file.buffer,
         file.originalname || `upload-${Date.now()}`,
         file.mimetype || "application/octet-stream"
       );
 
+      console.log('GCS upload result:', { publicUrl, objectName });
+
       if (!publicUrl) {
+        console.error('GCS upload failed - no publicUrl returned');
         return res.status(500).json({ success: false, message: "Failed to upload to storage" });
       }
+
+      console.log('Updating user document...', { userId, targetField, publicUrl });
 
       // Update user doc
       const update = { [targetField]: publicUrl, updated_at: new Date() };
       const updatedUser = await USER.findByIdAndUpdate(userId, { $set: update }, { new: true }).lean();
 
       if (!updatedUser) {
+        console.error('User not found:', userId);
         return res.status(404).json({ success: false, message: "User not found" });
       }
+
+      console.log('Upload successful!');
 
       return res.json({
         success: true,
@@ -4060,16 +4213,21 @@ router.post("/upload-header-image", authenticateToken, upload.single("image"),
         },
       });
     } catch (err) {
-      console.error("upload-header-image error:", err);
+      console.error("=== UPLOAD ERROR ===");
+      console.error("Error name:", err.name);
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+      console.error("Full error:", err);
+      
       return res.status(500).json({
         success: false,
         message: "Upload failed",
         error: err?.message || String(err),
+        errorName: err?.name,
       });
     }
   }
 );
-
 
 router.get("/fetch-influencer-products", async (req, res) => {
   try {
