@@ -35,19 +35,21 @@ export default function Hero({
   }, []);
 
   // Styles
-  const containerStyle = {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: isMobile ? "100px 20px 60px" : "100px 40px 80px",
-    boxSizing: "border-box",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-    color: "#0a0a0a",
-    position: "relative",
-    overflow: "hidden",
-    // background: "linear-gradient(135deg, #FFF8E7 0%, #FFE5B4 25%, #FFDAB9 50%, #FFE5B4 75%, #FFF8E7 100%)",
-  };
+ const containerStyle = {
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: isMobile ? "100px 20px 60px" : "100px 40px 80px",
+  boxSizing: "border-box",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+  color: "#0a0a0a",
+  position: "relative",
+  overflow: "hidden",
+  // Add these:
+  width: "100%",
+  maxWidth: "100vw", // Prevent horizontal overflow
+};
 
   const backgroundShapeStyle = {
     position: "absolute",
@@ -75,19 +77,22 @@ export default function Hero({
     zIndex: 0,
   };
 
-  const layoutStyle = {
-    width: "100%",
-    paddingLeft : '3%',
-    paddingRight : '3%',
-    margin: "0 auto",
-    display: "flex",
-    flexDirection: isMobile ? "column" : "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: isMobile ? "48px" : "80px",
-    position: "relative",
-    zIndex: 1,
-  };
+const layoutStyle = {
+  width: "100%",
+  paddingLeft: '3%',
+  paddingRight: '3%',
+  margin: "0 auto",
+  display: "flex",
+  flexDirection: isMobile ? "column" : "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: isMobile ? "48px" : "80px",
+  position: "relative",
+  zIndex: 1,
+  // Add these:
+  maxWidth: "100%",
+  boxSizing: "border-box",
+};
 
   const leftColStyle = {
     flex: isMobile ? "0 1 auto" : "1 1 70%",
@@ -200,34 +205,39 @@ export default function Hero({
     // maxWidth: isMobile ? "100%" : "650px",
   };
 
-  const inputWrapStyle = {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-    background: "rgba(255,255,255,0.95)",
-    backdropFilter: "blur(10px)",
-    borderRadius: "26px",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    height: "56px",
-    boxSizing: "border-box",
-    minWidth: isMobile ? "100%" : "300px",
-    maxWidth: "100%",
-    transition: "box-shadow 0.3s ease, transform 0.2s ease",
-  };
+const inputWrapStyle = {
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+  background: "rgba(255,255,255,0.95)",
+  backdropFilter: "blur(10px)",
+  borderRadius: "26px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",
+  paddingLeft: "20px",
+  paddingRight: "20px",
+  height: "56px",
+  boxSizing: "border-box",
+  minWidth: isMobile ? "100%" : "300px",
+  maxWidth: "100%",
+  transition: "box-shadow 0.3s ease, transform 0.2s ease",
+  touchAction: "manipulation", // Add this
+};
 
-  const inputStyle = {
-    flex: 1,
-    height: "100%",
-    border: "none",
-    outline: "none",
-    background: "transparent",
-    fontSize: "16px",
-    fontWeight: 600,
-    color: "#0a0a0a",
-    paddingRight: "140px",
-  };
+
+const inputStyle = {
+  flex: 1,
+  height: "100%",
+  border: "none",
+  outline: "none",
+  background: "transparent",
+  fontSize: "16px", // This is already correct
+  fontWeight: 600,
+  color: "#0a0a0a",
+  paddingRight: "140px",
+  // Add this to ensure no zooming:
+  touchAction: "manipulation",
+};
+
 
   const suffixStyle = {
     position: "absolute",
