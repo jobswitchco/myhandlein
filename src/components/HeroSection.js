@@ -50,7 +50,7 @@ export default function Hero({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding:"clamp(14vh, 6vw, 14vh) clamp(36px, 4vw, 40px) clamp(7vh, 4vw, 8vh) clamp(26px, 4vw, 46px)",
+    padding:"clamp(14vh, 6vw, 14vh) clamp(36px, 4vw, 40px) clamp(7vh, 4vw, 8vh) clamp(46px, 4vw, 46px)",
     boxSizing: "border-box",
     fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
     color: "#0b1220",
@@ -105,7 +105,7 @@ const rightColStyle = {
 
 
 const subStyle = {
-  fontSize: "clamp(1.2rem, 1.8vw, 1.25rem)",
+  fontSize: "clamp(1rem, 1.8vw, 1.25rem)",
   lineHeight: 1.5,
   color: "#222831",
   margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
@@ -115,7 +115,7 @@ const subStyle = {
 // inline version for mobile
 const subStyleDataInline = {
   display: "inline",
-  fontSize: "clamp(1.2rem, 1.6vw, 1.25rem)",
+  fontSize: "clamp(1rem, 1.6vw, 1.25rem)",
   fontWeight: 500,
   color: "#000000",
   margin: 0
@@ -142,7 +142,7 @@ const subStyleDataBlock = {
 
   const mobileHeadlineStyle = {
     ...headlineStyle,
-    fontSize: "clamp(2.6rem, 5vw, 4rem)",
+    fontSize: "clamp(2.2rem, 5vw, 4rem)",
 
   };
 
@@ -249,6 +249,16 @@ const inputWrapStyle = {
     color: "#B82132",
     display: "inline-flex",
      fontSize: "clamp(2.6rem, 5vw, 4rem)",
+    fontWeight: 800,
+    fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
+ 
+
+  };
+
+     const highlightTextMobile = {
+    color: "#B82132",
+    display: "inline-flex",
+     fontSize: "clamp(2.2rem, 5vw, 4rem)",
     fontWeight: 800,
     fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
  
@@ -456,7 +466,7 @@ const inputWrapStyle = {
             aria-hidden={!isMobile}
           >
             <span style={{ display: "block", lineHeight: 1.25 }}>
-              Why Pay <div style={highlightText}>10x More</div> for Foreign Link in Bio Tools?
+              Why Pay <div style={highlightTextMobile}>10x More</div> for Foreign Link in Bio Tools?
             </span>
           </h1>
 
