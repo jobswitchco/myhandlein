@@ -179,8 +179,11 @@ export default function Hero({
     lineHeight: 1.7,
     color: "#4a4a4a",
     margin: "0 0 32px 0",
-    maxWidth: 600,
+    // maxWidth: 600,
     fontWeight: 400,
+   paddingLeft : isMobile ? '4%' : '0px',
+    paddingRight : isMobile ? '4%' : '0px',
+    
     
   };
 
@@ -190,9 +193,11 @@ export default function Hero({
     flexDirection: isMobile ? "column" : "row",
     gap: isMobile ? "16px" : "16px",
     justifyContent: isMobile ? "center" : "flex-start",
-    alignItems: "stretch",
     marginTop: "16px",
-    maxWidth: isMobile ? "100%" : "650px",
+    paddingLeft : isMobile ? '4%' : '0px',
+    paddingRight : isMobile ? '4%' : '0px',
+
+    // maxWidth: isMobile ? "100%" : "650px",
   };
 
   const inputWrapStyle = {
@@ -207,7 +212,8 @@ export default function Hero({
     paddingRight: "20px",
     height: "56px",
     boxSizing: "border-box",
-    width: "100%",
+    minWidth: isMobile ? "100%" : "300px",
+    maxWidth: "100%",
     transition: "box-shadow 0.3s ease, transform 0.2s ease",
   };
 
@@ -240,6 +246,7 @@ export default function Hero({
     border: "none",
     height: "56px",
     minWidth: isMobile ? "100%" : "200px",
+    maxWidth: isMobile ? "100%" : "100%",
     padding: "0 28px",
     fontSize: "16px",
     fontWeight: 700,
