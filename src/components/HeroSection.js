@@ -46,27 +46,25 @@ export default function Hero({
 
   // === Inline styles
   const containerStyle = {
-    minHeight: "68vh",
+    minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding:"clamp(18vh, 8vw, 18vh) clamp(26px, 4vw, 32px) clamp(14vh, 8vw, 16vh) clamp(26px, 4vw, 32px)",
+    padding:"clamp(14vh, 6vw, 14vh) clamp(36px, 4vw, 40px) clamp(7vh, 4vw, 8vh) clamp(26px, 4vw, 46px)",
     boxSizing: "border-box",
     fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
     color: "#0b1220",
     overflowX: "hidden", 
-    background: '#FAB12F'
+    background: '#f5f7f8'
   };
 
   const layoutStyle = {
     width: "100%",
-    maxWidth: 1200,
-    margin: "0 auto",
     display: "flex",
     flexDirection: isMobile ? "column" : "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: isMobile ? "24px" : "48px"
+    gap: isMobile ? "24px" : "140px"
   };
 
 const leftColStyle = {
@@ -107,18 +105,17 @@ const rightColStyle = {
 
 
 const subStyle = {
-  fontSize: "clamp(1rem, 1.8vw, 1.25rem)",
-  lineHeight: 1.6,
+  fontSize: "clamp(1.2rem, 1.8vw, 1.25rem)",
+  lineHeight: 1.5,
   color: "#222831",
   margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
-  maxWidth: 760,
   marginTop: "1rem"
 };
 
 // inline version for mobile
 const subStyleDataInline = {
   display: "inline",
-  fontSize: "clamp(0.9rem, 1.6vw, 1.12rem)",
+  fontSize: "clamp(1.2rem, 1.6vw, 1.25rem)",
   fontWeight: 500,
   color: "#000000",
   margin: 0
@@ -137,17 +134,16 @@ const subStyleDataBlock = {
 
 
   const headlineStyle = {
-    fontSize: "clamp(2.6rem, 5vw, 3.25rem)",
-    lineHeight: 1.3,
-    fontWeight: 700,
-    letterSpacing: "-0.02em",
+    fontSize: "clamp(2.6rem, 5vw, 4rem)",
+    fontWeight: 800,
     margin: "0 0 clamp(12px, 2vw, 16px) 0",
     fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
   };
 
   const mobileHeadlineStyle = {
     ...headlineStyle,
-    fontSize: "clamp(2rem, 7vw, 3rem)"
+    fontSize: "clamp(2.6rem, 5vw, 4rem)",
+
   };
 
   // === CTA row with subdomain input + button (no external CSS)
@@ -208,7 +204,7 @@ const inputWrapStyle = {
     padding: "0 28px",
     fontSize: "16px",
     fontWeight: 700,
-    borderRadius: "999px",
+    borderRadius: "16px",
     cursor: "pointer",
     background: "#37353E",
     color: "#FFFFFF",
@@ -249,6 +245,16 @@ const inputWrapStyle = {
     color: "#543A14"
   };
 
+    const highlightText = {
+    color: "#B82132",
+    display: "inline-flex",
+     fontSize: "clamp(2.6rem, 5vw, 4rem)",
+    fontWeight: 800,
+    fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
+ 
+
+  };
+
   // NEW: status row styles (inline, no external CSS)
   const statusRowStyle = {
     display: "flex",
@@ -265,14 +271,14 @@ const inputWrapStyle = {
 
   const statusColor =
     availability === "available"
-      ? "#FFFFFF" // green-700
+      ? "#4C763B" // green-700
       : availability === "taken"
       ? "#b91c1c" // red-700
       : availability === "invalid"
       ? "#92400e" // amber-700
       : availability === "error"
       ? "#7c3aed" // violet-700
-      : "#FFFFFF"; // gray-500
+      : "#4C763B"; // gray-500
 
   const renderLogo = (src, alt) => {
     const fallback = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
@@ -280,37 +286,7 @@ const inputWrapStyle = {
     return <img src={imageSrc} alt={alt} style={logoImgStyle} />;
   };
 
-  // === Highlight builder
-  const Highlight = ({ children }) => {
-    const wrapperStyle = {
-      position: "relative",
-      display: "inline-block",
-      paddingLeft: padX,
-      paddingRight: padX,
-      zIndex: 0,
-      lineHeight: 1.15
-    };
-    const bgStyle = {
-      content: '""',
-      position: "absolute",
-      left: `calc(-1 * ${padX})`,
-      right: `calc(-1 * ${padX})`,
-      top: barOffset,
-      transform: "translateY(0)",
-      height: highlightHeight,
-      background: highlightColor,
-      borderRadius: highlightRadius,
-      zIndex: 0,
-      pointerEvents: "none"
-    };
-    const textStyle = { position: "relative", zIndex: 1, whiteSpace: "nowrap" };
-    return (
-      <span style={wrapperStyle} aria-hidden={false}>
-        <span style={bgStyle} aria-hidden="true" />
-        <span style={textStyle}>{children}</span>
-      </span>
-    );
-  };
+
 
   // Sanitize input to allowed subdomain chars
   const onSubdomainChange = (e) => {
@@ -392,11 +368,11 @@ const inputWrapStyle = {
       style={{ display: "block" }}
       aria-label="Loading"
     >
-      <circle cx="12" cy="12" r="10" fill="none" stroke="#FFFFFF" strokeWidth="3" opacity="0.25" />
+      <circle cx="12" cy="12" r="10" fill="none" stroke="#4C763B" strokeWidth="3" opacity="0.25" />
       <path
         d="M22 12a10 10 0 0 0-10-10"
         fill="none"
-        stroke="#FFFFFF"
+        stroke="#4C763B"
         strokeWidth="3"
       >
         <animateTransform
@@ -416,7 +392,7 @@ const inputWrapStyle = {
       <path
         d="M20 6L9 17l-5-5"
         fill="none"
-        stroke="#F0F0F0"
+        stroke="#043915"
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -470,7 +446,7 @@ const inputWrapStyle = {
             aria-hidden={isMobile}
           >
             {"Why Pay "}
-            <Highlight>10x More</Highlight>
+                 <div style={highlightText}>10x More</div>
             {" for Foreign Link in Bio Tools?"}
           </h1>
 
@@ -479,8 +455,8 @@ const inputWrapStyle = {
             style={{ ...mobileHeadlineStyle, display: isMobile ? "block" : "none", margin: 0 }}
             aria-hidden={!isMobile}
           >
-            <span style={{ display: "block", lineHeight: 1.5 }}>
-              Why Pay <Highlight>10x More</Highlight> for Foreign Link in Bio Tools?
+            <span style={{ display: "block", lineHeight: 1.25 }}>
+              Why Pay <div style={highlightText}>10x More</div> for Foreign Link in Bio Tools?
             </span>
           </h1>
 
