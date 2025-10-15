@@ -30,7 +30,9 @@ const unlinkAsync = util.promisify(fs.unlink);
 import { Storage } from '@google-cloud/storage';
 import NodeCache from "node-cache";
 const metaCache = new NodeCache({ stdTTL: 86400 });
-const storage = new Storage();
+ const storage = new Storage({
+     keyFilename: path.join(__dirname, 'service-account-key.json'),
+   });
 const bucketName = "postlnbucketcom"; 
 const bucket = storage.bucket(bucketName);
 const upload = multer({
