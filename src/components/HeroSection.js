@@ -78,15 +78,21 @@ export default function Hero({
   };
 
 const layoutStyle = {
+  width: "100%",
+  maxWidth: "100%", // Changed from "96%"
+  margin: "0 auto",
   display: "flex",
   flexDirection: isMobile ? "column" : "row",
   alignItems: "center",
   justifyContent: "space-between",
   gap: isMobile ? "48px" : "80px",
   position: "relative",
-  maxWidth: "96%",
+  zIndex: 1,
   boxSizing: "border-box",
+  paddingLeft: isMobile ? '20px' : '40px',
+  paddingRight: isMobile ? '20px' : '40px',
 };
+
 
   const leftColStyle = {
     flex: isMobile ? "0 1 auto" : "1 1 70%",
@@ -154,16 +160,15 @@ const layoutStyle = {
   textShadow: "0 0 1px rgba(0,0,0,0.15)"
 };
 
-  const headlineStyle = {
-    fontSize: isMobile ? "clamp(2.2rem, 8vw, 3rem)" : "clamp(3rem, 5vw, 4rem)",
-    lineHeight: 1.25,
-    fontWeight: 800,
-    letterSpacing: "-0.03em",
-    margin: "0 0 24px 0",
-    color: '#2d2d2d',
-    paddingLeft : isMobile ? '6px' : '0px',
-    paddingRight : isMobile ? '6px' : '0px',
-  };
+ const headlineStyle = {
+  fontSize: isMobile ? "clamp(2.2rem, 8vw, 3rem)" : "clamp(3rem, 5vw, 4rem)",
+  lineHeight: 1.25,
+  fontWeight: 800,
+  letterSpacing: "-0.03em",
+  margin: "0 0 24px 0",
+  color: '#2d2d2d',
+
+};
 
   const highlightStyle = {
     position: "relative",
@@ -173,31 +178,26 @@ const layoutStyle = {
 
   };
 
-  const subStyle = {
-    fontSize: isMobile ? "1.1rem" : "1.3rem",
-    lineHeight: 1.7,
-    color: "#4a4a4a",
-    margin: "0 0 32px 0",
-    // maxWidth: 600,
-    fontWeight: 400,
-   paddingLeft : isMobile ? '4%' : '0px',
-    paddingRight : isMobile ? '4%' : '0px',
-    
-    
-  };
+ const subStyle = {
+  fontSize: isMobile ? "1.1rem" : "1.3rem",
+  lineHeight: 1.7,
+  color: "#4a4a4a",
+  margin: "0 0 32px 0",
+  fontWeight: 400,
+  
+};
 
-  const ctaRowStyle = {
-    width: "100%",
-    display: "flex",
-    flexDirection: isMobile ? "column" : "row",
-    gap: isMobile ? "16px" : "16px",
-    justifyContent: isMobile ? "center" : "flex-start",
-    marginTop: "16px",
-    paddingLeft : isMobile ? '4%' : '0px',
-    paddingRight : isMobile ? '4%' : '0px',
-
-    // maxWidth: isMobile ? "100%" : "650px",
-  };
+const ctaRowStyle = {
+  width: "100%",
+  display: "flex",
+  flexDirection: isMobile ? "column" : "row",
+  gap: isMobile ? "16px" : "16px",
+  justifyContent: isMobile ? "center" : "flex-start",
+  marginTop: "16px",
+  // Remove these:
+  // paddingLeft : isMobile ? '4%' : '0px',
+  // paddingRight : isMobile ? '4%' : '0px',
+};
 
 const inputWrapStyle = {
   position: "relative",
@@ -245,7 +245,7 @@ const inputStyle = {
     fontWeight: 500,
   };
 
-  const startBtnStyle = {
+ const startBtnStyle = {
     appearance: "none",
     border: "none",
     height: "56px",
@@ -263,6 +263,7 @@ const inputStyle = {
     alignSelf: isMobile ? "stretch" : "auto",
     position: "relative",
     overflow: "hidden",
+     touchAction: "manipulation",
   };
 
   const startBtnHoverStyle = isHovered
