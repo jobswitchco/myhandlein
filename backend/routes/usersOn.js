@@ -9,6 +9,8 @@ import Subscriptions from "../models/Subscriptions.js";
 import Message from "../models/Messages.js";
 import Block from "../models/Blocks.js";
 import FormsData from "../models/FormsData.js";
+import BankDetails from "../models/BankDetails.js";
+import Transaction from "../models/Transaction.js";
 import Product from "../models/ProductsCatalogue.js";
 import PageAnalytics from "../models/PageAnalytics.js";
 import NewsletterModel from "../models/Newsletter.js";
@@ -23,6 +25,7 @@ import multer from "multer";
 import path from "path";
 import crypto from "crypto";
 import util from "util";
+import Razorpay from "razorpay";
 const unlinkAsync = util.promisify(fs.unlink);
 import { Storage } from '@google-cloud/storage';
 import NodeCache from "node-cache";
@@ -34,6 +37,15 @@ const upload = multer({ storage: multer.memoryStorage() });
 const IPDATA_KEY = process.env.IPDATA_KEY;
 const OID = (v) => new mongoose.Types.ObjectId(String(v));
 const actorKey = (model, id) => `${model}:${id.toString()}`;
+
+
+const RZP_KEY_ID = process.env.RZP_KEY_ID;
+const RZP_KEY_SECRET = process.env.RZP_KEY_SECRET;
+
+const rz = new Razorpay({
+  key_id: RZP_KEY_ID,
+  key_secret: RZP_KEY_SECRET,
+});
 
 
 
@@ -347,6 +359,15 @@ function normalizePosition(pos) {
   return null;
 }
 
+async function makeReceipt(productId) {
+  const pid = String(productId || "na").replace(/[^a-zA-Z0-9_-]/g, "").slice(-8); // last 8 safe chars
+  const ts = Date.now().toString(36);        // compact timestamp
+  const rnd = Math.random().toString(36).slice(2, 6); // 4-char randomness
+  // e.g. r_pidAbcd_ts4fzgc_rndk9x2
+  const receipt = `r_${pid}_${ts}_${rnd}`;
+  return receipt.slice(0, 40);
+}
+
 router.post("/logout", authenticateToken, (req, res) => {
   res.clearCookie("tokenMyhandleProf", {
     httpOnly: true,
@@ -645,6 +666,237 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
   }
 });
 
+async function saveBankDetails(req, res) {
+  try {
+    const rawUserId = req.user?.user_id;
+    const userId = mongoose.isValidObjectId(rawUserId)
+      ? new mongoose.Types.ObjectId(rawUserId)
+      : rawUserId;
+
+    let { name, bankName, accountNumber, ifsc } = req.body || {};
+    name = (name || "").trim();
+    bankName = (bankName || "").trim();
+    accountNumber = (accountNumber || "").trim();
+    ifsc = (ifsc || "").trim().toUpperCase();
+
+    if (!name || !bankName || !accountNumber || !ifsc) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+    if (!/^\d{6,18}$/.test(accountNumber)) {
+      return res.status(400).json({ message: "Account Number should be 6–18 digits." });
+    }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      return res.status(400).json({ message: "Invalid IFSC code." });
+    }
+
+    const doc = await BankDetails.findOneAndUpdate(
+      { user_id: userId },
+      {
+        $set: {
+          name_on_bank: name,
+          bank_name: bankName,
+          account_number: accountNumber,
+          bank_ifsc: ifsc,
+          is_del: false,
+        },
+        $setOnInsert: { user_id: userId },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    return res.json({
+      bankDetails: {
+        name: doc.name_on_bank,
+        bankName: doc.bank_name,
+        accountNumber: doc.account_number,
+        ifsc: doc.bank_ifsc,
+      },
+    });
+  } catch (e) {
+    console.error("saveBankDetails error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+router.put("/bank-details", authenticateToken, saveBankDetails);
+router.post("/bank-details", authenticateToken, saveBankDetails);
+
+router.get("/bank-details", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    const doc = await BankDetails.findOne({ user_id: userId }).lean();
+    if (!doc) return res.json({ bankDetails: null });
+    return res.json({
+      bankDetails: {
+        name: doc.name_on_bank,
+        bankName: doc.bank_name,
+        accountNumber: doc.account_number,
+        ifsc: doc.bank_ifsc,
+      },
+    });
+  } catch (e) {
+    console.error("getBankDetails error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+router.get("/payments/razorpay-key", async (req, res) => {
+  return res.json({ key: RZP_KEY_ID });
+});
+
+router.post("/payments/create-order", async (req, res) => {
+  try {
+    const { amount, currency = "INR", productId, title, imageUrl, subdomain, payer } = req.body;
+
+    const amt = Number(amount);
+    if (!Number.isInteger(amt) || amt <= 0) {
+      return res.status(400).json({ error: "Invalid amount (must be integer paise)" });
+    }
+
+    const receipt = await makeReceipt(productId);
+
+    const order = await rz.orders.create({
+      amount: amt,
+      currency,
+      receipt,
+      notes: {
+        productId: String(productId || ""),
+        title: String(title || ""),
+        subdomain: String(subdomain || ""),
+        // optional: echo buyer info into notes
+        buyer_name: payer?.name || "",
+        buyer_email: payer?.email || "",
+        buyer_phone: payer?.phone || ""
+      }
+    });
+
+    await Transaction.create({
+      userId: req.user?._id,
+      userEmail: req.user?.email,
+      userName: req.user?.name,
+
+      productId: productId || null,
+      productTitle: title || null,
+      productImage: imageUrl || null,
+      subdomain: subdomain || null,
+
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      status: "created",
+
+      customer: {
+        name: payer?.name || req.user?.name || null,
+        email: payer?.email || req.user?.email || null,
+        phone: payer?.phone || null
+      },
+
+      razorpay: { order },
+      rawOrder: order
+    });
+
+    res.json({
+      order,
+      user: { name: req.user?.name, email: req.user?.email }
+    });
+  } catch (e) {
+    const status = e?.statusCode || 500;
+    const msg = e?.error?.description || "Failed to create order";
+    console.error("create-order error:", JSON.stringify(e, null, 2));
+    res.status(status).json({ error: msg });
+  }
+});
+
+
+
+router.post("/payments/verify", async (req, res) => {
+  try {
+    const { orderId, paymentId, signature, productId, payer } = req.body;
+
+    if (!orderId || !paymentId || !signature) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    const body = `${orderId}|${paymentId}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", RZP_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    const valid = expectedSignature === signature;
+
+    // Fetch canonical payment info from Razorpay
+    let payment = null;
+    try {
+      payment = await rz.payments.fetch(paymentId); // ← gives method, bank, card last4, vpa, email, contact, status, fees, tax, etc.
+    } catch (err) {
+      console.warn("Could not fetch payment from Razorpay:", err?.message || err);
+    }
+
+    // Build method snapshot
+    const method = payment?.method || null;
+    const methodDetails = {
+      type: method || null,
+      bank: payment?.bank || null,
+      wallet: payment?.wallet || null,
+      vpa: payment?.vpa || null,
+      card: payment?.card
+        ? {
+            last4: payment.card.last4 || null,
+            network: payment.card.network || null,
+            issuer: payment.card.issuer || null,
+            type: payment.card.type || null,
+            international: payment.card.international || false
+          }
+        : undefined
+    };
+
+    // Prefer Razorpay-provided buyer contact if available
+    const canonicalCustomer = {
+      name: payer?.name || undefined,
+      email: payment?.email || payer?.email || undefined,
+      phone: payment?.contact || payer?.phone || undefined
+    };
+
+    const update = {
+      paymentId,
+      signature,
+      status: valid ? "paid" : "failed",
+      rawVerifyPayload: req.body,
+      productId: productId || undefined,
+      paidAt: valid ? new Date() : undefined,
+      customer: { ...canonicalCustomer },
+      paymentMethod: methodDetails,
+      razorpay: {
+        payment: payment || undefined
+      },
+      // amount/currency from payment if present (sometimes fees/tax included)
+      amount: payment?.amount || undefined,
+      currency: payment?.currency || undefined
+    };
+
+    let tx = await Transaction.findOneAndUpdate({ orderId }, { $set: update }, { new: true });
+
+    if (!tx) {
+      tx = await Transaction.create({
+        userId: req.user?._id,
+        userEmail: req.user?.email,
+        userName: req.user?.name,
+
+        productId: productId || null,
+
+        orderId,
+        ...update
+      });
+    }
+
+    return res.json({ ok: !!valid, txId: tx?._id });
+  } catch (e) {
+    console.error("verify error:", e);
+    return res.status(500).json({ error: "Verification failed" });
+  }
+});
 
 
 router.get('/details-for-mandate', authenticateToken, async (req, res) => {

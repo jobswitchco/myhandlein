@@ -27,7 +27,7 @@ const AccountDetailsPage1 = () => {
       const [enterCodeDialog, setEnterCodeDialog] = useState(false);
       const [emailCode, setEmailCode] = useState("");
       // const baseUrl = "http://localhost:8001/usersOn";
-  const baseUrl="/api/usersOn";
+      const baseUrl="/api/usersOn";
 
       const theme = useTheme();
       const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -315,6 +315,20 @@ const AccountDetailsPage1 = () => {
         <Grid item xs={12} sm={6} md={8}>
             
             <Grid container fullWidth sx={{  borderStyle : 'solid', borderWidth :'1px', borderColor : '#BCCCDC', marginBottom : '22px', paddingY : '12px', paddingX : '12px'}}>
+                
+                <Grid item md={4}>
+                <Typography sx={{ fontSize : '14px', fontWeight : '500'}}>Name</Typography>
+                </Grid>
+
+                <Grid item md={8}>
+                  {loading ? (      <Skeleton variant="rectangular" width={300} height={20} />
+                  ): (<Typography sx={{ fontSize : '14px', fontWeight : '400'}}>{userDetails.name}</Typography>) }
+                        
+                </Grid>
+
+            </Grid>
+
+              <Grid container fullWidth sx={{  borderStyle : 'solid', borderWidth :'1px', borderColor : '#BCCCDC', marginBottom : '22px', paddingY : '12px', paddingX : '12px'}}>
                 
                 <Grid item md={4}>
                 <Typography sx={{ fontSize : '14px', fontWeight : '500'}}>Email</Typography>

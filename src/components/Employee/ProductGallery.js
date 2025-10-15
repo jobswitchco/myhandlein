@@ -61,6 +61,12 @@ export default function ProductGallery() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState(null);
+  const [paying, setPaying] = useState(false);
+const [payer, setPayer] = useState({ name: "", email: "", phone: "" });
+const [infoOpen, setInfoOpen] = useState(false);
+const [pendingProduct, setPendingProduct] = useState(null);
+
+
 
   const openDigitalDetails = (p) => {
     const apiEndpoint = `${API_BASE}/product-click-analytics`;
@@ -84,6 +90,19 @@ export default function ProductGallery() {
     setDetailProduct(p || null);
     setDetailOpen(true);
   };
+
+  // --- Razorpay helpers ---
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 
   const closeDigitalDetails = () => {
     setDetailOpen(false);
@@ -246,10 +265,143 @@ export default function ProductGallery() {
     [upsertCategoriesFromList]
   );
 
+  async function proceedToRazorpay(product, payerInfo) {
+  // basic validation
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerInfo.email);
+  const phoneOk = /^\+?\d{10,15}$/.test(payerInfo.phone); // simple intl check
+  if (!payerInfo.name?.trim() || !emailOk || !phoneOk) {
+    alert("Please enter a valid name, email, and mobile number.");
+    return;
+  }
+
+  try {
+    setPaying(true);
+
+    const ok = await loadRazorpayScript();
+    if (!ok) {
+      alert("Failed to load Razorpay. Check your connection.");
+      return;
+    }
+
+    // 1) fetch key
+    const { data: keyResp } = await axios.get(`${API_BASE}/payments/razorpay-key`, { timeout: 8000 });
+    const key = keyResp?.key;
+    if (!key) throw new Error("Razorpay key missing");
+
+    // 2) create order
+    const amount = Math.round(Number(product?.price || 0) * 100);
+    if (!amount || Number.isNaN(amount) || amount <= 0) {
+      alert("Invalid price for this product.");
+      return;
+    }
+
+    const { data: orderResp } = await axios.post(`${API_BASE}/payments/create-order`, {
+      productId: product._id || product.id,
+      amount,
+      currency: product.currency || "INR",
+      title: product.title,
+      imageUrl: product.imageUrl,
+      subdomain: subdomainRef.current || ""
+    }, { timeout: 10000 });
+
+    const order = orderResp?.order;
+    if (!order?.id) throw new Error("Order creation failed");
+
+    // 3) open Razorpay
+    const rzp = new window.Razorpay({
+      key,
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      name: "MyHandle",
+      description: product.title || "Purchase",
+      image: product.imageUrl || undefined,
+
+      // This shows the standard fields and pre-fills them
+      prefill: {
+        name: payer.name,
+        email: payer.email,
+        contact: payer.phone
+      },
+
+      // Optional: lock what you prefilling (user can still change if you set false)
+      readonly: {
+        // name: true,
+        // email: true,
+        // contact: true
+      },
+
+      notes: {
+        productId: String(product._id || product.id || ""),
+        subdomain: subdomainRef.current || ""
+      },
+
+      // Show common methods; you can restrict if you want
+      method: {
+        upi: true,
+        card: true,
+        netbanking: true,
+        wallet: true,
+        emi: false,
+        paylater: false
+      },
+
+      retry: { enabled: true, max_count: 1 },
+
+      handler: async (response) => {
+        try {
+          const verifyRes = await axios.post(`${API_BASE}/payments/verify`, {
+            productId: product._id || product.id,
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature
+          }, { timeout: 10000 });
+
+          if (verifyRes?.data?.ok) {
+            alert("Success");
+            setInfoOpen(false);
+            closeDigitalDetails();
+          } else {
+            alert("Payment captured but verification failed. Please contact support.");
+          }
+        } catch (e) {
+          // console.error(e);
+          alert("Payment verification failed. Please contact support.");
+        } finally {
+          setPaying(false);
+        }
+      },
+
+      modal: {
+        ondismiss: function () {
+          setPaying(false);
+        }
+      },
+
+      theme: { color: "#6D28D9" }
+    });
+
+    setInfoOpen(false); // close your info dialog when opening Checkout
+    rzp.on("payment.failed", function (resp) {
+      // console.warn("Payment failed:", resp?.error);
+      alert(resp?.error?.description || "Payment failed");
+      setPaying(false);
+      setInfoOpen(true); // optionally reopen to let user edit details
+    });
+
+    rzp.open();
+  } catch (err) {
+    // console.error(err);
+    alert(err?.message || "Could not start payment.");
+    setPaying(false);
+  }
+}
+
+
   // refetch on page/limit change
   useEffect(() => {
     if (!subdomainRef.current) {
-      console.log("No valid subdomain found, skipping fetch");
+      // console.log("No valid subdomain found, skipping fetch");
       return;
     }
     const params = {
@@ -342,6 +494,110 @@ export default function ProductGallery() {
     if (window && window.history && window.history.length > 1) window.history.back();
     else window.location.href = "/";
   }
+
+  async function handleBuyNow(p) {
+  try {
+    setPaying(true);
+
+    // 1) Ensure Razorpay script is available
+    const ok = await loadRazorpayScript();
+    if (!ok) {
+      alert("Failed to load Razorpay. Please check your connection.");
+      return;
+    }
+
+    // 2) Get public key from backend (never hardcode secret on client)
+    const { data: keyResp } = await axios.get(`${API_BASE}/payments/razorpay-key`, { timeout: 8000 });
+    const key = keyResp?.key;
+    if (!key) throw new Error("Razorpay key missing");
+
+    // 3) Create order on backend (amount in paise)
+    const amount = Math.round(Number(p?.price || 0) * 100);
+    if (!amount || Number.isNaN(amount) || amount <= 0) {
+      alert("Invalid price for this product.");
+      return;
+    }
+
+    const { data: orderResp } = await axios.post(`${API_BASE}/payments/create-order`, {
+      productId: p._id || p.id,
+      amount, // paise
+      currency: p.currency || "INR",
+      title: p.title,
+      imageUrl: p.imageUrl,
+      subdomain: subdomainRef.current || "",
+       payer: {                 // <— add this
+    name: payer.name,
+    email: payer.email,
+    phone: payer.phone
+  }
+    }, { timeout: 10000 });
+
+    const order = orderResp?.order;
+    if (!order?.id) throw new Error("Order creation failed");
+
+    // 4) Open Razorpay Checkout
+    const options = {
+      key,
+      amount: order.amount, // in paise
+      currency: order.currency,
+      name: "MyHandle", // your brand
+      description: p.title || "Purchase",
+      order_id: order.id,
+      image: p.imageUrl || undefined,
+      prefill: {
+        // optional; backend should rely on session/user for truth
+        name: orderResp?.user?.name || "",
+        email: orderResp?.user?.email || "",
+      },
+      notes: {
+        productId: String(p._id || p.id || ""),
+        subdomain: subdomainRef.current || ""
+      },
+      theme: { color: "#6D28D9" },
+      handler: async function (response) {
+        // 5) Verify signature + save transaction on backend
+        try {
+          const verifyRes = await axios.post(`${API_BASE}/payments/verify`, {
+            productId: p._id || p.id,
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature
+          }, { timeout: 10000 });
+
+          if (verifyRes?.data?.ok) {
+            alert("Success");
+            // optional: refresh UI, close dialog, give download, etc.
+            closeDigitalDetails();
+          } else {
+            alert("Payment captured but verification failed. Please contact support.");
+          }
+        } catch (e) {
+          // console.error(e);
+          alert("Payment verification failed. Please contact support.");
+        }
+      },
+      modal: {
+        ondismiss: function () {
+          setPaying(false);
+        }
+      }
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on("payment.failed", function (resp) {
+      // console.warn("Payment failed:", resp?.error);
+      alert(resp?.error?.description || "Payment failed");
+      setPaying(false);
+    });
+    rzp.open();
+  } catch (err) {
+    // console.error(err);
+    alert(err?.message || "Could not start payment.");
+  } finally {
+    // when modal opens, we’ll re-enable on close/fail
+  }
+}
+
 
   function ProductCard({ p }) {
     const { src, loading, setSrc } = useAffiliateThumb(p);
@@ -617,15 +873,21 @@ export default function ProductGallery() {
                   </Stack>
 
                   <Box sx={{ pt: 1 }}>
-                    <Button
-                      variant="contained"
-                      size="large"
-                      onClick={() => {
-                        console.log("Buy Now clicked for", detailProduct?._id || detailProduct?.id);
-                      }}
-                    >
-                      Buy Now
-                    </Button>
+               <Button
+  variant="contained"
+  size="large"
+  disabled={paying}
+  onClick={() => {
+    setPendingProduct(detailProduct);
+    // optional prefill from your logged-in user if you have it:
+    // setPayer({ name: user.name, email: user.email, phone: user.phone || "" });
+    setInfoOpen(true);
+  }}
+>
+  {paying ? "Processing..." : "Buy Now"}
+</Button>
+
+
                   </Box>
                 </Stack>
               </Grid>
@@ -633,6 +895,58 @@ export default function ProductGallery() {
           )}
         </Box>
       </Dialog>
+
+
+      <Dialog open={infoOpen} onClose={() => setInfoOpen(false)} fullWidth maxWidth="sm">
+  <AppBar elevation={0} sx={{ position: "relative", bgcolor: "white", color: "inherit", borderBottom: "1px solid #eee" }}>
+    <Toolbar>
+      <Typography sx={{ flex: 1, fontWeight: 600 }}>Checkout Details</Typography>
+      <IconButton onClick={() => setInfoOpen(false)}><CloseIcon /></IconButton>
+    </Toolbar>
+  </AppBar>
+
+  <Box sx={{ p: 3 }}>
+    <Stack spacing={2}>
+      <TextField
+        label="Full Name"
+        value={payer.name}
+        onChange={(e) => setPayer((s) => ({ ...s, name: e.target.value }))}
+        fullWidth
+        required
+      />
+      <TextField
+        label="Email"
+        type="email"
+        value={payer.email}
+        onChange={(e) => setPayer((s) => ({ ...s, email: e.target.value }))}
+        fullWidth
+        required
+      />
+      <TextField
+        label="Mobile Number"
+        value={payer.phone}
+        onChange={(e) => setPayer((s) => ({ ...s, phone: e.target.value.replace(/[^\d+]/g, "") }))}
+        placeholder="+91XXXXXXXXXX"
+        fullWidth
+        required
+        inputProps={{ maxLength: 15 }}
+      />
+
+      <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ pt: 1 }}>
+        <Button onClick={() => setInfoOpen(false)}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={() => proceedToRazorpay(pendingProduct, payer)}
+        >
+          Continue to Payment
+        </Button>
+      </Stack>
+    </Stack>
+  </Box>
+</Dialog>
+
+
+
     </>
   );
 }
