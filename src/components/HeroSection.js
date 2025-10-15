@@ -24,7 +24,7 @@ export default function Hero({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width:600px)");
+    const mq = window.matchMedia("(max-width:768px)");
     const handler = (e) => setIsMobile(e.matches);
     if (mq.addEventListener) mq.addEventListener("change", handler);
     else mq.addListener(handler);
