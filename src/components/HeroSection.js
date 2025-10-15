@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
+
+
 
 export default function Hero({
   logos = {},
@@ -9,10 +11,6 @@ export default function Hero({
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
   const navigate = useNavigate();
-
-  // NEW: availability state
-  // idle = nothing yet, checking = debounce in progress or request in flight
-  // available / taken / invalid / error
   const [availability, setAvailability] = useState("idle");
   const [message, setMessage] = useState("");
   const abortRef = useRef(null);
@@ -20,9 +18,8 @@ export default function Hero({
   const baseUrl = "/api/usersOn";
 
 
-  // Track small-screen (<=600px)
   const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" && window.matchMedia("(max-width:600px)").matches
+    typeof window !== "undefined" && window.matchMedia("(max-width:768px)").matches
   );
 
   useEffect(() => {
@@ -37,145 +34,182 @@ export default function Hero({
     };
   }, []);
 
-  // === Highlight tokens
-  const padX = "clamp(0.05em, 1.4vw, 0.05em)";
-  const highlightHeight = "clamp(0.42em, 1.8vw, 0.42em)";
-  const highlightRadius = "0px";
-  const highlightColor = "linear-gradient(120deg, #FFFFFF 0%, #DC143C 80%, #DC143C 100%)";
-  const barOffset = "65%";
-
-  // === Inline styles
+  // Styles
   const containerStyle = {
-    minHeight: "68vh",
+    minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding:"clamp(18vh, 8vw, 18vh) clamp(26px, 4vw, 32px) clamp(14vh, 8vw, 16vh) clamp(26px, 4vw, 32px)",
+    padding: isMobile ? "100px 20px 60px" : "100px 40px 80px",
     boxSizing: "border-box",
-    fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
-    color: "#0b1220",
-    overflowX: "hidden", 
-    background: '#FAB12F'
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    color: "#0a0a0a",
+    position: "relative",
+    overflow: "hidden",
+    // background: "linear-gradient(135deg, #FFF8E7 0%, #FFE5B4 25%, #FFDAB9 50%, #FFE5B4 75%, #FFF8E7 100%)",
+  };
+
+  const backgroundShapeStyle = {
+    position: "absolute",
+    top: "-20%",
+    right: "-10%",
+    width: "60%",
+    height: "60%",
+    // background: "radial-gradient(circle, rgba(255,140,0,0.15) 0%, rgba(255,215,0,0.05) 50%, transparent 70%)",
+    borderRadius: "50%",
+    filter: "blur(60px)",
+    pointerEvents: "none",
+    zIndex: 0,
+  };
+
+  const backgroundShape2Style = {
+    position: "absolute",
+    bottom: "-15%",
+    left: "-10%",
+    width: "50%",
+    height: "50%",
+    background: "radial-gradient(circle, rgba(255,69,0,0.12) 0%, rgba(255,140,0,0.04) 50%, transparent 70%)",
+    borderRadius: "50%",
+    filter: "blur(50px)",
+    pointerEvents: "none",
+    zIndex: 0,
   };
 
   const layoutStyle = {
     width: "100%",
-    maxWidth: 1200,
+    paddingLeft : '3%',
+    paddingRight : '3%',
     margin: "0 auto",
     display: "flex",
     flexDirection: isMobile ? "column" : "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: isMobile ? "24px" : "48px"
+    gap: isMobile ? "48px" : "80px",
+    position: "relative",
+    zIndex: 1,
   };
 
-const leftColStyle = {
-  flex: isMobile ? "0 1 auto" : "1 1 70%",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: isMobile ? "center" : "flex-start",
-  textAlign: isMobile ? "center" : "left",
-  minWidth: 0,              // ✅ allow children to shrink inside flex
-};
+  const leftColStyle = {
+    flex: isMobile ? "0 1 auto" : "1 1 70%",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: isMobile ? "center" : "flex-start",
+    textAlign: isMobile ? "center" : "left",
+    minWidth: 0,
+  };
 
-const rightColStyle = {
-  flex: isMobile ? "0 1 auto" : "1 1 30%",
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: isMobile ? "center" : "flex-end",
-  minWidth: 0,              // ✅
-};
+  const rightColStyle = {
+    flex: isMobile ? "0 1 auto" : "1 1 30%",
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: isMobile ? "center" : "flex-end",
+    minWidth: 0,
+    position: "relative",
+  };
+
+  const imageContainerStyle = {
+    position: "relative",
+    width: isMobile ? "100%" : "100%",
+    maxWidth: 480,
+  };
+
+  const imageGlowStyle = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "110%",
+    height: "110%",
+    background: "radial-gradient(circle, rgba(255,140,0,0.25) 0%, transparent 70%)",
+    filter: "blur(40px)",
+    borderRadius: "24px",
+    zIndex: 0,
+    pointerEvents: "none",
+  };
 
   const heroImgStyle = {
-    width: isMobile ? "88%" : "100%",
-    maxWidth: 520,
+    width: "100%",
     height: "auto",
-    borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-    objectFit: "cover"
+    borderRadius: "24px",
+    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5)",
+    objectFit: "cover",
+    position: "relative",
+    zIndex: 1,
+    transition: "transform 0.3s ease, box-shadow 0.3s ease",
   };
 
-  const flagImgStyle = {
-  width: "32px",
-  height: "22px",
-  objectFit: "cover",
-  borderRadius: "2px",
-  verticalAlign: "middle",
-  marginLeft: "6px"
-};
-
-
-const subStyle = {
-  fontSize: "clamp(1rem, 1.8vw, 1.25rem)",
-  lineHeight: 1.6,
-  color: "#222831",
-  margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
-  maxWidth: 760,
-  marginTop: "1rem"
-};
-
-// inline version for mobile
-const subStyleDataInline = {
-  display: "inline",
-  fontSize: "clamp(0.9rem, 1.6vw, 1.12rem)",
+ const badgeStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "6px 10px",
+  borderRadius: "999px",
   fontWeight: 500,
-  color: "#000000",
-  margin: 0
+  lineHeight: 1,
+  // Indian flag gradient (saffron, white, green)
+  background: "linear-gradient(135deg, #FF9933 0%, #FFFFFF 50%, #138808 100%)",
+  // Navy text for contrast (Ashoka Chakra tone)
+  color: "#0A1F5A",
+  // Optional: thin outline for readability on white band
+  textShadow: "0 0 1px rgba(0,0,0,0.15)"
 };
-
-// block version for desktop/tablet
-const subStyleDataBlock = {
-  fontSize: "clamp(0.9rem, 1.6vw, 1.12rem)",
-  lineHeight: 1.6,
-  color: "#000000",
-  maxWidth: 760,
-  margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
-  fontWeight: 500
-};
-
-
 
   const headlineStyle = {
-    fontSize: "clamp(2.6rem, 5vw, 3.25rem)",
-    lineHeight: 1.3,
-    fontWeight: 700,
-    letterSpacing: "-0.02em",
-    margin: "0 0 clamp(12px, 2vw, 16px) 0",
-    fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
+    fontSize: isMobile ? "clamp(2.2rem, 8vw, 3rem)" : "clamp(3rem, 5vw, 4rem)",
+    lineHeight: 1.25,
+    fontWeight: 800,
+    letterSpacing: "-0.03em",
+    margin: "0 0 24px 0",
+    color: '#2d2d2d',
+    paddingLeft : isMobile ? '6px' : '0px',
+    paddingRight : isMobile ? '6px' : '0px',
   };
 
-  const mobileHeadlineStyle = {
-    ...headlineStyle,
-    fontSize: "clamp(2rem, 7vw, 3rem)"
+  const highlightStyle = {
+    position: "relative",
+    display: "inline-block",
+    fontWeight: 900,
+    color: '#B9375D'
+
   };
 
-  // === CTA row with subdomain input + button (no external CSS)
+  const subStyle = {
+    fontSize: isMobile ? "1.1rem" : "1.3rem",
+    lineHeight: 1.7,
+    color: "#4a4a4a",
+    margin: "0 0 32px 0",
+    maxWidth: 600,
+    fontWeight: 400,
+    
+  };
+
   const ctaRowStyle = {
     width: "100%",
     display: "flex",
     flexDirection: isMobile ? "column" : "row",
-    gap: isMobile ? "0px" : "16px",
+    gap: isMobile ? "16px" : "16px",
     justifyContent: isMobile ? "center" : "flex-start",
     alignItems: "stretch",
-    marginTop: "clamp(8px, 2vw, 16px)"
+    marginTop: "16px",
+    maxWidth: isMobile ? "100%" : "650px",
   };
 
-const inputWrapStyle = {
-  position: "relative",
-  display: "flex",
-  alignItems: "center",
-  background: "#FFFFFF",
-  borderRadius: "14px",
-  boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)",
-  paddingLeft: "16px",
-  paddingRight: "16px",
-  height: isMobile ? "60px" : "52px",
-  boxSizing: "border-box",
-  width: "100%",
-  maxWidth: isMobile ? "100%" : "480px",
-};
-
+  const inputWrapStyle = {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    background: "rgba(255,255,255,0.95)",
+    backdropFilter: "blur(10px)",
+    borderRadius: "26px",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",
+    paddingLeft: "20px",
+    paddingRight: "20px",
+    height: "56px",
+    boxSizing: "border-box",
+    width: "100%",
+    transition: "box-shadow 0.3s ease, transform 0.2s ease",
+  };
 
   const inputStyle = {
     flex: 1,
@@ -185,134 +219,82 @@ const inputWrapStyle = {
     background: "transparent",
     fontSize: "16px",
     fontWeight: 600,
-    color: "#0b1220",
-    paddingRight: "120px"
+    color: "#0a0a0a",
+    paddingRight: "140px",
   };
 
   const suffixStyle = {
     position: "absolute",
-    right: "16px",
+    right: "20px",
     top: "50%",
     transform: "translateY(-50%)",
     fontSize: "15px",
-    color: "#6b7280",
+    color: "#999",
     whiteSpace: "nowrap",
-    pointerEvents: "none"
+    pointerEvents: "none",
+    fontWeight: 500,
   };
 
   const startBtnStyle = {
     appearance: "none",
     border: "none",
-    height: isMobile ? "60px" : "52px",
-    width: "100%",
+    height: "56px",
+    minWidth: isMobile ? "100%" : "200px",
     padding: "0 28px",
     fontSize: "16px",
     fontWeight: 700,
-    borderRadius: "999px",
+    borderRadius: "26px",
     cursor: "pointer",
-    background: "#37353E",
+    background: "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)",
     color: "#FFFFFF",
-    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
-    transition: "transform 0.15s ease, box-shadow 0.15s ease",
-    alignSelf: isMobile ? "stretch" : "auto"
-
+    boxShadow: "0 12px 24px rgba(0,0,0,0.2)",
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+    alignSelf: isMobile ? "stretch" : "auto",
+    position: "relative",
+    overflow: "hidden",
   };
 
   const startBtnHoverStyle = isHovered
-    ? { transform: "translateY(-1px)", boxShadow: "0 10px 18px rgba(0,0,0,0.16)" }
+    ? { 
+        transform: "translateY(-3px)", 
+        boxShadow: "0 16px 32px rgba(0,0,0,0.25)",
+      }
     : {};
 
-  const socialRowStyle = {
-    display: "flex",
-    gap: "clamp(10px, 2vw, 18px)",
-    justifyContent: isMobile ? "center" : "flex-start",
-    alignItems: "center",
-    marginTop: "clamp(16px, 3vw, 24px)"
-  };
-
-  const iconWrapStyle = {
-    width: "clamp(22px, 5vw, 32px)",
-    height: "clamp(22px, 5vw, 32px)",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 6,
-    background: "transparent",
-    overflow: "hidden"
-  };
-
-  const logoImgStyle = { width: "75%", height: "75%", objectFit: "contain", display: "block" };
-
   const captionStyle = {
-    marginTop: "clamp(12px, 2.5vw, 18px)",
-    fontSize: "clamp(0.95rem, 1.8vw, 1.2rem)",
-    color: "#543A14"
+    marginTop: "32px",
+    fontSize: isMobile ? "1rem" : "1.1rem",
+    color: "#6b4423",
+    fontWeight: 500,
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    justifyContent: isMobile ? "center" : "flex-start",
   };
 
-  // NEW: status row styles (inline, no external CSS)
   const statusRowStyle = {
     display: "flex",
     alignItems: "center",
     gap: 8,
     minHeight: 24,
-    paddingTop: 6,
+    paddingTop: 8,
     paddingLeft: 4,
-    fontSize: 15,
-    fontWeight: 500,
-  marginBottom: "8px"
-
+    fontSize: 14,
+    fontWeight: 600,
+    marginBottom: "0px",
   };
 
   const statusColor =
     availability === "available"
-      ? "#FFFFFF" // green-700
+      ? "#16a34a"
       : availability === "taken"
-      ? "#b91c1c" // red-700
+      ? "#dc2626"
       : availability === "invalid"
-      ? "#92400e" // amber-700
+      ? "#d97706"
       : availability === "error"
-      ? "#7c3aed" // violet-700
-      : "#FFFFFF"; // gray-500
+      ? "#9333ea"
+      : "#6b7280";
 
-  const renderLogo = (src, alt) => {
-    const fallback = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
-    const imageSrc = src || fallback;
-    return <img src={imageSrc} alt={alt} style={logoImgStyle} />;
-  };
-
-  // === Highlight builder
-  const Highlight = ({ children }) => {
-    const wrapperStyle = {
-      position: "relative",
-      display: "inline-block",
-      paddingLeft: padX,
-      paddingRight: padX,
-      zIndex: 0,
-      lineHeight: 1.15
-    };
-    const bgStyle = {
-      content: '""',
-      position: "absolute",
-      left: `calc(-1 * ${padX})`,
-      right: `calc(-1 * ${padX})`,
-      top: barOffset,
-      transform: "translateY(0)",
-      height: highlightHeight,
-      background: highlightColor,
-      borderRadius: highlightRadius,
-      zIndex: 0,
-      pointerEvents: "none"
-    };
-    const textStyle = { position: "relative", zIndex: 1, whiteSpace: "nowrap" };
-    return (
-      <span style={wrapperStyle} aria-hidden={false}>
-        <span style={bgStyle} aria-hidden="true" />
-        <span style={textStyle}>{children}</span>
-      </span>
-    );
-  };
-
-  // Sanitize input to allowed subdomain chars
   const onSubdomainChange = (e) => {
     const raw = e.target.value;
     const cleaned = raw.toLowerCase().replace(/[^a-z0-9-]/g, "");
@@ -322,7 +304,6 @@ const inputWrapStyle = {
   const isValidSubdomain = (s) =>
     /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s) && s.length > 0;
 
-  // NEW: debounce & availability check
   useEffect(() => {
     // reset UI if empty
     if (!subdomain) {
@@ -383,70 +364,38 @@ const inputWrapStyle = {
     };
   }, [subdomain]);
 
-  // NEW: tiny inline icons (SVG) so we don’t need external CSS
   const Spinner = () => (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      style={{ display: "block" }}
-      aria-label="Loading"
-    >
-      <circle cx="12" cy="12" r="10" fill="none" stroke="#FFFFFF" strokeWidth="3" opacity="0.25" />
-      <path
-        d="M22 12a10 10 0 0 0-10-10"
-        fill="none"
-        stroke="#FFFFFF"
-        strokeWidth="3"
-      >
-        <animateTransform
-          attributeName="transform"
-          type="rotate"
-          from="0 12 12"
-          to="360 12 12"
-          dur="0.8s"
-          repeatCount="indefinite"
-        />
+    <svg width="16" height="16" viewBox="0 0 24 24" style={{ display: "block" }} aria-label="Loading">
+      <circle cx="12" cy="12" r="10" fill="none" stroke={statusColor} strokeWidth="3" opacity="0.25" />
+      <path d="M22 12a10 10 0 0 0-10-10" fill="none" stroke={statusColor} strokeWidth="3">
+        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
       </path>
     </svg>
   );
 
   const CheckIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M20 6L9 17l-5-5"
-        fill="none"
-        stroke="#F0F0F0"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M20 6L9 17l-5-5" fill="none" stroke={statusColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 
   const CrossIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M6 6l12 12M18 6L6 18"
-        fill="none"
-        stroke="#dc2626"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
+      <path d="M6 6l12 12M18 6L6 18" fill="none" stroke={statusColor} strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 
   const WarnIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 9v4m0 4h.01" stroke="#b45309" strokeWidth="2" strokeLinecap="round" />
-      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="none" stroke="#b45309" strokeWidth="2" />
+      <path d="M12 9v4m0 4h.01" stroke={statusColor} strokeWidth="2" strokeLinecap="round" />
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="none" stroke={statusColor} strokeWidth="2" />
     </svg>
   );
 
   const ErrorIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" fill="none" stroke="#7c3aed" strokeWidth="2" />
-      <path d="M12 7v6m0 4h.01" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="10" fill="none" stroke={statusColor} strokeWidth="2" />
+      <path d="M12 7v6m0 4h.01" stroke={statusColor} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 
@@ -461,56 +410,29 @@ const inputWrapStyle = {
 
   return (
     <section style={containerStyle} aria-label="Hero">
+      <div style={backgroundShapeStyle} />
+      <div style={backgroundShape2Style} />
+      
       <div style={layoutStyle}>
-        {/* LEFT: Content */}
+    
         <div style={leftColStyle}>
-          {/* Desktop headline */}
-          <h1
-            style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}
-            aria-hidden={isMobile}
-          >
-            {"Why Pay "}
-            <Highlight>10x More</Highlight>
-            {" for Foreign Link in Bio Tools?"}
+       {/* <div style={badgeStyle}>Made in India</div> */}
+
+
+          <h1 style={headlineStyle}>
+            Why Pay <span style={highlightStyle}>10x More</span> for Foreign Link in Bio Tools?
           </h1>
 
-          {/* Mobile headline */}
-          <h1
-            style={{ ...mobileHeadlineStyle, display: isMobile ? "block" : "none", margin: 0 }}
-            aria-hidden={!isMobile}
-          >
-            <span style={{ display: "block", lineHeight: 1.5 }}>
-              Why Pay <Highlight>10x More</Highlight> for Foreign Link in Bio Tools?
-            </span>
-          </h1>
+          <p style={subStyle}>
+            India's affordable link-in-bio platform for creators and businesses. Unlimited links, UPI integration, analytics & more —all for ₹99/month. <br />Built in India, your data stays in India.
+          </p>
 
-         <p style={subStyle}>
-  India's affordable link-in-bio platform for creators and businesses. Unlimited links, UPI integration, Hindi support, and analytics — all for ₹99/month.
-  {isMobile ? (
-    <>
-      {" "}
-      <span style={subStyleDataInline}>Built in India, your data stays in India.</span>
-    </>
-  ) : null}
-</p>
-
-{!isMobile && (
-  <p style={subStyleDataBlock}>
-    Built in India, your data stays in India.
-  </p>
-)}
-
-
-          {/* Subdomain input + CTA */}
           <div style={ctaRowStyle}>
-            <label
-              htmlFor="subdomain"
-              style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
-            >
-              Enter your subdomain
-            </label>
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+              <label htmlFor="subdomain" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>
+                Enter your subdomain
+              </label>
 
-            <div style={{ display: "flex", flexDirection: "column", minWidth: isMobile ? "100%" : "360px", maxWidth: "480px" }}>
               <div style={inputWrapStyle}>
                 <input
                   id="subdomain"
@@ -527,7 +449,6 @@ const inputWrapStyle = {
                 <span style={suffixStyle}>.myhandle.in</span>
               </div>
 
-              {/* NEW: status row */}
               <div id="availability-msg" style={{ ...statusRowStyle, color: statusColor }}>
                 <StatusIcon />
                 <span>{message}</span>
@@ -542,28 +463,34 @@ const inputWrapStyle = {
               aria-label="Get started for free"
               disabled={availability === "checking"}
             >
-              Get started for free
+              Get Started for Free
             </button>
           </div>
 
+          <div style={captionStyle}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8C00">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Trusted by <strong>65,000+</strong> Indian Influencers
+          </div>
+        </div>
 
-     <div style={captionStyle}>
-  Trusted by <span style={{ display : 'inline', fontWeight : 500}}>65,000+</span> Indian Influencers.</div>
-</div>
-
-
-        {/* RIGHT: Image */}
         <div style={rightColStyle}>
-          {heroImage ? (
-            <img
-              src={heroImage}
-              alt="Showcase of MyHandle link-in-bio on mobile and desktop"
-              style={heroImgStyle}
-              loading="lazy"
-            />
-          ) : null}
+          <div style={imageContainerStyle}>
+            <div style={imageGlowStyle} />
+            {heroImage && (
+              <img
+                src={heroImage}
+                alt="Showcase of MyHandle link-in-bio on mobile and desktop"
+                style={heroImgStyle}
+                loading="lazy"
+              />
+            )}
+          </div>
         </div>
       </div>
     </section>
-  )
+  );
 }
