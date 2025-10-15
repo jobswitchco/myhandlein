@@ -41,6 +41,8 @@ import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import UpiMandateModern from "./UpiMandate";
+import CurrencyRupeeOutlinedIcon from '@mui/icons-material/CurrencyRupeeOutlined';
+
 
 const theme = createTheme({
   palette: {
@@ -428,6 +430,48 @@ export default function SideNavbar({ window }) {
             sx: {
               color: location.pathname === "/professional/store/products" ? "#FFFFFF" : "#6B7280",
               fontWeight: location.pathname === "/professional/store/products" ? 500 : 400,
+              fontSize: "0.875rem",
+            },
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+
+
+    {/* My Orders */}
+       <ListItem disablePadding sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => goTo("/professional/my_orders")}
+        selected={location.pathname === "/professional/my_orders"}
+        sx={{
+          pl: 2,
+          borderRadius: "8px",
+          py: 0.75,
+          backgroundColor: location.pathname === "/professional/my_orders" ? "#6E8CFB" : "transparent",
+           "&:hover": { 
+            backgroundColor: "#6E8CFB",
+            "& .MuiListItemIcon-root, & .MuiListItemText-primary": {
+              color: "#FFFFFF"
+            }
+          },
+          "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <CurrencyRupeeOutlinedIcon
+            sx={{
+              color: location.pathname === "/professional/my_orders" ? "#FFFFFF" : "#9CA3AF",
+              fontSize: "1.2rem",
+            }}
+          />
+        </ListItemIcon>
+        <ListItemText
+          primary="My Orders"
+          primaryTypographyProps={{
+            sx: {
+              color: location.pathname === "/professional/my_orders" ? "#FFFFFF" : "#6B7280",
+              fontWeight: location.pathname === "/professional/my_orders" ? 500 : 400,
               fontSize: "0.875rem",
             },
           }}

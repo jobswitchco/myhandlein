@@ -23,6 +23,10 @@ const User_Schema = new Schema({
   fbLongLivedToken: { type: String },
   fbTokenExpiry: { type: Date },
 
+  demo_logged_in: { type: Boolean },
+  demo_logged_date: { type: Date },
+
+
 
   socials: [{
     platform: { type: String },

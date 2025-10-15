@@ -45,6 +45,7 @@ import DashboardAnalytics from './components/Employee/DashboardAnalytics.js';
 import UpiMandateModern from './components/Employee/UpiMandate.js';
 import InstagramConnect from './components/Employee/InstagramConnect.js';
 import DemoLogin from './components/Employee/DemoLogin.js';
+import DigitalTransactions from './components/Employee/DigitalTransactions.js';
 
 // very critial yes
 
@@ -136,6 +137,8 @@ if (initialSubdomain) {
                 <Route path="newsletter/emails" element={<NewsletterEmailsTable />} />
                 <Route path="dashboard/analytics" element={<DashboardAnalytics />} />
                 <Route path="fb_insta_redirect" element={<InstagramConnect />} />
+                <Route path="my_orders" element={<DigitalTransactions />} />
+
 
 
 

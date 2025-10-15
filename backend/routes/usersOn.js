@@ -479,6 +479,19 @@ return res.status(401).json({ success: false, message: "Invalid demo credentials
 }
 
 
+   const DEMO_USER_ID = new mongoose.Types.ObjectId("68cbc39db5f421a8a043046f");
+
+    await USER.updateOne(
+      { _id: DEMO_USER_ID },
+      {
+        $set: {
+          demo_logged_in: true,
+          demo_logged_date: new Date(),
+        },
+      }
+    );
+
+
     const token = await generateJWTtoken('68cbc39db5f421a8a043046f', 'techiebhaskar7@gmail.com');
 
     // Cookie options: adjust for your environment (see notes below)
@@ -503,6 +516,77 @@ return res.status(401).json({ success: false, message: "Invalid demo credentials
 console.error("demo-login error", err);
 return res.status(500).json({ success: false, message: "Server error" });
 }
+});
+
+router.get("/get-my-transactions", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // 1) Find user's handle/ subdomain
+    const user = await USER.findById(userId).select("handleUserName email name").lean();
+    if (!user || !user.handleUserName) {
+      return res.status(404).json({ error: "User or handle not found" });
+    }
+    const subdomain = user.handleUserName;
+
+    // 2) Parse query
+    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+    const perPage = Math.min(Math.max(parseInt(req.query.limit || "10", 10), 1), 100);
+
+    const now = new Date();
+    const defaultStart = new Date(now);
+    defaultStart.setDate(defaultStart.getDate() - 7); // last 7 days by default
+
+    const start = req.query.start ? new Date(req.query.start) : defaultStart;
+    const end = req.query.end ? new Date(req.query.end) : now;
+    // normalize end to end-of-day
+    end.setHours(23, 59, 59, 999);
+
+    const match = {
+      subdomain,
+      status: "paid",
+      paidAt: { $gte: start, $lte: end },
+    };
+
+    // 3) Count + fetch (project only what UI needs + a few audit fields)
+    const [total, rows] = await Promise.all([
+      Transaction.countDocuments(match),
+      Transaction.find(match)
+        .sort({ paidAt: -1 })
+        .skip((page - 1) * perPage)
+        .limit(perPage)
+        .select({
+          productTitle: 1,
+          paidAt: 1,
+          amount: 1,
+          currency: 1,
+          customer: 1,
+          paymentMethod: 1,
+          orderId: 1,
+          paymentId: 1,
+          subdomain: 1,
+          status: 1,
+        })
+        .lean()
+    ]);
+
+    res.json({
+      page,
+      limit: perPage,
+      total,
+      hasMore: page * perPage < total,
+      range: { start, end },
+      subdomain,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("GET /api/transactions/mine error:", err);
+    res.status(500).json({ error: "Something went wrong" });
+  }
 });
 
 router.post("/connect-instagram", authenticateToken, async (req, res) => {
