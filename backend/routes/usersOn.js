@@ -335,7 +335,7 @@ async function uploadBufferToGCS(buffer, filename, mimetype) {
       mimetype 
     });
 
-    const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+    const bucket = storage.bucket(bucketName);
     const blob = bucket.file(`uploads/${Date.now()}-${filename}`);
     
     const blobStream = blob.createWriteStream({
