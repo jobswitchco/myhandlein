@@ -86,8 +86,8 @@ const rightColStyle = {
 };
 
   const heroImgStyle = {
-    width: isMobile ? "88%" : "100%",
-    maxWidth: 520,
+    width: isMobile ? "100%" : "100%",
+    maxWidth: '100%',
     height: "auto",
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
