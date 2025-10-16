@@ -213,7 +213,7 @@ useEffect(() => {
     },
     {
       scope:
-        "instagram_basic,pages_show_list,public_profile,business_management",
+        "instagram_basic,public_profile,business_management",
       return_scopes: true,
     }
   );
