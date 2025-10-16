@@ -589,101 +589,105 @@ router.get("/get-my-transactions", authenticateToken, async (req, res) => {
   }
 });
 
+
 router.post("/connect-instagram", authenticateToken, async (req, res) => {
+  
   try {
     const userId = req.user?.user_id;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const FB_APP_ID = process.env.FB_APP_ID;
+   const FB_APP_ID = process.env.FB_APP_ID;
     const FB_APP_SECRET = process.env.FB_APP_SECRET;
 
-    const { data } = req.body;
+    const { data } = req.body || {};
     if (!data || !data.accessToken) {
       return res.status(400).json({ error: "Missing authentication data" });
     }
-
     const userAccessToken = data.accessToken;
-    const providedIgUserId = data.igUserId?.toString().trim() || null;
-    const prefilledMsg = data.message || ""; // optional prefilled message you might store
+    // --- Resolve igUserId without asking the user ---
+    const providedIgUserId = data.userID;
 
-    // --- (A) Try direct IG user path (works without pages_show_list) ---
     let igAccounts = [];
     let igUsername = null;
     let igProfilePic = null;
     let followersCount = null;
     let igMediaCount = null;
-    let pageAccessToken = null; // not always available in direct path
+    let pageAccessToken = null; // not used in direct path
 
-    if (providedIgUserId) {
+  // --- Direct IG user path with Business Account fallback ---
+if (providedIgUserId) {
+  try {
+    // Step 1: Try to get basic user info (this endpoint has limited fields)
+    const basicFields = "businesses";
+    const { data: igResp } = await axios.get(
+      `https://graph.facebook.com/v20.0/${providedIgUserId}`,
+      { params: { fields: basicFields, access_token: userAccessToken } }
+    );
+
+
+    const businesses_id = igResp.businesses.data[0].id;
+
+    const ownedAssBasicFields = "owned_instagram_assets";
+
+      const { data: ownedAssResp } = await axios.get(
+      `https://graph.facebook.com/v20.0/${businesses_id}`,
+      { params: { fields: ownedAssBasicFields, access_token: userAccessToken } }
+    );
+
+    const ig_user_id = ownedAssResp.owned_instagram_assets.data[0].ig_user_id;
+
+
+      // Step 2: Try to get followers_count via Instagram Business Account
+      let followersData = null;
+
       try {
-        const fields = "id,username,profile_picture_url,followers_count,media_count";
-        const { data: igResp } = await axios.get(
-          `https://graph.facebook.com/v20.0/${providedIgUserId}`,
-          { params: { fields, access_token: userAccessToken } }
-        );
-
-        if (igResp?.id) {
-          igUsername = igResp.username || null;
-          igProfilePic = igResp.profile_picture_url || null;
-          followersCount = igResp.followers_count ?? null;
-          igMediaCount = igResp.media_count ?? null;
-
-          igAccounts.push({
-            pageId: null,
-            pageName: null,
-            pageAccessToken: null,
-            igUserId: igResp.id,
-            username: igUsername,
-            profilePic: igProfilePic,
-            followersCount,
-            mediaCount: igMediaCount,
-          });
-        }
-      } catch (e) {
-        // If direct IG path fails, we’ll optionally try the legacy /me/accounts path next.
-        console.warn("Direct IG fetch failed:", e?.response?.data || e.message);
-      }
-    }
-
-    // --- (B) Fallback: legacy Page listing (requires pages_show_list) ---
-    if (!providedIgUserId && igAccounts.length === 0) {
-      try {
-        const { data: pagesResponse } = await axios.get(
-          "https://graph.facebook.com/v20.0/me/accounts",
+        const { data: businessResp } = await axios.get(
+          `https://graph.facebook.com/v20.0/${ig_user_id}`,
           {
             params: {
-              fields:
-                "name,id,access_token,instagram_business_account{id,username,profile_picture_url,followers_count,media_count}",
+              fields: "id,followers_count,has_profile_pic,ig_id,name,profile_picture_url,biography,media_count,username,follows_count",
               access_token: userAccessToken,
             },
           }
         );
-
-        if (pagesResponse?.data?.length) {
-          for (const page of pagesResponse.data) {
-            if (page.instagram_business_account) {
-              const ig = page.instagram_business_account;
-              igAccounts.push({
-                pageId: page.id,
-                pageName: page.name,
-                pageAccessToken: page.access_token,
-                igUserId: ig.id,
-                username: ig.username,
-                profilePic: ig.profile_picture_url || null,
-                followersCount: ig.followers_count || 0,
-                mediaCount: ig.media_count || 0,
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("/me/accounts failed (likely missing pages_show_list):", e?.response?.data || e.message);
+        followersData = businessResp;
+        console.log('Business Account Data:', followersData);
+      } 
+      catch (businessErr) {
+        console.warn("Could not fetch business account metrics:", businessErr?.response?.data?.error?.message);
+        followersData = null;
       }
-    }
 
-    // --- (C) Exchange for long-lived user token (best effort) ---
+      followersCount = followersData?.followers_count ?? null;
+      igMediaCount = followersData?.media_count ?? null;
+
+
+      igAccounts.push({
+        ig_user_id: followersData?.id ?? null,
+        followers_count: followersData?.followers_count ?? null,
+        has_profile_pic: followersData?.has_profile_pic ?? false,
+        ig_id: followersData?.ig_id ?? null,
+        ig_name: followersData?.name ?? null,
+        profile_picture_url: followersData?.profile_picture_url ?? null,
+        biography: followersData?.biography ?? "",
+        media_count: followersData?.media_count ?? 0,
+        ig_username: followersData?.username ?? "",
+        follows_count: followersData?.follows_count ?? 0,
+       
+      });
+    
+  } catch (e) {
+    console.warn("Direct IG fetch failed:", {
+      status: e?.response?.status,
+      error: e?.response?.data?.error?.message || e.message,
+      code: e?.response?.data?.error?.code,
+    });
+  }
+}
+
+    // --- Long-lived token exchange (best effort) ---
     let longLivedToken = null;
     try {
       const { data: tokenExchange } = await axios.get(
@@ -702,12 +706,11 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
       console.warn("Could not exchange for long-lived token:", e?.message);
     }
 
-    // --- (D) Derive token expiry (works for short/long) ---
+    // --- Token expiry (works for short/long) ---
     let tokenExpiry = null;
     try {
       const appAccessToken = `${FB_APP_ID}|${FB_APP_SECRET}`;
       const tokenToInspect = longLivedToken || userAccessToken;
-
       const { data: debugResp } = await axios.get(
         "https://graph.facebook.com/debug_token",
         {
@@ -717,87 +720,77 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
           },
         }
       );
-
       const expiresAt = debugResp?.data?.expires_at; // unix seconds
       if (expiresAt) tokenExpiry = new Date(expiresAt * 1000).toISOString();
     } catch (e) {
       console.warn("Could not fetch token expiry via debug_token:", e?.message);
     }
 
-    // --- (E) Save user record ---
+    // --- Save ---
     if (igAccounts.length > 0) {
       const first = igAccounts[0];
-      igUsername = first.username || null;
-      igProfilePic = first.profilePic || null;
-      followersCount = first.followersCount ?? null;
-      igMediaCount = first.mediaCount ?? null;
-      pageAccessToken = first.pageAccessToken || null;
+
+        igAccounts.push({
+
+        ig_user_id: first?.id ?? null,
+        followers_count: first?.followers_count ?? null,
+        has_profile_pic: first?.has_profile_pic ?? false,
+        ig_id: first?.ig_id ?? null,
+        ig_name: first?.name ?? null,
+        profile_picture_url: first?.profile_picture_url ?? null,
+        biography: first?.biography ?? "",
+        media_count: first?.media_count ?? 0,
+        ig_username: first?.username ?? "",
+        follows_count: first?.follows_count ?? 0,
+       
+      });
 
       await USER.updateOne(
         { _id: userId },
         {
           $set: {
             instagramConnected: true,
-            igUserId: first.igUserId,
-            fbPageAccessToken: pageAccessToken, // may be null in direct path (ok)
-            igUsername: igUsername,
-            igProfilePic: igProfilePic,
-            igFollowersCount: followersCount,
-            igMediaCount: igMediaCount,
+            igUserId: first.ig_user_id,
+            igUsername: first.ig_username,
+            igProfilePic: first.profile_picture_url,
+            igFollowersCount: first.followers_count,
+            igFollowsCount: first.follows_count,
+            igMediaCount: first.media_count,
+            igId: first.ig_id,
+            igName: first.ig_name,
+            igBiography: first.biography,
+            has_profile_pic_ig: first.has_profile_pic,
             fbLongLivedToken: longLivedToken || userAccessToken,
             fbTokenExpiry: tokenExpiry || null,
           },
         }
       );
     } else {
-      await USER.updateOne(
-        { _id: userId },
-        {
-          $set: { instagramConnected: false },
-          $unset: {
-            igUserId: 1,
-            fbPageAccessToken: 1,
-            igUsername: 1,
-            igProfilePic: 1,
-            igFollowersCount: 1,
-            igMediaCount: 1,
-            fbLongLivedToken: 1,
-            fbTokenExpiry: 1,
-          },
-        }
-      );
-
+      // Nothing fetched → explain clearly what’s missing
       return res.status(400).json({
-        error:
-          providedIgUserId
-            ? "Could not fetch Instagram account with the provided igUserId. Ensure the token has instagram_basic and the IG account is professional."
-            : "No Instagram accounts found and cannot list Pages without pages_show_list. Provide igUserId to connect without listing.",
+        error: providedIgUserId
+          ? "Could not fetch Instagram account with the stored igUserId. Ensure the token has instagram_basic and the IG account is Business/Creator."
+          : "igUserId not found in request or user record. Save igUserId once during onboarding, or include it in the request.",
       });
     }
 
-    // --- (F) Respond ---
     return res.json({
       success: true,
       igAccounts,
       igUsername,
       igProfilePic,
       followersCount,
-      message:
-        igAccounts.length > 0
-          ? `Connected ${igUsername || "Instagram account"}.`
-          : "No Instagram accounts found.",
+      message: `Connected ${igUsername || "Instagram account"}.`,
     });
   } catch (err) {
     console.error("IG connect error:", err?.response?.data || err.message);
     return res.status(500).json({
-      error:
-        err?.response?.data?.error?.message ||
-        err.message ||
-        "Server error",
+      error: err?.response?.data?.error?.message || err.message || "Server error",
       details: err?.response?.data,
     });
   }
 });
+
 
 
   router.get('/instagram-status', authenticateToken, async function (req, res){

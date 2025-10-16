@@ -15,13 +15,18 @@ const User_Schema = new Schema({
   
   instagramConnected: { type: Boolean, default: false },
   igUserId: { type: String },
-  fbPageAccessToken: { type: String },
+  igId: { type: String },
+  igName: { type: String },
   igUsername: { type: String },
   igProfilePic: { type: String },
   igFollowersCount: { type: Number },
+  igFollowsCount: { type: Number },
   igMediaCount: { type: Number },
   fbLongLivedToken: { type: String },
   fbTokenExpiry: { type: Date },
+  igBiography: {type : String},
+  has_profile_pic_ig: { type: Boolean, default: false },
+
 
   demo_logged_in: { type: Boolean },
   demo_logged_date: { type: Date },
