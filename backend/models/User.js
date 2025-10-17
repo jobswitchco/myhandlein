@@ -25,6 +25,7 @@ const User_Schema = new Schema({
   fbLongLivedToken: { type: String },
   fbTokenExpiry: { type: Date },
   igBiography: {type : String},
+  fbPageAccessToken: {type : String},
   has_profile_pic_ig: { type: Boolean, default: false },
 
 

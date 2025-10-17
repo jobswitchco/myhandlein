@@ -590,105 +590,226 @@ router.get("/get-my-transactions", authenticateToken, async (req, res) => {
 });
 
 
-router.post("/connect-instagram", authenticateToken, async (req, res) => {
+// router.post("/connect-instagram", authenticateToken, async (req, res) => {
   
+//   try {
+//     const userId = req.user?.user_id;
+//     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(401).json({ error: "Unauthorized" });
+//     }
+
+//    const FB_APP_ID = process.env.FB_APP_ID;
+//     const FB_APP_SECRET = process.env.FB_APP_SECRET;
+
+//     const { data } = req.body || {};
+//     if (!data || !data.accessToken) {
+//       return res.status(400).json({ error: "Missing authentication data" });
+//     }
+//     const userAccessToken = data.accessToken;
+//     // --- Resolve igUserId without asking the user ---
+//     const providedIgUserId = data.userID;
+
+//     let igAccounts = [];
+//     let igUsername = null;
+//     let igProfilePic = null;
+//     let followersCount = null;
+//     let igMediaCount = null;
+//     let pageAccessToken = null; // not used in direct path
+
+//   // --- Direct IG user path with Business Account fallback ---
+// if (providedIgUserId) {
+//   try {
+//     // Step 1: Try to get basic user info (this endpoint has limited fields)
+//     const basicFields = "businesses";
+//     const { data: igResp } = await axios.get(
+//       `https://graph.facebook.com/v20.0/${providedIgUserId}`,
+//       { params: { fields: basicFields, access_token: userAccessToken } }
+//     );
+
+
+//     const businesses_id = igResp.businesses.data[0].id;
+
+//     const ownedAssBasicFields = "owned_instagram_assets";
+
+//       const { data: ownedAssResp } = await axios.get(
+//       `https://graph.facebook.com/v20.0/${businesses_id}`,
+//       { params: { fields: ownedAssBasicFields, access_token: userAccessToken } }
+//     );
+
+//     const ig_user_id = ownedAssResp.owned_instagram_assets.data[0].ig_user_id;
+
+
+//       // Step 2: Try to get followers_count via Instagram Business Account
+//       let followersData = null;
+
+//       try {
+//         const { data: businessResp } = await axios.get(
+//           `https://graph.facebook.com/v20.0/${ig_user_id}`,
+//           {
+//             params: {
+//               fields: "id,followers_count,has_profile_pic,ig_id,name,profile_picture_url,biography,media_count,username,follows_count",
+//               access_token: userAccessToken,
+//             },
+//           }
+//         );
+//         followersData = businessResp;
+//         console.log('Business Account Data:', followersData);
+//       } 
+//       catch (businessErr) {
+//         console.warn("Could not fetch business account metrics:", businessErr?.response?.data?.error?.message);
+//         followersData = null;
+//       }
+
+//       followersCount = followersData?.followers_count ?? null;
+//       igMediaCount = followersData?.media_count ?? null;
+
+
+//       igAccounts.push({
+//         ig_user_id: followersData?.id ?? null,
+//         followers_count: followersData?.followers_count ?? null,
+//         has_profile_pic: followersData?.has_profile_pic ?? false,
+//         ig_id: followersData?.ig_id ?? null,
+//         ig_name: followersData?.name ?? null,
+//         profile_picture_url: followersData?.profile_picture_url ?? null,
+//         biography: followersData?.biography ?? "",
+//         media_count: followersData?.media_count ?? 0,
+//         ig_username: followersData?.username ?? "",
+//         follows_count: followersData?.follows_count ?? 0,
+       
+//       });
+    
+//   } catch (e) {
+//     console.warn("Direct IG fetch failed:", {
+//       status: e?.response?.status,
+//       error: e?.response?.data?.error?.message || e.message,
+//       code: e?.response?.data?.error?.code,
+//     });
+//   }
+// }
+
+//     // --- Long-lived token exchange (best effort) ---
+//     let longLivedToken = null;
+//     try {
+//       const { data: tokenExchange } = await axios.get(
+//         "https://graph.facebook.com/v20.0/oauth/access_token",
+//         {
+//           params: {
+//             grant_type: "fb_exchange_token",
+//             client_id: FB_APP_ID,
+//             client_secret: FB_APP_SECRET,
+//             fb_exchange_token: userAccessToken,
+//           },
+//         }
+//       );
+//       longLivedToken = tokenExchange?.access_token || null;
+//     } catch (e) {
+//       console.warn("Could not exchange for long-lived token:", e?.message);
+//     }
+
+//     // --- Token expiry (works for short/long) ---
+//     let tokenExpiry = null;
+//     try {
+//       const appAccessToken = `${FB_APP_ID}|${FB_APP_SECRET}`;
+//       const tokenToInspect = longLivedToken || userAccessToken;
+//       const { data: debugResp } = await axios.get(
+//         "https://graph.facebook.com/debug_token",
+//         {
+//           params: {
+//             input_token: tokenToInspect,
+//             access_token: appAccessToken,
+//           },
+//         }
+//       );
+//       const expiresAt = debugResp?.data?.expires_at; // unix seconds
+//       if (expiresAt) tokenExpiry = new Date(expiresAt * 1000).toISOString();
+//     } catch (e) {
+//       console.warn("Could not fetch token expiry via debug_token:", e?.message);
+//     }
+
+//     // --- Save ---
+//     if (igAccounts.length > 0) {
+//       const first = igAccounts[0];
+
+//         igAccounts.push({
+
+//         ig_user_id: first?.id ?? null,
+//         followers_count: first?.followers_count ?? null,
+//         has_profile_pic: first?.has_profile_pic ?? false,
+//         ig_id: first?.ig_id ?? null,
+//         ig_name: first?.name ?? null,
+//         profile_picture_url: first?.profile_picture_url ?? null,
+//         biography: first?.biography ?? "",
+//         media_count: first?.media_count ?? 0,
+//         ig_username: first?.username ?? "",
+//         follows_count: first?.follows_count ?? 0,
+       
+//       });
+
+//       await USER.updateOne(
+//         { _id: userId },
+//         {
+//           $set: {
+//             instagramConnected: true,
+//             igUserId: first.ig_user_id,
+//             igUsername: first.ig_username,
+//             igProfilePic: first.profile_picture_url,
+//             igFollowersCount: first.followers_count,
+//             igFollowsCount: first.follows_count,
+//             igMediaCount: first.media_count,
+//             igId: first.ig_id,
+//             igName: first.ig_name,
+//             igBiography: first.biography,
+//             has_profile_pic_ig: first.has_profile_pic,
+//             fbLongLivedToken: longLivedToken || userAccessToken,
+//             fbTokenExpiry: tokenExpiry || null,
+//           },
+//         }
+//       );
+//     } else {
+//       // Nothing fetched → explain clearly what’s missing
+//       return res.status(400).json({
+//         error: providedIgUserId
+//           ? "Could not fetch Instagram account with the stored igUserId. Ensure the token has instagram_basic and the IG account is Business/Creator."
+//           : "igUserId not found in request or user record. Save igUserId once during onboarding, or include it in the request.",
+//       });
+//     }
+
+//     return res.json({
+//       success: true,
+//       igAccounts,
+//       igUsername,
+//       igProfilePic,
+//       followersCount,
+//       message: `Connected ${igUsername || "Instagram account"}.`,
+//     });
+//   } catch (err) {
+//     console.error("IG connect error:", err?.response?.data || err.message);
+//     return res.status(500).json({
+//       error: err?.response?.data?.error?.message || err.message || "Server error",
+//       details: err?.response?.data,
+//     });
+//   }
+// });
+
+router.post("/connect-instagram", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-   const FB_APP_ID = process.env.FB_APP_ID;
-    const FB_APP_SECRET = process.env.FB_APP_SECRET;
-
     const { data } = req.body || {};
-    if (!data || !data.accessToken) {
+    if (!data || !data.accessToken || !data.userID) {
       return res.status(400).json({ error: "Missing authentication data" });
     }
-    const userAccessToken = data.accessToken;
-    // --- Resolve igUserId without asking the user ---
-    const providedIgUserId = data.userID;
 
-    let igAccounts = [];
-    let igUsername = null;
-    let igProfilePic = null;
-    let followersCount = null;
-    let igMediaCount = null;
-    let pageAccessToken = null; // not used in direct path
+    const FB_APP_ID = process.env.FB_APP_ID;
+    const FB_APP_SECRET = process.env.FB_APP_SECRET;
 
-  // --- Direct IG user path with Business Account fallback ---
-if (providedIgUserId) {
-  try {
-    // Step 1: Try to get basic user info (this endpoint has limited fields)
-    const basicFields = "businesses";
-    const { data: igResp } = await axios.get(
-      `https://graph.facebook.com/v20.0/${providedIgUserId}`,
-      { params: { fields: basicFields, access_token: userAccessToken } }
-    );
+    const shortLivedUserToken = data.accessToken;
 
-
-    const businesses_id = igResp.businesses.data[0].id;
-
-    const ownedAssBasicFields = "owned_instagram_assets";
-
-      const { data: ownedAssResp } = await axios.get(
-      `https://graph.facebook.com/v20.0/${businesses_id}`,
-      { params: { fields: ownedAssBasicFields, access_token: userAccessToken } }
-    );
-
-    const ig_user_id = ownedAssResp.owned_instagram_assets.data[0].ig_user_id;
-
-
-      // Step 2: Try to get followers_count via Instagram Business Account
-      let followersData = null;
-
-      try {
-        const { data: businessResp } = await axios.get(
-          `https://graph.facebook.com/v20.0/${ig_user_id}`,
-          {
-            params: {
-              fields: "id,followers_count,has_profile_pic,ig_id,name,profile_picture_url,biography,media_count,username,follows_count",
-              access_token: userAccessToken,
-            },
-          }
-        );
-        followersData = businessResp;
-        console.log('Business Account Data:', followersData);
-      } 
-      catch (businessErr) {
-        console.warn("Could not fetch business account metrics:", businessErr?.response?.data?.error?.message);
-        followersData = null;
-      }
-
-      followersCount = followersData?.followers_count ?? null;
-      igMediaCount = followersData?.media_count ?? null;
-
-
-      igAccounts.push({
-        ig_user_id: followersData?.id ?? null,
-        followers_count: followersData?.followers_count ?? null,
-        has_profile_pic: followersData?.has_profile_pic ?? false,
-        ig_id: followersData?.ig_id ?? null,
-        ig_name: followersData?.name ?? null,
-        profile_picture_url: followersData?.profile_picture_url ?? null,
-        biography: followersData?.biography ?? "",
-        media_count: followersData?.media_count ?? 0,
-        ig_username: followersData?.username ?? "",
-        follows_count: followersData?.follows_count ?? 0,
-       
-      });
-    
-  } catch (e) {
-    console.warn("Direct IG fetch failed:", {
-      status: e?.response?.status,
-      error: e?.response?.data?.error?.message || e.message,
-      code: e?.response?.data?.error?.code,
-    });
-  }
-}
-
-    // --- Long-lived token exchange (best effort) ---
-    let longLivedToken = null;
+    // 1) Exchange short-lived user token -> long-lived (recommended)
+    let longLivedUserToken = shortLivedUserToken;
     try {
       const { data: tokenExchange } = await axios.get(
         "https://graph.facebook.com/v20.0/oauth/access_token",
@@ -697,90 +818,188 @@ if (providedIgUserId) {
             grant_type: "fb_exchange_token",
             client_id: FB_APP_ID,
             client_secret: FB_APP_SECRET,
-            fb_exchange_token: userAccessToken,
+            fb_exchange_token: shortLivedUserToken,
           },
+          timeout: 15000,
         }
       );
-      longLivedToken = tokenExchange?.access_token || null;
+      if (tokenExchange?.access_token) {
+        longLivedUserToken = tokenExchange.access_token;
+      }
     } catch (e) {
-      console.warn("Could not exchange for long-lived token:", e?.message);
+      console.warn("Token exchange failed, using short-lived token:", e?.message);
     }
 
-    // --- Token expiry (works for short/long) ---
-    let tokenExpiry = null;
+    // 2) Derive token expiry using debug_token
+    let userTokenExpiryISO = null;
     try {
       const appAccessToken = `${FB_APP_ID}|${FB_APP_SECRET}`;
-      const tokenToInspect = longLivedToken || userAccessToken;
       const { data: debugResp } = await axios.get(
         "https://graph.facebook.com/debug_token",
         {
           params: {
-            input_token: tokenToInspect,
+            input_token: longLivedUserToken,
             access_token: appAccessToken,
           },
+          timeout: 15000,
         }
       );
       const expiresAt = debugResp?.data?.expires_at; // unix seconds
-      if (expiresAt) tokenExpiry = new Date(expiresAt * 1000).toISOString();
+      if (expiresAt) userTokenExpiryISO = new Date(expiresAt * 1000).toISOString();
     } catch (e) {
-      console.warn("Could not fetch token expiry via debug_token:", e?.message);
+      console.warn("debug_token failed:", e?.message);
     }
 
-    // --- Save ---
-    if (igAccounts.length > 0) {
-      const first = igAccounts[0];
+    // 3) Pages (need access_token + instagram_business_account)
+    const { data: pagesResponse } = await axios.get(
+      "https://graph.facebook.com/v20.0/me/accounts",
+      {
+        params: {
+          fields: "name,id,access_token,instagram_business_account{id}",
+          access_token: longLivedUserToken,
+        },
+        timeout: 15000,
+      }
+    );
 
-        igAccounts.push({
+    const pages = pagesResponse?.data || [];
+    const pageWithIG = pages.find(
+      (p) => p?.instagram_business_account?.id && p?.access_token
+    );
 
-        ig_user_id: first?.id ?? null,
-        followers_count: first?.followers_count ?? null,
-        has_profile_pic: first?.has_profile_pic ?? false,
-        ig_id: first?.ig_id ?? null,
-        ig_name: first?.name ?? null,
-        profile_picture_url: first?.profile_picture_url ?? null,
-        biography: first?.biography ?? "",
-        media_count: first?.media_count ?? 0,
-        ig_username: first?.username ?? "",
-        follows_count: first?.follows_count ?? 0,
-       
+    const igAccounts = [];
+    let fbPageId = null;
+    let fbPageAccessToken = null;
+
+    // IG profile fields we’ll fill
+    let igUserId = null;      // canonical IG user id
+    let igId = null;          // kept for schema compatibility; same as igUserId
+    let igUsername = null;
+    let igName = null;        // best-effort (see below)
+    let igProfilePic = null;
+    let igFollowersCount = null;
+    let igFollowsCount = null;
+    let igMediaCount = null;
+    let igBiography = null;
+    let has_profile_pic_ig = false;
+
+    if (pageWithIG) {
+      fbPageId = pageWithIG.id;
+      fbPageAccessToken = pageWithIG.access_token;
+      igUserId = pageWithIG.instagram_business_account.id;
+      igId = igUserId; // mirror for legacy field usage
+
+      // 3b) Fetch IG user details (either user token or page token works)
+      const { data: igDetail } = await axios.get(
+        `https://graph.facebook.com/v20.0/${igUserId}`,
+        {
+          params: {
+            fields:
+              "username,profile_picture_url,followers_count,follows_count,media_count,biography",
+            access_token: longLivedUserToken,
+          },
+          timeout: 15000,
+        }
+      );
+
+      igUsername = igDetail?.username || null;
+      igProfilePic = igDetail?.profile_picture_url || null;
+      igFollowersCount =
+        typeof igDetail?.followers_count === "number" ? igDetail.followers_count : 0;
+      igFollowsCount =
+        typeof igDetail?.follows_count === "number" ? igDetail.follows_count : 0;
+      igMediaCount =
+        typeof igDetail?.media_count === "number" ? igDetail.media_count : 0;
+      igBiography = igDetail?.biography || null;
+
+      // IG Graph API doesn’t expose a separate "name" for the IG user.
+      // Reasonable fallback: use the connected Page name (brand) or the username.
+      igName = pageWithIG?.name || igUsername || null;
+
+      has_profile_pic_ig = Boolean(igProfilePic);
+
+      igAccounts.push({
+        pageId: fbPageId,
+        pageName: pageWithIG.name,
+        igUserId,
+        username: igUsername,
+        profilePic: igProfilePic,
+        followersCount: igFollowersCount,
+        mediaCount: igMediaCount,
       });
 
+      // 4) Persist ALL requested fields
       await USER.updateOne(
         { _id: userId },
         {
           $set: {
             instagramConnected: true,
-            igUserId: first.ig_user_id,
-            igUsername: first.ig_username,
-            igProfilePic: first.profile_picture_url,
-            igFollowersCount: first.followers_count,
-            igFollowsCount: first.follows_count,
-            igMediaCount: first.media_count,
-            igId: first.ig_id,
-            igName: first.ig_name,
-            igBiography: first.biography,
-            has_profile_pic_ig: first.has_profile_pic,
-            fbLongLivedToken: longLivedToken || userAccessToken,
-            fbTokenExpiry: tokenExpiry || null,
+
+            // IG identifiers & names
+            igUserId,         // canonical IG user id
+            igId,             // duplicate for schema compatibility
+            igName,           // best-effort (Page name or username)
+            igUsername,
+
+            // Profile & counts
+            igProfilePic,
+            has_profile_pic_ig,
+            igFollowersCount,
+            igFollowsCount,
+            igMediaCount,
+            igBiography,
+
+            // Tokens & expiry
+            fbLongLivedToken: longLivedUserToken,
+            fbTokenExpiry: userTokenExpiryISO ? new Date(userTokenExpiryISO) : null,
+
+            // Page token (needed for DMs) & id
+            fbPageAccessToken,
+            fbPageId,
+
+            // Optional capability flag
+            dm_enabled: true,
           },
         }
       );
     } else {
-      // Nothing fetched → explain clearly what’s missing
-      return res.status(400).json({
-        error: providedIgUserId
-          ? "Could not fetch Instagram account with the stored igUserId. Ensure the token has instagram_basic and the IG account is Business/Creator."
-          : "igUserId not found in request or user record. Save igUserId once during onboarding, or include it in the request.",
-      });
+      // No IG-linked page found — clear IG-related fields
+      await USER.updateOne(
+        { _id: userId },
+        {
+          $set: { instagramConnected: false, dm_enabled: false },
+          $unset: {
+            igUserId: 1,
+            igId: 1,
+            igName: 1,
+            igUsername: 1,
+            igProfilePic: 1,
+            has_profile_pic_ig: 1,
+            igFollowersCount: 1,
+            igFollowsCount: 1,
+            igMediaCount: 1,
+            igBiography: 1,
+            fbLongLivedToken: 1,
+            fbTokenExpiry: 1,
+            fbPageAccessToken: 1,
+            fbPageId: 1,
+          },
+        }
+      );
     }
 
     return res.json({
       success: true,
+      message: pageWithIG
+        ? `Connected @${igUsername} via Page ${pageWithIG.name}`
+        : "No Facebook Page with a linked Instagram Business/Creator account was found.",
       igAccounts,
       igUsername,
       igProfilePic,
-      followersCount,
-      message: `Connected ${igUsername || "Instagram account"}.`,
+      igFollowersCount,
+      igMediaCount,
+      fbPageId: fbPageId || null,
+      // Do NOT send tokens to the client.
     });
   } catch (err) {
     console.error("IG connect error:", err?.response?.data || err.message);
