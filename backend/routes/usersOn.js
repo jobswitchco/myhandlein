@@ -304,6 +304,31 @@ const isValidSubdomain = (s) =>
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s);
 
 
+function isValidUrl(str) {
+  try { new URL(str); return true; } catch { return false; }
+}
+const ALLOWED = new Set([
+  "keywords",
+  "hasPublicReply",
+  "publicReply",
+  "dm.enabled",
+  "dm.message",
+  "dm.button",
+  "dm.button.text",
+  "dm.button.url",
+]);
+
+
+const IG_API_VERSION = "v21.0"; // bump if you’re targeting a newer Graph version
+
+// Axios client
+const ig = axios.create({
+  baseURL: `https://graph.facebook.com/${IG_API_VERSION}`,
+  timeout: 20000,
+});
+
+
+
 // async function uploadBufferToGCS(buffer, originalName, mimeType) {
 //   if (!bucket) throw new Error("GCS bucket not configured.");
 //   const ext = path.extname(originalName) || "";
@@ -1137,6 +1162,621 @@ async function saveBankDetails(req, res) {
     return res.status(500).json({ message: "Server error" });
   }
 }
+
+router.post("/automation/config-duplicate", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id; // or req.user._id depending on your auth middleware
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { postId, keywords, action } = req.body || {};
+
+    // Basic validation
+    if (!postId || !String(postId).trim()) {
+      return res.status(400).json({ success: false, message: "postId is required" });
+    }
+    if (!Array.isArray(keywords) || keywords.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one keyword is required" });
+    }
+    if (!action || typeof action !== "object") {
+      return res.status(400).json({ success: false, message: "action object is required" });
+    }
+
+    const type = action.type;
+    const title = action.title?.trim();
+    const url = action.url?.trim();
+    const fileName = action.fileName?.trim();
+
+    if (!["Affiliate Link", "Download Link"].includes(type)) {
+      return res.status(400).json({ success: false, message: "Invalid action.type" });
+    }
+    if (!title) {
+      return res.status(400).json({ success: false, message: "action.title is required" });
+    }
+    if (!url || !isValidUrl(url)) {
+      return res.status(400).json({ success: false, message: "Valid action.url is required" });
+    }
+    if (type === "Download Link" && !fileName) {
+      // Optional, but nice to have for logs/UX
+      console.warn("Download Link provided without fileName");
+    }
+
+    // Normalize keywords: trim + dedupe + remove empties
+    const normalizedKeywords = [...new Set(
+      keywords.map(k => String(k || "").trim()).filter(Boolean)
+    )];
+
+    // LOGGING (condition-based)
+    console.log("=== Automation Config ===");
+    console.log("User ID:", userId);
+    console.log("Post ID:", postId);
+    console.log("Keywords:", normalizedKeywords);
+
+    if (type === "Download Link") {
+      console.log("[Download Link]");
+      console.log("Title:", title);
+      console.log("Public URL (GCS):", url);
+      if (fileName) console.log("File Name:", fileName);
+    } else {
+      console.log("[Affiliate Link]");
+      console.log("Title:", title);
+      console.log("Affiliate URL:", url);
+    }
+
+    // Persist to DB (create new; or upsert if you want one per postId)
+    // const doc = await AutomationConfig.create({
+    //   userId,
+    //   postId: String(postId),
+    //   keywords: normalizedKeywords,
+    //   action: { type, title, url, fileName },
+    //   status: "active",
+    // });
+
+    return res.json({
+      success: true,
+      // automationId: doc._id,
+      message: "Automation configuration saved",
+      // data: doc,
+    });
+  } catch (err) {
+    console.error("POST /automation/config error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save automation config",
+      error: err?.message || String(err),
+    });
+  }
+});
+
+
+router.get("/instagram/media", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const user = await USER.findById(userId)
+      .select("igUserId fbLongLivedToken")
+      .lean();
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const ig_user_id = user.igUserId;
+    const access_token = user.fbLongLivedToken;
+    if (!ig_user_id || !access_token) {
+      return res.status(400).json({
+        error:
+          "Instagram not connected for this user (missing ig_user_id or access_token).",
+      });
+    }
+
+    const fields =
+      "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
+    const limit = 25;
+    const after = req.query.after
+      ? `&after=${encodeURIComponent(req.query.after)}`
+      : "";
+
+    const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+      ig_user_id
+    )}/media?fields=${encodeURIComponent(fields)}&limit=${limit}${after}&access_token=${encodeURIComponent(
+      access_token
+    )}`;
+
+    const data = await getWithRetries(url, { retries: 3, timeout: 5000 });
+    const media = Array.isArray(data?.data) ? data.data : [];
+
+    const igPostIds = media.map((m) => m.id);
+    if (igPostIds.length === 0) {
+      return res.json({
+        data: [],
+        paging: data?.paging
+          ? { next: Boolean(data.paging.next), cursors: data.paging.cursors || {} }
+          : null,
+      });
+    }
+
+    // Find automations for these posts for THIS user
+    const automations = await Automation.find({
+      userId,
+      postId: { $in: igPostIds },
+    })
+      .select("postId")
+      .lean();
+
+    const automatedPostIdSet = new Set(automations.map((a) => String(a.postId)));
+
+    // EXCLUDE any posts that have an automation
+    const filteredMedia = media.filter((m) => !automatedPostIdSet.has(String(m.id)));
+const normalizedMedia = filteredMedia.map((m) => ({
+  ...m,
+  thumbnail_url:
+    m.media_type === "VIDEO"
+      ? (m.thumbnail_url || m.media_url)
+      : m.media_url,
+}));
+   return res.json({
+  data: normalizedMedia,
+  paging: data?.paging
+    ? { next: Boolean(data.paging.next), cursors: data.paging.cursors || {} }
+    : null,
+  meta: {
+    totalFetched: media.length,
+    excludedForAutomation: media.length - filteredMedia.length,
+  },
+});
+
+  } catch (err) {
+    return res.status(500).json({
+      error: "Unable to fetch Instagram media",
+      message: err.message,
+      details: err.details || undefined,
+    });
+  }
+});
+
+
+router.post("/automation/config", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const {
+      postId,
+      keywords,
+      commentReply, // optional
+      dmEnabled,
+      caption,
+      dm, // optional when dmEnabled = false
+      media, // optional { thumbnail, caption }
+      status, // optional override
+    } = req.body || {};
+
+    // Basic validation
+    if (!postId || !String(postId).trim()) {
+      return res.status(400).json({ success: false, message: "postId is required" });
+    }
+    if (!Array.isArray(keywords) || keywords.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one keyword is required" });
+    }
+
+    // Normalize
+    const normalizedKeywords = [...new Set(
+      keywords.map((k) => String(k || "").trim()).filter(Boolean)
+    )];
+
+    const normalizedReply = commentReply ? String(commentReply).trim() : null;
+
+    // DM validation/shape
+    let dmPayload = { enabled: !!dmEnabled };
+    if (dmEnabled === true) {
+      if (!dm || typeof dm !== "object") {
+        return res.status(400).json({ success: false, message: "dm object is required when dmEnabled is true" });
+      }
+      const message = String(dm.message || "").trim();
+      if (!message) {
+        return res.status(400).json({ success: false, message: "dm.message is required" });
+      }
+
+      let button;
+      if (dm.button) {
+        const text = String(dm.button.text || "").trim();
+        const url = String(dm.button.url || "").trim();
+        if (!text) {
+          return res.status(400).json({ success: false, message: "dm.button.text is required when button is provided" });
+        }
+        if (!isValidUrl(url)) {
+          return res.status(400).json({ success: false, message: "Valid dm.button.url is required" });
+        }
+        button = { text, url };
+      }
+
+      dmPayload = { enabled: true, message, ...(button ? { button } : {}) };
+    }
+
+    // Optional media snapshot
+    const mediaPayload = media
+      ? {
+          thumbnail: media.thumbnail ? String(media.thumbnail).trim() : undefined,
+          caption: media.caption ? String(media.caption).trim() : undefined,
+        }
+      : undefined;
+
+    // Prepare doc for upsert
+    const update = {
+      platform: "instagram",
+      keywords: normalizedKeywords,
+      publicReply: normalizedReply || null,
+      dm: dmPayload,
+      caption,
+      ...(mediaPayload ? { media: mediaPayload } : {}),
+      ...(status ? { status } : {}), // allow overriding status if you pass it
+    };
+
+    // Upsert by (userId, postId)
+    const doc = await Automation.findOneAndUpdate(
+      { userId, postId: String(postId) },
+      { $set: update, $setOnInsert: { userId, postId: String(postId) } },
+      { upsert: true, new: true }
+    );
+
+    return res.json({
+      success: true,
+      message: "Automation configuration saved",
+      data: doc,
+    });
+  } catch (err) {
+    console.error("POST /automation/config error:", err);
+    // Handle unique index race condition gracefully
+    if (err?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "An automation for this post already exists for this user",
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save automation config",
+      error: err?.message || String(err),
+    });
+  }
+});
+
+
+// GET /usersOn/automations
+router.get("/automations", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const query = { userId };
+    const projection = "postId status createdAt caption thumbnail";
+    const sort = { createdAt: -1 };
+
+    const [total, docs] = await Promise.all([
+      Automation.countDocuments(query),
+      Automation.find(query).select(projection).sort(sort).skip(skip).limit(limit).lean(),
+    ]);
+
+    const items = (docs || []).map((d) => ({
+      _id: d._id,
+      postId: d.postId,
+      status: d.status,                             // "active" | "inactive"
+      status: d.status,                             // "active" | "inactive"
+      caption: d.caption,
+      thumbnail: d.thumbnail,
+      createdAt: d.createdAt,                       // ISO string; format on client
+    }));
+
+    console.log('Items : ', items);
+
+    return res.json({ items, total, page, limit });
+  } catch (err) {
+    console.error("GET /usersOn/automations error:", err);
+    return res.status(500).json({ message: "Failed to fetch automations" });
+  }
+});
+
+
+
+router.post("/automation/details", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    const { postId } = req.body || {};
+
+    if (!postId) {
+      return res.status(400).json({ message: "postId is required" });
+    }
+
+    // 1) Load the Automation first
+    const doc = await Automation.findOne({ userId, postId }).lean();
+    if (!doc) {
+      return res.status(404).json({ message: "Automation not found" });
+    }
+
+    // 2) Get user's FB token for Graph calls
+    const user = await USER.findById(userId)
+      .select("fbLongLivedToken")
+      .lean();
+    if (!user?.fbLongLivedToken) {
+      return res.status(400).json({
+        message: "Instagram not connected for this user (missing access token)",
+      });
+    }
+
+    // 3) Fetch the post details from Graph API
+    const fields = "id,caption,media_type,media_url,thumbnail_url";
+    const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+      postId
+    )}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(
+      user.fbLongLivedToken
+    )}`;
+
+    let fetchedCaption = null;
+    let fetchedThumbnail = null;
+    let fetchedMediaType = null;
+
+    try {
+      const ig = await getWithRetries(url, { retries: 3, timeout: 5000 });
+      fetchedCaption = typeof ig?.caption === "string" ? ig.caption : null;
+      fetchedMediaType = ig?.media_type || null;
+
+      // Normalize thumbnail:
+      // VIDEO -> thumbnail_url || media_url
+      // non-VIDEO -> media_url
+      if (ig) {
+        if (ig.media_type === "VIDEO") {
+          fetchedThumbnail = ig.thumbnail_url || ig.media_url || null;
+        } else {
+          fetchedThumbnail = ig.media_url || null;
+        }
+      }
+    } catch (graphErr) {
+      // If the Graph call fails, we’ll just fall back to what’s in the Automation doc
+      // but still return a 200 with the best data we have.
+      // Optionally log the error:
+      console.warn("Graph fetch failed for post", postId, graphErr?.message);
+    }
+
+    // 4) Persist the fetched fields back to Automation (only if we got them)
+    const updateSet = {};
+    if (fetchedCaption !== null) updateSet.caption = fetchedCaption;
+    if (fetchedThumbnail !== null) updateSet.thumbnail = fetchedThumbnail;
+
+    if (Object.keys(updateSet).length > 0) {
+      await Automation.updateOne({ _id: doc._id }, { $set: updateSet });
+    }
+
+    // 5) Build payload using freshest values (Graph > DB > fallback)
+    const captionForPayload =
+      (fetchedCaption ?? doc.caption ?? "").trim();
+
+    const thumbnailForPayload =
+      (fetchedThumbnail ??
+        (doc.thumbnail && doc.thumbnail.trim()));
+
+    // normalize shape for frontend (same 3-step UI fields)
+    const payload = {
+      postId: doc.postId,
+      mediaType: fetchedMediaType || doc.mediaType || "", // optional: include it if useful
+      caption: captionForPayload,
+      thumbnail: thumbnailForPayload,
+
+      keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
+      publicReply: doc.publicReply || "",
+      status: doc.status || "",
+      hasPublicReply:
+        !!(doc.publicReply && doc.publicReply.trim() !== ""),
+
+      dm: {
+        enabled: !!doc?.dmEnabled || (!!doc?.dm && !!doc.dm.enabled),
+        message: doc?.dm?.message || doc?.dmMessage || "",
+        button: doc?.dm?.button || (doc?.dmButton ? { ...doc.dmButton } : undefined),
+      },
+    };
+
+    return res.json(payload);
+  } catch (err) {
+    console.error("POST /automation/details error:", err);
+    return res.status(500).json({ message: "Failed to load automation" });
+  }
+});
+
+
+router.post("/automation/update", authenticateToken, async (req, res) => {
+  try {
+    const { postId, patch } = req.body || {};
+    if (!postId) return res.status(400).json({ message: "postId is required" });
+    if (!patch || typeof patch !== "object")
+      return res.status(400).json({ message: "patch object is required" });
+
+    const userId = req.user?.user_id || req.user?._id;
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    // Filter to allowed keys only
+    const setObj = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (ALLOWED.has(k)) setObj[k] = v;
+    }
+
+    if (Object.keys(setObj).length === 0) {
+      return res.status(200).json({ message: "No changes" });
+    }
+
+    // If patch sets dm.button to null, $unset the subdoc
+    const unsetObj = {};
+    if ("dm.button" in setObj && setObj["dm.button"] === null) {
+      unsetObj["dm.button"] = ""; // remove the whole subdocument
+      delete setObj["dm.button"];  // prevent $set: { "dm.button": null }
+    }
+
+    const update = { $currentDate: { updatedAt: true } };
+    if (Object.keys(setObj).length) update.$set = setObj;
+    if (Object.keys(unsetObj).length) update.$unset = unsetObj;
+
+    // Match by BOTH userId and postId
+    const query = { userId, postId };
+
+    const result = await Automation.updateOne(query, update, { upsert: false });
+
+    // Mongoose v6: { acknowledged, matchedCount, modifiedCount }
+    // Mongoose v5 compat: { n, nModified, ok }
+    const matched =
+      typeof result.matchedCount === "number" ? result.matchedCount : result.n;
+    if (!matched) {
+      return res.status(404).json({ message: "Automation not found" });
+    }
+
+    const modified =
+      typeof result.modifiedCount === "number" ? result.modifiedCount : result.nModified;
+
+    return res.status(200).json({ message: "Updated", modifiedCount: modified });
+  } catch (err) {
+    console.error("automation/update error:", err);
+    return res.status(500).json({ message: "Internal error", error: err.message });
+  }
+});
+
+
+
+// Toggle or set status: "active" | "inactive"
+router.post("/automation/stop", authenticateToken, async (req, res) => {
+  try {
+    const { postId, status } = req.body || {};
+    const userId = req.user?.user_id || req.user?._id;
+
+    if (!postId) return res.status(400).json({ message: "postId is required" });
+    if (!userId) return res.status(400).json({ message: "userId is required" });
+
+    // If status explicitly provided, use it; otherwise toggle
+    let nextStatus;
+    if (status === "active" || status === "inactive") {
+      nextStatus = status;
+    } else {
+      const existing = await Automation.findOne({ userId, postId });
+      if (!existing) {
+        return res
+          .status(404)
+          .json({ message: "Automation not found for the given userId/postId" });
+      }
+      nextStatus = existing.status === "active" ? "inactive" : "active";
+    }
+
+    const updated = await Automation.findOneAndUpdate(
+      { userId, postId },
+      { $set: { status: nextStatus, updatedAt: new Date() } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ message: "Automation not found for the given userId/postId" });
+    }
+
+    return res.json({
+      message: `Automation status updated to ${nextStatus}`,
+      automation: updated,
+    });
+  } catch (err) {
+    console.error("Stop/Resume automation error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+router.post("/automation/upload-pdf", authenticateToken, upload.single("pdf"),
+  async (req, res) => {
+    try {
+      const userId = req.user?.user_id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      console.log('Body : ', req.body);
+
+      // Multer memoryStorage provides file.buffer
+      const file = req.file;
+      const title = req.body?.title;
+
+      // Basic validation
+      if (!file || !file.buffer) {
+        return res.status(400).json({
+          success: false,
+          message: "No file uploaded. Ensure you send multipart/form-data with field name 'pdf'.",
+        });
+      }
+
+      // Validate PDF file type
+      if (file.mimetype !== "application/pdf") {
+        return res.status(400).json({
+          success: false,
+          message: "Only PDF files are allowed.",
+        });
+      }
+
+      if (!title || !title.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Title is required.",
+        });
+      }
+
+      // Upload buffer to GCS (your helper) - it should return { publicUrl, objectName }
+      const { publicUrl, objectName } = await uploadBufferToGCS(
+        file.buffer,
+        file.originalname || `automation-pdf-${Date.now()}.pdf`,
+        file.mimetype || "application/pdf"
+      );
+
+      if (!publicUrl) {
+        return res.status(500).json({ success: false, message: "Failed to upload to storage" });
+      }
+
+      // Log the final URL
+      console.log("PDF uploaded successfully!");
+      console.log("Public URL:", publicUrl);
+      console.log("Object Name:", objectName);
+      console.log("File Name:", file.originalname);
+      console.log("Title:", title);
+      console.log("User ID:", userId);
+
+      // Optional: Save automation config to database here
+      // const automationConfig = await AutomationConfig.create({
+      //   userId,
+      //   title,
+      //   fileUrl: publicUrl,
+      //   fileName: file.originalname,
+      //   objectName,
+      //   createdAt: new Date()
+      // });
+
+      return res.json({
+        success: true,
+        publicUrl,
+        fileName: file.originalname,
+        objectName,
+        title,
+        message: "PDF uploaded successfully",
+      });
+    } catch (err) {
+      console.error("upload-pdf error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Upload failed",
+        error: err?.message || String(err),
+      });
+    }
+  }
+);
 
 router.put("/bank-details", authenticateToken, saveBankDetails);
 router.post("/bank-details", authenticateToken, saveBankDetails);
