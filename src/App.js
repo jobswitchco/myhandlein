@@ -46,6 +46,11 @@ import UpiMandateModern from './components/Employee/UpiMandate.js';
 import InstagramConnect from './components/Employee/InstagramConnect.js';
 import DemoLogin from './components/Employee/DemoLogin.js';
 import DigitalTransactions from './components/Employee/DigitalTransactions.js';
+import FetchInstagramMedia from './components/Employee/FetchInstagramMedia.js';
+import SetupAutomation from './components/Employee/SetupAutomation.js';
+import AutomationList from './components/Employee/AutomationList.js';
+import AutomationDetails from './components/Employee/AutomationDetails.js';
+
 
 // very critial yes
 
@@ -138,6 +143,10 @@ if (initialSubdomain) {
                 <Route path="dashboard/analytics" element={<DashboardAnalytics />} />
                 <Route path="fb_insta_redirect" element={<InstagramConnect />} />
                 <Route path="my_orders" element={<DigitalTransactions />} />
+                <Route path="fetch_media" element={<FetchInstagramMedia />} />
+                <Route path="automations" element={<AutomationList />} />
+                <Route path="automation/setup/:post_id" element={<SetupAutomation />} />
+                <Route path="automation/details/:postId" element={<AutomationDetails />} />
 
 
 

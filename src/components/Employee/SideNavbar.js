@@ -838,16 +838,16 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-              {/* DM */}
-              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
+              {/* Automation */}
+             <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
-                  onClick={() => goTo("/professional/instagram/dm")}
-                  selected={location.pathname === "/professional/instagram/dm"}
+                  onClick={() => goTo("/professional/automations")}
+                  selected={location.pathname === "/professional/automations"}
                   sx={{
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/instagram/dm" ? "#F3F4F6" : "transparent",
+                    backgroundColor: location.pathname === "/professional/automations" ? "#F3F4F6" : "transparent",
                     "&:hover": { backgroundColor: "#F3F4F6" },
                     transition: "all 0.2s ease",
                   }}
@@ -855,17 +855,17 @@ export default function SideNavbar({ window }) {
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <ForumOutlinedIcon
                       sx={{
-                        color: location.pathname === "/professional/instagram/dm" ? "#E1306C" : "#9CA3AF",
+                        color: location.pathname === "/professional/automations" ? "#E1306C" : "#9CA3AF",
                         fontSize: "1.2rem",
                       }}
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary="DM"
+                    primary="Automation"
                     primaryTypographyProps={{
                       sx: {
-                        color: location.pathname === "/professional/instagram/dm" ? "#1F2937" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/instagram/dm" ? 500 : 400,
+                        color: location.pathname === "/professional/automations" ? "#1F2937" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/automations" ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}
@@ -873,6 +873,7 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
+              {/*
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => setMentionsOpen((p) => !p)}
