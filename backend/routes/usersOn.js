@@ -231,6 +231,44 @@ const resolveUrl = async(base, maybeRelative) => {
 };
 
 
+async function getWithRetries(url, { retries = 3, timeout = 5000 } = {}) {
+  let lastErr = null;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const resp = await axios.get(url, { timeout });
+      return resp.data;
+    } catch (err) {
+      lastErr = err;
+      const status = err?.response?.status;
+      const transient =
+        status === 429 ||
+        (status >= 500 && status < 600) ||
+        err.code === "ECONNABORTED";
+      if (attempt < retries && transient) {
+        const delayMs = 500 * attempt; // 500, 1000, 1500
+        await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+      break;
+    }
+  }
+
+  // Surface a clean error
+  const apiError = lastErr?.response?.data?.error;
+  const message =
+    apiError?.message || lastErr?.message || "Failed to fetch Instagram media";
+  const e = new Error(message);
+  if (apiError) {
+    e.details = {
+      type: apiError.type,
+      code: apiError.code,
+      fbtrace_id: apiError.fbtrace_id,
+    };
+  }
+  throw e;
+}
+
 // low-level fetch wrapper
 async function tryFetch(url, headers, timeout = 10000) {
   return axios.get(url, {
