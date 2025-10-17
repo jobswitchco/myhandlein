@@ -1387,6 +1387,7 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       commentReply, // optional
       dmEnabled,
       caption,
+      thumbnail,
       dm, // optional when dmEnabled = false
       media, // optional { thumbnail, caption }
       status, // optional override
@@ -1449,6 +1450,7 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       publicReply: normalizedReply || null,
       dm: dmPayload,
       caption,
+      thumbnail,
       ...(mediaPayload ? { media: mediaPayload } : {}),
       ...(status ? { status } : {}), // allow overriding status if you pass it
     };
