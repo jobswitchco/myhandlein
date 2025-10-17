@@ -175,7 +175,7 @@ export default function SetupAutomation() {
         commentReply: shouldReply === "yes" ? commentReply.trim() : null,
         dmEnabled,
         caption:data.caption,
-        thumbnail: data.thumbnail_url,
+        thumbnail: data.thumbnail,
         dm: dmEnabled
           ? {
               message: dmMessage.trim(),
