@@ -11,6 +11,7 @@ import Block from "../models/Blocks.js";
 import FormsData from "../models/FormsData.js";
 import BankDetails from "../models/BankDetails.js";
 import Transaction from "../models/Transaction.js";
+import Automation from "../models/Automation.js";
 import Product from "../models/ProductsCatalogue.js";
 import PageAnalytics from "../models/PageAnalytics.js";
 import NewsletterModel from "../models/Newsletter.js";
