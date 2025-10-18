@@ -41,7 +41,7 @@ const __dirname = dirname(__filename);
 const storage = new Storage({
   keyFilename: join(__dirname, 'service-account-key.json')});
   
-const bucketName = "postlnbucketcom"; 
+const bucketName = "myhandlebucket"; 
 const bucket = storage.bucket(bucketName);
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -57,6 +57,8 @@ const upload = multer({
       'image/png',
       'image/gif',
       'image/webp',
+      'application/pdf'
+
     ];
     
     if (allowedMimes.includes(file.mimetype)) {

@@ -12,6 +12,7 @@ import facebookLogo from "../images/facebook.png"
 import WhatsAppProblemSolveCard from "./WhatsAppFeature";
 import ThreeBlockPage from "./ThreeBlockPage.js";
 import ContentShowcase from "./ContentShowCase.js";
+import InstagramAutomationBlock from "./InstagramAutomationBlocks.js";
 
 // Lazy-loaded components
 const Footer = lazy(() => import("../components/Footer"));
@@ -40,6 +41,7 @@ export default function LandingPage() {
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
       <ThreeBlockPage />
       <WhatsAppProblemSolveCard />
+      <InstagramAutomationBlock />
       {/* <ContentShowcase /> */}
       <FAQSection />
 

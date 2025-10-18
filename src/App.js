@@ -60,7 +60,7 @@ import AutomationDetails from './components/Employee/AutomationDetails.js';
 
 function App({ initialSubdomain = null, initialProfile = null }) {
 
-   const GOOGLE_CLIENT_ID = "802722937988-5bl806gh4pc7cmhugdpks8hgs01m1tqc.apps.googleusercontent.com";
+   const GOOGLE_CLIENT_ID = "191478155465-ldeodgltp87ehgudqg648no94cuitbqs.apps.googleusercontent.com";
 
  // inside App component, replace the early-return branch with this:
 

@@ -162,29 +162,33 @@ export default function InstagramDataUseBlock_Compact() {
             </Grid>
 
             {/* Visual steps */}
-            <Grid container spacing={1.5} sx={{ width: '100%'}}>
-              {[
-                { icon: <InstagramIcon />, title: 'Connect', sub: 'Secure OAuth — revoke anytime' },
-                { icon: <VerifiedOutlinedIcon />, title: 'Showcase', sub: 'Followers on your bio page' },
-                { icon: <TimelineOutlinedIcon />, title: 'Grow', sub: 'Use insights to double down' }
-              ].map((s, i) => (
-                <Grid key={s.title} item xs={12} sm={4}>
-                  <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                    <CardContent sx={{ py: 2.25 }}>
-                      <Stack spacing={0.5} alignItems="center">
-                        {s.icon}
-                        <Typography sx={{ fontWeight: 800 }}>
-                          {i + 1}. {s.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {s.sub}
-                        </Typography>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
+        
+<Stack sx={{ gap: 2 }}>
+
+<Grid container spacing={1.5} sx={{ width: '100%' }}>
+  {[
+    { icon: <InstagramIcon />, title: 'Connect', sub: 'Secure OAuth — revoke anytime' },
+    { icon: <VerifiedOutlinedIcon />, title: 'Showcase', sub: 'Followers on your bio page' },
+    { icon: <TimelineOutlinedIcon />, title: 'Grow', sub: 'Use insights to double down' }
+  ].map((s, i) => (
+    <Grid key={s.title} item xs={12} sm={4} sx={{ display: 'flex' }}>
+      <Card variant="outlined" sx={{ borderRadius: 3, width: '100%', height: '100%' }}>
+        <CardContent sx={{ py: 2.25, height: '100%' }}>
+          <Stack spacing={0.5} alignItems="center">
+            {s.icon}
+            <Typography sx={{ fontWeight: 800 }}>
+              {i + 1}. {s.title}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {s.sub}
+            </Typography>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Grid>
+  ))}
+</Grid>
+
 
             </Stack>
 
@@ -237,6 +241,7 @@ export default function InstagramDataUseBlock_Compact() {
             </Stack>
 
           
+          </Stack>
           </Stack>
         </CardContent>
       </Card>
