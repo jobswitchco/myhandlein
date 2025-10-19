@@ -4,7 +4,7 @@ import axios from "axios";
 
 export default function Hero({
   logos = {},
-  heroImage = "https://storage.googleapis.com/postlnbucketcom/products/Screenshot%202025-10-06%20231051.webp"
+  heroImage = "https://storage.googleapis.com/myhandlebucket/hero_img.webp"
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
@@ -24,6 +24,22 @@ export default function Hero({
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" && window.matchMedia("(max-width:600px)").matches
   );
+
+   useEffect(() => {
+    if (!heroImage) return;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = heroImage;
+
+    // If you have responsive variants, also set:
+    // link.imageSrcset = "https://.../hero_768.webp 768w, https://.../hero_1280.webp 1280w, https://.../hero_1920.webp 1920w";
+    // link.imageSizes = "(max-width: 600px) 100vw, 50vw";
+
+    document.head.appendChild(link);
+    return () => document.head.removeChild(link);
+  }, [heroImage]);
+
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -85,9 +101,10 @@ const rightColStyle = {
   minWidth: 0,              // ✅
 };
 
-  const heroImgStyle = {
-    width: isMobile ? "100%" : "100%",
-    maxWidth: '100%',
+
+    const heroImgStyle = {
+    width: "100%",
+    maxWidth: "100%",
     height: "auto",
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
@@ -295,6 +312,9 @@ const inputWrapStyle = {
     const imageSrc = src || fallback;
     return <img src={imageSrc} alt={alt} style={logoImgStyle} />;
   };
+
+   const heroWidth = 475;
+  const heroHeight = 772;
 
 
 
@@ -545,7 +565,17 @@ const inputWrapStyle = {
               src={heroImage}
               alt="Showcase of MyHandle link-in-bio on mobile and desktop"
               style={heroImgStyle}
-              loading="lazy"
+
+              // ✅ Critical changes for LCP
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+              width={heroWidth}
+              height={heroHeight}
+
+              // If you have responsive variants, also add:
+              // srcSet="https://.../hero_768.webp 768w, https://.../hero_1280.webp 1280w, https://.../hero_1920.webp 1920w"
+              // sizes={isMobile ? "100vw" : "50vw"}
             />
           ) : null}
         </div>
