@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import hero_img from "../images/hero_img.webp";
 
 export default function Hero({
   logos = {},
-  heroImage = hero_img
+  heroImage = "https://storage.googleapis.com/myhandlebucket/hero_img.webp"
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
@@ -25,6 +24,9 @@ export default function Hero({
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" && window.matchMedia("(max-width:600px)").matches
   );
+
+     const heroWidth = 475;
+  const heroHeight = 772;
 
    useEffect(() => {
     if (!heroImage) return;
@@ -54,12 +56,6 @@ export default function Hero({
     };
   }, []);
 
-  // === Highlight tokens
-  const padX = "clamp(0.05em, 1.4vw, 0.05em)";
-  const highlightHeight = "clamp(0.42em, 1.8vw, 0.42em)";
-  const highlightRadius = "0px";
-  const highlightColor = "linear-gradient(120deg, #FFFFFF 0%, #DC143C 80%, #DC143C 100%)";
-  const barOffset = "65%";
 
   // === Inline styles
   const containerStyle = {
@@ -103,23 +99,18 @@ const rightColStyle = {
 };
 
 
-    const heroImgStyle = {
-    width: "100%",
-    maxWidth: "100%",
-    height: "auto",
-    borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-    objectFit: "cover"
-  };
-
-  const flagImgStyle = {
-  width: "32px",
-  height: "22px",
+const heroImgStyle = {
+  width: "100%",
+  maxWidth: "100%",
+  height: "auto",            // keep this
+  aspectRatio: `${heroWidth} / ${heroHeight}`, // 👈 reserve space
+  borderRadius: "16px",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
   objectFit: "cover",
-  borderRadius: "2px",
-  verticalAlign: "middle",
-  marginLeft: "6px"
+  display: "block"
 };
+
+
 
 
 const subStyle = {
@@ -236,24 +227,6 @@ const inputWrapStyle = {
     ? { transform: "translateY(-1px)", boxShadow: "0 10px 18px rgba(0,0,0,0.16)" }
     : {};
 
-  const socialRowStyle = {
-    display: "flex",
-    gap: "clamp(10px, 2vw, 18px)",
-    justifyContent: isMobile ? "center" : "flex-start",
-    alignItems: "center",
-    marginTop: "clamp(16px, 3vw, 24px)"
-  };
-
-  const iconWrapStyle = {
-    width: "clamp(22px, 5vw, 32px)",
-    height: "clamp(22px, 5vw, 32px)",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 6,
-    background: "transparent",
-    overflow: "hidden"
-  };
 
   const logoImgStyle = { width: "75%", height: "75%", objectFit: "contain", display: "block" };
 
@@ -308,14 +281,7 @@ const inputWrapStyle = {
       ? "#7c3aed" // violet-700
       : "#4C763B"; // gray-500
 
-  const renderLogo = (src, alt) => {
-    const fallback = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
-    const imageSrc = src || fallback;
-    return <img src={imageSrc} alt={alt} style={logoImgStyle} />;
-  };
 
-   const heroWidth = 475;
-  const heroHeight = 772;
 
 
 
@@ -381,7 +347,7 @@ const inputWrapStyle = {
           return;
         }
         setAvailability("error");
-        setMessage("Couldn’t check right now. Please try again.");
+        setMessage("Couldn't check right now. Please try again.");
       }
     }, 400); // 400ms debounce
 
