@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import hero_img from "../images/hero_img.webp";
 
 export default function Hero({
   logos = {},
-  heroImage = "https://storage.googleapis.com/myhandlebucket/hero_img.webp"
+  heroImage = hero_img
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
