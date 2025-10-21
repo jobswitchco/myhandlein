@@ -1118,8 +1118,6 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     }
     const userId = payload.uid;
 
-    console.log('userId ::::::::::::::::::', userId);
-
     // 1) Short-lived user token
     const tokenResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
       params: { client_id: META_APP_ID, client_secret: META_APP_SECRET, redirect_uri: META_REDIRECT_URI, code },
@@ -1141,7 +1139,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const fbTokenExpiry = expiresInSec ? new Date(Date.now() + expiresInSec * 1000) : null;
 
     // 3) Save long-lived token + expiry on the user now
-    await User.findByIdAndUpdate(
+    await USER.findByIdAndUpdate(
       userId,
       { fbLongLivedToken, fbTokenExpiry, updated_at: new Date() },
       { new: false }
