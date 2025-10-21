@@ -19,7 +19,7 @@ import "react-toastify/dist/ReactToastify.css";
 /** --- NEW: business login constants --- */
 const FB_APP_ID = "1360956302356492";
 const FB_LOGIN_CONFIG_ID = "2452082071860610"; // from App → Facebook Login for Business → Configurations
-const REDIRECT_URI = "/api/usersOn/meta-callback";
+const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 const FRONTEND_ORIGIN = 'https://myhandle.in';
 
 
