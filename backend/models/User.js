@@ -18,6 +18,7 @@ const User_Schema = new Schema({
   igId: { type: String },
   igName: { type: String },
   igUsername: { type: String },
+  fbPageId: { type: String },
   igProfilePic: { type: String },
   igFollowersCount: { type: Number },
   igFollowsCount: { type: Number },
