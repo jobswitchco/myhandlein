@@ -35,7 +35,7 @@ function isAllowedOrigin(origin) {
     if (origin === "http://localhost:4800") return true;
 
     // myhandle.in apex or any subdomain
-    if (hostname === "myhandle.in" || hostname.endsWith(".myhandle.in")) {
+    if (hostname === ( "myhandle.in" || "https://myhandle.in" ) || hostname.endsWith(".myhandle.in")) {
       return true;
     }
 
