@@ -1206,6 +1206,10 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
     const { pageId, igUserId } = req.body;
+
+    console.log('body : ', req.body);
+    console.log('userId : ', userId);
+
     if (!pageId || !igUserId) return res.status(400).json({ success: false, error: "pageId and igUserId are required" });
 
     const user = await USER.findById(userId).lean();

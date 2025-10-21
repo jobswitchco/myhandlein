@@ -114,6 +114,8 @@ const openBusinessLogin = useCallback(async () => {
           return;
         }
         const arr = msg.candidates || [];
+        console.log('heheheheehe : ', arr);
+        console.log('candidates : ', msg.candidates);
         if (arr.length === 1) {
           await handleSelect(arr[0]);
         } else if (arr.length > 1) {
