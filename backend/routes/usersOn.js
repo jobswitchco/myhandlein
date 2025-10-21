@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import axios from "axios";
 const router = express.Router();
 import USER from "../models/User.js";
+import cookie from "cookie";
 import ParticipantUser from "../models/ParticipantUser.js";
 import Conversation from "../models/Conversations.js";
 import Subscriptions from "../models/Subscriptions.js";
@@ -1083,112 +1084,124 @@ const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
+
+
 router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
   const { code } = req.query;
-
-  console.log('Hit : ', code);
   try {
     if (!code) throw new Error("Missing OAuth code");
 
-    // 1) Exchange code -> user access token
-    const tokenResp = await axios.get(
-      "https://graph.facebook.com/v24.0/oauth/access_token",
-      {
-        params: {
-          client_id: META_APP_ID,
-          client_secret: META_APP_SECRET,
-          redirect_uri: META_REDIRECT_URI,
-          code,
-        },
-      }
-    );
+    // Short-lived user token
+    const tokenResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
+      params: {
+        client_id: META_APP_ID,
+        client_secret: META_APP_SECRET,
+        redirect_uri: META_REDIRECT_URI,
+        code,
+      },
+    });
     const userToken = tokenResp.data?.access_token;
     if (!userToken) throw new Error("Token exchange failed");
 
-    // 2) Fetch pages (with linked IG info)
-    const pagesResp = await axios.get(
-      "https://graph.facebook.com/v24.0/me/accounts",
-      {
-        params: {
-          fields:
-            "id,name,access_token,instagram_business_account{id,username,profile_picture_url}",
-          access_token: userToken,
-        },
-      }
-    );
+    // Long-lived user token
+    const llResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
+      params: {
+        grant_type: "fb_exchange_token",
+        client_id: META_APP_ID,
+        client_secret: META_APP_SECRET,
+        fb_exchange_token: userToken,
+      },
+    });
+    const fbLongLivedToken = llResp.data?.access_token;
+    const expiresInSec = llResp.data?.expires_in; // seconds from now
+    const fbTokenExpiry = expiresInSec ? new Date(Date.now() + expiresInSec * 1000) : null;
+
+    // Get pages (with linked IG)
+    const pagesResp = await axios.get("https://graph.facebook.com/v24.0/me/accounts", {
+      params: {
+        fields: "id,name,instagram_business_account{id,username,profile_picture_url}",
+        access_token: fbLongLivedToken || userToken,
+      },
+    });
 
     const pages = pagesResp.data?.data || [];
-    if (!pages.length) throw new Error("No Facebook Pages found for this user.");
-
-    // 3) Build candidate list
     const candidates = [];
     for (const p of pages) {
       const ig = p.instagram_business_account;
       if (!ig?.id) continue;
 
       try {
-        const igResp = await axios.get(
-          `https://graph.facebook.com/v24.0/${ig.id}`,
-          {
-            params: {
-              fields: "id,username,profile_picture_url,followers_count",
-              access_token: p.access_token, // page token!
-            },
-          }
-        );
-
+        // Minimal preview fields for the picker
+        const igResp = await axios.get(`https://graph.facebook.com/v24.0/${ig.id}`, {
+          params: {
+            fields: "id,username,profile_picture_url,followers_count",
+            // page token not needed for preview; long-lived user token is fine
+            access_token: fbLongLivedToken || userToken,
+          },
+        });
         const igData = igResp.data;
         candidates.push({
           pageId: p.id,
           pageName: p.name,
-          pageAccessToken: p.access_token,
           igUserId: igData.id,
           username: igData.username,
-          profilePic: igData.profile_picture_url,
+          profilePic: igData.profile_picture_url || null,
           followersCount: igData.followers_count ?? null,
         });
       } catch (e) {
-        // Skip pages where IG fetch fails; continue others
-        console.warn("IG fetch failed for page", p.id, e.message);
+        console.warn("IG preview fetch failed for page", p.id, e.message);
       }
     }
 
     if (!candidates.length) {
-      throw new Error(
-        "No Instagram Business account linked to your Pages. Link IG to a Page and try again."
-      );
+      throw new Error("No Instagram Business account linked to your Pages. Link IG to a Page and try again.");
     }
 
-    console.log('Response:::::::::::::::', JSON.stringify(candidates));
-    // 4) Send candidates back to the opener and close popup
+    // Set httpOnly cookie so the next call can mint a PAGE token securely
+    // (short expiry cookie—align to ll token expiry or a day if none returned)
+    const cookieStr = cookie.serialize(
+      "fb_ll_user_token",
+      fbLongLivedToken || userToken,
+      {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: expiresInSec || 24 * 3600,
+      }
+    );
+    res.setHeader("Set-Cookie", cookieStr);
+
+    // Optional: store expiry in another cookie (not strictly needed)
+    if (fbTokenExpiry) {
+      res.setHeader("Set-Cookie", [
+        cookieStr,
+        cookie.serialize("fb_ll_user_token_exp", String(fbTokenExpiry.getTime()), {
+          httpOnly: false,
+          secure: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: expiresInSec,
+        }),
+      ]);
+    }
+
+    // Post candidates to opener
     res.set("Content-Type", "text/html");
     res.send(`<!doctype html><script>
       (function () {
-        var payload = {
-          type: "meta-auth",
-          success: true,
-          candidates: ${JSON.stringify(candidates)}
-        };
-        if (window.opener) {
-          window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
-        }
+        var payload = { type: "meta-auth", success: true, candidates: ${JSON.stringify(candidates)} };
+        if (window.opener) window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
         window.close();
       })();
     </script>`);
-
   } catch (err) {
-    console.error("Meta OAuth error:", err?.message || err);
+    console.error("Meta OAuth error:", err?.response?.data || err?.message || err);
     res.set("Content-Type", "text/html");
     res.send(`<!doctype html><script>
       (function () {
-        var payload = {
-          type: "meta-auth",
-          success: false,
-          error: ${JSON.stringify(err?.message || "Meta OAuth error")}
-        };
-        if (window.opener) {
-          window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
-        }
+        var payload = { type: "meta-auth", success: false, error: ${JSON.stringify(err?.message || "Meta OAuth error")} };
+        if (window.opener) window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
         window.close();
       })();
     </script>`);
@@ -1196,38 +1209,140 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
 });
 
 
-
-  router.get('/instagram-status', authenticateToken, async function (req, res){
-
+router.post("/save-instagram-account", authenticateToken, async (req, res) => {
+  try {
     const userId = req.user?.user_id;
+    const { pageId, igUserId } = req.body;
+    if (!pageId || !igUserId) {
+      return res.status(400).json({ success: false, error: "pageId and igUserId are required" });
+    }
 
-        if (!userId) {
-          return res.status(400).json({ message: "Username is invalid." });
-        }
+    // Long-lived user token from httpOnly cookie (set at /meta-callback)
+    const llUserToken = req.cookies?.fb_ll_user_token;
+    if (!llUserToken) {
+      return res.status(401).json({ success: false, error: "Facebook session not found. Please connect again." });
+    }
+
+    // Mint/refresh PAGE access token using the long-lived USER token
+    const pageTokenResp = await axios.get(`https://graph.facebook.com/v24.0/${pageId}`, {
+      params: { fields: "access_token", access_token: llUserToken },
+    });
+    const fbPageAccessToken = pageTokenResp.data?.access_token;
+    if (!fbPageAccessToken) {
+      return res.status(400).json({ success: false, error: "Unable to fetch Page access token" });
+    }
+
+    // Fetch rich IG fields
+    const igResp = await axios.get(`https://graph.facebook.com/v24.0/${igUserId}`, {
+      params: {
+        fields: "id,username,profile_picture_url,biography,followers_count,follows_count,media_count",
+        access_token: fbPageAccessToken, // recommended for IG node calls
+      },
+    });
+    const ig = igResp.data;
+
+    // Optional: grab IG name if available (often same as username; IG doesn't expose 'name' for biz)
+    const igName = ig.username || null;
+
+    // Determine profile pic boolean
+    const has_profile_pic_ig = Boolean(ig.profile_picture_url);
+
+    // Compute expiry from the cookie if you set exp time cookie (optional)
+    let fbTokenExpiry = null;
+    if (req.cookies?.fb_ll_user_token_exp) {
+      const ms = parseInt(req.cookies.fb_ll_user_token_exp, 10);
+      if (!Number.isNaN(ms)) fbTokenExpiry = new Date(ms);
+    }
+
+    // Update the User
+    const update = {
+      instagramConnected: true,
+      fbPageId: pageId,
+      igUserId: ig.id,         // same as igUserId
+      igId: ig.id,             // if you store twice
+      igName,
+      igUsername: ig.username || null,
+      igProfilePic: ig.profile_picture_url || null,
+      igFollowersCount: ig.followers_count ?? null,
+      igFollowsCount: ig.follows_count ?? null,
+      igMediaCount: ig.media_count ?? null,
+      igBiography: ig.biography || null,
+      fbPageAccessToken,
+      fbLongLivedToken: llUserToken,
+      fbTokenExpiry,
+      has_profile_pic_ig,
+      updated_at: new Date(),
+    };
+
+    const saved = await USER.findByIdAndUpdate(userId, update, { new: true });
+    if (!saved) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    return res.json({ success: true, user: {
+      instagramConnected: saved.instagramConnected,
+      igUsername: saved.igUsername,
+      igProfilePic: saved.igProfilePic,
+      igFollowersCount: saved.igFollowersCount,
+    }});
+  } catch (err) {
+    console.error("save-instagram-account error:", err?.response?.data || err?.message || err);
+    return res.status(500).json({ success: false, error: "Failed to save Instagram account" });
+  }
+});
+
+/** (Optional) status route your FE already calls */
+router.get("/instagram-status", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    
+    const u = await USER.findById(userId).lean();
+    if (!u) return res.json({ instagramConnected: false });
+    res.json({
+      instagramConnected: !!u.instagramConnected,
+      igUsername: u.igUsername || null,
+      igProfilePic: u.igProfilePic || null,
+      followersCount: u.igFollowersCount ?? null,
+    });
+  } catch {
+    res.json({ instagramConnected: false });
+  }
+});
+
+
+
+
+  // router.get('/instagram-status', authenticateToken, async function (req, res){
+
+  //   const userId = req.user?.user_id;
+
+  //       if (!userId) {
+  //         return res.status(400).json({ message: "Username is invalid." });
+  //       }
   
-    USER.findById(userId).then((result)=>{
+  //   USER.findById(userId).then((result)=>{
   
-      if(result){
+  //     if(result){
   
-      res.status(200).send({ instagramConnected : result.instagramConnected, igProfilePic : result.igProfilePic, igUsername : result.igUsername, followersCount : result.igFollowersCount});
-      res.end();
+  //     res.status(200).send({ instagramConnected : result.instagramConnected, igProfilePic : result.igProfilePic, igUsername : result.igUsername, followersCount : result.igFollowersCount});
+  //     res.end();
 
   
-      }
+  //     }
   
-      else{
-      res.status(200).send({ success: false, data: null });
-      res.end();
+  //     else{
+  //     res.status(200).send({ success: false, data: null });
+  //     res.end();
   
-      }
+  //     }
   
-    }).catch(e2=>{
+  //   }).catch(e2=>{
   
-      console.error("❌ Error fetching campaign details:", e2);
-      return res.status(500).json({ error: "Internal Server Error" });
+  //     console.error("❌ Error fetching campaign details:", e2);
+  //     return res.status(500).json({ error: "Internal Server Error" });
   
-    })
-  });
+  //   })
+  // });
 
   router.post('/unlink-instagram', authenticateToken, async (req, res) => {
   try {
