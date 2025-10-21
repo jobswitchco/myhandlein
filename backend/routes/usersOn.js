@@ -1084,12 +1084,15 @@ const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
-const META_STATE_SECRET = process.env.META_STATE_SECRET || "change_me_super_secret";
+const META_STATE_SECRET = "change_me_super_secret";
 
 /** 1) FE asks for a signed state token (no cookies involved) */
 router.post("/meta-state", authenticateToken, async (req, res) => {
   try {
+
     const userId = req.user?.user_id;
+
+    console.log('meta-state hit : ', userId);
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
     const token = jwt.sign({ uid: String(userId) }, META_STATE_SECRET, { expiresIn: "10m" });
@@ -1113,6 +1116,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       throw new Error("Invalid or expired state");
     }
     const userId = payload.uid;
+
+    console.log('userId ::::::::::::::::::', userId);
 
     // 1) Short-lived user token
     const tokenResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
@@ -1204,7 +1209,7 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
     const { pageId, igUserId } = req.body;
     if (!pageId || !igUserId) return res.status(400).json({ success: false, error: "pageId and igUserId are required" });
 
-    const user = await User.findById(userId).lean();
+    const user = await USER.findById(userId).lean();
     if (!user) return res.status(404).json({ success: false, error: "User not found" });
     if (!user.fbLongLivedToken) return res.status(401).json({ success: false, error: "Meta session missing. Please connect again." });
 
