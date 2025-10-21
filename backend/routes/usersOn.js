@@ -1,5 +1,6 @@
 import express from "express";
 import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
 import axios from "axios";
 const router = express.Router();
 import USER from "../models/User.js";
