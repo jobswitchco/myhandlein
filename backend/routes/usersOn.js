@@ -1138,6 +1138,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const expiresInSec = llResp.data?.expires_in;
     const fbTokenExpiry = expiresInSec ? new Date(Date.now() + expiresInSec * 1000) : null;
 
+    console.log('fbLongResponse : ', llResp.data );
     // 3) Save long-lived token + expiry on the user now
     await USER.findByIdAndUpdate(
       userId,
