@@ -77,7 +77,7 @@ const openBusinessLogin = useCallback(async () => {
 
   try {
     // 1) Ask backend for a signed state bound to this user
-    const stateResp = await axios.post("/api/usersOn/meta/state", {}, { withCredentials: true });
+    const stateResp = await axios.post("/api/usersOn/meta-state", {}, { withCredentials: true });
     const state = stateResp.data?.state;
     if (!state) throw new Error("Unable to start Meta login");
 

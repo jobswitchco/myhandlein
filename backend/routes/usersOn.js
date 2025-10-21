@@ -1087,7 +1087,7 @@ const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 const META_STATE_SECRET = process.env.META_STATE_SECRET || "change_me_super_secret";
 
 /** 1) FE asks for a signed state token (no cookies involved) */
-router.post("/meta/state", authenticateToken, async (req, res) => {
+router.post("/meta-state", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
