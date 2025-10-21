@@ -1154,6 +1154,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       },
     });
     const pages = pagesResp.data?.data || [];
+    console.log('pages ::::::::::', pages);
     const candidates = [];
     for (const p of pages) {
       const ig = p.instagram_business_account;
@@ -1166,11 +1167,13 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
           },
         });
         const igData = igResp.data;
+
         candidates.push({
           pageId: p.id,
           pageName: p.name,
           igUserId: igData.id,
           username: igData.username,
+          pageAccessToken: fbLongLivedToken,
           profilePic: igData.profile_picture_url || null,
           followersCount: igData.followers_count ?? null,
         });
