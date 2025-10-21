@@ -148,7 +148,7 @@ const openBusinessLogin = useCallback(async () => {
 
 
   /** Save one selected IG account (same as your previous logic) */
-  const handleSelect = useCallback(async (acc) => {
+  const handleSelect = (async (acc) => {
     try {
       const result = await axios.post(
         BACKEND_SAVE_URL,
