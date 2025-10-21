@@ -1180,6 +1180,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     }
     if (!candidates.length) throw new Error("No Instagram Business account linked to your Pages.");
 
+    console.log('Candidates : ', JSON.stringify(candidates));
     // 5) Post candidates back to opener and close
     res.set("Content-Type", "text/html");
     res.send(`<!doctype html><script>
