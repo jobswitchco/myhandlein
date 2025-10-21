@@ -83,7 +83,7 @@ export default function InstagramConnect() {
       config_id: FB_LOGIN_CONFIG_ID,
     });
 
-    const authUrl = `https://business.facebook.com/dialog/oauth?${q.toString()}`;
+    const authUrl = `https://www.facebook.com/v20.0/dialog/oauth?${q.toString()}`;
     const w = 680, h = 760;
     const y = window.top.outerHeight / 2 + window.top.screenY - (h / 2);
     const x = window.top.outerWidth / 2 + window.top.screenX - (w / 2);
