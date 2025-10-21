@@ -70,15 +70,22 @@ export default function InstagramConnect() {
   }, []);
 
   /** --- NEW: open Business Login popup and wait for postMessage --- */
-  const openBusinessLogin = useCallback(() => {
-    setError("");
-    setLoading(true);
+// InstagramConnect.jsx (only inside openBusinessLogin)
+const openBusinessLogin = useCallback(async () => {
+  setError("");
+  setLoading(true);
 
-    const state = Math.random().toString(36).slice(2);
+  try {
+    // 1) Ask backend for a signed state bound to this user
+    const stateResp = await axios.post("/api/usersOn/meta/state", {}, { withCredentials: true });
+    const state = stateResp.data?.state;
+    if (!state) throw new Error("Unable to start Meta login");
+
+    // 2) Build OAuth URL with signed state (no random state now)
     const q = new URLSearchParams({
       client_id: FB_APP_ID,
       redirect_uri: REDIRECT_URI,
-      state,
+      state,                         // <-- signed, user-bound
       response_type: "code",
       config_id: FB_LOGIN_CONFIG_ID,
     });
@@ -93,47 +100,36 @@ export default function InstagramConnect() {
       "metaBusinessLogin",
       `width=${w},height=${h},left=${x},top=${y},resizable=yes,scrollbars=yes`
     );
+    if (!popup) throw new Error("Popup blocked. Please allow popups and try again.");
 
-    if (!popup) {
-      setLoading(false);
-      setError("Popup blocked. Please allow popups and try again.");
-      return;
-    }
+    const onMessage = async (event) => {
+      const msg = event.data || {};
+      if (msg.type !== "meta-auth") return;
+      window.removeEventListener("message", onMessage);
 
-    // Listen for backend callback message
-const onMessage = async (event) => {
-  // if (event.origin !== new URL(REDIRECT_URI).origin && event.origin !== FRONTEND_ORIGIN) return;
-  const msg = event.data || {};
-  if (msg.type !== "meta-auth") return;
-
-  window.removeEventListener("message", onMessage);
-
-  try {
-    if (!msg.success) {
-      setError(msg.error || "Facebook Business Login failed.");
-      return;
-    }
-
-    const arr = msg.candidates || [];
-    if (arr.length === 1) {
-      await handleSelect(arr[0]); // you already have this
-    } else if (arr.length > 1) {
-      setCandidates(arr);
-      setSelectOpen(true);        // open your picker dialog
-    } else {
-      setError("No Instagram business accounts found.");
-    }
-  } catch (err) {
-    setError(err?.response?.data?.error || err.message || "Failed after login.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+      try {
+        if (!msg.success) {
+          setError(msg.error || "Facebook Business Login failed.");
+          return;
+        }
+        const arr = msg.candidates || [];
+        if (arr.length === 1) {
+          await handleSelect(arr[0]);
+        } else if (arr.length > 1) {
+          setCandidates(arr);
+          setSelectOpen(true);
+        } else {
+          setError("No Instagram business accounts found.");
+        }
+      } catch (err) {
+        setError(err?.response?.data?.error || err.message || "Failed after login.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
     window.addEventListener("message", onMessage);
 
-    // Poll for popup closed without finishing
     const poll = setInterval(() => {
       if (popup.closed) {
         clearInterval(poll);
@@ -141,7 +137,12 @@ const onMessage = async (event) => {
         setLoading(false);
       }
     }, 500);
-  }, []);
+  } catch (e) {
+    setError(e.message || "Failed to start Meta login");
+    setLoading(false);
+  }
+}, []);
+
 
   /** Save one selected IG account (same as your previous logic) */
   const handleSelect = useCallback(async (acc) => {

@@ -1084,59 +1084,80 @@ const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
+const META_STATE_SECRET = process.env.META_STATE_SECRET || "change_me_super_secret";
 
+/** 1) FE asks for a signed state token (no cookies involved) */
+router.post("/meta/state", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const token = jwt.sign({ uid: String(userId) }, META_STATE_SECRET, { expiresIn: "10m" });
+    res.json({ state: token });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to start Meta login" });
+  }
+});
 
 router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
   try {
     if (!code) throw new Error("Missing OAuth code");
+    if (!state) throw new Error("Missing state");
 
-    // Short-lived user token
+    // Verify state and get userId
+    let payload;
+    try {
+      payload = jwt.verify(state, META_STATE_SECRET);
+    } catch {
+      throw new Error("Invalid or expired state");
+    }
+    const userId = payload.uid;
+
+    // 1) Short-lived user token
     const tokenResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
-      params: {
-        client_id: META_APP_ID,
-        client_secret: META_APP_SECRET,
-        redirect_uri: META_REDIRECT_URI,
-        code,
-      },
+      params: { client_id: META_APP_ID, client_secret: META_APP_SECRET, redirect_uri: META_REDIRECT_URI, code },
     });
-    const userToken = tokenResp.data?.access_token;
-    if (!userToken) throw new Error("Token exchange failed");
+    const shortUserToken = tokenResp.data?.access_token;
+    if (!shortUserToken) throw new Error("Token exchange failed");
 
-    // Long-lived user token
+    // 2) Long-lived user token
     const llResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
       params: {
         grant_type: "fb_exchange_token",
         client_id: META_APP_ID,
         client_secret: META_APP_SECRET,
-        fb_exchange_token: userToken,
+        fb_exchange_token: shortUserToken,
       },
     });
     const fbLongLivedToken = llResp.data?.access_token;
-    const expiresInSec = llResp.data?.expires_in; // seconds from now
+    const expiresInSec = llResp.data?.expires_in;
     const fbTokenExpiry = expiresInSec ? new Date(Date.now() + expiresInSec * 1000) : null;
 
-    // Get pages (with linked IG)
+    // 3) Save long-lived token + expiry on the user now
+    await User.findByIdAndUpdate(
+      userId,
+      { fbLongLivedToken, fbTokenExpiry, updated_at: new Date() },
+      { new: false }
+    );
+
+    // 4) Build candidates (preview only)
     const pagesResp = await axios.get("https://graph.facebook.com/v24.0/me/accounts", {
       params: {
         fields: "id,name,instagram_business_account{id,username,profile_picture_url}",
-        access_token: fbLongLivedToken || userToken,
+        access_token: fbLongLivedToken,
       },
     });
-
     const pages = pagesResp.data?.data || [];
     const candidates = [];
     for (const p of pages) {
       const ig = p.instagram_business_account;
       if (!ig?.id) continue;
-
       try {
-        // Minimal preview fields for the picker
         const igResp = await axios.get(`https://graph.facebook.com/v24.0/${ig.id}`, {
           params: {
             fields: "id,username,profile_picture_url,followers_count",
-            // page token not needed for preview; long-lived user token is fine
-            access_token: fbLongLivedToken || userToken,
+            access_token: fbLongLivedToken,
           },
         });
         const igData = igResp.data;
@@ -1152,41 +1173,9 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
         console.warn("IG preview fetch failed for page", p.id, e.message);
       }
     }
+    if (!candidates.length) throw new Error("No Instagram Business account linked to your Pages.");
 
-    if (!candidates.length) {
-      throw new Error("No Instagram Business account linked to your Pages. Link IG to a Page and try again.");
-    }
-
-    // Set httpOnly cookie so the next call can mint a PAGE token securely
-    // (short expiry cookie—align to ll token expiry or a day if none returned)
-    const cookieStr = cookie.serialize(
-      "fb_ll_user_token",
-      fbLongLivedToken || userToken,
-      {
-        httpOnly: true,
-        secure: true,
-        sameSite: "lax",
-        path: "/",
-        maxAge: expiresInSec || 24 * 3600,
-      }
-    );
-    res.setHeader("Set-Cookie", cookieStr);
-
-    // Optional: store expiry in another cookie (not strictly needed)
-    if (fbTokenExpiry) {
-      res.setHeader("Set-Cookie", [
-        cookieStr,
-        cookie.serialize("fb_ll_user_token_exp", String(fbTokenExpiry.getTime()), {
-          httpOnly: false,
-          secure: true,
-          sameSite: "lax",
-          path: "/",
-          maxAge: expiresInSec,
-        }),
-      ]);
-    }
-
-    // Post candidates to opener
+    // 5) Post candidates back to opener and close
     res.set("Content-Type", "text/html");
     res.send(`<!doctype html><script>
       (function () {
@@ -1213,54 +1202,34 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
     const { pageId, igUserId } = req.body;
-    if (!pageId || !igUserId) {
-      return res.status(400).json({ success: false, error: "pageId and igUserId are required" });
-    }
+    if (!pageId || !igUserId) return res.status(400).json({ success: false, error: "pageId and igUserId are required" });
 
-    // Long-lived user token from httpOnly cookie (set at /meta-callback)
-    const llUserToken = req.cookies?.fb_ll_user_token;
-    if (!llUserToken) {
-      return res.status(401).json({ success: false, error: "Facebook session not found. Please connect again." });
-    }
+    const user = await User.findById(userId).lean();
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    if (!user.fbLongLivedToken) return res.status(401).json({ success: false, error: "Meta session missing. Please connect again." });
 
-    // Mint/refresh PAGE access token using the long-lived USER token
-    const pageTokenResp = await axios.get(`https://graph.facebook.com/v24.0/${pageId}`, {
-      params: { fields: "access_token", access_token: llUserToken },
+    // Page access token (from long-lived *user* token)
+    const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${pageId}`, {
+      params: { fields: "access_token", access_token: user.fbLongLivedToken },
     });
-    const fbPageAccessToken = pageTokenResp.data?.access_token;
-    if (!fbPageAccessToken) {
-      return res.status(400).json({ success: false, error: "Unable to fetch Page access token" });
-    }
+    const fbPageAccessToken = pageTokResp.data?.access_token;
+    if (!fbPageAccessToken) return res.status(400).json({ success: false, error: "Unable to fetch Page access token" });
 
-    // Fetch rich IG fields
+    // Fetch IG details with page token
     const igResp = await axios.get(`https://graph.facebook.com/v24.0/${igUserId}`, {
       params: {
         fields: "id,username,profile_picture_url,biography,followers_count,follows_count,media_count",
-        access_token: fbPageAccessToken, // recommended for IG node calls
+        access_token: fbPageAccessToken,
       },
     });
     const ig = igResp.data;
 
-    // Optional: grab IG name if available (often same as username; IG doesn't expose 'name' for biz)
-    const igName = ig.username || null;
-
-    // Determine profile pic boolean
-    const has_profile_pic_ig = Boolean(ig.profile_picture_url);
-
-    // Compute expiry from the cookie if you set exp time cookie (optional)
-    let fbTokenExpiry = null;
-    if (req.cookies?.fb_ll_user_token_exp) {
-      const ms = parseInt(req.cookies.fb_ll_user_token_exp, 10);
-      if (!Number.isNaN(ms)) fbTokenExpiry = new Date(ms);
-    }
-
-    // Update the User
     const update = {
       instagramConnected: true,
       fbPageId: pageId,
-      igUserId: ig.id,         // same as igUserId
-      igId: ig.id,             // if you store twice
-      igName,
+      igUserId: ig.id,
+      igId: ig.id,
+      igName: ig.username || null,                // IG doesn't expose separate 'name' for biz
       igUsername: ig.username || null,
       igProfilePic: ig.profile_picture_url || null,
       igFollowersCount: ig.followers_count ?? null,
@@ -1268,28 +1237,26 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
       igMediaCount: ig.media_count ?? null,
       igBiography: ig.biography || null,
       fbPageAccessToken,
-      fbLongLivedToken: llUserToken,
-      fbTokenExpiry,
-      has_profile_pic_ig,
+      has_profile_pic_ig: Boolean(ig.profile_picture_url),
       updated_at: new Date(),
     };
 
     const saved = await USER.findByIdAndUpdate(userId, update, { new: true });
-    if (!saved) {
-      return res.status(404).json({ success: false, error: "User not found" });
-    }
-
-    return res.json({ success: true, user: {
-      instagramConnected: saved.instagramConnected,
-      igUsername: saved.igUsername,
-      igProfilePic: saved.igProfilePic,
-      igFollowersCount: saved.igFollowersCount,
-    }});
+    return res.json({
+      success: true,
+      user: {
+        instagramConnected: saved.instagramConnected,
+        igUsername: saved.igUsername,
+        igProfilePic: saved.igProfilePic,
+        igFollowersCount: saved.igFollowersCount,
+      },
+    });
   } catch (err) {
     console.error("save-instagram-account error:", err?.response?.data || err?.message || err);
     return res.status(500).json({ success: false, error: "Failed to save Instagram account" });
   }
 });
+
 
 /** (Optional) status route your FE already calls */
 router.get("/instagram-status", authenticateToken, async (req, res) => {
