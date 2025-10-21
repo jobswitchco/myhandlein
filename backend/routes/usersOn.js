@@ -1083,7 +1083,7 @@ const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
-router.get("/meta-callback", async (req, res) => {
+router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
   const { code } = req.query;
 
   console.log('Hit : ', code);
