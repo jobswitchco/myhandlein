@@ -117,7 +117,7 @@ const openBusinessLogin = useCallback(async () => {
         console.log('heheheheehe : ', arr);
         console.log('candidates : ', msg.candidates);
         if (arr.length === 1) {
-          await handleSelect(arr[0]);
+          handleSelect(arr[0]);
         } else if (arr.length > 1) {
           setCandidates(arr);
           setSelectOpen(true);
@@ -148,34 +148,38 @@ const openBusinessLogin = useCallback(async () => {
 
 
   /** Save one selected IG account (same as your previous logic) */
-  const handleSelect = (async (acc) => {
-    try {
-      const result = await axios.post(
-        BACKEND_SAVE_URL,
-        {
-          pageId: acc.pageId,
-          igUserId: acc.igUserId,
-          username: acc.username,
-          pageAccessToken: acc.pageAccessToken,
-        },
-        { withCredentials: true }
-      );
-      if (result.data?.success) {
-        setSavedIgUserId(acc.igUserId);
-        setIsConnected(true);
-        setConnectedAccount({
-          username: acc.username,
-          profilePic: acc.profilePic,
-          followersCount: acc.followersCount,
-        });
-      } else {
-        setError("Failed to save Instagram account");
-      }
-    } catch (err) {
-      console.error(err);
-      setError(err?.response?.data?.error || err.message || "Failed to save Instagram account");
+const handleSelect = useCallback((acc) => {
+  setError("");
+
+  axios.post(
+    BACKEND_SAVE_URL,
+    {
+      pageId: acc.pageId,
+      igUserId: acc.igUserId,
+      username: acc.username,
+      pageAccessToken: acc.pageAccessToken, // keep if your backend expects it
+    },
+    { withCredentials: true }
+  )
+  .then((result) => {
+    if (result?.data?.success) {
+      setSavedIgUserId(acc.igUserId);
+      setIsConnected(true);
+      setConnectedAccount({
+        username: acc.username,
+        profilePic: acc.profilePic,
+        followersCount: acc.followersCount,
+      });
+    } else {
+      setError(result?.data?.error || "Failed to save Instagram account");
     }
-  }, []);
+  })
+  .catch((err) => {
+    console.error(err);
+    setError(err?.response?.data?.error || err.message || "Failed to save Instagram account");
+  });
+}, []); // add deps if any of the referenced vars are not module-level constants
+
 
   const handleUnlinkClick = () => setUnlinkDialogOpen(true);
   const handleCloseDialog = () => setUnlinkDialogOpen(false);
