@@ -1076,6 +1076,125 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
   }
 });
 
+const FRONTEND_ORIGIN = "https://myhandle.in";
+
+// NOTE: keep secrets in env vars in real code
+const META_APP_ID = process.env.META_APP_ID;
+const META_APP_SECRET = process.env.META_APP_SECRET;
+const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
+
+router.get("/meta-callback", async (req, res) => {
+  const { code } = req.query;
+
+  console.log('Hit : ', code);
+  try {
+    if (!code) throw new Error("Missing OAuth code");
+
+    // 1) Exchange code -> user access token
+    const tokenResp = await axios.get(
+      "https://graph.facebook.com/v24.0/oauth/access_token",
+      {
+        params: {
+          client_id: META_APP_ID,
+          client_secret: META_APP_SECRET,
+          redirect_uri: META_REDIRECT_URI,
+          code,
+        },
+      }
+    );
+    const userToken = tokenResp.data?.access_token;
+    if (!userToken) throw new Error("Token exchange failed");
+
+    // 2) Fetch pages (with linked IG info)
+    const pagesResp = await axios.get(
+      "https://graph.facebook.com/v24.0/me/accounts",
+      {
+        params: {
+          fields:
+            "id,name,access_token,instagram_business_account{id,username,profile_picture_url}",
+          access_token: userToken,
+        },
+      }
+    );
+
+    const pages = pagesResp.data?.data || [];
+    if (!pages.length) throw new Error("No Facebook Pages found for this user.");
+
+    // 3) Build candidate list
+    const candidates = [];
+    for (const p of pages) {
+      const ig = p.instagram_business_account;
+      if (!ig?.id) continue;
+
+      try {
+        const igResp = await axios.get(
+          `https://graph.facebook.com/v24.0/${ig.id}`,
+          {
+            params: {
+              fields: "id,username,profile_picture_url,followers_count",
+              access_token: p.access_token, // page token!
+            },
+          }
+        );
+
+        const igData = igResp.data;
+        candidates.push({
+          pageId: p.id,
+          pageName: p.name,
+          pageAccessToken: p.access_token,
+          igUserId: igData.id,
+          username: igData.username,
+          profilePic: igData.profile_picture_url,
+          followersCount: igData.followers_count ?? null,
+        });
+      } catch (e) {
+        // Skip pages where IG fetch fails; continue others
+        console.warn("IG fetch failed for page", p.id, e.message);
+      }
+    }
+
+    if (!candidates.length) {
+      throw new Error(
+        "No Instagram Business account linked to your Pages. Link IG to a Page and try again."
+      );
+    }
+
+    console.log('Response:::::::::::::::', JSON.stringify(candidates));
+    // 4) Send candidates back to the opener and close popup
+    res.set("Content-Type", "text/html");
+    res.send(`<!doctype html><script>
+      (function () {
+        var payload = {
+          type: "meta-auth",
+          success: true,
+          candidates: ${JSON.stringify(candidates)}
+        };
+        if (window.opener) {
+          window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
+        }
+        window.close();
+      })();
+    </script>`);
+
+  } catch (err) {
+    console.error("Meta OAuth error:", err?.message || err);
+    res.set("Content-Type", "text/html");
+    res.send(`<!doctype html><script>
+      (function () {
+        var payload = {
+          type: "meta-auth",
+          success: false,
+          error: ${JSON.stringify(err?.message || "Meta OAuth error")}
+        };
+        if (window.opener) {
+          window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
+        }
+        window.close();
+      })();
+    </script>`);
+  }
+});
+
 
 
   router.get('/instagram-status', authenticateToken, async function (req, res){
