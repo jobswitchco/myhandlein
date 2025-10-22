@@ -57,7 +57,7 @@ function EmptyState({ onCreate }) {
           Create your first automation
         </Typography>
         <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 520, mx: "auto" }}>
-          You don’t have any automations yet. Set up your first one to auto-DM,
+          You don't have any automations yet. Set up your first one to auto-DM,
           track status, and manage everything from one place.
         </Typography>
       </Stack>
@@ -310,17 +310,17 @@ export default function AutomationList() {
           />
         ),
       },
-      {
-        field: "repliedCount",
-        headerName: "Replies Sent",
-        width: 130,
-        sortable: false,
-        renderCell: (params) => (
-          <Typography sx={{ textAlign: "center", alignItems: "center", mt: 1.5 }}>
-            {params.value ?? 0}
-          </Typography>
-        ),
-      },
+      // {
+      //   field: "repliedCount",
+      //   headerName: "Replies Sent",
+      //   width: 130,
+      //   sortable: false,
+      //   renderCell: (params) => (
+      //     <Typography sx={{ textAlign: "center", alignItems: "center", mt: 1.5 }}>
+      //       {params.value ?? 0}
+      //     </Typography>
+      //   ),
+      // },
       {
         field: "details",
         headerName: "Details",
