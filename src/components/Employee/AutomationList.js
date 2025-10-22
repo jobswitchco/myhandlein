@@ -201,78 +201,65 @@ export default function AutomationList() {
   }, [igConnected, page, pageSize, fetchPage]);
 
   /** ---- Business Login handler (no FB SDK, no candidates) ---- */
-  const handleConnectInstagram = useCallback(async () => {
-    setConnectError("");
-    setConnectLoading(true);
+ const handleConnectInstagram = useCallback(async () => {
+  setConnectError("");
+  setConnectLoading(true);
 
-    try {
-      // 1) get signed state
-      const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
-      const state = stateResp?.state;
-      if (!state) throw new Error("Unable to start Meta login");
+  try {
+    // 1) get signed state
+    const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
+    const state = stateResp?.state;
+    if (!state) throw new Error("Unable to start Meta login");
 
-      // 2) build OAuth URL
-      const q = new URLSearchParams({
-        client_id: FB_APP_ID,
-        redirect_uri: REDIRECT_URI,
-        state,
-        response_type: "code",
-        config_id: FB_LOGIN_CONFIG_ID,
-      });
+    // 2) build OAuth URL
+    const q = new URLSearchParams({
+      client_id: FB_APP_ID,
+      redirect_uri: REDIRECT_URI, // must equal your /meta-callback URL exactly
+      state,
+      response_type: "code",
+      config_id: FB_LOGIN_CONFIG_ID,
+    });
 
-      const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
+    const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
 
-      // 3) open popup
-      const popup = openCenteredPopup(authUrl);
-      if (!popup) {
-        return; // full-page redirect fallback already triggered
-      }
+    // 3) open popup
+    const popup = openCenteredPopup(authUrl);
+    if (!popup) {
+      // full-page redirect fallback already triggered
+      return;
+    }
 
-      // 4) wait for postMessage from /api/usersOn/meta-callback page
-      const onMessage = async (event) => {
-        // Optional: enforce origin
-        if (event.origin !== FRONTEND_ORIGIN) return;
+    // ✅ No onMessage needed. Backend will do:
+    // window.opener.location.replace('https://myhandle.in/professional/automations?connected=1')
+    // window.close()
 
-        const msg = event?.data || {};
-        if (msg.type !== "meta-auth") return;
-        window.removeEventListener("message", onMessage);
-
+    // Optional robustness: if popup closes but opener didn’t get redirected
+    const poll = setInterval(async () => {
+      if (popup.closed) {
+        clearInterval(poll);
         try {
-          if (!msg.success) {
-            setConnectError(msg.error || "Facebook Business Login failed.");
-            return;
-          }
-
-          // ✅ Backend has already written to USER. Just re-check connection and load.
           const ok = await checkIgConnection();
           if (ok) {
             toast.success("Instagram connected!");
             fetchPage(0, pageSize);
-          } else {
-            setConnectError("Connected, but verification failed. Please refresh and try again.");
           }
-        } catch (err) {
-          setConnectError(err?.response?.data?.error || err.message || "Failed after login.");
         } finally {
           setConnectLoading(false);
         }
-      };
+      }
+    }, 500);
 
-      window.addEventListener("message", onMessage);
+    // Safety: auto-close popup after 5 minutes if it’s forgotten
+    setTimeout(() => {
+      try { if (!popup.closed) popup.close(); } catch {}
+    }, 5 * 60 * 1000);
 
-      // 5) cleanup if popup is closed
-      const poll = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(poll);
-          window.removeEventListener("message", onMessage);
-          setConnectLoading(false);
-        }
-      }, 500);
-    } catch (e) {
-      setConnectError(e.message || "Failed to start Meta login");
-      setConnectLoading(false);
-    }
-  }, [META_STATE_URL, checkIgConnection, fetchPage, pageSize]);
+  } catch (e) {
+    setConnectError(e.message || "Failed to start Meta login");
+    setConnectLoading(false);
+  }
+}, [META_STATE_URL, checkIgConnection, fetchPage, pageSize, FB_APP_ID, FB_LOGIN_CONFIG_ID, REDIRECT_URI]);
+
 
   /** ---- Table columns ---- */
   const columns = useMemo(

@@ -1078,7 +1078,9 @@ router.post("/connect-instagram", authenticateToken, async (req, res) => {
   }
 });
 
-const FRONTEND_ORIGIN = "https://myhandle.in";
+const FRONTEND_ORIGIN = "https://myhandle.in"; // your app origin
+const OPENER_URL = `${FRONTEND_ORIGIN}/professional/automations?connected=1`;
+
 
 // NOTE: keep secrets in env vars in real code
 const META_APP_ID = process.env.META_APP_ID;
@@ -1233,14 +1235,21 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       followersCount: igFollowersCount,
     };
 
-    res.set("Content-Type", "text/html");
-    res.send(`<!doctype html><script>
-      (function () {
-        var payload = { type: "meta-auth", success: true, user: ${JSON.stringify(preview)} };
-        if (window.opener) window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
-        window.close();
-      })();
-    </script>`);
+   res.type("html").send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Connected</title></head>
+<body>
+<script>
+  try {
+    if (window.opener && !window.opener.closed) {
+      // Navigate opener (allowed even cross-origin)
+      window.opener.location.replace(${JSON.stringify(OPENER_URL)});
+    }
+  } catch (e) {}
+  try { window.close(); } catch (e) {}
+  // Fallback UX:
+  document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
+</script>
+</body></html>`);
 
   } catch (err) {
     console.error("Meta OAuth error:", err?.response?.data || err?.message || err);
