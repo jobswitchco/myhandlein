@@ -1805,10 +1805,18 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
     const fbPageId = user.fbPageId;
     const fbLongLivedToken = user.fbLongLivedToken;
 
+    let automationFeedSubscribed = false;
+
 
     if(!user.automationFeedSubscribed){
 
     await subscribePageToInstagramWebhooks(fbPageId, fbLongLivedToken, userId);
+    automationFeedSubscribed = true;
+      await USER.findByIdAndUpdate(
+      userId,
+      { automationFeedSubscribed, updated_at: new Date() },
+      { new: false }
+    );
     }
 
     return res.json({
