@@ -1650,6 +1650,66 @@ const normalizedMedia = filteredMedia.map((m) => ({
 });
 
 
+async function subscribePageToInstagramWebhooks(fbPageId, fbLongLivedToken, userId ) {
+  if (!fbPageId) throw new Error("fbPageId is required");
+  if (!fbLongLivedToken) throw new Error("fbLongLivedToken is required");
+  if (!userId) throw new Error("userId is required");
+
+  try {
+    // 1) Fetch PAGE access token using the user long-lived token
+    const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${fbPageId}`, {
+      params: {
+        fields: "access_token",
+        access_token: fbLongLivedToken,
+      },
+    });
+
+    const fbPageAccessToken = pageTokResp?.data?.access_token;
+    if (!fbPageAccessToken) {
+      throw new Error("Unable to fetch Page access token (check pages_* permissions on the user token).");
+    }
+
+    // 2) Persist PAGE token on USER (so future jobs/webhooks can use it)
+    await USER.findByIdAndUpdate(
+      userId,
+      { fbPageAccessToken, updated_at: new Date() },
+      { new: false }
+    );
+
+    // 3) Subscribe the PAGE to your app for 'feed' changes
+    const subResp = await axios.post(
+      `https://graph.facebook.com/v24.0/${fbPageId}/subscribed_apps`,
+      null,
+      {
+        params: {
+          subscribed_fields: "feed",
+          access_token: fbPageAccessToken, // MUST be PAGE token (not user token)
+        },
+      }
+    );
+
+    const subscribed = !!subResp?.data?.success;
+    if (subscribed) {
+      console.log("✅ Subscribed Page to FEED updates");
+    } else {
+      console.warn("⚠️ Page subscription response did not indicate success:", subResp?.data);
+    }
+
+    return { fbPageAccessToken, subscribed, raw: subResp?.data };
+  } catch (error) {
+    console.error("❌ subscribePageFeedWithLongLivedToken failed");
+    if (error.response) {
+      console.error("Status:", error.response.status);
+      console.error("Error:", error.response.data);
+    } else {
+      console.error("Error:", error.message);
+    }
+    throw error;
+  }
+}
+
+
+
 router.post("/automation/config", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id || req.user?._id;
@@ -1683,6 +1743,8 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
     )];
 
     const normalizedReply = commentReply ? String(commentReply).trim() : null;
+    const hasPublicReply = typeof normalizedReply === "string" && normalizedReply.length > 0;
+
 
     // DM validation/shape
     let dmPayload = { enabled: !!dmEnabled };
@@ -1724,6 +1786,7 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       platform: "instagram",
       keywords: normalizedKeywords,
       publicReply: normalizedReply || null,
+      hasPublicReply,
       dm: dmPayload,
       caption,
       thumbnail,
@@ -1737,6 +1800,12 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       { $set: update, $setOnInsert: { userId, postId: String(postId) } },
       { upsert: true, new: true }
     );
+    
+    const user = await USER.findById(userId).select("fbPageId fbLongLivedToken").lean();
+    const fbPageId = user.fbPageId;
+    const fbLongLivedToken = user.fbLongLivedToken;
+
+    await subscribePageToInstagramWebhooks(fbPageId, fbLongLivedToken, userId);
 
     return res.json({
       success: true,
