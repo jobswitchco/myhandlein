@@ -1,4 +1,4 @@
-// AutomationList.jsx (JS, not TSX)
+// AutomationList.jsx (JS)
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Box,
@@ -11,14 +11,6 @@ import {
   Avatar,
   Card,
   CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -82,62 +74,21 @@ function EmptyState({ onCreate }) {
   );
 }
 
-function SelectIgDialog({ open, accounts = [], onClose, onSelect, saving }) {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Select an Instagram account</DialogTitle>
-      <DialogContent dividers>
-        {accounts.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No Instagram accounts were returned. Please ensure your Facebook page is linked to an
-            Instagram Business/Creator account.
-          </Typography>
-        ) : (
-          <List>
-            {accounts.map((acc) => (
-              <ListItem
-                key={`${acc.igUserId}-${acc.pageId}`}
-                onClick={() => onSelect(acc)}
-                disabled={saving}
-                sx={{ cursor: "pointer" }}
-              >
-                <ListItemAvatar>
-                  <Avatar src={acc.profilePic}>
-                    <InstagramIcon />
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={`@${acc.username}`}
-                  secondary={`${acc.pageName || "Facebook Page"} • IG User ID: ${acc.igUserId}`}
-                />
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={saving} sx={{ textTransform: "none" }}>
-          Cancel
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 /** ---------- Main Screen ---------- */
 export default function AutomationList() {
   const navigate = useNavigate();
 
-  /** ---- Backend endpoints (align with your InstagramConnect.jsx) ---- */
-  const STATUS_URL = "/api/usersOn/instagram-status";         // returns { instagramConnected: boolean, ... }
-  const META_STATE_URL = "/api/usersOn/meta-state";           // returns { state }
-  const SAVE_URL = "/api/usersOn/save-instagram-account";     // POST save selected IG account
-  const AUTOMATIONS_URL = "/api/usersOn/automations";         // GET ?page=1&limit=10
+  /** ---- Backend endpoints (match InstagramConnect.jsx) ---- */
+  const STATUS_URL = "/api/usersOn/instagram-status";     // { instagramConnected: boolean, ... }
+  const META_STATE_URL = "/api/usersOn/meta-state";       // { state }
+  const AUTOMATIONS_URL = "/api/usersOn/automations";     // GET ?page=1&limit=10
 
   /** ---- Meta app constants (same as InstagramConnect.jsx) ---- */
   const FB_APP_ID = "1360956302356492";
   const FB_LOGIN_CONFIG_ID = "2452082071860610";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
+  // Optional: if you want to strictly verify event.origin
+  const FRONTEND_ORIGIN = window.location.origin; // e.g., https://myhandle.in
 
   /** ---- IG connect state ---- */
   const [igConnected, setIgConnected] = useState(null); // null = unknown; true/false after check
@@ -145,9 +96,6 @@ export default function AutomationList() {
 
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState("");
-  const [candidates, setCandidates] = useState([]);
-  const [selectOpen, setSelectOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   /** ---- Table state ---- */
   const [rows, setRows] = useState([]);
@@ -252,42 +200,7 @@ export default function AutomationList() {
     }
   }, [igConnected, page, pageSize, fetchPage]);
 
-  /** ---- Save selected IG account ---- */
-  const handleSelectAccount = useCallback(
-    async (acc) => {
-      setSaving(true);
-      setConnectError("");
-      try {
-        const result = await axios.post(
-          SAVE_URL,
-          {
-            pageId: acc.pageId,
-            igUserId: acc.igUserId,
-            username: acc.username,
-            pageAccessToken: acc.pageAccessToken,
-          },
-          { withCredentials: true }
-        );
-
-        if (result.data?.success) {
-          toast.success("Instagram connected!");
-          setSelectOpen(false);
-          setIgConnected(true);
-          // load first page immediately
-          fetchPage(0, pageSize);
-        } else {
-          setConnectError(result?.data?.error || "Failed to save Instagram account");
-        }
-      } catch (err) {
-        setConnectError(err?.response?.data?.error || err.message || "Failed to save Instagram account");
-      } finally {
-        setSaving(false);
-      }
-    },
-    [SAVE_URL, fetchPage, pageSize]
-  );
-
-  /** ---- Business Login handler (no FB SDK) ---- */
+  /** ---- Business Login handler (no FB SDK, no candidates) ---- */
   const handleConnectInstagram = useCallback(async () => {
     setConnectError("");
     setConnectLoading(true);
@@ -312,14 +225,16 @@ export default function AutomationList() {
       // 3) open popup
       const popup = openCenteredPopup(authUrl);
       if (!popup) {
-        // user got redirected full-page; stop here
-        return;
+        return; // full-page redirect fallback already triggered
       }
 
       // 4) wait for postMessage from /api/usersOn/meta-callback page
       const onMessage = async (event) => {
+        // Optional: enforce origin
+        if (event.origin !== FRONTEND_ORIGIN) return;
+
         const msg = event?.data || {};
-        if (msg.type !== "meta-auth") return; // ignore unrelated messages
+        if (msg.type !== "meta-auth") return;
         window.removeEventListener("message", onMessage);
 
         try {
@@ -328,14 +243,13 @@ export default function AutomationList() {
             return;
           }
 
-          const arr = Array.isArray(msg.candidates) ? msg.candidates : [];
-          if (arr.length === 0) {
-            setConnectError("No Instagram business accounts found.");
+          // ✅ Backend has already written to USER. Just re-check connection and load.
+          const ok = await checkIgConnection();
+          if (ok) {
+            toast.success("Instagram connected!");
+            fetchPage(0, pageSize);
           } else {
-            const ok = await checkIgConnection();
-      if (ok) {
-        fetchPage(0, pageSize);
-      }
+            setConnectError("Connected, but verification failed. Please refresh and try again.");
           }
         } catch (err) {
           setConnectError(err?.response?.data?.error || err.message || "Failed after login.");
@@ -358,7 +272,7 @@ export default function AutomationList() {
       setConnectError(e.message || "Failed to start Meta login");
       setConnectLoading(false);
     }
-  }, [handleSelectAccount, META_STATE_URL]);
+  }, [META_STATE_URL, checkIgConnection, fetchPage, pageSize]);
 
   /** ---- Table columns ---- */
   const columns = useMemo(
@@ -524,15 +438,6 @@ export default function AutomationList() {
             </Stack>
           </CardContent>
         </Card>
-
-        {/* Account selection dialog (if multiple IG accounts) */}
-        <SelectIgDialog
-          open={selectOpen}
-          accounts={candidates}
-          onClose={() => setSelectOpen(false)}
-          onSelect={handleSelectAccount}
-          saving={saving}
-        />
       </Box>
     );
   }
