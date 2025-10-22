@@ -331,11 +331,11 @@ export default function AutomationList() {
           const arr = Array.isArray(msg.candidates) ? msg.candidates : [];
           if (arr.length === 0) {
             setConnectError("No Instagram business accounts found.");
-          } else if (arr.length === 1) {
-            await handleSelectAccount(arr[0]);
           } else {
-            setCandidates(arr);
-            setSelectOpen(true);
+            const ok = await checkIgConnection();
+      if (ok) {
+        fetchPage(0, pageSize);
+      }
           }
         } catch (err) {
           setConnectError(err?.response?.data?.error || err.message || "Failed after login.");
