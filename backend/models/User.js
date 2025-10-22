@@ -29,6 +29,8 @@ const User_Schema = new Schema({
   fbPageAccessToken: {type : String},
   has_profile_pic_ig: { type: Boolean, default: false },
 
+  automationFeedSubscribed : {type : Boolean, default : false },
+
 
   demo_logged_in: { type: Boolean },
   demo_logged_date: { type: Date },
