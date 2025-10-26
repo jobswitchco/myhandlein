@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Grid,
   IconButton,
   Paper,
   Stack,
@@ -18,6 +17,7 @@ import {
   useTheme,
   Snackbar,
   Tabs,
+  Grid,
   Tab,
   CircularProgress,
   Tooltip,
@@ -1464,7 +1464,7 @@ async function saveAdd() {
               </Typography>
 
                <Typography>
-              Now, you can receive direct messages from your users
+              Now, you can receive direct messages from users and bla bla
               </Typography>
             </Stack>
 
@@ -1533,7 +1533,7 @@ async function saveAdd() {
 
 
         {/* LEFT: Blocks editor */}
-        <Grid item xs={12} md={7}>
+        <Grid size={{ xs: 12, md: 7}}>
 
           <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
             {/* --- Social picker + saved socials --- */}
@@ -1581,7 +1581,25 @@ async function saveAdd() {
               {selectedPlatform && (
                 <Paper sx={{ p: 1, mb: 1, borderRadius: 2 }}>
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
-                    <TextField fullWidth size="small" placeholder={`Enter ${selectedPlatform} URL`} value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} />
+                  <TextField
+  fullWidth
+  size="small"
+  placeholder={
+    selectedPlatform === "whatsapp"
+      ? "Enter 10 Digit WhatsApp Number"
+      : `Enter ${selectedPlatform} URL`
+  }
+  type={selectedPlatform === "whatsapp" ? "tel" : "url"}
+  value={socialUrl}
+  onChange={(e) => setSocialUrl(e.target.value)}
+  inputProps={
+    selectedPlatform === "whatsapp"
+      ? { pattern: "^[+0-9]{10,15}$", inputMode: "tel" }
+      : {}
+  }
+/>
+
+                    {/* <TextField fullWidth size="small" placeholder={`Enter ${selectedPlatform} URL`} value={socialUrl} onChange={(e) => setSocialUrl(e.target.value)} /> */}
                     <PrimaryBtn onClick={saveSocial} disabled={addingSocial} style={{ display: "inline-flex", alignItems: "center" }}>
                       {addingSocial ? <CircularProgress size={18} /> : <SaveIcon />}
                       <span style={{ marginLeft: 8 }}>{addingSocial ? "Saving..." : "Save"}</span>
@@ -1702,7 +1720,7 @@ async function saveAdd() {
         </Grid>
 
       {/* Right Preview Images */}
-<Grid item xs={12} md={5}>
+<Grid size={{ xs: 12, md: 5}}>
 
 
 
