@@ -656,7 +656,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
             {/* Name + socials row (no avatar) */}
             <Grid container alignItems="center" spacing={1} sx={{ mt: 0, px: 3.5, pb:2, textAlign : 'left', background: " #0b0b0b"}}>
 
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6}}>
                 <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
                   <Typography sx={{ color: "#FFFFFF", fontFamily: "Inter", fontWeight: 600, fontSize: { xs: 16, sm: 18 } }}>
                     {name}
@@ -665,7 +665,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               </Grid>
 
              {/* Right: social icons */}
-<Grid item xs={6}>
+<Grid size={{ xs: 6 }}>
   <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.75, alignItems: "center" }}>
     {socials && socials.length > 0 ? (
       <>
@@ -781,7 +781,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
 
 
               {/* Intro: full width below the row */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 {userDetails.intro ? (
                   <Typography sx={{ color: "rgba(255,255,255,0.88)", fontFamily: "Inter", fontWeight: 400, fontSize: 13, mt: 0.5, textAlign: "left" }}>
                     {userDetails.intro}

@@ -764,7 +764,7 @@ function loadRazorpayScript() {
             <>
               <Grid container spacing={2}>
                 {visibleProducts.map((p) => (
-                  <Grid key={p._id || p.id} item xs={6} sm={4} md={3}>
+                  <Grid key={p._id || p.id} size={{ xs: 6, sm: 4, md: 3}}>
                     <ProductCard p={p} />
                   </Grid>
                 ))}
@@ -820,7 +820,7 @@ function loadRazorpayScript() {
           {detailProduct && (
             <Grid container spacing={3}>
               {/* Image */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6}}>
                 <Box
                   sx={{
                     borderRadius: 2,
@@ -852,7 +852,7 @@ function loadRazorpayScript() {
               </Grid>
 
               {/* Details */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6}}>
                 <Stack spacing={2}>
                   <Typography variant="h5" sx={{ fontWeight: 700 }}>
                     {detailProduct?.title || "-"}

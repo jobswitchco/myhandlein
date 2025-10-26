@@ -167,7 +167,7 @@ export default function BankDetails() {
           <Box component="form" onSubmit={onSave}>
             <Grid container spacing={2}>
               {/* Name on bank */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6}}>
                 <TextField
                   fullWidth
                   label="Name (as per bank records)"
@@ -180,7 +180,7 @@ export default function BankDetails() {
               </Grid>
 
               {/* Bank Name */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6}}>
                 <TextField
                   fullWidth
                   label="Bank Name"
@@ -194,7 +194,7 @@ export default function BankDetails() {
               </Grid>
 
               {/* Account Number */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6}}>
                 <TextField
                   fullWidth
                   label="Account Number"
@@ -208,7 +208,7 @@ export default function BankDetails() {
               </Grid>
 
               {/* IFSC */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6}}>
                 <TextField
                   fullWidth
                   label="IFSC Code"
@@ -224,7 +224,7 @@ export default function BankDetails() {
               </Grid>
 
               {/* Actions */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12}}>
                 {editMode && (
                   <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
                     <Button type="button" variant="outlined" startIcon={<CloseIcon />} onClick={onCancel} disabled={saving}>

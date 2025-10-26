@@ -124,7 +124,7 @@ export default function DashboardAnalytics({
       </Stack>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3}}>
           <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/page/analytics')}>
             <CardContent>
               <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total Views (Visitors)</Typography>
@@ -136,7 +136,7 @@ export default function DashboardAnalytics({
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3}}>
           <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor: 'pointer'}} onClick={()=> navigate('/professional/my/block/analytics')}>
             <CardContent>
               <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total Link/Block Clicks</Typography>
@@ -148,7 +148,7 @@ export default function DashboardAnalytics({
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3}}>
           <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor: 'pointer' }} onClick={()=> navigate('/professional/newsletter/emails')}>
             <CardContent>
               <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total Subscribers</Typography>
@@ -160,7 +160,7 @@ export default function DashboardAnalytics({
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3}}>
           <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/inbox')}>
             <CardContent>
               <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total DM's</Typography>

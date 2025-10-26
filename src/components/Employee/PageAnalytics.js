@@ -118,7 +118,7 @@ export default function PageAnalytics({
       </Stack>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <Card elevation={3} sx={{ borderRadius: 3, ...cardSx }}>
             <CardContent>
               <Typography color="text.secondary" sx={{ mb: 0.5 }}>Visitors</Typography>
@@ -129,7 +129,7 @@ export default function PageAnalytics({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <Card elevation={3} sx={{ borderRadius: 3, ...cardSx }}>
             <CardContent>
               <Typography color="text.secondary" sx={{ mb: 0.5 }}>Page Views</Typography>
@@ -151,7 +151,7 @@ export default function PageAnalytics({
       {!loading && !error && (
         <>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={12}>
+          <Grid size={{ xs: 12, md: 12}}>
             <Card elevation={3} sx={{ borderRadius: 3, height: 460, ...cardSx }}>
               <CardContent sx={{ height: "100%" }}>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
@@ -188,7 +188,7 @@ export default function PageAnalytics({
         <Grid container spacing={2} mt={1}>
 
 
-           <Grid item xs={12} md={12}>
+           <Grid size={{ xs: 12, md: 12}}>
             <Card elevation={3} sx={{ borderRadius: 3, height: 460, ...cardSx }}>
               <CardContent sx={{ height: "100%" }}>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>

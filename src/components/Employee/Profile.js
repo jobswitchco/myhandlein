@@ -90,7 +90,7 @@ function Profile() {
   return (
     <>
       <Grid container>
-        <Grid item xs={12} sm={6} md={8}>
+        <Grid size={{ xs: 12, sm: 6, md: 8}}>
           <Box sx={{ mt: 3 }}>
             {/* Name */}
             <Box sx={{ mb: 3 }}>

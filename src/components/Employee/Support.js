@@ -34,7 +34,7 @@ export default function Support() {
       </Typography>
 
       <Grid container justifyContent="center" sx={{ px: isMobile ? 0 : 8}}>
-        <Grid item xs={12} sm={8} md={6}>
+        <Grid size={{ xs: 12, sm: 8, md: 6 }}>
           <Card elevation={isMobile ? 0 : 3} sx={{ borderRadius: 4 }}>
             <CardContent sx={{ px: isMobile ? 1 : 8, py: isMobile ? 2 : 4}}>
               <Typography sx={{fontSize : isMobile ? '18px' : '28px', mb: 2, fontWeight: 500, color: '#2D2A69' }}>

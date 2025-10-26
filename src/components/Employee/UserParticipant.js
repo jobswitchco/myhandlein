@@ -268,7 +268,7 @@ sx={{
         justifyContent: 'center',
       }}
 >
-            <Grid item xs={12} md={12} lg={12}>
+            <Grid size={{ xs: 12, sm: 12, md: 12 }}>
                 {isLoading ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
                     <CircularProgress color='success' />

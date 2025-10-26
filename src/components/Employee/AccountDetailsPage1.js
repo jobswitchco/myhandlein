@@ -308,11 +308,13 @@ const AccountDetailsPage1 = () => {
 
           <Grid container mt={5}>
 
-        <Grid item xs={12} sm={6} md={4}>
+    
+
+        <Grid size={{ xs: 12, sm: 6, md: 4}}>
                 <Typography sx={{ fontSize : '18px', fontWeight : '500'}}>Your Account</Typography>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={8}>
+        <Grid size={{ xs: 12, sm: 6, md: 8}}>
             
             <Grid container fullWidth sx={{  borderStyle : 'solid', borderWidth :'1px', borderColor : '#BCCCDC', marginBottom : '22px', paddingY : '12px', paddingX : '12px'}}>
                 
@@ -330,11 +332,11 @@ const AccountDetailsPage1 = () => {
 
               <Grid container fullWidth sx={{  borderStyle : 'solid', borderWidth :'1px', borderColor : '#BCCCDC', marginBottom : '22px', paddingY : '12px', paddingX : '12px'}}>
                 
-                <Grid item md={4}>
+                <Grid size={{ md: 4}}>
                 <Typography sx={{ fontSize : '14px', fontWeight : '500'}}>Email</Typography>
                 </Grid>
 
-                <Grid item md={8}>
+                <Grid size={{ md: 8}}>
                   {loading ? (      <Skeleton variant="rectangular" width={300} height={20} />
                   ): (<Typography sx={{ fontSize : '14px', fontWeight : '400'}}>{userDetails.email}</Typography>) }
                         

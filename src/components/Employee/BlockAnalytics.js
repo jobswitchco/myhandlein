@@ -112,7 +112,7 @@ export default function BlocksAnalytics() {
     <Stack spacing={3}>
       {/* Top controls row */}
       <Grid container spacing={2} alignItems="center">
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <FormControl fullWidth>
             <InputLabel id="block-select-label">Select Block</InputLabel>
             <Select
@@ -134,7 +134,7 @@ export default function BlocksAnalytics() {
         </Grid>
 
         {/* Quick ranges on the RIGHT */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6}}>
           <Box sx={{ display: "flex", justifyContent: { xs: "flex-start", md: "flex-end" } }}>
             <ButtonGroup variant="outlined" size="small">
               <Button
@@ -162,10 +162,10 @@ export default function BlocksAnalytics() {
 
       {/* KPIs */}
       <Grid container spacing={2}>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3}}>
           <MetricCard label="Visitors" value={data?.totals?.visitors || 0} />
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3}}>
           <MetricCard label="Views" value={data?.totals?.clicks || 0} />
         </Grid>
       </Grid>

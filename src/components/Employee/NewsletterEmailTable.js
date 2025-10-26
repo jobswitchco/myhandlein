@@ -118,7 +118,7 @@ export default function NewsletterEmailsTable({ blockId = null }) {
     <Box sx={{ p: 2 }}>
       {/* Stats cards */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4}}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary">
@@ -128,7 +128,7 @@ export default function NewsletterEmailsTable({ blockId = null }) {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4}}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary">
@@ -138,7 +138,7 @@ export default function NewsletterEmailsTable({ blockId = null }) {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4}}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary">
