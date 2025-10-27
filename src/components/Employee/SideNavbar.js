@@ -1146,9 +1146,9 @@ export default function SideNavbar({ window }) {
             flexGrow: 1,
             width: "100%",
             maxWidth: { sm: `calc(100% - ${drawerWidth}px)` },
-            px: 2,
             overflow: 'auto',
-            backgroundColor: "#FAFBFC"
+            backgroundColor: "#FAFBFC",
+            py: 1
           }}
         >
           {loading ? (

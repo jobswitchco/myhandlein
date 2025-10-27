@@ -1335,7 +1335,7 @@ async function saveAdd() {
   };
 
   return (
-    <Box sx={{ p: { xs: 0, sm: 1, md: 1 } }}>
+    <Box sx={{ p: { xs: 0, sm: 0, md: 1 } }}>
       <ToastContainer />
       {/* ROW 1: FULL WIDTH HEADER */}
           <Paper
@@ -1811,10 +1811,9 @@ async function saveAdd() {
       <Box
         sx={{
           display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          alignItems: "center",
+          flexDirection: "column",
+          alignItems: "flex-start",
           justifyContent: "space-between",
-          gap: 1.5,
           mt: 1,
         }}
       >
@@ -1829,9 +1828,23 @@ async function saveAdd() {
           {name}
         </Typography>
 
+        
+      {/* Intro below name + socials */}
+      <Typography
+        sx={{
+          color: "#FFFFFF",
+          fontFamily: "Inter",
+          fontWeight: 400,
+          fontSize: { xs: 12, sm: 13 },
+          mt: 1,
+        }}
+      >
+        {userIntro}
+      </Typography>
+
         {/* Social icons row */}
      {/* Social icons row */}
-<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+<Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1 }}>
 
 
   {socials.map((s) => {
@@ -1871,7 +1884,7 @@ async function saveAdd() {
   return (
     <Tooltip key={s._id || rawUrl} title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"} arrow>
       <IconButton
-        onClick={() => url && window.open(url, "_blank", "noopener,noreferrer")}
+        onClick={() => url && window.open(url, "_blank", "noopener, noreferrer")}
         sx={{
           bgcolor: bg,
           borderRadius: 1,
@@ -1928,18 +1941,6 @@ async function saveAdd() {
 
       </Box>
 
-      {/* Intro below name + socials */}
-      <Typography
-        sx={{
-          color: "#FFFFFF",
-          fontFamily: "Inter",
-          fontWeight: 400,
-          fontSize: { xs: 12, sm: 13 },
-          mt: 1,
-        }}
-      >
-        {userIntro}
-      </Typography>
 
       {/* blocks area */}
       <Stack spacing={1.25} sx={{ mt: 1, mb: 1 }}>
