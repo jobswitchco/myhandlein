@@ -15,7 +15,8 @@ import {
   CircularProgress,
   Typography,
   Divider,
-  Collapse
+  Collapse,
+  IconButton
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
