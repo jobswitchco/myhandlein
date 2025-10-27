@@ -80,6 +80,30 @@ function openNewsletterDialog(block) {
   }
 
 
+    const makeWaUrl = (input, message = "") => {
+  if (!input) return "";
+
+  let raw = String(input).trim();
+
+  // If it's already a WA link, just append message if provided
+  if (/^https?:\/\/(wa\.me|api\.whatsapp\.com)/i.test(raw)) {
+    if (message) {
+      const sep = raw.includes("?") ? "&" : "?";
+      return `${raw}${sep}text=${encodeURIComponent(message)}`;
+    }
+    return raw;
+  }
+
+  // Strip everything except digits and a leading +
+  raw = raw.replace(/[^\d+]/g, "");
+  // wa.me path should NOT contain '+'
+  raw = raw.replace(/^\+/, "");
+
+  let url = `https://wa.me/${raw}`;
+  if (message) url += `?text=${encodeURIComponent(message)}`;
+  return url;
+};
+
 
 
 
