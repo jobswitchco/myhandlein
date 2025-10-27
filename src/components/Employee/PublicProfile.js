@@ -413,7 +413,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               <AddIcon sx={{ fontSize: 18 }} />
             </Box>
             <Box sx={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-              <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 16, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+              <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 15, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
                 {title}
               </Typography>
             </Box>
@@ -434,20 +434,21 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
           boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: url ? "pointer" : "default"
-        }}>
+        }}
+        onClick={() => url && handleLinkClick(b, url, { newTab: true })}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 }}>
             <Box sx={{ width: 44, height: 44, borderRadius: 1.25, display: "grid", placeItems: "center", bgcolor: alpha("#6366f1", 0.06), color: "#6366f1", flexShrink: 0 }}>
               <LinkIcon sx={{ fontSize: 18 }} />
             </Box>
             <Box sx={{ display: "flex", overflow: "hidden", minWidth: 0 }}>
-              <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 16, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+              <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 15, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
                 {title}
               </Typography>
             </Box>
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton aria-label="open" onClick={() => url && handleLinkClick(b, url, { newTab: true })} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
+            <IconButton aria-label="open"  sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
               <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
             </IconButton>
           </Box>
@@ -582,7 +583,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
           <Box sx={{ width: 44, height: 44, borderRadius: 1.25, display: "grid", placeItems: "center", bgcolor: alpha("#6366f1", 0.06), color: "#6366f1", flexShrink: 0 }}>
             <LinkIcon sx={{ fontSize: 18 }} />
           </Box>
-          <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 14 }}>{title}</Typography>
+          <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 15 }}>{title}</Typography>
         </Box>
 
         <IconButton aria-label="open" onClick={() => url && handleLinkClick(b, url, { newTab: true })} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
@@ -603,17 +604,20 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
   }
 
   return (
+    <Box sx={{ display : 'flex', justifyContent : 'center'}}>
+    
     <Grid
   container
   justifyContent="center"
-  sx={{ background: "#0b0b0b" }}
+  sx={{background: "#0b0b0b", maxWidth : { xs: "100%", sm: "85%", md: "30%"} }}
+
 >
 
 
  
 <Box
   sx={{
-    width: { xs: "100%", sm: "85%", md: "85%" },
+    width: "100%",
     boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
     overflow: "hidden",
     background:
@@ -654,9 +658,10 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
 </Box>
 
             {/* Name + socials row (no avatar) */}
-            <Grid container alignItems="center" spacing={1} sx={{ mt: 0, px: 3.5, pb:2, textAlign : 'left', background: " #0b0b0b"}}>
-
-              <Grid size={{ xs: 6}}>
+           <Grid container spacing={1} sx={{ mt: 0, px: 3.5, pb:2, textAlign : 'left', background: " #0b0b0b"}}>
+              {/* Left: name */}
+             
+              <Grid size={{ xs: 12, sm: 12, md: 12}}>
                 <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
                   <Typography sx={{ color: "#FFFFFF", fontFamily: "Inter", fontWeight: 600, fontSize: { xs: 16, sm: 18 } }}>
                     {name}
@@ -664,54 +669,66 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
                 </Box>
               </Grid>
 
+              {/* Intro: full width below the row */}
+                  <Grid size={{ xs: 12, sm: 12, md: 12}}>
+                {userDetails.intro ? (
+                  <Typography sx={{ color: "rgba(255,255,255,0.88)", fontFamily: "Inter", fontWeight: 400, fontSize: 13, mt: 0.5, textAlign: "left" }}>
+                    {userDetails.intro}
+                  </Typography>
+                ) : null}
+              </Grid>
+
              {/* Right: social icons */}
-<Grid size={{ xs: 6 }}>
-  <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.75, alignItems: "center" }}>
-    {socials && socials.length > 0 ? (
-      <>
-        {socials.map((s) => {
-          const key = (s.platform || s.name || "").toLowerCase();
-          const IconComp = SocialIconFor(key);
+              <Grid size={{ xs: 12, sm: 12, md: 12}}>
+                <Box sx={{ display: "flex", justifyContent: "flex-start", gap: 1, alignItems: "center" }}>
+                  {socials && socials.length > 0 ? (
+                    <>
+                      {socials.map((s) => {
+                        const key = (s.platform || s.name || "").toLowerCase();
+                        const IconComp = SocialIconFor(key);
 
-          const BRAND = {
-            youtube: "#FF0000",
-            twitter: "#1DA1F2",
-            whatsapp: "#25D366",
-            instagram: "#E1306C",
-            linkedin: "#0077B5",
-            default: "#6366f1",
-          };
-          const color = BRAND[key] || BRAND.default;
-          const bg = alpha(color, 0.03);
-          const hoverBg = alpha(color, 0.18);
+                        const BRAND = {
+                          youtube: "#FF0000",
+                          twitter: "#1DA1F2",
+                          whatsapp: "#25D366",
+                          instagram: "#E1306C",
+                          linkedin: "#0077B5",
+                          default: "#6366f1",
+                        };
+                        const color = BRAND[key] || BRAND.default;
+                        const bg = alpha(color, 0.03);
+                        const hoverBg = alpha(color, 0.18);
 
-          const url = s.url || s.link || s.href || "";
+                        const rawUrl = s.url || s.link || s.href || s.number || "";
+                        const url = key === "whatsapp" ? makeWaUrl(rawUrl, s.message || "") : rawUrl;
 
-          return (
-            <Tooltip key={s._id || url} title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"} arrow>
-              <IconButton
-                onClick={() => url && window.open(url, "_blank")}
-                sx={{
-                  bgcolor: bg,
-                  borderRadius: 1,
-                  width: 36,
-                  height: 36,
-                  "&:hover": { bgcolor: hoverBg },
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                aria-label={`open ${key}`}
-                size="small"
-              >
-                <IconComp sx={{ fontSize: 20, color: color }} />
-              </IconButton>
-            </Tooltip>
-          );
-        })}
 
-        {/* Store icon (appended after socials) */}
-        {storeEnabled && (
+                        return (
+                          <Tooltip key={s._id || url} title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"} arrow>
+                            <IconButton
+                              onClick={() => url && window.open(url, "_blank")}
+                              sx={{
+                                bgcolor: bg,
+                                borderRadius: 1,
+                                "&:hover": { bgcolor: hoverBg },
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                              aria-label={`open ${key}`}
+                              size="small"
+                            >
+                              <IconComp sx={{ fontSize: 32, color: color }} />
+                              {/* {key==='instagram' ? (
+                                <Typography sx={{ color : '#FFFFFF', ml: 1, fontFamily : 'Inter', fontSize : '14px'}}>22.5K</Typography>
+                              ) : ('')} */}
+                            </IconButton>
+                          </Tooltip>
+                        );
+                      })}
+
+                      {/* Store icon (appended after socials) */}
+                      {storeEnabled && (
           <Tooltip title="Visit store" arrow>
             <IconButton
          onClick={() => {
@@ -768,26 +785,20 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
             </IconButton>
           </Tooltip>
         )}
-      </>
-    ) : (
-      <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 2, border: "1px dashed rgba(255,255,255,0.06)", bgcolor: "transparent" }}>
-        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)" }}>
-          Social accounts will appear here when you add them.
-        </Typography>
-      </Paper>
-    )}
-  </Box>
-</Grid>
-
-
-              {/* Intro: full width below the row */}
-              <Grid size={{ xs: 12 }}>
-                {userDetails.intro ? (
-                  <Typography sx={{ color: "rgba(255,255,255,0.88)", fontFamily: "Inter", fontWeight: 400, fontSize: 13, mt: 0.5, textAlign: "left" }}>
-                    {userDetails.intro}
-                  </Typography>
-                ) : null}
+                    </>
+                  ) : (
+                    <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 2, border: "1px dashed rgba(255,255,255,0.06)", bgcolor: "transparent" }}>
+                      <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)" }}>
+                        Social accounts will appear here when you add them.
+                      </Typography>
+                    </Paper>
+                  )}
+                </Box>
               </Grid>
+
+
+          
+              
             </Grid>
 
 
@@ -934,5 +945,6 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
 
       <Snackbar open={snack.open} autoHideDuration={3500} onClose={() => setSnack({ open: false, message: "" })} message={snack.message} />
     </Grid>
+    </Box>
   );
 }
