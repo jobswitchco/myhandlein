@@ -361,6 +361,13 @@ function positionForKey(key) {
         { enabled: nextValue },
         { withCredentials: true }
       );
+     
+      if(nextValue){
+        toast.success('DM Feature is Enabled');
+      }
+      else{
+        toast.warning('DM Feature is Disabled');
+      }
           await fetchData();
       // success — nothing else required, state already updated
     } catch (err) {
@@ -1526,8 +1533,10 @@ async function saveAdd() {
                   flexDirection: { xs: "column", sm: "row" },
                 }}
               >
+        
+
                 <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                  <HandleBtn title="Customize Link" onClick={openCustomize}>
+                  <HandleBtn title="Customize Link" onClick={() => window.open(`${userDetails.handleUserName}.myhandle.in`, "_blank", "noopener, noreferrer")}>
                     <LinkIcon style={{ fontSize: 18, cursor: "pointer" }} />
                     <Typography sx={{ fontFamily: "Inter", fontSize: 14, fontWeight: 500, wordBreak: "break-all", color: "#000000" }}>
                       {userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : "yourhandle.myhandle.in"}
