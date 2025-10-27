@@ -628,19 +628,13 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
   }
 
   return (
-    <Box sx={{ display : 'flex', justifyContent : 'center', height : '100vh'}}>
+    <Box sx={{ display : 'flex', justifyContent : 'center'}}>
     
    <Grid
   container
   justifyContent="center"
   sx={{background: "#0b0b0b", 
-  maxWidth : { xs: "100%", sm: "85%", md: "30%"},
-    overflowY: 'auto',          // still scrolls
-      msOverflowStyle: 'none',    // IE/Edge
-      scrollbarWidth: 'none',     // Firefox
-      '&::-webkit-scrollbar': {
-        display: 'none',          // Chrome/Safari
-      } }}
+  maxWidth : { xs: "100%", sm: "85%", md: "30%"} }}
 >
 
 
@@ -748,7 +742,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
                               aria-label={`open ${key}`}
                               size="small"
                             >
-                              <IconComp sx={{ fontSize: 30, color: color }} />
+                              <IconComp sx={{ fontSize: 28, color: color }} />
                               {/* {key==='instagram' ? (
                                 <Typography sx={{ color : '#FFFFFF', ml: 1, fontFamily : 'Inter', fontSize : '14px'}}>22.5K</Typography>
                               ) : ('')} */}
@@ -779,7 +773,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               aria-label="open store"
               size="small"
             >
-              <StorefrontIcon sx={{ fontSize: 30, color: "#FFFFFF" }} />
+              <StorefrontIcon sx={{ fontSize: 28, color: "#FFFFFF" }} />
             </IconButton>
           </Tooltip>
         )}
@@ -807,7 +801,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               aria-label="open store"
               size="small"
             >
-              <SmsOutlinedIcon sx={{ fontSize: 30, color: "#FFFFFF" }} />
+              <SmsOutlinedIcon sx={{ fontSize: 28, color: "#FFFFFF" }} />
             </IconButton>
           </Tooltip>
         )}
