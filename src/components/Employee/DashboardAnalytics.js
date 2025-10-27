@@ -5,12 +5,16 @@ import {
   Card,
   CardContent,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
   Grid,
   CircularProgress,
   Divider,
-  Stack,
+  FormControl,
+InputLabel,
+Select,
+MenuItem,
+useTheme,
+useMediaQuery,
+Stack
 } from "@mui/material";
 import axios from "axios";
 import dayjs from "dayjs";
@@ -26,6 +30,14 @@ import {
   LabelList,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
+import EmojiPeopleOutlinedIcon from '@mui/icons-material/EmojiPeopleOutlined';
+import ShowChartOutlinedIcon from '@mui/icons-material/ShowChartOutlined';
+import ViewAgendaOutlinedIcon from '@mui/icons-material/ViewAgendaOutlined';
+import DoneAllOutlinedIcon from '@mui/icons-material/DoneAllOutlined';
+import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
+import SupervisorAccountOutlinedIcon from '@mui/icons-material/SupervisorAccountOutlined';
+import MessageOutlinedIcon from '@mui/icons-material/MessageOutlined';
+import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
 
 
 export default function DashboardAnalytics({
@@ -51,6 +63,21 @@ export default function DashboardAnalytics({
     cities: [],  // [{ city, visitors }]
     regions: [], // [{ region, visitors }]
   });
+
+  const theme = useTheme();
+const isXs = useMediaQuery(theme.breakpoints.down("sm")); // <600px
+const isSm = useMediaQuery(theme.breakpoints.between("sm", "md")); // 600–900px
+
+// Y-axis label area scales with screen size
+const yAxisWidth = isXs ? 80 : isSm ? 120 : 160;
+
+
+  const DURATION_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "28d", label: "Last 28 days" },
+];
+
 
   const { startDate, endDate } = useMemo(() => {
     const end = dayjs().endOf("day");
@@ -108,69 +135,108 @@ export default function DashboardAnalytics({
   );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        <Typography variant="h5" fontWeight={700}>Dashboard Analytics</Typography>
-        <ToggleButtonGroup
-          value={duration}
-          exclusive
-          onChange={(_, val) => val && setDuration(val)}
-          size="small"
-        >
-          <ToggleButton value="today">Today</ToggleButton>
-          <ToggleButton value="7d">Last 7 days</ToggleButton>
-          <ToggleButton value="28d">Last 28 days</ToggleButton>
-        </ToggleButtonGroup>
-      </Stack>
+    <Box sx={{ p: { xs: 0, md: 1 }, maxWidth: 1400, mx: "auto", my: 2 }}>
+    
+    <Grid container alignItems="center" sx={{ mb: 2 }}>
+  <Grid size={{ xs: 6, sm: 6, md: 6 }}>
+    <Typography
+      sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: { xs: 16, sm: 16, md: 22 } }}
+    >
+      Dashboard Analytics
+    </Typography>
+  </Grid>
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3}}>
-          <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/page/analytics')}>
+  <Grid
+    size={{ xs: 6, sm: 6, md: 6 }}
+    sx={{ display: "flex", justifyContent: { xs: "flex-start", md: "flex-end" }, mt: { xs: 1, md: 0 } }}
+  >
+    <FormControl size="small" sx={{ minWidth: 180 }}>
+      <InputLabel id="duration-label" sx={{ fontFamily: "Inter" }}>Range</InputLabel>
+      <Select
+        labelId="duration-label"
+        id="duration-select"
+        value={duration}
+        label="Range"
+        onChange={(e) => setDuration(e.target.value)}
+        disabled={loading}
+        sx={{ fontFamily: "Inter", fontSize: { xs: 14, sm: 14, md: 12 } }}
+      >
+        {DURATION_OPTIONS.map((opt) => (
+          <MenuItem key={opt.value} value={opt.value} sx={{ fontFamily: "Inter" }}>
+            {opt.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </Grid>
+</Grid>
+
+
+      <Grid container spacing={2} sx={{ mb: 2}}>
+
+        <Grid size={{ xs: 6, sm: 6, md : 3}}>
+          <Card elevation={3} sx={{background : '#16C47F', borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/page/analytics')}>
             <CardContent>
-              <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total Views (Visitors)</Typography>
-              <Typography variant="h4" fontWeight={800}>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', justifyContent : 'space-between', mb: 2}}>
+                <EmojiPeopleOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                <ShowChartOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+              </Stack>
+              <Typography sx={{fontFamily: 'Inter', fontSize : { xs: 14, md: 14}, mb: 0.5, color: '#FFFFFF', pl: 1 }}>Bio Page Visitors</Typography>
+              <Typography sx={{ fontFamily : 'Inter', fontSize : {xs : 18, md: 32}, fontWeight : 700, color: '#FFFFFF', pl: 1}}>
                 {loading ? "—" : numberFmt(data?.summary?.totalViews)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">Bio link visitors</Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3}}>
-          <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor: 'pointer'}} onClick={()=> navigate('/professional/my/block/analytics')}>
+         <Grid size={{ xs: 6, sm: 6, md : 3}}>
+          <Card elevation={3} sx={{background : '#1055C9', borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/page/analytics')}>
             <CardContent>
-              <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total Link/Block Clicks</Typography>
-              <Typography variant="h4" fontWeight={800}>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', justifyContent : 'space-between', mb: 2}}>
+                <ViewAgendaOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                <DoneAllOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+              </Stack>
+              <Typography sx={{fontFamily: 'Inter', fontSize : { xs: 14, md: 14}, mb: 0.5, color: '#FFFFFF', pl: 1 }}>Block Clicks</Typography>
+              <Typography sx={{ fontFamily : 'Inter', fontSize : {xs : 18, md: 32}, fontWeight : 700, color: '#FFFFFF', pl: 1}}>
                 {loading ? "—" : numberFmt(data?.summary?.totalClicks)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">All block clicks</Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3}}>
-          <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor: 'pointer' }} onClick={()=> navigate('/professional/newsletter/emails')}>
+           <Grid size={{ xs: 6, sm: 6, md : 3}}>
+          <Card elevation={3} sx={{background : '#FE7743', borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/page/analytics')}>
             <CardContent>
-              <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total Subscribers</Typography>
-              <Typography variant="h4" fontWeight={800}>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', justifyContent : 'space-between', mb: 2}}>
+                <FeedOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                <SupervisorAccountOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+              </Stack>
+              <Typography sx={{fontFamily: 'Inter', fontSize : { xs: 14, md: 14}, mb: 0.5, color: '#FFFFFF', pl: 1 }}>Newsletter Subs</Typography>
+              <Typography sx={{ fontFamily : 'Inter', fontSize : {xs : 18, md: 32}, fontWeight : 700, color: '#FFFFFF', pl: 1}}>
                 {loading ? "—" : numberFmt(data?.summary?.totalSubscribers)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">Newsletter emails</Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3}}>
-          <Card elevation={3} sx={{ borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/inbox')}>
+
+  <Grid size={{ xs: 6, sm: 6, md : 3}}>
+          <Card elevation={3} sx={{background : '#640D5F', borderRadius: 3, ...cardSx, cursor : 'pointer' }} onClick={()=> navigate('/professional/my/page/analytics')}>
             <CardContent>
-              <Typography color="text.secondary" sx={{ mb: 0.5 }}>Total DM's</Typography>
-              <Typography variant="h4" fontWeight={800}>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', justifyContent : 'space-between', mb: 2}}>
+                <MessageOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                <ReplyOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+              </Stack>
+              <Typography sx={{fontFamily: 'Inter', fontSize : { xs: 14, md: 14}, mb: 0.5, color: '#FFFFFF', pl: 1 }}>Direct Messages</Typography>
+              <Typography sx={{ fontFamily : 'Inter', fontSize : {xs : 18, md: 32}, fontWeight : 700, color: '#FFFFFF', pl: 1}}>
                 {loading ? "—" : numberFmt(data?.summary?.totalDMs)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">Messages received</Typography>
             </CardContent>
           </Card>
         </Grid>
+      
+
+      
       </Grid>
 
       {loading && (
@@ -183,29 +249,44 @@ export default function DashboardAnalytics({
         <>
           {/* Top 10 Cities */}
           <Card elevation={3} sx={{ borderRadius: 3, height: 460, mb: 2, ...cardSx }}>
-            <CardContent sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", width: '100%' }}>
               <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
                 Top 10 Cities by Visitors
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart
-                  data={cityData}
-                  layout="vertical"
-                  margin={{ top: 8, right: 32, left: 8, bottom: 8 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tick={{ fontSize }} domain={[0, "dataMax"]} />
-                  <YAxis dataKey="name" type="category" width={160} tick={{ fontSize }} />
-                  <Tooltip formatter={tooltipFormatter || defaultTooltipFormatter} />
-                  {showLegend && <Legend />}
-                  <Bar dataKey="Visitors" fill={barColors.city} radius={[4, 4, 4, 4]}>
-                    {showBarLabels && (
-                      <LabelList dataKey="Visitors" position="right" formatter={numberFmt} />
-                    )}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={360}>
+  <BarChart
+    data={cityData}
+    layout="vertical"
+    margin={{
+      top: 8,
+      right: 16,
+      left: isXs ? 0 : 8, // reduce left margin on small screens
+      bottom: 8,
+    }}
+    barCategoryGap={isXs ? 10 : 20}
+  >
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis type="number" tick={{ fontSize }} domain={[0, "dataMax"]} tickMargin={4} />
+    <YAxis
+      dataKey="name"
+      type="category"
+      width={yAxisWidth}             // 👈 responsive
+      tick={{ fontSize }}
+      tickMargin={4}
+      // optional: truncate very long labels on small screens
+      tickFormatter={(v) => (isXs && String(v).length > 12 ? `${String(v).slice(0, 12)}…` : v)}
+    />
+    <Tooltip formatter={tooltipFormatter || defaultTooltipFormatter} />
+    {showLegend && <Legend />}
+    <Bar dataKey="Visitors" fill={barColors.city} radius={[4, 4, 4, 4]}>
+      {showBarLabels && (
+        <LabelList dataKey="Visitors" position="right" formatter={numberFmt} />
+      )}
+    </Bar>
+  </BarChart>
+</ResponsiveContainer>
+
             </CardContent>
           </Card>
 
@@ -217,7 +298,11 @@ export default function DashboardAnalytics({
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={regionData} margin={{ top: 8, right: 16, left: 0, bottom: 32 }}>
+               <BarChart
+                  data={regionData}
+                  margin={{ top: 8, right: 16, left: isXs ? 0 : 8, bottom: 32 }}
+                  barCategoryGap={isXs ? 8 : 16}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize }} interval={0} angle={-30} textAnchor="end" height={60} />
                   <YAxis tick={{ fontSize }} />
