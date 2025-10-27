@@ -628,13 +628,19 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
   }
 
   return (
-    <Box sx={{ display : 'flex', justifyContent : 'center'}}>
+    <Box sx={{ display : 'flex', justifyContent : 'center', height : '100vh'}}>
     
-    <Grid
+   <Grid
   container
   justifyContent="center"
-  sx={{background: "#0b0b0b", maxWidth : { xs: "100%", sm: "85%", md: "30%"} }}
-
+  sx={{background: "#0b0b0b", 
+  maxWidth : { xs: "100%", sm: "85%", md: "30%"},
+    overflowY: 'auto',          // still scrolls
+      msOverflowStyle: 'none',    // IE/Edge
+      scrollbarWidth: 'none',     // Firefox
+      '&::-webkit-scrollbar': {
+        display: 'none',          // Chrome/Safari
+      } }}
 >
 
 
@@ -742,7 +748,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
                               aria-label={`open ${key}`}
                               size="small"
                             >
-                              <IconComp sx={{ fontSize: 32, color: color }} />
+                              <IconComp sx={{ fontSize: 30, color: color }} />
                               {/* {key==='instagram' ? (
                                 <Typography sx={{ color : '#FFFFFF', ml: 1, fontFamily : 'Inter', fontSize : '14px'}}>22.5K</Typography>
                               ) : ('')} */}
@@ -764,8 +770,6 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               sx={{
                 // bgcolor: "rgba(255,255,255,0.03)",
                 borderRadius: 1,
-                width: 36,
-                height: 36,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -775,7 +779,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               aria-label="open store"
               size="small"
             >
-              <StorefrontIcon sx={{ fontSize: 20, color: "#FFFFFF" }} />
+              <StorefrontIcon sx={{ fontSize: 30, color: "#FFFFFF" }} />
             </IconButton>
           </Tooltip>
         )}
@@ -794,8 +798,6 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               sx={{
                 // bgcolor: "rgba(255,255,255,0.03)",
                 borderRadius: 1,
-                width: 36,
-                height: 36,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -805,7 +807,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               aria-label="open store"
               size="small"
             >
-              <SmsOutlinedIcon sx={{ fontSize: 20, color: "#FFFFFF" }} />
+              <SmsOutlinedIcon sx={{ fontSize: 30, color: "#FFFFFF" }} />
             </IconButton>
           </Tooltip>
         )}
