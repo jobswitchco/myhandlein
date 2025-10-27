@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
 import {
+  AppBar,
   Toolbar,
   Drawer,
   List,
@@ -20,6 +21,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import { deepOrange, green } from "@mui/material/colors";
+import MenuIcon from "@mui/icons-material/Menu";
 import logo from "../../images/myhandle_logo.png";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -1069,6 +1071,40 @@ export default function SideNavbar({ window }) {
 
   return (
     <ThemeProvider theme={theme}>
+        <AppBar
+        position="fixed"
+        color="inherit"
+        elevation={0}
+        sx={{
+          display: { xs: "flex", sm: "none" },
+          borderBottom: "1px solid #E5E7EB",
+          bgcolor: "#FAFBFC",
+          zIndex: (t) => t.zIndex.drawer + 1,
+        }}
+      >
+        <Toolbar sx={{ px: 2 }}>
+          <IconButton
+            edge="start"
+            aria-label="open drawer"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 1, display: { xs: "inline-flex", sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
+
+          {/* Brand (optional) */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <img src={logo} alt="MyHandle Logo" width="24" height="24" />
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: "1rem" }}>
+              MyHandle
+            </Typography>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      {/* Spacer so content sits below AppBar on xs */}
+      <Toolbar sx={{ display: { xs: "block", sm: "none" } }} />
+
       <Box sx={{ display: "flex", height: "100vh" }}>
         {/* Sidebar */}
         <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
