@@ -209,6 +209,31 @@ function handleSubscribe() {
   setNewsletterDialogOpen(false);
 }
 
+const makeWaUrl = (input, message = "") => {
+  if (!input) return "";
+
+  let raw = String(input).trim();
+
+  // If it's already a WA link, just append message if provided
+  if (/^https?:\/\/(wa\.me|api\.whatsapp\.com)/i.test(raw)) {
+    if (message) {
+      const sep = raw.includes("?") ? "&" : "?";
+      return `${raw}${sep}text=${encodeURIComponent(message)}`;
+    }
+    return raw;
+  }
+
+  // Strip everything except digits and a leading +
+  raw = raw.replace(/[^\d+]/g, "");
+  // wa.me path should NOT contain '+'
+  raw = raw.replace(/^\+/, "");
+
+  let url = `https://wa.me/${raw}`;
+  if (message) url += `?text=${encodeURIComponent(message)}`;
+  return url;
+};
+
+
 
 
   function openFormDialog(block) {
@@ -1313,24 +1338,17 @@ async function saveAdd() {
     <Box sx={{ p: { xs: 0, sm: 1, md: 1 } }}>
       <ToastContainer />
       {/* ROW 1: FULL WIDTH HEADER */}
-      <Grid container spacing={2} sx={{ mb: { xs: 1.5, sm: 2 } }}>
-        <Grid item xs={12}>
           <Paper
             sx={{
               p: { xs: 2, sm: 3 },
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 3,
-              flexDirection: { xs: "column", sm: "row" },
               background: "#FFFFFF",
             }}
           >
             {/* Avatar + edit */}
-            <Stack sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
-        <Grid container spacing={1} sx={{ flex: 1 }}>
-  {/* Left big image (50%) */}
-  <Grid item xs={12}>
+            {/* <Stack sx={{ display: "flex", flexDirection: "row", gap: 2 }}> */}
+        <Grid container spacing={1} >
+
+  <Grid size={{ xs: 12, md: 2}}>
     <Box
       sx={{
         width: "100%",
@@ -1378,13 +1396,8 @@ async function saveAdd() {
     </Box>
   </Grid>
 
-  
-        </Grid>
-
-
-
-
-              <Box sx={{ display: "flex", flexDirection: "column" }}>
+  <Grid size={{ xs: 12, md: 6}}>
+     <Box sx={{ display: "flex", flexDirection: "column" }}>
                 {/* Name + role */}
                 <Box sx={{ flex: 1, width: "100%" }}>
                   {!isEditingName ? (
@@ -1421,9 +1434,9 @@ async function saveAdd() {
                   )}
                 </Box>
 
-                <Box sx={{ flex: 1, width: "100%" }}>
+                <Box >
                   {!isEditingIntro ? (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                    <Box sx={{ display: "flex", gap: 1, flexDirection: "row" }}>
                       <Typography
                         sx={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 500, cursor: "pointer", wordBreak: "break-word", color: "grey" }}
                         onClick={() => setIsEditingIntro(true)}
@@ -1435,7 +1448,7 @@ async function saveAdd() {
                       </IconButton>
                     </Box>
                   ) : (
-                    <Box sx={{ display: "flex", gap: 1, alignItems: "center", width: "100%" }}>
+                    <Box sx={{ display: "flex", gap: 1, flexDirection : 'row' }}>
                       <TextField
                         size="small"
                         value={userIntro}
@@ -1455,21 +1468,15 @@ async function saveAdd() {
                 </Box>
 
                   <Box>
-            <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center', justifyContent : 'space-between', mt: 1.5}}>
+            <Stack sx={{ display : 'flex', flexDirection : 'column', justifyContent : 'space-between', mt: 1.5}}>
             
-            <Stack sx={{ display : 'flex', flexDirection : 'column'}}>
+            <Stack sx={{ display : 'flex', flexDirection : 'row', gap: 2, alignItems : 'center'}}>
 
               <Typography>
                 {toggling ? "Updating..." : "Enable DM (Direct Message)"}
               </Typography>
 
-               <Typography>
-              Now, you can receive direct messages from users and bla bla
-              </Typography>
-            </Stack>
-
-
-                <FormControlLabel
+   <FormControlLabel
                     control={
                       <Switch
                         checked={dmEnabled}
@@ -1481,15 +1488,27 @@ async function saveAdd() {
                   />
 
             </Stack>
+                  
+
+
+               <Typography>
+              Activate this feature to allow users to send you messages directly.
+              </Typography>
+
+
+
+             
+
+            </Stack>
                 
         
                 </Box>
 
               </Box>
+  </Grid>
 
-            </Stack>
-
-            {/* URL + actions: stack on mobile */}
+  <Grid size={{ xs: 12, md: 4}}>
+       {/* URL + actions: stack on mobile */}
             <Box
               sx={{
                 minWidth: { xs: "100%", sm: 320 },
@@ -1524,16 +1543,27 @@ async function saveAdd() {
                 </Box>
               </Box>
             </Box>
-          </Paper>
+  </Grid>
+
+  
         </Grid>
-      </Grid>
+
+
+
+
+             
+
+            {/* </Stack> */}
+
+         
+          </Paper>
 
       {/* ROW 2: LEFT = Blocks, RIGHT = Preview */}
       <Grid container spacing={2}>
 
 
         {/* LEFT: Blocks editor */}
-        <Grid size={{ xs: 12, md: 7}}>
+        <Grid size={{ xs: 12, md: 8}}>
 
           <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
             {/* --- Social picker + saved socials --- */}
@@ -1720,13 +1750,13 @@ async function saveAdd() {
         </Grid>
 
       {/* Right Preview Images */}
-<Grid size={{ xs: 12, md: 5}}>
+<Grid size={{ xs: 12, md: 4}} mt={1.5}>
 
 
 
   <Box
     sx={{
-      width: { xs: "100%", sm: "85%", md: "85%" },
+      // width: { xs: "100%", sm: "85%", md: "85%" },
       margin: "0 auto",
       boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
       overflow: "hidden",
@@ -1802,9 +1832,11 @@ async function saveAdd() {
         {/* Social icons row */}
      {/* Social icons row */}
 <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+
+
   {socials.map((s) => {
-    const key = (s.platform || "").toLowerCase();
-    const IconComp =
+  const key = (s.platform || s.name || "").toLowerCase();
+   const IconComp =
       key === "youtube"
         ? YouTubeIcon
         : key === "twitter"
@@ -1817,16 +1849,48 @@ async function saveAdd() {
         ? LinkedInIcon
         : LinkIcon;
 
-    return (
+  const BRAND = {
+    youtube: "#FF0000",
+    twitter: "#1DA1F2",
+    whatsapp: "#25D366",
+    instagram: "#E1306C",
+    linkedin: "#0077B5",
+    default: "#6366f1",
+  };
+  const color = BRAND[key] || BRAND.default;
+  const bg = alpha(color, 0.03);
+  const hoverBg = alpha(color, 0.18);
+
+  // ▼ changed
+  const rawUrl = s.url || s.link || s.href || s.number || "";
+  const url =
+    key === "whatsapp"
+      ? makeWaUrl(rawUrl, s.message || "")
+      : rawUrl;
+
+  return (
+    <Tooltip key={s._id || rawUrl} title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"} arrow>
       <IconButton
-        key={s._id || s.url}
-        onClick={() => window.open(s.url, "_blank")}
-        sx={{ color: "#fff" }}
+        onClick={() => url && window.open(url, "_blank", "noopener,noreferrer")}
+        sx={{
+          bgcolor: bg,
+          borderRadius: 1,
+          width: 34,
+          height: 34,
+          "&:hover": { bgcolor: hoverBg },
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        aria-label={`open ${key}`}
+        size="small"
       >
-        <IconComp sx={{ fontSize: 22 }} />
+        <IconComp sx={{ fontSize: 28, color: color }} />
       </IconButton>
-    );
-  })}
+    </Tooltip>
+  );
+})}
+
 
   {/* Store icon shown if store_enabled true */}
   {userDetails?.store_enabled ? (
