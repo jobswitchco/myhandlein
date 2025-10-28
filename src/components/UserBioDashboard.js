@@ -1763,7 +1763,6 @@ async function saveAdd() {
       // width: { xs: "100%", sm: "85%", md: "85%" },
       margin: "0 auto",
       boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
-      overflow: "hidden",
       background: "linear-gradient(135deg, #0f0c29 0%, #0b0b0b 40%, #0b0b0b 100%)",
     }}
   >
