@@ -203,7 +203,9 @@ export default function PageAnalytics({
 
       {!loading && !error && (
         <>
-        <Grid container spacing={2} mb={8}>
+        {/* <Grid container spacing={2} mb={8}> */}
+        <Grid container spacing={2} sx={{ mb: isXs ? 12 : 6}}>
+
          
           <Grid size={{ xs: 12, md: 12}}>
             <Card elevation={1} sx={{ borderRadius: 2, height: '100%', ...cardSx }}>
