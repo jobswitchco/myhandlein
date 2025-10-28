@@ -1344,7 +1344,7 @@ async function saveAdd() {
   return (
 
     <>
-    <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1,  minHeight: '100dvh', overflowY: 'auto'  }}>
+    <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1,  minHeight: '100dvh', overflowY: 'auto', mb: 12  }}>
       <ToastContainer />
       {/* ROW 1: FULL WIDTH HEADER */}
           <Paper
@@ -1754,7 +1754,7 @@ async function saveAdd() {
         </Grid>
 
       {/* Right Preview Images */}
-<Grid size={{ xs: 12, md: 4}} mt={1.5} sx={{ border : '1px solid red', minHeight: '100dvh', overflowY: 'auto' }}>
+<Grid size={{ xs: 12, md: 4}} mt={1.5} sx={{minHeight: '100dvh', overflowY: 'auto' }}>
 
 
 
