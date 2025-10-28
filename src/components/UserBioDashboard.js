@@ -1342,7 +1342,9 @@ async function saveAdd() {
   };
 
   return (
-    <Box sx={{ p: { xs: 0, sm: 0, md: 1 } }}>
+
+    <>
+    <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1, height: '100vh' }}>
       <ToastContainer />
       {/* ROW 1: FULL WIDTH HEADER */}
           <Paper
@@ -1556,13 +1558,6 @@ async function saveAdd() {
 
   
         </Grid>
-
-
-
-
-             
-
-            {/* </Stack> */}
 
          
           </Paper>
@@ -1994,7 +1989,12 @@ async function saveAdd() {
 
       </Grid>
 
-      {/* Customize URL Dialog */}
+    </Box>
+
+
+    {/* -----------------------------------------------------  */}
+
+          {/* Customize URL Dialog */}
       <Dialog open={customizeOpen} onClose={() => setCustomizeOpen(false)}>
         <DialogTitle>Customize Url</DialogTitle>
         <DialogContent>
@@ -2654,7 +2654,8 @@ async function saveAdd() {
     </Button>
   </DialogActions>
 </Dialog>
+    </>
 
-    </Box>
+
   );
 }
