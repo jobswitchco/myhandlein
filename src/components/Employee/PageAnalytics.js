@@ -204,7 +204,7 @@ export default function PageAnalytics({
       {!loading && !error && (
         <>
         {/* <Grid container spacing={2} mb={8}> */}
-        <Grid container spacing={2} sx={{ mb: isXs ? 16 : 6}}>
+        <Grid container spacing={2} sx={{ mb: isXs ? 4 : 4}}>
 
          
           <Grid size={{ xs: 12, md: 12}}>
