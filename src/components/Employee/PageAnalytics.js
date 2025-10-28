@@ -7,8 +7,12 @@ import {
   Card,
   CardContent,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  useTheme,
+  useMediaQuery,
   Grid,
   CircularProgress,
   Divider,
@@ -27,6 +31,10 @@ import {
   Legend,
   LabelList,          // ⬅️ NEW
 } from "recharts";
+import EmojiPeopleOutlinedIcon from '@mui/icons-material/EmojiPeopleOutlined';
+import ShowChartOutlinedIcon from '@mui/icons-material/ShowChartOutlined';
+import ViewAgendaOutlinedIcon from '@mui/icons-material/ViewAgendaOutlined';
+import DoneAllOutlinedIcon from '@mui/icons-material/DoneAllOutlined';
 
 export default function PageAnalytics({
   apiBase = "/api",
@@ -80,6 +88,18 @@ export default function PageAnalytics({
 
   const numberFmt = (v) => Intl.NumberFormat().format(v ?? 0);
   const defaultTooltipFormatter = (value, name) => [numberFmt(value), name];
+    const DURATION_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "28d", label: "Last 28 days" },
+];
+
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.down("sm")); // <600px
+  const isSm = useMediaQuery(theme.breakpoints.between("sm", "md")); // 600–900px
+  const yAxisWidth = isXs ? 80 : isSm ? 120 : 160;
+
+
 
   // Top 10 Cities (by Visitors, DESC)
   const cityData = useMemo(() => {
@@ -103,43 +123,74 @@ export default function PageAnalytics({
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        <Typography variant="h5" fontWeight={700}>Page Analytics</Typography>
-        <ToggleButtonGroup
-          value={duration}
-          exclusive
-          onChange={(_, val) => val && setDuration(val)}
-          size="small"
-        >
-          <ToggleButton value="today">Today</ToggleButton>
-          <ToggleButton value="7d">Last 7 days</ToggleButton>
-          <ToggleButton value="28d">Last 28 days</ToggleButton>
-        </ToggleButtonGroup>
-      </Stack>
+      <Grid container alignItems="center" sx={{ mb: 2 }}>
+     <Grid size={{ xs: 6, sm: 6, md: 6 }}>
+       <Typography
+         sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: { xs: 16, sm: 16, md: 22 } }}
+       >
+         Page Analytics
+       </Typography>
+     </Grid>
+   
+     <Grid
+       size={{ xs: 6, sm: 6, md: 6 }}
+       sx={{ display: "flex", justifyContent: { xs: "flex-start", md: "flex-end" }, mt: { xs: 1, md: 0 } }}
+     >
+       <FormControl size="small" sx={{ minWidth: 180 }}>
+         <InputLabel id="duration-label" sx={{ fontFamily: "Inter" }}>Range</InputLabel>
+         <Select
+           labelId="duration-label"
+           id="duration-select"
+           value={duration}
+           label="Range"
+           onChange={(e) => setDuration(e.target.value)}
+           disabled={loading}
+           sx={{ fontFamily: "Inter", fontSize: { xs: 14, sm: 14, md: 12 } }}
+         >
+           {DURATION_OPTIONS.map((opt) => (
+             <MenuItem key={opt.value} value={opt.value} sx={{ fontFamily: "Inter" }}>
+               {opt.label}
+             </MenuItem>
+           ))}
+         </Select>
+       </FormControl>
+     </Grid>
+   </Grid>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, md: 6}}>
-          <Card elevation={3} sx={{ borderRadius: 3, ...cardSx }}>
-            <CardContent>
-              <Typography color="text.secondary" sx={{ mb: 0.5 }}>Visitors</Typography>
-              <Typography variant="h4" fontWeight={800}>
-                {loading ? "—" : numberFmt(data?.summary?.visitors)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">Unique Visitors</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 6}}>
-          <Card elevation={3} sx={{ borderRadius: 3, ...cardSx }}>
-            <CardContent>
-              <Typography color="text.secondary" sx={{ mb: 0.5 }}>Page Views</Typography>
-              <Typography variant="h4" fontWeight={800}>
-                {loading ? "—" : numberFmt(data?.summary?.pageViews)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">Total Views</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+
+
+           <Grid size={{ xs: 6, sm: 6, md : 3}}>
+                  <Card elevation={3} sx={{background : '#16C47F', borderRadius: 3, ...cardSx, cursor : 'pointer' }} >
+                    <CardContent>
+                      <Stack sx={{ display : 'flex', flexDirection : 'row', justifyContent : 'space-between', mb: 2}}>
+                        <EmojiPeopleOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                        <ShowChartOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                      </Stack>
+                      <Typography sx={{fontFamily: 'Inter', fontSize : { xs: 14, md: 14}, mb: 0.5, color: '#FFFFFF', pl: 1 }}>Bio Page Visitors</Typography>
+                      <Typography sx={{ fontFamily : 'Inter', fontSize : {xs : 18, md: 32}, fontWeight : 700, color: '#FFFFFF', pl: 1}}>
+                        {loading ? "—" : numberFmt(data?.summary?.visitors)}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                  <Grid size={{ xs: 6, sm: 6, md : 3}}>
+                  <Card elevation={3} sx={{background : '#450693', borderRadius: 3, ...cardSx, cursor : 'pointer' }}>
+                    <CardContent>
+                      <Stack sx={{ display : 'flex', flexDirection : 'row', justifyContent : 'space-between', mb: 2}}>
+                        <ViewAgendaOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                        <DoneAllOutlinedIcon sx={{ color: '#D9EAFD'}}/>
+                      </Stack>
+                      <Typography sx={{fontFamily: 'Inter', fontSize : { xs: 14, md: 14}, mb: 0.5, color: '#FFFFFF', pl: 1 }}>Page Views</Typography>
+                      <Typography sx={{ fontFamily : 'Inter', fontSize : {xs : 18, md: 32}, fontWeight : 700, color: '#FFFFFF', pl: 1}}>
+                        {loading ? "—" : numberFmt(data?.summary?.pageViews)}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+      
       </Grid>
 
       {loading && (
@@ -150,53 +201,69 @@ export default function PageAnalytics({
 
       {!loading && !error && (
         <>
-        <Grid container spacing={2}>
+        <Grid container spacing={2} mb={8}>
+         
           <Grid size={{ xs: 12, md: 12}}>
-            <Card elevation={3} sx={{ borderRadius: 3, height: 460, ...cardSx }}>
+            <Card elevation={1} sx={{ borderRadius: 2, height: '100%', ...cardSx }}>
               <CardContent sx={{ height: "100%" }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                <Typography sx={{ mb: 1, fontFamily : 'Inter', fontSize : isXs ? '15px' : '16px', fontWeight : 600 }}>
                   Top 10 Cities by Visitors
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <ResponsiveContainer width="100%" height={360}>
-                <BarChart
-                data={cityData}
-                layout="vertical"
-                margin={{ top: 8, right: 32, left: 8, bottom: 8 }}
-                >
-                <CartesianGrid strokeDasharray="3 3" />
-                {/* 👇 key change */}
-                <XAxis type="number" tick={{ fontSize }} domain={[0, 'dataMax']} />
-                <YAxis dataKey="name" type="category" width={160} tick={{ fontSize }} />
-                <Tooltip formatter={tooltipFormatter || defaultTooltipFormatter} />
-                {showLegend && <Legend />}
-                <Bar dataKey="Visitors" fill={barColors.city} radius={[4, 4, 4, 4]}>
-                    {showBarLabels && (
-                    <LabelList dataKey="Visitors" position="right" formatter={numberFmt} />
-                    )}
-                </Bar>
-                </BarChart>
 
+                  <ResponsiveContainer width="100%" height={360}>
+                  <BarChart
+                    data={cityData}
+                    layout="vertical"
+                    margin={{
+                      top: 8,
+                      right: 16,
+                      left: isXs ? 0 : 8, // reduce left margin on small screens
+                      bottom: 8,
+                    }}
+                    barCategoryGap={isXs ? 10 : 20}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" tick={{ fontSize }} domain={[0, "dataMax"]} tickMargin={4} />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={yAxisWidth}             // 👈 responsive
+                      tick={{ fontSize }}
+                      tickMargin={4}
+                      // optional: truncate very long labels on small screens
+                      tickFormatter={(v) => (isXs && String(v).length > 12 ? `${String(v).slice(0, 12)}…` : v)}
+                    />
+                    <Tooltip formatter={tooltipFormatter || defaultTooltipFormatter} />
+                    {showLegend && <Legend />}
+                    <Bar dataKey="Visitors" fill={barColors.city} radius={[4, 4, 4, 4]}>
+                      {showBarLabels && (
+                        <LabelList dataKey="Visitors" position="right" formatter={numberFmt} />
+                      )}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
+
+                
               </CardContent>
             </Card>
           </Grid>
 
-       
-        </Grid>
-
-        <Grid container spacing={2} mt={1}>
-
 
            <Grid size={{ xs: 12, md: 12}}>
-            <Card elevation={3} sx={{ borderRadius: 3, height: 460, ...cardSx }}>
+            <Card elevation={1} sx={{ borderRadius: 2, height: '100%', ...cardSx }}>
               <CardContent sx={{ height: "100%" }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                  Top 10 States/Regions by Visitors
+                <Typography sx={{ mb: 1, fontFamily : 'Inter', fontSize : isXs ? '15px' : '16px', fontWeight : 600 }}>
+                Top 10 States/Regions by Visitors
                 </Typography>
+
                 <Divider sx={{ mb: 2 }} />
                 <ResponsiveContainer width="100%" height={360}>
-                  <BarChart data={regionData} margin={{ top: 8, right: 16, left: 0, bottom: 32 }}>
+                   <BarChart
+                                    data={regionData}
+                                    margin={{ top: 8, right: 16, left: isXs ? 0 : 8, bottom: 32 }}
+                                    barCategoryGap={isXs ? 8 : 16}
+                                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" tick={{ fontSize }} interval={0} angle={-30} textAnchor="end" height={60} />
                     <YAxis tick={{ fontSize }} />
