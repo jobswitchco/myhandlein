@@ -929,7 +929,7 @@ async function saveAdd() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                overflow: "hidden",
+                // overflow: "hidden",
                 flexShrink: 0,
               }}
             >
@@ -988,7 +988,7 @@ async function saveAdd() {
                   width: 44,
                   height: 44,
                   borderRadius: 1.5,
-                  overflow: "hidden",
+                  // overflow: "hidden",
                   flexShrink: 0,
                 }}
               >
@@ -1167,7 +1167,7 @@ async function saveAdd() {
     transition: "transform .12s ease, box-shadow .12s ease",
     "&:hover": { transform: "translateY(-2px)", boxShadow: "0 12px 30px rgba(2,6,23,0.16)" },
     // optional: ensure rounded corners clip the image
-    overflow: "hidden",
+    // overflow: "hidden",
         boxShadow: "0 8px 24px rgba(2,6,23,0.08)",
           transition: "transform .12s ease, box-shadow .12s ease",
           "&:hover": { transform: "translateY(-2px)", boxShadow: "0 12px 30px rgba(2,6,23,0.12)" },
@@ -1344,7 +1344,7 @@ async function saveAdd() {
   return (
 
     <>
-    <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1, minHeight: '100dvh', overflowY: 'auto' }}>
+    <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1,  minHeight: '100dvh', overflowY: 'auto'  }}>
       <ToastContainer />
       {/* ROW 1: FULL WIDTH HEADER */}
           <Paper
@@ -1770,7 +1770,7 @@ async function saveAdd() {
        <Box
     sx={{
       position: "relative",
-      overflow: "hidden",
+      // overflow: "hidden",
       height: { xs: 260, sm: 320 },
       bgcolor: "#0b0b0b",
     }}
