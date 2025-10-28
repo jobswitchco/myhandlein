@@ -1754,7 +1754,7 @@ async function saveAdd() {
         </Grid>
 
       {/* Right Preview Images */}
-<Grid size={{ xs: 12, md: 4}} mt={1.5} sx={{minHeight: '100dvh', overflowY: 'auto' }}>
+<Grid size={{ xs: 12, md: 4}} mt={1.5} sx={{minHeight: '100dvh', overflowY: 'auto', mb: {xs: 20, sm: 20, md: 4 } }}>
 
 
 
