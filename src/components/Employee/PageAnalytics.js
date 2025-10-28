@@ -122,7 +122,9 @@ export default function PageAnalytics({
   }, [data]);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
+    // <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
+          <Box sx={{ p: { xs: 0, md: 1 }, maxWidth: 1400, mx: "auto", my: 2 }}>
+
       <Grid container alignItems="center" sx={{ mb: 2 }}>
      <Grid size={{ xs: 6, sm: 6, md: 6 }}>
        <Typography
