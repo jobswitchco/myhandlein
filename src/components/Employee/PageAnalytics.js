@@ -204,7 +204,7 @@ export default function PageAnalytics({
       {!loading && !error && (
         <>
         {/* <Grid container spacing={2} mb={8}> */}
-        <Grid container spacing={2} sx={{ mb: isXs ? 12 : 6}}>
+        <Grid container spacing={2} sx={{ mb: isXs ? 16 : 6}}>
 
          
           <Grid size={{ xs: 12, md: 12}}>
@@ -258,7 +258,7 @@ export default function PageAnalytics({
             <Card elevation={1} sx={{ borderRadius: 2, height: '100%', ...cardSx }}>
               <CardContent sx={{ height: "100%" }}>
                 <Typography sx={{ mb: 1, fontFamily : 'Inter', fontSize : isXs ? '15px' : '16px', fontWeight : 600 }}>
-                Top 10 States/Regions by Visitors
+                Top 10 States by Visitors
                 </Typography>
 
                 <Divider sx={{ mb: 2 }} />
