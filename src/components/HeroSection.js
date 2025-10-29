@@ -50,7 +50,7 @@ export default function Hero({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding:"clamp(18vh, 6vw, 18vh)",
+    padding: "clamp(100px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px) clamp(16px, 8vw, 86px)",
     boxSizing: "border-box",
     fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
     color: "#0b1220",
