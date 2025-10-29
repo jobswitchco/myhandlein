@@ -19,32 +19,28 @@ import {
   IconButton,
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import { deepOrange, green } from "@mui/material/colors";
 import MenuIcon from "@mui/icons-material/Menu";
 import logo from "../../images/myhandle_logo.png";
 import axios from "axios";
 import { toast } from "react-toastify";
-import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
+import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
-import AccountBoxOutlinedIcon from '@mui/icons-material/AccountBoxOutlined';
-import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
-import MailOutlineOutlinedIcon from '@mui/icons-material/MailOutlineOutlined';
-import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
-import LinkIcon from '@mui/icons-material/Link';
-import InstagramIcon from '@mui/icons-material/Instagram';
-import ConnectWithoutContactIcon from '@mui/icons-material/ConnectWithoutContact';
-import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
-import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
-import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
-import UpiMandateModern from "./UpiMandate";
-import CurrencyRupeeOutlinedIcon from '@mui/icons-material/CurrencyRupeeOutlined';
-import PolylineOutlinedIcon from '@mui/icons-material/PolylineOutlined';
+import AccountBoxOutlinedIcon from "@mui/icons-material/AccountBoxOutlined";
+import SupportAgentOutlinedIcon from "@mui/icons-material/SupportAgentOutlined";
+import MailOutlineOutlinedIcon from "@mui/icons-material/MailOutlineOutlined";
+import ContactPageOutlinedIcon from "@mui/icons-material/ContactPageOutlined";
+import LinkIcon from "@mui/icons-material/Link";
+import InstagramIcon from "@mui/icons-material/Instagram";
+import PolylineOutlinedIcon from "@mui/icons-material/PolylineOutlined";
 import "react-toastify/dist/ReactToastify.css";
+import UpiMandateModern from "./UpiMandate";
+import CurrencyRupeeOutlinedIcon from "@mui/icons-material/CurrencyRupeeOutlined";
 
 const theme = createTheme({
   palette: {
@@ -71,10 +67,10 @@ export default function SideNavbar({ window }) {
   // Main menu states
   const [linkInBioOpen, setLinkInBioOpen] = useState(true);
   const [instagramOpen, setInstagramOpen] = useState(true);
-  
+  const [accountsOpen, setAccountsOpen] = useState(true);
+
   // Sub-menu states
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [mentionsOpen, setMentionsOpen] = useState(false);
 
   // Routes for Analytics (nested under Link In Bio)
   const analyticsRoutes = [
@@ -83,13 +79,7 @@ export default function SideNavbar({ window }) {
     "/professional/my/block/analytics",
   ];
 
-  // Routes for Mentions (nested under Instagram)
-  const mentionsRoutes = [
-    "/professional/instagram/mentions/comments",
-    "/professional/instagram/mentions/messages",
-  ];
-
-  // Routes for Link In Bio section
+  // Routes for Link In Bio section (Profile / Support removed)
   const linkInBioRoutes = [
     "/professional/dashboard/analytics",
     "/professional/user/bio",
@@ -97,9 +87,7 @@ export default function SideNavbar({ window }) {
     "/professional/store/products",
     ...analyticsRoutes,
     "/professional/newsletter/emails",
-    "/professional/profile",
-    "/professional/support",
-    "/professional/my_orders"
+    "/professional/my_orders",
   ];
 
   // Routes for Instagram section
@@ -107,14 +95,18 @@ export default function SideNavbar({ window }) {
     "/professional/fb_insta_redirect",
     "/professional/automations",
     "/professional/instagram/mentions",
-    ...mentionsRoutes,
+    "/professional/instagram/mentions/comments",
+    "/professional/instagram/mentions/messages",
     "/professional/instagram/create-post",
   ];
 
+  // Routes for Accounts section (NEW)
+  const accountsRoutes = ["/professional/profile", "/professional/support"];
+
   const isAnalyticsRoute = analyticsRoutes.includes(location.pathname);
-  const isMentionsRoute = mentionsRoutes.includes(location.pathname);
   const isLinkInBioSection = linkInBioRoutes.includes(location.pathname);
   const isInstagramSection = instagramRoutes.includes(location.pathname);
+  const isAccountsSection = accountsRoutes.includes(location.pathname);
 
   const goTo = (path) => {
     navigate(path);
@@ -124,7 +116,7 @@ export default function SideNavbar({ window }) {
   const handleSessionExpired = () => {
     toast.error("Session expired. Please log in again.");
     setTimeout(() => {
-      navigate('/professional/login');
+      navigate("/professional/login");
     }, 1500);
   };
 
@@ -145,7 +137,7 @@ export default function SideNavbar({ window }) {
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
           handleSessionExpired();
         } else {
-          console.log('error : ', error);
+          console.log("error : ", error);
           handleSessionExpired();
         }
       } finally {
@@ -169,24 +161,26 @@ export default function SideNavbar({ window }) {
         flexDirection: "column",
         height: "100%",
         backgroundColor: "#FAFBFC",
-        pt: 0, // AppBar now handled by outer container padding on mobile
+        pt: 0,
       }}
     >
       {/* Top section (logo + nav links) */}
-      <Box sx={{ 
-        flexGrow: 1, 
-        overflowY: "auto", 
-        overflowX: "hidden",
-        '&::-webkit-scrollbar': { width: '6px' },
-        '&::-webkit-scrollbar-track': { backgroundColor: '#F3F4F6', borderRadius: '10px' },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor: '#CBD5E1',
-          borderRadius: '10px',
-          '&:hover': { backgroundColor: '#94A3B8' },
-        },
-        scrollbarWidth: 'none',
-        scrollbarColor: '#CBD5E1 #F3F4F6',
-      }}>
+      <Box
+        sx={{
+          flexGrow: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          "&::-webkit-scrollbar": { width: "6px" },
+          "&::-webkit-scrollbar-track": { backgroundColor: "#F3F4F6", borderRadius: "10px" },
+          "&::-webkit-scrollbar-thumb": {
+            backgroundColor: "#CBD5E1",
+            borderRadius: "10px",
+            "&:hover": { backgroundColor: "#94A3B8" },
+          },
+          scrollbarWidth: "none",
+          scrollbarColor: "#CBD5E1 #F3F4F6",
+        }}
+      >
         <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 2 }}>
           <Link
             to="/"
@@ -197,20 +191,14 @@ export default function SideNavbar({ window }) {
               color: "inherit",
             }}
           >
-            <img
-              src={logo}
-              alt="MyHandle Logo"
-              width="30"
-              height="auto"
-              style={{ display: "block" }}
-            />
+            <img src={logo} alt="MyHandle Logo" width="30" height="auto" style={{ display: "block" }} />
             <div
               style={{
                 marginLeft: 8,
                 fontWeight: 700,
                 fontSize: "1.25rem",
                 WebkitBackgroundClip: "text",
-                color: '#000000'
+                color: "#000000",
               }}
             >
               MyHandle
@@ -249,7 +237,7 @@ export default function SideNavbar({ window }) {
                     color: isLinkInBioSection ? "#FFFFFF" : "#374151",
                     fontWeight: 600,
                     fontSize: "0.9rem",
-                    fontFamily: "Inter"
+                    fontFamily: "Inter",
                   },
                 }}
               />
@@ -261,7 +249,7 @@ export default function SideNavbar({ window }) {
             </ListItemButton>
           </ListItem>
 
-          {/* Link In Bio Submenu */}
+          {/* Link In Bio Submenu (Profile & Support REMOVED) */}
           <Collapse in={linkInBioOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
               {/* Dashboard */}
@@ -273,10 +261,11 @@ export default function SideNavbar({ window }) {
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/dashboard/analytics" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
+                    backgroundColor:
+                      location.pathname === "/professional/dashboard/analytics" ? "#6E8CFB" : "transparent",
+                    "&:hover": {
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -313,9 +302,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: location.pathname === "/professional/user/bio" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
+                    "&:hover": {
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -352,9 +341,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: location.pathname === "/professional/my/inbox" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
+                    "&:hover": {
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -390,10 +379,11 @@ export default function SideNavbar({ window }) {
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/store/products" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
+                    backgroundColor:
+                      location.pathname === "/professional/store/products" ? "#6E8CFB" : "transparent",
+                    "&:hover": {
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -430,9 +420,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: location.pathname === "/professional/my_orders" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
+                    "&:hover": {
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -469,9 +459,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: isAnalyticsRoute ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
+                    "&:hover": {
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -513,10 +503,11 @@ export default function SideNavbar({ window }) {
                       sx={{
                         borderRadius: "8px",
                         py: 0.6,
-                        backgroundColor: location.pathname === "/professional/my/page/analytics" ? "#6E8CFB" : "transparent",
-                        "&:hover": { 
+                        backgroundColor:
+                          location.pathname === "/professional/my/page/analytics" ? "#6E8CFB" : "transparent",
+                        "&:hover": {
                           backgroundColor: "#6E8CFB",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" },
                         },
                         "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                         transition: "all 0.2s ease",
@@ -526,7 +517,8 @@ export default function SideNavbar({ window }) {
                         primary="Page Analytics"
                         primaryTypographyProps={{
                           sx: {
-                            color: location.pathname === "/professional/my/page/analytics" ? "#FFFFFF" : "#9CA3AF",
+                            color:
+                              location.pathname === "/professional/my/page/analytics" ? "#FFFFFF" : "#9CA3AF",
                             fontWeight: 400,
                             fontSize: "0.82rem",
                           },
@@ -542,10 +534,11 @@ export default function SideNavbar({ window }) {
                       sx={{
                         borderRadius: "8px",
                         py: 0.6,
-                        backgroundColor: location.pathname === "/professional/my/store/analytics" ? "#6E8CFB" : "transparent",
-                        "&:hover": { 
+                        backgroundColor:
+                          location.pathname === "/professional/my/store/analytics" ? "#6E8CFB" : "transparent",
+                        "&:hover": {
                           backgroundColor: "#6E8CFB",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" },
                         },
                         "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                         transition: "all 0.2s ease",
@@ -555,7 +548,8 @@ export default function SideNavbar({ window }) {
                         primary="Store Analytics"
                         primaryTypographyProps={{
                           sx: {
-                            color: location.pathname === "/professional/my/store/analytics" ? "#FFFFFF" : "#9CA3AF",
+                            color:
+                              location.pathname === "/professional/my/store/analytics" ? "#FFFFFF" : "#9CA3AF",
                             fontWeight: 400,
                             fontSize: "0.82rem",
                           },
@@ -571,10 +565,11 @@ export default function SideNavbar({ window }) {
                       sx={{
                         borderRadius: "8px",
                         py: 0.6,
-                        backgroundColor: location.pathname === "/professional/my/block/analytics" ? "#6E8CFB" : "transparent",
-                        "&:hover": { 
+                        backgroundColor:
+                          location.pathname === "/professional/my/block/analytics" ? "#6E8CFB" : "transparent",
+                        "&:hover": {
                           backgroundColor: "#6E8CFB",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" },
                         },
                         "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                         transition: "all 0.2s ease",
@@ -584,7 +579,8 @@ export default function SideNavbar({ window }) {
                         primary="Block Analytics"
                         primaryTypographyProps={{
                           sx: {
-                            color: location.pathname === "/professional/my/block/analytics" ? "#FFFFFF" : "#9CA3AF",
+                            color:
+                              location.pathname === "/professional/my/block/analytics" ? "#FFFFFF" : "#9CA3AF",
                             fontWeight: 400,
                             fontSize: "0.82rem",
                           },
@@ -604,10 +600,11 @@ export default function SideNavbar({ window }) {
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/newsletter/emails" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
+                    backgroundColor:
+                      location.pathname === "/professional/newsletter/emails" ? "#6E8CFB" : "transparent",
+                    "&:hover": {
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -627,84 +624,6 @@ export default function SideNavbar({ window }) {
                       sx: {
                         color: location.pathname === "/professional/newsletter/emails" ? "#FFFFFF" : "#6B7280",
                         fontWeight: location.pathname === "/professional/newsletter/emails" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-
-              {/* Profile */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/profile")}
-                  selected={location.pathname === "/professional/profile"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/profile" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
-                      backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
-                    },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <AccountBoxOutlinedIcon
-                      sx={{
-                        color: location.pathname === "/professional/profile" ? "#FFFFFF" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Profile"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/profile" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/profile" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-
-              {/* Support */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/support")}
-                  selected={location.pathname === "/professional/support"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/support" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
-                      backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
-                    },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <SupportAgentOutlinedIcon
-                      sx={{
-                        color: location.pathname === "/professional/support" ? "#FFFFFF" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Support"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/support" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/support" ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}
@@ -761,8 +680,6 @@ export default function SideNavbar({ window }) {
           {/* Instagram Submenu */}
           <Collapse in={instagramOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
-            
-
               {/* Automation */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
@@ -797,163 +714,137 @@ export default function SideNavbar({ window }) {
                   />
                 </ListItemButton>
               </ListItem>
-
-              {/* Mentions (nested) */}
-              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => setMentionsOpen((p) => !p)}
-                  selected={isMentionsRoute}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: isMentionsRoute ? "#F3F4F6" : "transparent",
-                    "&:hover": { backgroundColor: "#F3F4F6" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <NotificationsActiveOutlinedIcon
-                      sx={{
-                        color: isMentionsRoute ? "#E1306C" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Mentions"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: isMentionsRoute ? "#1F2937" : "#6B7280",
-                        fontWeight: isMentionsRoute ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                  {mentionsOpen ? (
-                    <ExpandLessIcon sx={{ color: "#9CA3AF", fontSize: "1rem" }} />
-                  ) : (
-                    <ExpandMoreIcon sx={{ color: "#9CA3AF", fontSize: "1rem" }} />
-                  )}
-                </ListItemButton>
-              </ListItem> */}
-
-              {/* Mentions submenu */}
-              {/* <Collapse in={mentionsOpen} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                  <ListItem disablePadding sx={{ mb: 0.5 }}>
-                    <ListItemButton
-                      onClick={() => goTo("/professional/instagram/mentions/comments")}
-                      selected={location.pathname === "/professional/instagram/mentions/comments"}
-                      sx={{
-                        pl: 8,
-                        borderRadius: "8px",
-                        py: 0.6,
-                        backgroundColor: location.pathname === "/professional/instagram/mentions/comments" ? "#E5E7EB" : "transparent",
-                        "&:hover": { backgroundColor: "#E5E7EB" },
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <ListItemText
-                        primary="Comments Analytics"
-                        primaryTypographyProps={{
-                          sx: {
-                            color: location.pathname === "/professional/instagram/mentions/comments" ? "#374151" : "#9CA3AF",
-                            fontWeight: 400,
-                            fontSize: "0.8rem",
-                          },
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-
-                  <ListItem disablePadding sx={{ mb: 0.5 }}>
-                    <ListItemButton
-                      onClick={() => goTo("/professional/instagram/mentions/messages")}
-                      selected={location.pathname === "/professional/instagram/mentions/messages"}
-                      sx={{
-                        pl: 8,
-                        borderRadius: "8px",
-                        py: 0.6,
-                        backgroundColor: location.pathname === "/professional/instagram/mentions/messages" ? "#E5E7EB" : "transparent",
-                        "&:hover": { backgroundColor: "#E5E7EB" },
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <ListItemText
-                        primary="Messages Analytics"
-                        primaryTypographyProps={{
-                          sx: {
-                            color: location.pathname === "/professional/instagram/mentions/messages" ? "#374151" : "#9CA3AF",
-                            fontWeight: 400,
-                            fontSize: "0.8rem",
-                          },
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                </List>
-              </Collapse> */}
-
-              {/* Create Post */}
-              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/instagram/create-post")}
-                  selected={location.pathname === "/professional/instagram/create-post"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/instagram/create-post" ? "#F3F4F6" : "transparent",
-                    "&:hover": { backgroundColor: "#F3F4F6" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <AddPhotoAlternateOutlinedIcon
-                      sx={{
-                        color: location.pathname === "/professional/instagram/create-post" ? "#E1306C" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Create Post"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/instagram/create-post" ? "#1F2937" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/instagram/create-post" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem> */}
             </List>
           </Collapse>
 
-       
+          {/* ===== DIVIDER ===== */}
+          <Divider sx={{ my: 2, mx: 1, borderColor: "#E5E7EB", borderWidth: 1 }} />
+
+          {/* ===== ACCOUNTS MAIN MENU (NEW) ===== */}
+          <ListItem disablePadding sx={{ mb: 0.5 }}>
+            <ListItemButton
+              onClick={() => setAccountsOpen((p) => !p)}
+              sx={{
+                borderRadius: "10px",
+                py: 1,
+                px: 1.5,
+                backgroundColor: isAccountsSection ? "rgba(0, 70, 255, 0.08)" : "transparent",
+                "&:hover": {
+                  backgroundColor: isAccountsSection ? "rgba(0, 70, 255, 0.12)" : "rgba(0,0,0,0.03)",
+                },
+                transition: "all 0.2s ease",
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <AccountCircleOutlinedIcon
+                  sx={{
+                    color: isAccountsSection ? "#0046FF" : "#6B7280",
+                    fontSize: "1.3rem",
+                  }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary="Accounts"
+                primaryTypographyProps={{
+                  sx: {
+                    color: isAccountsSection ? "#0046FF" : "#374151",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                  },
+                }}
+              />
+              {accountsOpen ? (
+                <ExpandLessIcon sx={{ color: isAccountsSection ? "#0046FF" : "#9CA3AF", fontSize: "1.2rem" }} />
+              ) : (
+                <ExpandMoreIcon sx={{ color: isAccountsSection ? "#0046FF" : "#9CA3AF", fontSize: "1.2rem" }} />
+              )}
+            </ListItemButton>
+          </ListItem>
+
+          {/* Accounts Submenu (Profile + Support moved here) */}
+          <Collapse in={accountsOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
+              {/* Profile */}
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/profile")}
+                  selected={location.pathname === "/professional/profile"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/profile" ? "#EDF2FF" : "transparent",
+                    "&:hover": {
+                      backgroundColor: "#EDF2FF",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#1F2937" },
+                    },
+                    "&.Mui-selected": { backgroundColor: "#EDF2FF" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <AccountBoxOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/profile" ? "#0046FF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Profile"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/profile" ? "#1F2937" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/profile" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+
+              {/* Support */}
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/support")}
+                  selected={location.pathname === "/professional/support"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/support" ? "#EDF2FF" : "transparent",
+                    "&:hover": {
+                      backgroundColor: "#EDF2FF",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#1F2937" },
+                    },
+                    "&.Mui-selected": { backgroundColor: "#EDF2FF" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <SupportAgentOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/support" ? "#0046FF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Support"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/support" ? "#1F2937" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/support" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </List>
+          </Collapse>
         </List>
       </Box>
-
-      {/* Bottom fixed section */}
-      {/* <Box
-        sx={{
-          p: 2,
-          borderTop: "1px solid #E5E7EB",
-          backgroundColor: "#FAFBFC",
-          flexShrink: 0,
-          ...(isSmallScreen && {
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            width: drawerWidth,
-            zIndex: 1300,
-          }),
-        }}
-      > */}
-        {/* You can add premium upgrade card or user info here */}
-      {/* </Box> */}
     </Box>
   );
 
@@ -991,13 +882,11 @@ export default function SideNavbar({ window }) {
         </Toolbar>
       </AppBar>
 
-      {/* NOTE: removed the extra spacer <Toolbar /> to avoid double stacking height */}
-
       <Box
         sx={{
           display: "flex",
-          minHeight: "100dvh",       // better on mobile than 100vh
-          pt: { xs: 7, sm: 0 },      // 56px = default toolbar height on xs
+          minHeight: "100dvh",
+          pt: { xs: 7, sm: 0 },
           bgcolor: "#FAFBFC",
         }}
       >
@@ -1021,10 +910,10 @@ export default function SideNavbar({ window }) {
             variant="permanent"
             sx={{
               display: { xs: "none", sm: "block" },
-              "& .MuiDrawer-paper": { 
-                width: drawerWidth, 
+              "& .MuiDrawer-paper": {
+                width: drawerWidth,
                 borderRight: "1px solid #E5E7EB",
-                boxShadow: "0 0 40px rgba(0,0,0,0.02)"
+                boxShadow: "0 0 40px rgba(0,0,0,0.02)",
               },
             }}
             open
@@ -1040,7 +929,7 @@ export default function SideNavbar({ window }) {
             flexGrow: 1,
             width: "100%",
             maxWidth: { sm: `calc(100% - ${drawerWidth}px)` },
-            overflow: 'auto',
+            overflow: "auto",
             backgroundColor: "#FAFBFC",
             py: 1,
           }}
@@ -1050,9 +939,7 @@ export default function SideNavbar({ window }) {
               <CircularProgress sx={{ color: "#667eea" }} />
             </Box>
           ) : (
-            <Box sx={{ px: 2, py: 0 }}>
-              {hasAccess ? <Outlet /> : <UpiMandateModern />}
-            </Box>
+            <Box sx={{ px: 2, py: 0 }}>{hasAccess ? <Outlet /> : <UpiMandateModern />}</Box>
           )}
         </Box>
       </Box>
