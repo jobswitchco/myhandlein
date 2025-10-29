@@ -175,6 +175,7 @@ export default function AutomationList() {
 
   // NEW: ensures EmptyState never flashes before first fetch completes
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   // DataGrid pagination (desktop)
   const [page, setPage] = useState(0); // 0-indexed
@@ -292,7 +293,7 @@ export default function AutomationList() {
         }
       } finally {
         if (controllerRef.current === controller) controllerRef.current = null;
-        setHasFetchedOnce(true); // <-- mark first attempt finished (success or error)
+        setHasFetchedOnce(true);
         setLoading(false);
       }
     },
@@ -350,7 +351,7 @@ export default function AutomationList() {
         }
       } finally {
         if (controllerRef.current === controller) controllerRef.current = null;
-        setHasFetchedOnce(true); // <-- mark first attempt finished
+        setHasFetchedOnce(true);
         setLoading(false);
       }
     },
@@ -362,7 +363,8 @@ export default function AutomationList() {
     (async () => {
       const ok = await checkIgConnection();
       if (!ok) {
-        setHasFetchedOnce(true); // <-- also mark done so EmptyState doesn’t flash from default
+        setHasFetchedOnce(true);
+        setInitializing(false);
         setLoading(false);
         return;
       }
@@ -373,6 +375,7 @@ export default function AutomationList() {
         setMobilePage(0);
         await fetchMobile(0);
       }
+      setInitializing(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDesktop]);
@@ -658,8 +661,8 @@ export default function AutomationList() {
   );
 
   // Gate UI to avoid EmptyState flash before first fetch completes
-  const showInitialSpinner = !hasFetchedOnce || (loading && rows.length === 0);
-  const showEmpty = hasFetchedOnce && !loading && rowCount === 0;
+  const showInitialSpinner = initializing || (loading && rows.length === 0);
+  const showEmpty = !initializing && hasFetchedOnce && !loading && rowCount === 0;
 
   // Desktop (DataGrid)
   if (isDesktop) {
