@@ -660,7 +660,7 @@ export default function AutomationList() {
             <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}>
               <CircularProgress />
             </Box>
-          ) : !loading && rowCount === 0 ? (
+          ) : !loading && rows.length === 0 ? (
             <EmptyState onCreate={() => navigate("/professional/fetch_media")} />
           ) : (
             <DataGrid
