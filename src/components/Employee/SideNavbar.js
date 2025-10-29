@@ -43,6 +43,7 @@ import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsAc
 import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import UpiMandateModern from "./UpiMandate";
 import CurrencyRupeeOutlinedIcon from '@mui/icons-material/CurrencyRupeeOutlined';
+import PolylineOutlinedIcon from '@mui/icons-material/PolylineOutlined';
 import "react-toastify/dist/ReactToastify.css";
 
 const theme = createTheme({
@@ -760,40 +761,7 @@ export default function SideNavbar({ window }) {
           {/* Instagram Submenu */}
           <Collapse in={instagramOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
-              {/* Connect Instagram */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/fb_insta_redirect")}
-                  selected={location.pathname === "/professional/fb_insta_redirect"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/fb_insta_redirect" ? "#F3F4F6" : "transparent",
-                    "&:hover": { backgroundColor: "#F3F4F6" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <ConnectWithoutContactIcon
-                      sx={{
-                        color: location.pathname === "/professional/fb_insta_redirect" ? "#E1306C" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Connect Instagram"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/fb_insta_redirect" ? "#1F2937" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/fb_insta_redirect" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
+            
 
               {/* Automation */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
@@ -810,7 +778,7 @@ export default function SideNavbar({ window }) {
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <ForumOutlinedIcon
+                    <PolylineOutlinedIcon
                       sx={{
                         color: location.pathname === "/professional/automations" ? "#E1306C" : "#9CA3AF",
                         fontSize: "1.2rem",
@@ -831,7 +799,7 @@ export default function SideNavbar({ window }) {
               </ListItem>
 
               {/* Mentions (nested) */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
+              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => setMentionsOpen((p) => !p)}
                   selected={isMentionsRoute}
@@ -868,10 +836,10 @@ export default function SideNavbar({ window }) {
                     <ExpandMoreIcon sx={{ color: "#9CA3AF", fontSize: "1rem" }} />
                   )}
                 </ListItemButton>
-              </ListItem>
+              </ListItem> */}
 
               {/* Mentions submenu */}
-              <Collapse in={mentionsOpen} timeout="auto" unmountOnExit>
+              {/* <Collapse in={mentionsOpen} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   <ListItem disablePadding sx={{ mb: 0.5 }}>
                     <ListItemButton
@@ -925,10 +893,10 @@ export default function SideNavbar({ window }) {
                     </ListItemButton>
                   </ListItem>
                 </List>
-              </Collapse>
+              </Collapse> */}
 
               {/* Create Post */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
+              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/instagram/create-post")}
                   selected={location.pathname === "/professional/instagram/create-post"}
@@ -960,46 +928,11 @@ export default function SideNavbar({ window }) {
                     }}
                   />
                 </ListItemButton>
-              </ListItem>
+              </ListItem> */}
             </List>
           </Collapse>
 
-          {/* Profile (only on mobile) */}
-          {isSmallScreen && (
-            <ListItem disablePadding sx={{ mt: 2 }}>
-              <ListItemButton
-                onClick={() => goTo("/professional/profile")}
-                selected={location.pathname === "/professional/profile"}
-                sx={{
-                  borderRadius: "8px",
-                  py: 0.75,
-                  pl: 2,
-                  backgroundColor: location.pathname === "/professional/profile" ? "#F3F4F6" : "transparent",
-                  "&:hover": { backgroundColor: "#F3F4F6" },
-                  transition: "all 0.2s ease",
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32 }}>
-                  <AccountCircleOutlinedIcon
-                    sx={{
-                      color: location.pathname === "/professional/profile" ? "#667eea" : "#9CA3AF",
-                      fontSize: "1.2rem",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Profile"
-                  primaryTypographyProps={{
-                    sx: {
-                      color: location.pathname === "/professional/profile" ? "#1F2937" : "#6B7280",
-                      fontWeight: location.pathname === "/professional/profile" ? 500 : 400,
-                      fontSize: "0.875rem",
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          )}
+       
         </List>
       </Box>
 

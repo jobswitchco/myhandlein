@@ -667,7 +667,7 @@ export default function AutomationList() {
   // Desktop (DataGrid)
   if (isDesktop) {
     return (
-      <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <Box sx={{ p: { xs: 2, md: 2 } }}>
         {HeaderBar}
         <div style={{ width: "100%" }}>
           {showInitialSpinner ? (
@@ -712,7 +712,7 @@ export default function AutomationList() {
 
   // Mobile (cards)
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ px: 0.5, py: 1 }}>
       {HeaderBar}
 
       {showInitialSpinner ? (
