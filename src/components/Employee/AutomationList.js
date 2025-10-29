@@ -88,7 +88,6 @@ export default function AutomationList() {
   const FB_LOGIN_CONFIG_ID = "2452082071860610";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
   // Optional: if you want to strictly verify event.origin
-  const FRONTEND_ORIGIN = window.location.origin; // e.g., https://myhandle.in
 
   /** ---- IG connect state ---- */
   const [igConnected, setIgConnected] = useState(null); // null = unknown; true/false after check
@@ -159,40 +158,65 @@ export default function AutomationList() {
   }, []);
 
   /** ---- Fetch automations (only when connected) ---- */
-  const fetchPage = useCallback(
-    async (pageArg = page, limitArg = pageSize) => {
-      if (!igConnected) return;
-      setLoading(true);
-      setErr("");
-      try {
-        const res = await axios.get(`${AUTOMATIONS_URL}?page=${pageArg + 1}&limit=${limitArg}`, {
-          withCredentials: true,
-        });
 
-        const {
-          items = [],
-          total = 0,
-          page: serverPage = 1,
-          limit = limitArg,
-        } = res.data || {};
 
-        const startIndex = (serverPage - 1) * limit;
-        const withSno = items.map((it, idx) => ({
-          id: it._id || it.postId || `${it.thumbnail}-${idx}`,
-          ...it,
-          sno: startIndex + idx + 1,
-        }));
+const controllerRef = { current: null };
 
-        setRows(withSno);
-        setRowCount(total);
-      } catch (e) {
-        setErr(e?.response?.data?.message || e.message || "Failed to load automations");
-      } finally {
-        setLoading(false);
+const fetchPage = useCallback(
+  async (pageArg = page, limitArg = pageSize) => {
+    if (!igConnected) {
+      setRows([]);
+      setRowCount(0);
+      return;
+    }
+
+    setLoading(true);
+    setErr("");
+
+    // cancel previous in-flight request (if any)
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
+    try {
+      const res = await axios.get(AUTOMATIONS_URL, {
+        withCredentials: true,
+        signal: controller.signal,
+        params: { page: pageArg + 1, limit: limitArg },
+      });
+
+      const {
+        items = [],
+        total = 0,
+        page: serverPage = 1,
+        limit = limitArg,
+      } = res.data || {};
+
+      const startIndex = (serverPage - 1) * limit;
+
+      const withSno = items.map((it, idx) => ({
+        id: it._id || it.postId || `${it.thumbnail}-${idx}`,
+        ...it, // includes totalReplies from backend
+        sno: startIndex + idx + 1,
+      }));
+
+      setRows(withSno);
+      setRowCount(total);
+    } catch (e) {
+      if (axios.isCancel(e)) return; // ignore aborted calls
+      setErr(e?.response?.data?.message || e.message || "Failed to load automations");
+    } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
       }
-    },
-    [AUTOMATIONS_URL, igConnected, page, pageSize]
-  );
+      setLoading(false);
+    }
+  },
+  [AUTOMATIONS_URL, igConnected, page, pageSize]
+);
+
 
   useEffect(() => {
     if (igConnected) {
@@ -310,17 +334,17 @@ export default function AutomationList() {
           />
         ),
       },
-      // {
-      //   field: "repliedCount",
-      //   headerName: "Replies Sent",
-      //   width: 130,
-      //   sortable: false,
-      //   renderCell: (params) => (
-      //     <Typography sx={{ textAlign: "center", alignItems: "center", mt: 1.5 }}>
-      //       {params.value ?? 0}
-      //     </Typography>
-      //   ),
-      // },
+      {
+        field: "totalReplies",
+        headerName: "Replies Sent",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => (
+          <Typography sx={{ textAlign: "center", alignItems: "center", mt: 1.5 }}>
+            {params.value ?? 0}
+          </Typography>
+        ),
+      },
       {
         field: "details",
         headerName: "Details",

@@ -14,6 +14,7 @@ import FormsData from "../models/FormsData.js";
 import BankDetails from "../models/BankDetails.js";
 import Transaction from "../models/Transaction.js";
 import Automation from "../models/Automation.js";
+import RepliedComment from "../models/RepliedComment.js";
 import Product from "../models/ProductsCatalogue.js";
 import PageAnalytics from "../models/PageAnalytics.js";
 import NewsletterModel from "../models/Newsletter.js";
@@ -1893,12 +1894,50 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
 
 
 
-// GET /usersOn/automations
+// router.get("/automations", authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user?.user_id || req.user?._id;
+//     if (!userId) {
+//       return res.status(401).json({ message: "Unauthorized" });
+//     }
+
+//     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+//     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+//     const skip = (page - 1) * limit;
+
+//     const query = { userId };
+//     const projection = "postId status createdAt caption thumbnail";
+//     const sort = { createdAt: -1 };
+
+//     const [total, docs] = await Promise.all([
+//       Automation.countDocuments(query),
+//       Automation.find(query).select(projection).sort(sort).skip(skip).limit(limit).lean(),
+//     ]);
+
+//     const items = (docs || []).map((d) => ({
+//       _id: d._id,
+//       postId: d.postId,
+//       status: d.status,                             // "active" | "inactive"
+//       status: d.status,                             // "active" | "inactive"
+//       caption: d.caption,
+//       thumbnail: d.thumbnail,
+//       createdAt: d.createdAt,                       // ISO string; format on client
+//     }));
+
+//     console.log('Items : ', items);
+
+//     return res.json({ items, total, page, limit });
+//   } catch (err) {
+//     console.error("GET /usersOn/automations error:", err);
+//     return res.status(500).json({ message: "Failed to fetch automations" });
+//   }
+// });
+
 router.get("/automations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id || req.user?._id;
     if (!userId) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -1906,33 +1945,53 @@ router.get("/automations", authenticateToken, async (req, res) => {
     const skip = (page - 1) * limit;
 
     const query = { userId };
-    const projection = "postId status createdAt caption thumbnail";
+    const projection = "postId status createdAt caption thumbnail"; // adjust if your schema differs
     const sort = { createdAt: -1 };
 
     const [total, docs] = await Promise.all([
       Automation.countDocuments(query),
-      Automation.find(query).select(projection).sort(sort).skip(skip).limit(limit).lean(),
+      Automation.find(query)
+        .select(projection)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
     ]);
+
+    const automationIds = docs.map(d => d._id);
+
+    // Aggregate unique commentId count per automationId
+    let countsByAutomationId = {};
+    if (automationIds.length > 0) {
+      const counts = await RepliedComment.aggregate([
+        { $match: { automationId: { $in: automationIds } } },
+        // distinct commentId per automationId:
+        { $group: { _id: { automationId: "$automationId", commentId: "$commentId" } } },
+        { $group: { _id: "$_id.automationId", totalReplies: { $sum: 1 } } },
+      ]);
+
+      countsByAutomationId = counts.reduce((acc, row) => {
+        acc[String(row._id)] = row.totalReplies || 0;
+        return acc;
+      }, {});
+    }
 
     const items = (docs || []).map((d) => ({
       _id: d._id,
       postId: d.postId,
-      status: d.status,                             // "active" | "inactive"
-      status: d.status,                             // "active" | "inactive"
-      caption: d.caption,
-      thumbnail: d.thumbnail,
-      createdAt: d.createdAt,                       // ISO string; format on client
+      status: d.status,                 // "active" | "inactive"
+      caption: d.caption ?? null,
+      thumbnail: d.thumbnail ?? null,
+      createdAt: d.createdAt,           // ISO; format on client
+      totalReplies: countsByAutomationId[String(d._id)] ?? 0,
     }));
 
-    console.log('Items : ', items);
-
-    return res.json({ items, total, page, limit });
+    return res.json({ success: true, items, total, page, limit });
   } catch (err) {
     console.error("GET /usersOn/automations error:", err);
-    return res.status(500).json({ message: "Failed to fetch automations" });
+    return res.status(500).json({ success: false, message: "Failed to fetch automations" });
   }
 });
-
 
 
 router.post("/automation/details", authenticateToken, async (req, res) => {
