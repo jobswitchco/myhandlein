@@ -9,12 +9,12 @@ export default function Footer() {
         backgroundColor: "#121212",
         color: "#fff",
         paddingY: 5,
-        paddingX: 2,
+        paddingX: 10,
       }}
     >
-      <Grid container spacing={4} justifyContent="center">
+      <Grid container spacing={4} sx={{ display : 'flex', justifyContent : 'space-between'}}>
         {/* Company Section */}
-        <Grid item xs={12} sm={4} md={3}>
+        <Grid size={{ xs: 12, sm: 4, md: 3}}>
           <Typography
             variant="h6"
             sx={{
@@ -116,7 +116,7 @@ export default function Footer() {
         </Grid>
 
         {/* Useful Links Section */}
-        <Grid item xs={12} sm={4} md={3}>
+        <Grid size={{ xs: 12, sm: 4, md: 3}}>
           <Typography
             variant="h6"
             sx={{
@@ -217,7 +217,7 @@ export default function Footer() {
         </Grid>
 
         {/* Social Media Section */}
-        <Grid item xs={12} sm={4} md={3}>
+        <Grid size={{ xs: 12, sm: 4, md: 3}}>
           <Typography
             variant="h6"
             sx={{
