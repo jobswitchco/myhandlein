@@ -1,5 +1,5 @@
 // AutomationList.jsx (JS)
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
   Stack,
@@ -11,10 +11,16 @@ import {
   Avatar,
   Card,
   CardContent,
+  CardActionArea,
+  Divider,
+  useMediaQuery,
+  Skeleton,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import InstagramIcon from "@mui/icons-material/Instagram";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import { DataGrid } from "@mui/x-data-grid";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -74,20 +80,85 @@ function EmptyState({ onCreate }) {
   );
 }
 
+/** ---------- Mobile card for each automation (xs/sm) ---------- */
+function AutomationCard({ row, onDetails }) {
+  const theme = useTheme();
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: 2.5,
+        overflow: "hidden",
+        borderColor: "divider",
+        mb: 1.5,
+      }}
+    >
+      <CardActionArea onClick={() => onDetails(row?.postId)} disableRipple>
+        <Box sx={{ display: "flex", gap: 1.25, p: 1.25 }}>
+          <Avatar
+            variant="rounded"
+            src={row.thumbnail}
+            alt={row.caption || "thumbnail"}
+            sx={{ width: 64, height: 64, flexShrink: 0 }}
+          />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+              <Chip
+                size="small"
+                label={String(row.status || "").toUpperCase()}
+                color={row.status === "active" ? "success" : "default"}
+                variant="outlined"
+              />
+              <Typography
+                variant="caption"
+                sx={{ color: "text.secondary" }}
+                title={new Date(row.createdAt).toLocaleString()}
+              >
+                {new Date(row.createdAt).toLocaleDateString()}
+              </Typography>
+            </Stack>
+
+            <Typography
+              variant="body2"
+              sx={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+              title={row.caption || ""}
+            >
+              {row.caption?.trim() || "—"}
+            </Typography>
+
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Replies Sent: <strong>{row.prettyReplies}</strong>
+              </Typography>
+              <ArrowForwardIosIcon sx={{ fontSize: 16, color: "text.disabled" }} />
+            </Stack>
+          </Box>
+        </Box>
+      </CardActionArea>
+    </Card>
+  );
+}
+
 /** ---------- Main Screen ---------- */
 export default function AutomationList() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
 
-  /** ---- Backend endpoints (match InstagramConnect.jsx) ---- */
-  const STATUS_URL = "/api/usersOn/instagram-status";     // { instagramConnected: boolean, ... }
-  const META_STATE_URL = "/api/usersOn/meta-state";       // { state }
-  const AUTOMATIONS_URL = "/api/usersOn/automations";     // GET ?page=1&limit=10
+  /** ---- Backend endpoints ---- */
+  const STATUS_URL = "/api/usersOn/instagram-status"; // { instagramConnected: boolean, ... }
+  const META_STATE_URL = "/api/usersOn/meta-state";   // { state }
+  const AUTOMATIONS_URL = "/api/usersOn/automations"; // GET ?page=1&limit=10
 
-  /** ---- Meta app constants (same as InstagramConnect.jsx) ---- */
+  /** ---- Meta app constants ---- */
   const FB_APP_ID = "1360956302356492";
   const FB_LOGIN_CONFIG_ID = "2452082071860610";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
-  // Optional: if you want to strictly verify event.origin
 
   /** ---- IG connect state ---- */
   const [igConnected, setIgConnected] = useState(null); // null = unknown; true/false after check
@@ -96,15 +167,46 @@ export default function AutomationList() {
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState("");
 
-  /** ---- Table state ---- */
+  /** ---- Table/list state ---- */
   const [rows, setRows] = useState([]);
   const [rowCount, setRowCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // server pagination state
-  const [page, setPage] = useState(0); // 0-indexed for DataGrid
+  // server pagination state (DataGrid is 0-indexed; API is 1-indexed)
+  const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+
+  // Mobile "Load more"
+  const [mobilePage, setMobilePage] = useState(0);
+  const [mobileHasMore, setMobileHasMore] = useState(true);
+
+  // formatNumber helper
+  // formatNumber(12839) -> "12.8k"
+  // formatNumber(1000000) -> "1m"
+  // formatNumber(987654321, { digits: 2 }) -> "987.65m"
+  function formatNumber(input, { digits = 1 } = {}) {
+    if (input == null || isNaN(input)) return "0";
+    const sign = input < 0 ? "-" : "";
+    let n = Math.abs(Number(input));
+
+    const units = ["", "k", "m", "b", "t"]; // thousand, million, billion, trillion
+    let u = 0;
+
+    while (n >= 1000 && u < units.length - 1) {
+      n /= 1000;
+      u++;
+    }
+
+    // Use decimals only when abbreviated and value < 100; otherwise no decimals.
+    const useDecimals = u > 0 && n < 100;
+    const fixed = useDecimals ? n.toFixed(digits) : Math.round(n).toString();
+
+    // remove trailing ".0" (or ".00" if digits > 1)
+    const trimmed = fixed.replace(/\.0+$|(\.\d*[1-9])0+$/g, "$1");
+
+    return sign + trimmed + units[u];
+  }
 
   /** ---- Helpers ---- */
   const openCenteredPopup = (url) => {
@@ -151,148 +253,214 @@ export default function AutomationList() {
     (async () => {
       const ok = await checkIgConnection();
       if (ok) {
-        fetchPage(0, pageSize);
+        if (isMdUp) {
+          fetchPage(0, pageSize);
+        } else {
+          fetchMobile(0); // initial mobile fetch
+        }
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isMdUp]);
 
-  /** ---- Fetch automations (only when connected) ---- */
+  /** ---- Fetch automations (with cancellation) ---- */
+  const controllerRef = useRef(null);
 
-
-const controllerRef = { current: null };
-
-const fetchPage = useCallback(
-  async (pageArg = page, limitArg = pageSize) => {
-    if (!igConnected) {
-      setRows([]);
-      setRowCount(0);
-      return;
-    }
-
-    setLoading(true);
-    setErr("");
-
-    // cancel previous in-flight request (if any)
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    controllerRef.current = controller;
-
-    try {
-      const res = await axios.get(AUTOMATIONS_URL, {
-        withCredentials: true,
-        signal: controller.signal,
-        params: { page: pageArg + 1, limit: limitArg },
-      });
-
-      const {
-        items = [],
-        total = 0,
-        page: serverPage = 1,
-        limit = limitArg,
-      } = res.data || {};
-
-      const startIndex = (serverPage - 1) * limit;
-
-      const withSno = items.map((it, idx) => ({
-        id: it._id || it.postId || `${it.thumbnail}-${idx}`,
-        ...it, // includes totalReplies from backend
-        sno: startIndex + idx + 1,
-      }));
-
-      setRows(withSno);
-      setRowCount(total);
-    } catch (e) {
-      if (axios.isCancel(e)) return; // ignore aborted calls
-      setErr(e?.response?.data?.message || e.message || "Failed to load automations");
-    } finally {
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
+  const fetchPage = useCallback(
+    async (pageArg = page, limitArg = pageSize) => {
+      if (!igConnected) {
+        setRows([]);
+        setRowCount(0);
+        return;
       }
-      setLoading(false);
-    }
-  },
-  [AUTOMATIONS_URL, igConnected, page, pageSize]
-);
 
+      setLoading(true);
+      setErr("");
+
+      // cancel previous in-flight request (if any)
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      controllerRef.current = controller;
+
+      try {
+        const res = await axios.get(AUTOMATIONS_URL, {
+          withCredentials: true,
+          signal: controller.signal,
+          params: { page: pageArg + 1, limit: limitArg },
+        });
+
+        const {
+          items = [],
+          total = 0,
+          page: serverPage = 1,
+          limit = limitArg,
+        } = res.data || {};
+
+        const startIndex = (serverPage - 1) * limit;
+
+        const withSno = items.map((it, idx) => {
+          const totalReplies = Number(it.totalReplies || 0);
+          return {
+            id: it._id || it.postId || `${it.thumbnail}-${idx}`,
+            ...it,
+            prettyReplies: formatNumber(totalReplies, { digits: 1 }),
+            sno: startIndex + idx + 1,
+          };
+        });
+
+        setRows(withSno);
+        setRowCount(total);
+      } catch (e) {
+        if (axios.isCancel(e)) return;
+        setErr(e?.response?.data?.message || e.message || "Failed to load automations");
+      } finally {
+        if (controllerRef.current === controller) {
+          controllerRef.current = null;
+        }
+        setLoading(false);
+      }
+    },
+    [AUTOMATIONS_URL, igConnected, page, pageSize]
+  );
+
+  // Mobile fetcher with "Load more" pagination
+  const fetchMobile = useCallback(
+    async (pageArg = 0, limitArg = 10) => {
+      if (!igConnected) {
+        setRows([]);
+        setRowCount(0);
+        return;
+      }
+
+      setLoading(true);
+      setErr("");
+
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      controllerRef.current = controller;
+
+      try {
+        const res = await axios.get(AUTOMATIONS_URL, {
+          withCredentials: true,
+          signal: controller.signal,
+          params: { page: pageArg + 1, limit: limitArg },
+        });
+
+        const {
+          items = [],
+          total = 0,
+          page: serverPage = 1,
+          limit = limitArg,
+        } = res.data || {};
+
+        const mapped = items.map((it, idx) => {
+          const totalReplies = Number(it.totalReplies || 0);
+          return {
+            id: it._id || it.postId || `${it.thumbnail}-${idx}-${serverPage}`,
+            ...it,
+            prettyReplies: formatNumber(totalReplies, { digits: 1 }),
+          };
+        });
+
+        if (pageArg === 0) {
+          setRows(mapped);
+        } else {
+          setRows((prev) => [...prev, ...mapped]);
+        }
+
+        setRowCount(total);
+        const fetchedCount = (pageArg + 1) * limit;
+        setMobileHasMore(fetchedCount < total);
+      } catch (e) {
+        if (axios.isCancel(e)) return;
+        setErr(e?.response?.data?.message || e.message || "Failed to load automations");
+      } finally {
+        if (controllerRef.current === controller) {
+          controllerRef.current = null;
+        }
+        setLoading(false);
+      }
+    },
+    [AUTOMATIONS_URL, igConnected]
+  );
 
   useEffect(() => {
-    if (igConnected) {
+    if (!igConnected) return;
+    if (isMdUp) {
       fetchPage(page, pageSize);
     }
-  }, [igConnected, page, pageSize, fetchPage]);
+  }, [igConnected, page, pageSize, fetchPage, isMdUp]);
 
   /** ---- Business Login handler (no FB SDK, no candidates) ---- */
- const handleConnectInstagram = useCallback(async () => {
-  setConnectError("");
-  setConnectLoading(true);
+  const handleConnectInstagram = useCallback(async () => {
+    setConnectError("");
+    setConnectLoading(true);
 
-  try {
-    // 1) get signed state
-    const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
-    const state = stateResp?.state;
-    if (!state) throw new Error("Unable to start Meta login");
+    try {
+      // 1) get signed state
+      const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
+      const state = stateResp?.state;
+      if (!state) throw new Error("Unable to start Meta login");
 
-    // 2) build OAuth URL
-    const q = new URLSearchParams({
-      client_id: FB_APP_ID,
-      redirect_uri: REDIRECT_URI,
-      state,
-      response_type: "code",
-      config_id: FB_LOGIN_CONFIG_ID,
-    });
+      // 2) build OAuth URL
+      const q = new URLSearchParams({
+        client_id: FB_APP_ID,
+        redirect_uri: REDIRECT_URI,
+        state,
+        response_type: "code",
+        config_id: FB_LOGIN_CONFIG_ID,
+      });
 
-    const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
+      const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
 
-    // 3) open popup
-    const popup = openCenteredPopup(authUrl);
-    if (!popup) {
-      // full-page redirect fallback already triggered
-      return;
-    }
+      // 3) open popup
+      const popup = openCenteredPopup(authUrl);
+      if (!popup) return;
 
-    // ✅ No onMessage needed. Backend will do:
-    // window.opener.location.replace('https://myhandle.in/professional/automations?connected=1')
-    // window.close()
-
-    // Optional robustness: if popup closes but opener didn’t get redirected
-    const poll = setInterval(async () => {
-      if (popup.closed) {
-        clearInterval(poll);
-        try {
-          const ok = await checkIgConnection();
-          if (ok) {
-            toast.success("Instagram connected!");
-            fetchPage(0, pageSize);
+      // Poll for closure and re-check
+      const poll = setInterval(async () => {
+        if (popup.closed) {
+          clearInterval(poll);
+          try {
+            const ok = await checkIgConnection();
+            if (ok) {
+              toast.success("Instagram connected!");
+              if (isMdUp) {
+                fetchPage(0, pageSize);
+              } else {
+                setMobilePage(0);
+                fetchMobile(0);
+              }
+            }
+          } finally {
+            setConnectLoading(false);
           }
-        } finally {
-          setConnectLoading(false);
         }
-      }
-    }, 500);
+      }, 500);
 
-    // Safety: auto-close popup after 5 minutes if it’s forgotten
-    setTimeout(() => {
-      try { if (!popup.closed) popup.close(); } catch {}
-    }, 5 * 60 * 1000);
+      setTimeout(() => {
+        try { if (!popup.closed) popup.close(); } catch {}
+      }, 5 * 60 * 1000);
+    } catch (e) {
+      setConnectError(e.message || "Failed to start Meta login");
+      setConnectLoading(false);
+    }
+  }, [META_STATE_URL, checkIgConnection, fetchPage, fetchMobile, pageSize, FB_APP_ID, FB_LOGIN_CONFIG_ID, REDIRECT_URI, isMdUp]);
 
-  } catch (e) {
-    setConnectError(e.message || "Failed to start Meta login");
-    setConnectLoading(false);
-  }
-}, [META_STATE_URL, checkIgConnection, fetchPage, pageSize, FB_APP_ID, FB_LOGIN_CONFIG_ID, REDIRECT_URI]);
+  /** ---- Table columns (md+) ---- */
+  const columns = useMemo(() => {
+    const thumbWidth = isMdUp ? 110 : 84;
 
-
-  /** ---- Table columns ---- */
-  const columns = useMemo(
-    () => [
+    return [
       { field: "sno", headerName: "S.No", width: 90, sortable: false, align: "center", headerAlign: "center" },
       {
         field: "thumbnail",
         headerName: "Thumbnail",
-        width: 110,
+        width: thumbWidth,
         sortable: false,
         renderCell: (params) => (
           <Avatar
@@ -337,13 +505,21 @@ const fetchPage = useCallback(
       {
         field: "totalReplies",
         headerName: "Replies Sent",
-        width: 130,
+        width: 140,
         sortable: false,
-        renderCell: (params) => (
-          <Typography sx={{ textAlign: "center", alignItems: "center", mt: 1.5 }}>
-            {params.value ?? 0}
-          </Typography>
-        ),
+        renderCell: (params) => {
+          const raw = Number(params.value || 0);
+          const pretty = formatNumber(raw, { digits: 1 });
+          return (
+            <Typography
+              sx={{ textAlign: "center", alignItems: "center", mt: 1.5 }}
+              title={raw.toLocaleString()}
+              aria-label={`Replies sent ${raw}`}
+            >
+              {pretty}
+            </Typography>
+          );
+        },
       },
       {
         field: "details",
@@ -370,9 +546,8 @@ const fetchPage = useCallback(
           );
         },
       },
-    ],
-    [navigate]
-  );
+    ];
+  }, [navigate, isMdUp]);
 
   /** ---- Top-level renders ---- */
   if (igConnected === null) {
@@ -393,7 +568,12 @@ const fetchPage = useCallback(
     // Not connected: Connect card using Business Login flow
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 4 }}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          justifyContent="space-between"
+          sx={{ mb: 3, gap: 1.5 }}
+        >
           <Typography sx={{ fontFamily: "Inter", fontSize: 20, fontWeight: 600, letterSpacing: 0.2 }}>
             Automation Section
           </Typography>
@@ -432,7 +612,7 @@ const fetchPage = useCallback(
                 </Typography>
               </Stack>
 
-              {connectError && <Alert severity="error">{connectError}</Alert>}
+              {connectError && <Alert severity="error" sx={{ maxWidth: 560 }}>{connectError}</Alert>}
 
               <Button
                 variant="contained"
@@ -453,60 +633,149 @@ const fetchPage = useCallback(
     );
   }
 
-  // Connected: show table or empty state
+  // Connected and error state
   if (err) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Alert severity="error">{err}</Alert>
       </Box>
     );
   }
 
-  return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 4 }}>
-        <Typography sx={{ fontFamily: "Inter", fontSize: "20px", fontWeight: 600, letterSpacing: 0.2 }}>
-          Automation Section
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/professional/fetch_media")}
-          sx={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 500, textTransform: "none" }}
-        >
-          New Automation
-        </Button>
-      </Stack>
+  // ----- Responsive header bar -----
+  const HeaderBar = (
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      alignItems={{ xs: "flex-start", sm: "center" }}
+      justifyContent="space-between"
+      sx={{ mb: 2.5, gap: 1.25 }}
+    >
+      <Typography sx={{ fontFamily: "Inter", fontSize: "20px", fontWeight: 600, letterSpacing: 0.2 }}>
+        Automation Section
+      </Typography>
+      <Button
+        variant="outlined"
+        startIcon={<AddIcon />}
+        onClick={() => navigate("/professional/fetch_media")}
+        sx={{
+          fontFamily: "Inter",
+          fontSize: "15px",
+          fontWeight: 500,
+          textTransform: "none",
+          alignSelf: { xs: "stretch", sm: "auto" },
+        }}
+      >
+        New Automation
+      </Button>
+    </Stack>
+  );
 
-      <div style={{ width: "100%" }}>
-        {loading && rows.length === 0 ? (
-          <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}>
-            <CircularProgress />
+  // ----- md+ TABLE view -----
+  if (isMdUp) {
+    return (
+      <Box sx={{ p: { xs: 2, md: 3 } }}>
+        {HeaderBar}
+        <div style={{ width: "100%" }}>
+          {loading && rows.length === 0 ? (
+            <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}>
+              <CircularProgress />
+            </Box>
+          ) : !loading && rowCount === 0 ? (
+            <EmptyState onCreate={() => navigate("/professional/fetch_media")} />
+          ) : (
+            <DataGrid
+              rows={rows}
+              columns={columns}
+              pagination
+              paginationMode="server"
+              page={page}
+              onPageChange={(newPage) => setPage(newPage)}
+              pageSize={pageSize}
+              onPageSizeChange={(newSize) => setPageSize(newSize)}
+              rowCount={rowCount}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              autoHeight
+              loading={loading}
+              disableRowSelectionOnClick
+              density="comfortable"
+              sx={{
+                "--DataGrid-containerBackground": theme.palette.background.paper,
+                "& .MuiDataGrid-columnHeaders": {
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                  fontWeight: 700,
+                  bgcolor: "background.paper",
+                },
+                "& .MuiDataGrid-cell": {
+                  alignItems: "center",
+                },
+                "& .MuiTablePagination-root": {
+                  overflowX: "auto",
+                },
+              }}
+            />
+          )}
+        </div>
+      </Box>
+    );
+  }
+
+  // ----- xs/sm MOBILE card view -----
+  return (
+    <Box sx={{ p: 2 }}>
+      {HeaderBar}
+
+      {loading && rows.length === 0 ? (
+        <Box>
+          {[...Array(5)].map((_, i) => (
+            <Card key={i} variant="outlined" sx={{ borderRadius: 2.5, mb: 1.5 }}>
+              <Box sx={{ display: "flex", gap: 1.25, p: 1.25 }}>
+                <Skeleton variant="rounded" width={64} height={64} />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton width="50%" />
+                  <Skeleton width="80%" />
+                  <Skeleton width="30%" />
+                </Box>
+              </Box>
+            </Card>
+          ))}
+        </Box>
+      ) : !loading && rowCount === 0 ? (
+        <EmptyState onCreate={() => navigate("/professional/fetch_media")} />
+      ) : (
+        <>
+          <Box>
+            {rows.map((row) => (
+              <AutomationCard
+                key={row.id}
+                row={row}
+                onDetails={(postId) =>
+                  postId && navigate(`/professional/automation/details/${encodeURIComponent(postId)}`)
+                }
+              />
+            ))}
           </Box>
-        ) : !loading && rowCount === 0 ? (
-          <EmptyState onCreate={() => navigate("/professional/fetch_media")} />
-        ) : (
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            pagination
-            paginationMode="server"
-            page={page}
-            onPageChange={(newPage) => setPage(newPage)}
-            pageSize={pageSize}
-            onPageSizeChange={(newSize) => setPageSize(newSize)}
-            rowCount={rowCount}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            autoHeight
-            loading={loading}
-            disableRowSelectionOnClick
-            sx={{
-              "& .MuiDataGrid-columnHeaders": { fontWeight: 700 },
-              "& .MuiDataGrid-cell": { alignItems: "center" },
-            }}
-          />
-        )}
-      </div>
+
+          {/* Load more for mobile */}
+          {mobileHasMore && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  const next = mobilePage + 1;
+                  setMobilePage(next);
+                  await fetchMobile(next);
+                }}
+                disabled={loading}
+                sx={{ textTransform: "none", borderRadius: 2, px: 2.5, minWidth: 220 }}
+              >
+                {loading ? <CircularProgress size={20} /> : "Load more"}
+              </Button>
+            </Box>
+          )}
+        </>
+      )}
     </Box>
   );
 }
