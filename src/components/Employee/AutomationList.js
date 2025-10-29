@@ -140,15 +140,13 @@ export default function AutomationList() {
 
   // Desktop detection state
   const [isDesktop, setIsDesktop] = useState(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === "undefined") return true;
     return window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches;
   });
 
-  // Listen for viewport changes
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`);
     const handler = (e) => setIsDesktop(e.matches);
-    
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [theme.breakpoints.values.md]);
@@ -183,10 +181,7 @@ export default function AutomationList() {
   const [mobilePage, setMobilePage] = useState(0);
   const [mobileHasMore, setMobileHasMore] = useState(true);
 
-  // ensure we don't refetch mobile page 0 repeatedly
   const mobileInitialLoadedRef = useRef(false);
-
-  // controller must be stable across renders
   const controllerRef = useRef(null);
 
   /* ---- Helpers ---- */
@@ -247,16 +242,17 @@ export default function AutomationList() {
     }
   }, [STATUS_URL]);
 
+  /* 
+   * IMPORTANT FIX:
+   * Do NOT early-return based on igConnected inside fetchers.
+   * On reload, calling setIgConnected(true) and then calling a fetcher
+   * in the same tick could use a stale closure where igConnected is still false/null.
+   * Let the server be the source of truth; if it returns 401/403, flip igConnected to false.
+   */
+
   /* ---- Desktop fetcher ---- */
   const fetchPage = useCallback(
-    async (pageArg = page, limitArg = pageSize) => {
-      if (!igConnected) {
-        setRows([]);
-        setRowCount(0);
-        setLoading(false);
-        return;
-      }
-
+    async (pageArg, limitArg) => {
       setLoading(true);
       setErr("");
 
@@ -268,10 +264,15 @@ export default function AutomationList() {
         const res = await axios.get(AUTOMATIONS_URL, {
           withCredentials: true,
           signal: controller.signal,
-          params: { page: pageArg + 1, limit: limitArg },
+          params: { page: (pageArg ?? page) + 1, limit: limitArg ?? pageSize },
         });
 
-        const { items = [], total = 0, page: serverPage = 1, limit = limitArg } = res.data || {};
+        const {
+          items = [],
+          total = 0,
+          page: serverPage = (pageArg ?? page) + 1,
+          limit = limitArg ?? pageSize,
+        } = res.data || {};
         const startIndex = (serverPage - 1) * limit;
 
         const withSno = items.map((it, idx) => {
@@ -288,6 +289,10 @@ export default function AutomationList() {
         setRowCount(total);
       } catch (e) {
         if (!axios.isCancel(e)) {
+          const status = e?.response?.status;
+          if (status === 401 || status === 403) {
+            setIgConnected(false);
+          }
           setErr(e?.response?.data?.message || e.message || "Failed to load automations");
         }
       } finally {
@@ -295,19 +300,12 @@ export default function AutomationList() {
         setLoading(false);
       }
     },
-    [AUTOMATIONS_URL, igConnected, page, pageSize]
+    [AUTOMATIONS_URL, page, pageSize]
   );
 
   /* ---- Mobile fetcher (load more) ---- */
   const fetchMobile = useCallback(
     async (pageArg = 0, limitArg = 10) => {
-      if (!igConnected) {
-        setRows([]);
-        setRowCount(0);
-        setLoading(false);
-        return;
-      }
-
       // prevent repeated initial fetches of page 0
       if (pageArg === 0 && mobileInitialLoadedRef.current) {
         setLoading(false);
@@ -348,6 +346,10 @@ export default function AutomationList() {
         setMobileHasMore(fetchedCount < total);
       } catch (e) {
         if (!axios.isCancel(e)) {
+          const status = e?.response?.status;
+          if (status === 401 || status === 403) {
+            setIgConnected(false);
+          }
           setErr(e?.response?.data?.message || e.message || "Failed to load automations");
         }
       } finally {
@@ -355,7 +357,7 @@ export default function AutomationList() {
         setLoading(false);
       }
     },
-    [AUTOMATIONS_URL, igConnected]
+    [AUTOMATIONS_URL]
   );
 
   /* ---- Initial mount-only bootstrap ---- */
@@ -366,10 +368,8 @@ export default function AutomationList() {
         setLoading(false);
         return;
       }
-
-      // Fetch initial data based on viewport
       if (isDesktop) {
-        await fetchPage(0, pageSize);
+        await fetchPage(0, pageSize); // uses server as truth; no igConnected guard
       } else {
         mobileInitialLoadedRef.current = false;
         setMobilePage(0);
@@ -377,18 +377,15 @@ export default function AutomationList() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDesktop]); // Re-run when isDesktop changes
+  }, [isDesktop]); // re-run when layout changes
 
   /* ---- Desktop refetch on pagination ---- */
   useEffect(() => {
-    if (!igConnected || !isDesktop) return;
-    
-    // Skip the initial page 0 fetch (handled by bootstrap effect)
-    if (page === 0) return;
-    
+    if (!isDesktop) return;
+    // always fetch; server will 401/403 if not connected
     fetchPage(page, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize]);
+  }, [page, pageSize, isDesktop]);
 
   /* ---- Business Login handler ---- */
   const handleConnectInstagram = useCallback(async () => {
@@ -419,13 +416,12 @@ export default function AutomationList() {
             const ok = await checkIgConnection();
             if (ok) {
               toast.success("Instagram connected!");
-              // re-fetch initial page based on current viewport
               if (isDesktop) {
-                fetchPage(0, pageSize);
+                await fetchPage(0, pageSize);
               } else {
                 mobileInitialLoadedRef.current = false;
                 setMobilePage(0);
-                fetchMobile(0);
+                await fetchMobile(0);
               }
             }
           } finally {
@@ -443,17 +439,7 @@ export default function AutomationList() {
       setConnectError(e.message || "Failed to start Meta login");
       setConnectLoading(false);
     }
-  }, [
-    META_STATE_URL,
-    checkIgConnection,
-    fetchPage,
-    fetchMobile,
-    pageSize,
-    isDesktop,
-    FB_APP_ID,
-    FB_LOGIN_CONFIG_ID,
-    REDIRECT_URI,
-  ]);
+  }, [META_STATE_URL, checkIgConnection, fetchPage, fetchMobile, pageSize, isDesktop, FB_APP_ID, FB_LOGIN_CONFIG_ID, REDIRECT_URI]);
 
   /* ---- Columns (desktop) ---- */
   const columns = useMemo(() => {
