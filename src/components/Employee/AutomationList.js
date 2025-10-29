@@ -1,4 +1,4 @@
-// AutomationList.jsx (JS)
+// AutomationList.jsx
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
@@ -12,8 +12,6 @@ import {
   Card,
   CardContent,
   CardActionArea,
-  Divider,
-  useMediaQuery,
   Skeleton,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -27,7 +25,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-/** ---------- Small components ---------- */
+/* ---------------- Small components ---------------- */
 function EmptyState({ onCreate }) {
   return (
     <Box
@@ -80,19 +78,10 @@ function EmptyState({ onCreate }) {
   );
 }
 
-/** ---------- Mobile card for each automation (xs/sm) ---------- */
+/* ---------------- Mobile card (xs/sm) ---------------- */
 function AutomationCard({ row, onDetails }) {
-  const theme = useTheme();
   return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 2.5,
-        overflow: "hidden",
-        borderColor: "divider",
-        mb: 1.5,
-      }}
-    >
+    <Card variant="outlined" sx={{ borderRadius: 2.5, overflow: "hidden", borderColor: "divider", mb: 1.5 }}>
       <CardActionArea onClick={() => onDetails(row?.postId)} disableRipple>
         <Box sx={{ display: "flex", gap: 1.25, p: 1.25 }}>
           <Avatar
@@ -144,76 +133,84 @@ function AutomationCard({ row, onDetails }) {
   );
 }
 
-/** ---------- Main Screen ---------- */
+/* ---------------- Main Screen ---------------- */
 export default function AutomationList() {
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
+  const isMdUp = /md/.test(theme.breakpoints.keys.join()) // placeholder, real hook below
+  // Proper media query hook:
+  const isDesktop = (function useDesktop() {
+    // inline tiny helper to avoid extra import at callsite
+    const mq = (window && window.matchMedia) ? window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`) : { matches: true };
+    const [desk, setDesk] = useState(mq.matches);
+    useEffect(() => {
+      const handler = (e) => setDesk(e.matches);
+      mq.addEventListener?.("change", handler);
+      return () => mq.removeEventListener?.("change", handler);
+    }, []); // eslint-disable-line
+    return desk;
+  })();
 
-  /** ---- Backend endpoints ---- */
-  const STATUS_URL = "/api/usersOn/instagram-status"; // { instagramConnected: boolean, ... }
-  const META_STATE_URL = "/api/usersOn/meta-state";   // { state }
-  const AUTOMATIONS_URL = "/api/usersOn/automations"; // GET ?page=1&limit=10
+  /* ---- Backend endpoints ---- */
+  const STATUS_URL = "/api/usersOn/instagram-status";
+  const META_STATE_URL = "/api/usersOn/meta-state";
+  const AUTOMATIONS_URL = "/api/usersOn/automations";
 
-  /** ---- Meta app constants ---- */
+  /* ---- Meta app constants ---- */
   const FB_APP_ID = "1360956302356492";
   const FB_LOGIN_CONFIG_ID = "2452082071860610";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
-  /** ---- IG connect state ---- */
-  const [igConnected, setIgConnected] = useState(null); // null = unknown; true/false after check
+  /* ---- IG connect state ---- */
+  const [igConnected, setIgConnected] = useState(null); // null = unknown
   const [igCheckErr, setIgCheckErr] = useState("");
-
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState("");
 
-  /** ---- Table/list state ---- */
+  /* ---- Data state ---- */
   const [rows, setRows] = useState([]);
   const [rowCount, setRowCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // server pagination state (DataGrid is 0-indexed; API is 1-indexed)
-  const [page, setPage] = useState(0);
+  // DataGrid pagination (desktop)
+  const [page, setPage] = useState(0); // 0-indexed
   const [pageSize, setPageSize] = useState(10);
 
   // Mobile "Load more"
   const [mobilePage, setMobilePage] = useState(0);
   const [mobileHasMore, setMobileHasMore] = useState(true);
 
-  // formatNumber helper
-  // formatNumber(12839) -> "12.8k"
-  // formatNumber(1000000) -> "1m"
-  // formatNumber(987654321, { digits: 2 }) -> "987.65m"
+  // ensure we don't refetch mobile page 0 repeatedly
+  const mobileInitialLoadedRef = useRef(false);
+
+  // controller must be stable across renders
+  const controllerRef = useRef(null);
+
+  /* ---- Helpers ---- */
   function formatNumber(input, { digits = 1 } = {}) {
     if (input == null || isNaN(input)) return "0";
     const sign = input < 0 ? "-" : "";
     let n = Math.abs(Number(input));
 
-    const units = ["", "k", "m", "b", "t"]; // thousand, million, billion, trillion
+    const units = ["", "k", "m", "b", "t"];
     let u = 0;
-
     while (n >= 1000 && u < units.length - 1) {
       n /= 1000;
       u++;
     }
-
-    // Use decimals only when abbreviated and value < 100; otherwise no decimals.
     const useDecimals = u > 0 && n < 100;
     const fixed = useDecimals ? n.toFixed(digits) : Math.round(n).toString();
-
-    // remove trailing ".0" (or ".00" if digits > 1)
     const trimmed = fixed.replace(/\.0+$|(\.\d*[1-9])0+$/g, "$1");
-
     return sign + trimmed + units[u];
   }
 
-  /** ---- Helpers ---- */
   const openCenteredPopup = (url) => {
-    const w = 680, h = 760;
+    const w = 680,
+      h = 760;
     const topWin = window.top || window;
-    const y = (topWin.outerHeight / 2 + topWin.screenY) - (h / 2);
-    const x = (topWin.outerWidth / 2 + topWin.screenX) - (w / 2);
+    const y = topWin.outerHeight / 2 + topWin.screenY - h / 2;
+    const x = topWin.outerWidth / 2 + topWin.screenX - w / 2;
 
     const features = [
       `width=${w}`,
@@ -226,14 +223,13 @@ export default function AutomationList() {
 
     const popup = window.open(url, "metaBusinessLogin", features);
     if (!popup || popup.closed || typeof popup.closed === "undefined") {
-      // popup blocked – fallback to full-page redirect
-      window.location.href = url;
+      window.location.href = url; // fallback
       return null;
     }
     return popup;
   };
 
-  /** ---- Initial IG connection check ---- */
+  /* ---- IG connection check ---- */
   const checkIgConnection = useCallback(async () => {
     setIgCheckErr("");
     setIgConnected(null);
@@ -249,23 +245,23 @@ export default function AutomationList() {
     }
   }, [STATUS_URL]);
 
+  /* ---- Initial mount-only bootstrap ---- */
   useEffect(() => {
     (async () => {
       const ok = await checkIgConnection();
-      if (ok) {
-        if (isMdUp) {
-          fetchPage(0, pageSize);
-        } else {
-          fetchMobile(0); // initial mobile fetch
-        }
+      if (!ok) return;
+
+      if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
+        fetchPage(0, pageSize);
+      } else {
+        setMobilePage(0);
+        fetchMobile(0);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMdUp]);
+  }, []); // run once
 
-  /** ---- Fetch automations (with cancellation) ---- */
-  const controllerRef = useRef(null);
-
+  /* ---- Desktop fetcher ---- */
   const fetchPage = useCallback(
     async (pageArg = page, limitArg = pageSize) => {
       if (!igConnected) {
@@ -277,10 +273,7 @@ export default function AutomationList() {
       setLoading(true);
       setErr("");
 
-      // cancel previous in-flight request (if any)
-      if (controllerRef.current) {
-        controllerRef.current.abort();
-      }
+      if (controllerRef.current) controllerRef.current.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
 
@@ -291,13 +284,7 @@ export default function AutomationList() {
           params: { page: pageArg + 1, limit: limitArg },
         });
 
-        const {
-          items = [],
-          total = 0,
-          page: serverPage = 1,
-          limit = limitArg,
-        } = res.data || {};
-
+        const { items = [], total = 0, page: serverPage = 1, limit = limitArg } = res.data || {};
         const startIndex = (serverPage - 1) * limit;
 
         const withSno = items.map((it, idx) => {
@@ -313,19 +300,18 @@ export default function AutomationList() {
         setRows(withSno);
         setRowCount(total);
       } catch (e) {
-        if (axios.isCancel(e)) return;
-        setErr(e?.response?.data?.message || e.message || "Failed to load automations");
-      } finally {
-        if (controllerRef.current === controller) {
-          controllerRef.current = null;
+        if (!axios.isCancel(e)) {
+          setErr(e?.response?.data?.message || e.message || "Failed to load automations");
         }
+      } finally {
+        if (controllerRef.current === controller) controllerRef.current = null;
         setLoading(false);
       }
     },
     [AUTOMATIONS_URL, igConnected, page, pageSize]
   );
 
-  // Mobile fetcher with "Load more" pagination
+  /* ---- Mobile fetcher (load more) ---- */
   const fetchMobile = useCallback(
     async (pageArg = 0, limitArg = 10) => {
       if (!igConnected) {
@@ -334,12 +320,14 @@ export default function AutomationList() {
         return;
       }
 
+      // prevent repeated initial fetches of page 0
+      if (pageArg === 0 && mobileInitialLoadedRef.current) return;
+      if (pageArg === 0) mobileInitialLoadedRef.current = true;
+
       setLoading(true);
       setErr("");
 
-      if (controllerRef.current) {
-        controllerRef.current.abort();
-      }
+      if (controllerRef.current) controllerRef.current.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
 
@@ -350,12 +338,7 @@ export default function AutomationList() {
           params: { page: pageArg + 1, limit: limitArg },
         });
 
-        const {
-          items = [],
-          total = 0,
-          page: serverPage = 1,
-          limit = limitArg,
-        } = res.data || {};
+        const { items = [], total = 0, page: serverPage = 1, limit = limitArg } = res.data || {};
 
         const mapped = items.map((it, idx) => {
           const totalReplies = Number(it.totalReplies || 0);
@@ -366,47 +349,42 @@ export default function AutomationList() {
           };
         });
 
-        if (pageArg === 0) {
-          setRows(mapped);
-        } else {
-          setRows((prev) => [...prev, ...mapped]);
-        }
+        if (pageArg === 0) setRows(mapped);
+        else setRows((prev) => [...prev, ...mapped]);
 
         setRowCount(total);
         const fetchedCount = (pageArg + 1) * limit;
         setMobileHasMore(fetchedCount < total);
       } catch (e) {
-        if (axios.isCancel(e)) return;
-        setErr(e?.response?.data?.message || e.message || "Failed to load automations");
-      } finally {
-        if (controllerRef.current === controller) {
-          controllerRef.current = null;
+        if (!axios.isCancel(e)) {
+          setErr(e?.response?.data?.message || e.message || "Failed to load automations");
         }
+      } finally {
+        if (controllerRef.current === controller) controllerRef.current = null;
         setLoading(false);
       }
     },
     [AUTOMATIONS_URL, igConnected]
   );
 
+  /* ---- Desktop refetch on pagination ---- */
   useEffect(() => {
     if (!igConnected) return;
-    if (isMdUp) {
+    if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
       fetchPage(page, pageSize);
     }
-  }, [igConnected, page, pageSize, fetchPage, isMdUp]);
+  }, [igConnected, page, pageSize, fetchPage, theme.breakpoints.values.md]);
 
-  /** ---- Business Login handler (no FB SDK, no candidates) ---- */
+  /* ---- Business Login handler ---- */
   const handleConnectInstagram = useCallback(async () => {
     setConnectError("");
     setConnectLoading(true);
 
     try {
-      // 1) get signed state
       const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
       const state = stateResp?.state;
       if (!state) throw new Error("Unable to start Meta login");
 
-      // 2) build OAuth URL
       const q = new URLSearchParams({
         client_id: FB_APP_ID,
         redirect_uri: REDIRECT_URI,
@@ -414,14 +392,11 @@ export default function AutomationList() {
         response_type: "code",
         config_id: FB_LOGIN_CONFIG_ID,
       });
-
       const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
 
-      // 3) open popup
       const popup = openCenteredPopup(authUrl);
       if (!popup) return;
 
-      // Poll for closure and re-check
       const poll = setInterval(async () => {
         if (popup.closed) {
           clearInterval(poll);
@@ -429,9 +404,11 @@ export default function AutomationList() {
             const ok = await checkIgConnection();
             if (ok) {
               toast.success("Instagram connected!");
-              if (isMdUp) {
+              // re-fetch initial page based on current viewport
+              if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
                 fetchPage(0, pageSize);
               } else {
+                mobileInitialLoadedRef.current = false;
                 setMobilePage(0);
                 fetchMobile(0);
               }
@@ -443,24 +420,34 @@ export default function AutomationList() {
       }, 500);
 
       setTimeout(() => {
-        try { if (!popup.closed) popup.close(); } catch {}
+        try {
+          if (!popup.closed) popup.close();
+        } catch {}
       }, 5 * 60 * 1000);
     } catch (e) {
       setConnectError(e.message || "Failed to start Meta login");
       setConnectLoading(false);
     }
-  }, [META_STATE_URL, checkIgConnection, fetchPage, fetchMobile, pageSize, FB_APP_ID, FB_LOGIN_CONFIG_ID, REDIRECT_URI, isMdUp]);
+  }, [
+    META_STATE_URL,
+    checkIgConnection,
+    fetchPage,
+    fetchMobile,
+    pageSize,
+    FB_APP_ID,
+    FB_LOGIN_CONFIG_ID,
+    REDIRECT_URI,
+    theme.breakpoints.values.md,
+  ]);
 
-  /** ---- Table columns (md+) ---- */
+  /* ---- Columns (desktop) ---- */
   const columns = useMemo(() => {
-    const thumbWidth = isMdUp ? 110 : 84;
-
     return [
       { field: "sno", headerName: "S.No", width: 90, sortable: false, align: "center", headerAlign: "center" },
       {
         field: "thumbnail",
         headerName: "Thumbnail",
-        width: thumbWidth,
+        width: 110,
         sortable: false,
         renderCell: (params) => (
           <Avatar
@@ -547,9 +534,9 @@ export default function AutomationList() {
         },
       },
     ];
-  }, [navigate, isMdUp]);
+  }, [navigate]);
 
-  /** ---- Top-level renders ---- */
+  /* ---- Top-level renders ---- */
   if (igConnected === null) {
     return (
       <Box sx={{ p: 3 }}>
@@ -565,7 +552,6 @@ export default function AutomationList() {
   }
 
   if (!igConnected) {
-    // Not connected: Connect card using Business Login flow
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Stack
@@ -581,12 +567,7 @@ export default function AutomationList() {
 
         <Card
           elevation={0}
-          sx={{
-            border: "1px dashed",
-            borderColor: "divider",
-            borderRadius: 3,
-            bgcolor: "background.default",
-          }}
+          sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 3, bgcolor: "background.default" }}
         >
           <CardContent>
             <Stack alignItems="center" spacing={2.5} sx={{ py: 3, textAlign: "center" }}>
@@ -633,7 +614,6 @@ export default function AutomationList() {
     );
   }
 
-  // Connected and error state
   if (err) {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -642,7 +622,6 @@ export default function AutomationList() {
     );
   }
 
-  // ----- Responsive header bar -----
   const HeaderBar = (
     <Stack
       direction={{ xs: "column", sm: "row" }}
@@ -670,8 +649,8 @@ export default function AutomationList() {
     </Stack>
   );
 
-  // ----- md+ TABLE view -----
-  if (isMdUp) {
+  // Desktop (DataGrid)
+  if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         {HeaderBar}
@@ -699,7 +678,6 @@ export default function AutomationList() {
               disableRowSelectionOnClick
               density="comfortable"
               sx={{
-                "--DataGrid-containerBackground": theme.palette.background.paper,
                 "& .MuiDataGrid-columnHeaders": {
                   position: "sticky",
                   top: 0,
@@ -707,12 +685,8 @@ export default function AutomationList() {
                   fontWeight: 700,
                   bgcolor: "background.paper",
                 },
-                "& .MuiDataGrid-cell": {
-                  alignItems: "center",
-                },
-                "& .MuiTablePagination-root": {
-                  overflowX: "auto",
-                },
+                "& .MuiDataGrid-cell": { alignItems: "center" },
+                "& .MuiTablePagination-root": { overflowX: "auto" },
               }}
             />
           )}
@@ -721,12 +695,12 @@ export default function AutomationList() {
     );
   }
 
-  // ----- xs/sm MOBILE card view -----
+  // Mobile (cards)
   return (
     <Box sx={{ p: 2 }}>
       {HeaderBar}
 
-      {loading && rows.length === 0 ? (
+      {rows.length === 0 && loading ? (
         <Box>
           {[...Array(5)].map((_, i) => (
             <Card key={i} variant="outlined" sx={{ borderRadius: 2.5, mb: 1.5 }}>
@@ -741,7 +715,7 @@ export default function AutomationList() {
             </Card>
           ))}
         </Box>
-      ) : !loading && rowCount === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState onCreate={() => navigate("/professional/fetch_media")} />
       ) : (
         <>
@@ -757,7 +731,6 @@ export default function AutomationList() {
             ))}
           </Box>
 
-          {/* Load more for mobile */}
           {mobileHasMore && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
               <Button
@@ -772,6 +745,12 @@ export default function AutomationList() {
               >
                 {loading ? <CircularProgress size={20} /> : "Load more"}
               </Button>
+            </Box>
+          )}
+
+          {loading && !mobileHasMore && (
+            <Box sx={{ display: "flex", justifyContent: "center", my: 1 }}>
+              <CircularProgress size={20} />
             </Box>
           )}
         </>
