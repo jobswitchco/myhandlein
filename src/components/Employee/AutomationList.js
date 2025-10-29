@@ -138,25 +138,20 @@ export default function AutomationList() {
   const navigate = useNavigate();
   const theme = useTheme();
 
-  // Proper desktop detection hook
-  const useDesktop = () => {
-    const [isDesktop, setIsDesktop] = useState(() => {
-      if (typeof window === 'undefined') return true;
-      return window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches;
-    });
+  // Desktop detection state
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches;
+  });
 
-    useEffect(() => {
-      const mq = window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`);
-      const handler = (e) => setIsDesktop(e.matches);
-      
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
-    }, []);
-
-    return isDesktop;
-  };
-
-  const isDesktop = useDesktop();
+  // Listen for viewport changes
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`);
+    const handler = (e) => setIsDesktop(e.matches);
+    
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [theme.breakpoints.values.md]);
 
   /* ---- Backend endpoints ---- */
   const STATUS_URL = "/api/usersOn/instagram-status";
@@ -258,6 +253,7 @@ export default function AutomationList() {
       if (!igConnected) {
         setRows([]);
         setRowCount(0);
+        setLoading(false);
         return;
       }
 
@@ -308,11 +304,15 @@ export default function AutomationList() {
       if (!igConnected) {
         setRows([]);
         setRowCount(0);
+        setLoading(false);
         return;
       }
 
       // prevent repeated initial fetches of page 0
-      if (pageArg === 0 && mobileInitialLoadedRef.current) return;
+      if (pageArg === 0 && mobileInitialLoadedRef.current) {
+        setLoading(false);
+        return;
+      }
       if (pageArg === 0) mobileInitialLoadedRef.current = true;
 
       setLoading(true);
@@ -362,25 +362,33 @@ export default function AutomationList() {
   useEffect(() => {
     (async () => {
       const ok = await checkIgConnection();
-      if (!ok) return;
+      if (!ok) {
+        setLoading(false);
+        return;
+      }
 
-      // Use current isDesktop value
+      // Fetch initial data based on viewport
       if (isDesktop) {
-        fetchPage(0, pageSize);
+        await fetchPage(0, pageSize);
       } else {
         mobileInitialLoadedRef.current = false;
         setMobilePage(0);
-        fetchMobile(0);
+        await fetchMobile(0);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once
+  }, [isDesktop]); // Re-run when isDesktop changes
 
   /* ---- Desktop refetch on pagination ---- */
   useEffect(() => {
     if (!igConnected || !isDesktop) return;
+    
+    // Skip the initial page 0 fetch (handled by bootstrap effect)
+    if (page === 0) return;
+    
     fetchPage(page, pageSize);
-  }, [igConnected, page, pageSize, fetchPage, isDesktop]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize]);
 
   /* ---- Business Login handler ---- */
   const handleConnectInstagram = useCallback(async () => {
