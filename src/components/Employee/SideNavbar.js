@@ -864,10 +864,8 @@ export default function SideNavbar({ window }) {
 
           {/* Brand (optional) */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <img src={logo} alt="MyHandle Logo" width="24" height="24" />
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: "1rem" }}>
-              MyHandle
-            </Typography>
+            <img src={logo} alt="MyHandle Logo" width="140" height="60" style={{ display: "block" }} />
+           
           </Box>
         </Toolbar>
       </AppBar>
