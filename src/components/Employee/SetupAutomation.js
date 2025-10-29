@@ -84,6 +84,8 @@ export default function SetupAutomation() {
   const [dmBtnDialogOpen, setDmBtnDialogOpen] = useState(false);
   const [dmButtonDraft, setDmButtonDraft] = useState({ text: "", url: "" });
   const [dmButton, setDmButton] = useState(null); // { text, url } | null
+  const [submitting, setSubmitting] = useState(false);
+
 
   const { id, thumbnail_url: stateThumb, caption: stateCaption } = location.state || {};
   const data = useMemo(() => {
@@ -228,9 +230,6 @@ const handleStartAutomation = async () => {
         }
       : null,
   };
-
-  // UI state hooks you likely already have:
-  // const [submitting, setSubmitting] = useState(false);
 
   try {
     setSubmitting(true);
