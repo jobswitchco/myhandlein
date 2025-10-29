@@ -19,7 +19,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton
+  IconButton,
+  CircularProgress
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import FlightTakeoffOutlinedIcon from "@mui/icons-material/FlightTakeoffOutlined";
@@ -617,25 +618,38 @@ const handleStartAutomation = async () => {
           </Paper>
 
           {/* Start */}
-          <Box sx={{ display: "flex", justifyContent: "center", pt: 2 }}>
-            <Button
-              variant="contained"
-              size="large"
-              onClick={handleStartAutomation}
-              startIcon={<FlightTakeoffOutlinedIcon sx={{ mr: 1 }} />}
-              sx={{
-                minWidth: 220,
-                textTransform: "none",
-                fontFamily: "Inter, ui-sans-serif, system-ui",
-                fontSize: 16,
-                fontWeight: 700,
-                borderRadius: 2.5,
-                boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
-              }}
-            >
-              Start Automation
-            </Button>
-          </Box>
+        <Box sx={{ display: "flex", justifyContent: "center", pt: 2 }}>
+  <Button
+    variant="contained"
+    size="large"
+    onClick={handleStartAutomation}
+    disabled={submitting}
+    aria-busy={submitting ? "true" : "false"}
+    sx={{
+      minWidth: 220,
+      textTransform: "none",
+      fontFamily: "Inter, ui-sans-serif, system-ui",
+      fontSize: 16,
+      fontWeight: 700,
+      borderRadius: 2.5,
+      boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+      gap: 1, // space between icon/spinner and text
+    }}
+  >
+    {submitting ? (
+      <>
+        <CircularProgress size={18} thickness={5} />
+        Starting Automation…
+      </>
+    ) : (
+      <>
+        <FlightTakeoffOutlinedIcon sx={{ mr: 0.5 }} />
+        Start Automation
+      </>
+    )}
+  </Button>
+</Box>
+
         </Stack>
       </Box>
 
