@@ -50,7 +50,7 @@ export default function Hero({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "clamp(100px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px) clamp(16px, 8vw, 86px)",
+padding: "clamp(100px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px) clamp(16px, 8vw, 86px)",
     boxSizing: "border-box",
     fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
     color: "#0b1220",
@@ -110,7 +110,9 @@ const subStyle = {
   color: "#222831",
   margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
   marginTop: "1rem",
-  textAlign: "left"
+  textAlign: "left",
+  padding: isMobile ? "0px 12px 0px 12px" : "0"
+
 };
 
 // inline version for mobile
@@ -139,7 +141,8 @@ const subStyleDataBlock = {
     fontWeight: 800,
     margin: "0 0 clamp(12px, 2vw, 16px) 0",
     fontFamily: "-apple-system, BlinkMacSystemFont, Inter, 'Helvetica Neue', Arial",
-    textAlign: 'left'
+    textAlign: 'left',
+    padding: isMobile ? "0px 12px 0px 12px" : "0"
   };
 
   const mobileHeadlineStyle = {
@@ -156,7 +159,9 @@ const subStyleDataBlock = {
     gap: isMobile ? "0px" : "16px",
     justifyContent: isMobile ? "center" : "flex-start",
     alignItems: "stretch",
-    marginTop: "clamp(8px, 2vw, 16px)"
+    marginTop: "clamp(8px, 2vw, 16px)",
+    padding: isMobile ? "0px 12px 0px 12px" : "0"
+
   };
 
 const inputWrapStyle = {
