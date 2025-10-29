@@ -917,7 +917,7 @@ async function saveAdd() {
             boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
             cursor: "pointer",
             textAlign: "left",
-            minWidth: '100%'
+       
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
@@ -966,7 +966,7 @@ async function saveAdd() {
             boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
             cursor: "pointer",
             textAlign: "left",
-            minWidth: '100%'
+            
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
@@ -1118,7 +1118,7 @@ async function saveAdd() {
         } catch {}
       }
       return (
-        <Paper key={b.id} sx={{ p: 1.5, borderRadius: 2, cursor: "pointer", minWidth: '100%' }} onClick={() => openFormDialog(b)}>
+        <Paper key={b.id} sx={{ p: 1.5, borderRadius: 2, cursor: "pointer" }} onClick={() => openFormDialog(b)}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Box
               sx={{
@@ -1155,7 +1155,6 @@ async function saveAdd() {
           alignItems: "center",
           justifyContent: "space-between",
           borderRadius: 2,
-          minWidth: '100%',
       background: (t) =>
       t.palette.mode === "dark"
         ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
@@ -2202,7 +2201,7 @@ async function saveAdd() {
                   {formFields.map((f, idx) => (
                     <Paper key={f.id} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
                       <Grid container spacing={1} alignItems="center">
-                        <Grid item xs={12} sm={6}>
+                        <Grid sizes={{ xs: 12, sm: 6}}>
                           <TextField
                             fullWidth
                             size="small"
@@ -2222,7 +2221,7 @@ async function saveAdd() {
                           />
                         </Grid> */}
 
-                        <Grid item xs={4} sm={2} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                        <Grid sizes={{ xs: 4, sm : 2}} sx={{ display: "flex", justifyContent: "flex-end" }}>
                           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                             <TextField
                               select
@@ -2246,7 +2245,7 @@ async function saveAdd() {
                           </Box>
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid sizes={{ xs: 12}}>
                           <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
                             <input
                               type="checkbox"
@@ -2263,7 +2262,7 @@ async function saveAdd() {
 
                         {/* Radio options editor: two editable inputs + add option button (replaces comma-field) */}
                         {f.type === "radio" && (
-                          <Grid item xs={12}>
+                          <Grid sizes={{ xs: 12}}>
                             <Box sx={{ mt: 1, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
                               <TextField
                                 size="small"

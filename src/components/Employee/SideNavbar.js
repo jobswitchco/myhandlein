@@ -23,7 +23,7 @@ import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import { deepOrange, green } from "@mui/material/colors";
 import MenuIcon from "@mui/icons-material/Menu";
-import logo from "../../images/myhandle_logo.png";
+import logo from "../../images/myhandle_logo.svg";
 import axios from "axios";
 import { toast } from "react-toastify";
 import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
@@ -181,7 +181,7 @@ export default function SideNavbar({ window }) {
           scrollbarColor: "#CBD5E1 #F3F4F6",
         }}
       >
-        <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 2 }}>
+        <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 0 }}>
           <Link
             to="/professional/dashboard/analytics"
             style={{
@@ -191,18 +191,8 @@ export default function SideNavbar({ window }) {
               color: "inherit",
             }}
           >
-            <img src={logo} alt="MyHandle Logo" width="30" height="auto" style={{ display: "block" }} />
-            <div
-              style={{
-                marginLeft: 8,
-                fontWeight: 700,
-                fontSize: "1.25rem",
-                WebkitBackgroundClip: "text",
-                color: "#000000",
-              }}
-            >
-              MyHandle
-            </div>
+            <img src={logo} alt="MyHandle Logo" width="140" height="60" style={{ display: "block" }} />
+         
           </Link>
         </Toolbar>
 
