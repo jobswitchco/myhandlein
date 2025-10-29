@@ -137,19 +137,26 @@ function AutomationCard({ row, onDetails }) {
 export default function AutomationList() {
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMdUp = /md/.test(theme.breakpoints.keys.join()) // placeholder, real hook below
-  // Proper media query hook:
-  const isDesktop = (function useDesktop() {
-    // inline tiny helper to avoid extra import at callsite
-    const mq = (window && window.matchMedia) ? window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`) : { matches: true };
-    const [desk, setDesk] = useState(mq.matches);
+
+  // Proper desktop detection hook
+  const useDesktop = () => {
+    const [isDesktop, setIsDesktop] = useState(() => {
+      if (typeof window === 'undefined') return true;
+      return window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches;
+    });
+
     useEffect(() => {
-      const handler = (e) => setDesk(e.matches);
-      mq.addEventListener?.("change", handler);
-      return () => mq.removeEventListener?.("change", handler);
-    }, []); // eslint-disable-line
-    return desk;
-  })();
+      const mq = window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`);
+      const handler = (e) => setIsDesktop(e.matches);
+      
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }, []);
+
+    return isDesktop;
+  };
+
+  const isDesktop = useDesktop();
 
   /* ---- Backend endpoints ---- */
   const STATUS_URL = "/api/usersOn/instagram-status";
@@ -244,22 +251,6 @@ export default function AutomationList() {
       return false;
     }
   }, [STATUS_URL]);
-
-  /* ---- Initial mount-only bootstrap ---- */
-  useEffect(() => {
-    (async () => {
-      const ok = await checkIgConnection();
-      if (!ok) return;
-
-      if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
-        fetchPage(0, pageSize);
-      } else {
-        setMobilePage(0);
-        fetchMobile(0);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once
 
   /* ---- Desktop fetcher ---- */
   const fetchPage = useCallback(
@@ -367,13 +358,29 @@ export default function AutomationList() {
     [AUTOMATIONS_URL, igConnected]
   );
 
+  /* ---- Initial mount-only bootstrap ---- */
+  useEffect(() => {
+    (async () => {
+      const ok = await checkIgConnection();
+      if (!ok) return;
+
+      // Use current isDesktop value
+      if (isDesktop) {
+        fetchPage(0, pageSize);
+      } else {
+        mobileInitialLoadedRef.current = false;
+        setMobilePage(0);
+        fetchMobile(0);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once
+
   /* ---- Desktop refetch on pagination ---- */
   useEffect(() => {
-    if (!igConnected) return;
-    if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
-      fetchPage(page, pageSize);
-    }
-  }, [igConnected, page, pageSize, fetchPage, theme.breakpoints.values.md]);
+    if (!igConnected || !isDesktop) return;
+    fetchPage(page, pageSize);
+  }, [igConnected, page, pageSize, fetchPage, isDesktop]);
 
   /* ---- Business Login handler ---- */
   const handleConnectInstagram = useCallback(async () => {
@@ -405,7 +412,7 @@ export default function AutomationList() {
             if (ok) {
               toast.success("Instagram connected!");
               // re-fetch initial page based on current viewport
-              if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
+              if (isDesktop) {
                 fetchPage(0, pageSize);
               } else {
                 mobileInitialLoadedRef.current = false;
@@ -434,10 +441,10 @@ export default function AutomationList() {
     fetchPage,
     fetchMobile,
     pageSize,
+    isDesktop,
     FB_APP_ID,
     FB_LOGIN_CONFIG_ID,
     REDIRECT_URI,
-    theme.breakpoints.values.md,
   ]);
 
   /* ---- Columns (desktop) ---- */
@@ -650,7 +657,7 @@ export default function AutomationList() {
   );
 
   // Desktop (DataGrid)
-  if (window.matchMedia(`(min-width: ${theme.breakpoints.values.md}px)`).matches) {
+  if (isDesktop) {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         {HeaderBar}
