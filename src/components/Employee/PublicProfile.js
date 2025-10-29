@@ -428,7 +428,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
       }
       return (
         <Paper key={b._id || title} elevation={0} sx={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+         minWidth: '100%', display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
           boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: "pointer"
         }} onClick={() => openFormDialog(b)}>
@@ -455,7 +455,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
     if (type === "link" || type === "cta" || !type) {
       return (
         <Paper key={b._id || url || title} elevation={0} sx={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+          minWidth: '100%', display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
           boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: url ? "pointer" : "default"
         }}
@@ -516,7 +516,8 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              borderRadius: 3,
+              borderRadius: 2,
+              minWidth: '100%',
           background: (t) =>
           t.palette.mode === "dark"
             ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
@@ -599,7 +600,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
 
     return (
       <Paper key={b._id || url || title} elevation={0} sx={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        minWidth: '100%', display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
         boxShadow: "0 10px 30px rgba(2,6,23,0.12)"
       }}>

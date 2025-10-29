@@ -213,6 +213,7 @@ export default function Navbar() {
     left: 0,
     right: 0,
     // background: "#FAB12F",
+    background: "#f5f7f8",
     borderTop: "1px solid rgba(15,23,42,0.04)",
     boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
     padding: 12,

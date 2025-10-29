@@ -917,6 +917,7 @@ async function saveAdd() {
             boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
             cursor: "pointer",
             textAlign: "left",
+            minWidth: '100%'
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
@@ -965,6 +966,7 @@ async function saveAdd() {
             boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
             cursor: "pointer",
             textAlign: "left",
+            minWidth: '100%'
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
@@ -1116,7 +1118,7 @@ async function saveAdd() {
         } catch {}
       }
       return (
-        <Paper key={b.id} sx={{ p: 1.5, borderRadius: 2, cursor: "pointer" }} onClick={() => openFormDialog(b)}>
+        <Paper key={b.id} sx={{ p: 1.5, borderRadius: 2, cursor: "pointer", minWidth: '100%' }} onClick={() => openFormDialog(b)}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Box
               sx={{
@@ -1152,7 +1154,8 @@ async function saveAdd() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          borderRadius: 3,
+          borderRadius: 2,
+          minWidth: '100%',
       background: (t) =>
       t.palette.mode === "dark"
         ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
