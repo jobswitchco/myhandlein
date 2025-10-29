@@ -173,6 +173,9 @@ export default function AutomationList() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  // NEW: ensures EmptyState never flashes before first fetch completes
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+
   // DataGrid pagination (desktop)
   const [page, setPage] = useState(0); // 0-indexed
   const [pageSize, setPageSize] = useState(10);
@@ -242,14 +245,6 @@ export default function AutomationList() {
     }
   }, [STATUS_URL]);
 
-  /* 
-   * IMPORTANT FIX:
-   * Do NOT early-return based on igConnected inside fetchers.
-   * On reload, calling setIgConnected(true) and then calling a fetcher
-   * in the same tick could use a stale closure where igConnected is still false/null.
-   * Let the server be the source of truth; if it returns 401/403, flip igConnected to false.
-   */
-
   /* ---- Desktop fetcher ---- */
   const fetchPage = useCallback(
     async (pageArg, limitArg) => {
@@ -297,6 +292,7 @@ export default function AutomationList() {
         }
       } finally {
         if (controllerRef.current === controller) controllerRef.current = null;
+        setHasFetchedOnce(true); // <-- mark first attempt finished (success or error)
         setLoading(false);
       }
     },
@@ -354,6 +350,7 @@ export default function AutomationList() {
         }
       } finally {
         if (controllerRef.current === controller) controllerRef.current = null;
+        setHasFetchedOnce(true); // <-- mark first attempt finished
         setLoading(false);
       }
     },
@@ -365,11 +362,12 @@ export default function AutomationList() {
     (async () => {
       const ok = await checkIgConnection();
       if (!ok) {
+        setHasFetchedOnce(true); // <-- also mark done so EmptyState doesn’t flash from default
         setLoading(false);
         return;
       }
       if (isDesktop) {
-        await fetchPage(0, pageSize); // uses server as truth; no igConnected guard
+        await fetchPage(0, pageSize);
       } else {
         mobileInitialLoadedRef.current = false;
         setMobilePage(0);
@@ -377,12 +375,11 @@ export default function AutomationList() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDesktop]); // re-run when layout changes
+  }, [isDesktop]);
 
   /* ---- Desktop refetch on pagination ---- */
   useEffect(() => {
     if (!isDesktop) return;
-    // always fetch; server will 401/403 if not connected
     fetchPage(page, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, isDesktop]);
@@ -439,7 +436,17 @@ export default function AutomationList() {
       setConnectError(e.message || "Failed to start Meta login");
       setConnectLoading(false);
     }
-  }, [META_STATE_URL, checkIgConnection, fetchPage, fetchMobile, pageSize, isDesktop, FB_APP_ID, FB_LOGIN_CONFIG_ID, REDIRECT_URI]);
+  }, [
+    META_STATE_URL,
+    checkIgConnection,
+    fetchPage,
+    fetchMobile,
+    pageSize,
+    isDesktop,
+    FB_APP_ID,
+    FB_LOGIN_CONFIG_ID,
+    REDIRECT_URI,
+  ]);
 
   /* ---- Columns (desktop) ---- */
   const columns = useMemo(() => {
@@ -650,17 +657,21 @@ export default function AutomationList() {
     </Stack>
   );
 
+  // Gate UI to avoid EmptyState flash before first fetch completes
+  const showInitialSpinner = !hasFetchedOnce || (loading && rows.length === 0);
+  const showEmpty = hasFetchedOnce && !loading && rowCount === 0;
+
   // Desktop (DataGrid)
   if (isDesktop) {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         {HeaderBar}
         <div style={{ width: "100%" }}>
-          {loading && rows.length === 0 ? (
+          {showInitialSpinner ? (
             <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}>
               <CircularProgress />
             </Box>
-          ) : rows.length === 0 ? (
+          ) : showEmpty ? (
             <EmptyState onCreate={() => navigate("/professional/fetch_media")} />
           ) : (
             <DataGrid
@@ -701,7 +712,7 @@ export default function AutomationList() {
     <Box sx={{ p: 2 }}>
       {HeaderBar}
 
-      {rows.length === 0 && loading ? (
+      {showInitialSpinner ? (
         <Box>
           {[...Array(5)].map((_, i) => (
             <Card key={i} variant="outlined" sx={{ borderRadius: 2.5, mb: 1.5 }}>
