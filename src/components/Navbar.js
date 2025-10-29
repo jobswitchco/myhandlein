@@ -76,7 +76,7 @@ export default function Navbar() {
     width: "100%",
     backgroundColor: "#f5f7f8",
     // backgroundColor: "#FAB12F",
-    padding: "8px 15px",
+    padding: "0px 15px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -292,9 +292,9 @@ export default function Navbar() {
 >
   <img
     src={logo}
-    alt="betaFounder Logo"
+    alt="MyHandle Logo"
     width="140"
-    height="80"
+    height="60"
     loading="eager"
     decoding="async"
     style={{ display: "block" }}
