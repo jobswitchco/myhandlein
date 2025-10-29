@@ -937,7 +937,7 @@ export default function SideNavbar({ window }) {
       </Box>
 
       {/* Bottom fixed section */}
-      <Box
+      {/* <Box
         sx={{
           p: 2,
           borderTop: "1px solid #E5E7EB",
@@ -951,9 +951,9 @@ export default function SideNavbar({ window }) {
             zIndex: 1300,
           }),
         }}
-      >
+      > */}
         {/* You can add premium upgrade card or user info here */}
-      </Box>
+      {/* </Box> */}
     </Box>
   );
 
