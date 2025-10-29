@@ -428,7 +428,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
       }
       return (
         <Paper key={b._id || title} elevation={0} sx={{
-         minWidth: '100%', display: "flex", alignItems: "center", justifyContent: "space-between",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
           boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: "pointer"
         }} onClick={() => openFormDialog(b)}>
@@ -455,7 +455,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
     if (type === "link" || type === "cta" || !type) {
       return (
         <Paper key={b._id || url || title} elevation={0} sx={{
-          minWidth: '100%', display: "flex", alignItems: "center", justifyContent: "space-between",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
           boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: url ? "pointer" : "default"
         }}
@@ -516,8 +516,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              borderRadius: 2,
-              minWidth: '100%',
+              borderRadius: 3,
           background: (t) =>
           t.palette.mode === "dark"
             ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
@@ -600,7 +599,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
 
     return (
       <Paper key={b._id || url || title} elevation={0} sx={{
-        minWidth: '100%', display: "flex", alignItems: "center", justifyContent: "space-between",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
         boxShadow: "0 10px 30px rgba(2,6,23,0.12)"
       }}>
@@ -823,7 +822,7 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
             </Grid>
 
 
- <Grid item xs={12} md={4}>
+ <Grid size={{ xs: 12, md: 4}}>
           <Box sx={{ px: { xs: 1.5, sm: 2 }, alignItems: 'center', justifyContent : 'center'}}>
 
 
