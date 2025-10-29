@@ -183,7 +183,7 @@ export default function SideNavbar({ window }) {
       >
         <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 2 }}>
           <Link
-            to="/"
+            to="/professional/dashboard/analytics"
             style={{
               display: "flex",
               alignItems: "center",

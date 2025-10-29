@@ -1344,7 +1344,7 @@ async function saveAdd() {
   return (
 
     <>
-    <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1,  minHeight: '100dvh', overflowY: 'auto', mb: 12  }}>
+    <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1,  minHeight: '100dvh', overflowY: 'auto', mb: 2  }}>
       <ToastContainer />
       {/* ROW 1: FULL WIDTH HEADER */}
           <Paper
