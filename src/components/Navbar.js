@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import logo from "../images/myhandle_logo.png";
+import logo from "../images/myhandle_logo.svg";
 
 export default function Navbar() {
   const [isMobile, setIsMobile] = useState(false);
@@ -292,15 +292,15 @@ export default function Navbar() {
 >
   <img
     src={logo}
-    alt="MyHandle Logo"
-    width="36"
-    height="36"
+    alt="betaFounder Logo"
+    width="140"
+    height="80"
     loading="eager"
     decoding="async"
     style={{ display: "block" }}
   />
-  <div style={brandTextStyle}>myHandle</div>
 </Link>
+
 
 
       {/* CENTER: main nav (centered on large screens) */}
