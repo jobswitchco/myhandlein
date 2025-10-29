@@ -96,14 +96,14 @@ export default function SetupAutomation() {
   const missingThumb = !data.thumbnail;
 
   // Helpers
-  const isValidUrl = (str = "") => {
-    try {
-      const url = new URL(str);
-      return !!url.protocol && !!url.hostname;
-    } catch {
-      return false;
-    }
-  };
+const isValidUrl = (value) => {
+  try {
+    const u = new URL(String(value));
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
 
   // Step 1 handlers
   const handleKeywordKeyDown = (e) => {
@@ -140,67 +140,149 @@ export default function SetupAutomation() {
   };
 
   // Start Automation
-  const handleStartAutomation = async () => {
-    if (keywords.length === 0) {
-      alert("Please add at least one keyword");
-      return;
-    }
-    if (shouldReply === "yes" && !commentReply.trim()) {
-      alert("Please enter a public reply message");
-      return;
-    }
 
-    const dmEnabled = shouldDM === "yes";
-    if (dmEnabled) {
-      if (!dmMessage.trim()) {
-        alert("Please enter the DM message");
-        return;
-      }
-      if (dmButton) {
-        if (!(dmButton.text || "").trim()) {
-          alert("Please enter button text");
-          return;
-        }
-        if (!isValidUrl(dmButton.url)) {
-          alert("Please enter a valid button URL (https://...)");
-          return;
-        }
-      }
-    }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Performs POST with tiny retry for transient errors. Aborts after `timeoutMs`.
+ */
+async function postWithRetry(url, data, { retries = 1, timeoutMs = 12000 } = {}) {
+  let attempt = 0;
+  let lastError;
+
+  while (attempt <= retries) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const payload = {
-        postId: data.id,
-        keywords: [...keywords],
-        commentReply: shouldReply === "yes" ? commentReply.trim() : null,
-        dmEnabled,
-        caption:data.caption,
-        thumbnail: data.thumbnail,
-        dm: dmEnabled
-          ? {
-              message: dmMessage.trim(),
-              button: dmButton ? { text: dmButton.text.trim(), url: dmButton.url.trim() } : undefined,
-            }
-          : null,
-      };
+      const res = await axios.post(url, data, {
+        withCredentials: true,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      lastError = err;
 
-      const res = await axios.post(`${baseUrl}/automation/config`, payload, { withCredentials: true });
-      console.log("Saved automation:", res.data);
-      toast.success("Automation started successfully!");
-      setTimeout(() => {
-        navigate("/professional/automations");
-        
-      }, 2000);
-    } catch (error) {
-      console.error("Error starting automation:", error);
-      const msg =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to start automation. Please try again.";
-      toast.error("Error! Please Try Again");
+      const status = err?.response?.status;
+      const isNetwork = !!err?.code && err.code !== "ERR_BAD_REQUEST"; // axios network/abort
+      const is5xx = status >= 500 && status <= 599;
 
+      // Retry only on network/timeout or 5xx
+      if ((isNetwork || is5xx) && attempt < retries) {
+        const backoff = 500 * Math.pow(2, attempt); // 500ms, 1000ms...
+        await sleep(backoff);
+        attempt += 1;
+        continue;
+      }
+      break;
     }
+  }
+  throw lastError;
+}
+
+const handleStartAutomation = async () => {
+  // UI validations
+  if (keywords.length === 0) {
+    toast.error("Please add at least one keyword");
+    return;
+  }
+  if (shouldReply === "yes" && !commentReply.trim()) {
+    toast.error("Please enter a public reply message");
+    return;
+  }
+
+  const dmEnabled = shouldDM === "yes";
+  if (dmEnabled) {
+    if (!dmMessage.trim()) {
+      toast.error("Please enter the DM message");
+      return;
+    }
+    if (dmButton) {
+      if (!(dmButton.text || "").trim()) {
+        toast.error("Please enter button text");
+        return;
+      }
+      if (!isValidUrl(dmButton.url)) {
+        toast.error("Please enter a valid button URL (https://...)");
+        return;
+      }
+    }
+  }
+
+  const payload = {
+    postId: data.id,
+    keywords: [...keywords],
+    commentReply: shouldReply === "yes" ? commentReply.trim() : null,
+    dmEnabled,
+    caption: data.caption,
+    thumbnail: data.thumbnail,
+    dm: dmEnabled
+      ? {
+          message: dmMessage.trim(),
+          button: dmButton
+            ? { text: dmButton.text.trim(), url: dmButton.url.trim() }
+            : undefined,
+        }
+      : null,
   };
+
+  // UI state hooks you likely already have:
+  // const [submitting, setSubmitting] = useState(false);
+
+  try {
+    setSubmitting(true);
+
+    const res = await postWithRetry(`${baseUrl}/automation/config`, payload, {
+      retries: 1,      // try once more for transient errors
+      timeoutMs: 12000 // abort after 12s
+    });
+
+    const { data: body } = res;
+    const createdOrUpdated = body?.meta?.created ? "created" : "updated";
+    toast.success(`Automation ${createdOrUpdated} successfully`);
+
+    // Optional: surface webhook subscription outcome
+    const sub = body?.meta?.subscription;
+    if (sub?.attempted && !sub?.success) {
+      // Non-blocking notice
+      toast.info("Saved, but webhook subscription will be retried later.");
+    }
+
+    // Navigate after a short delay (gives toast time to render)
+    setTimeout(() => {
+      navigate("/professional/automations");
+    }, 800);
+  } catch (error) {
+    // Centralized error handling
+    console.error("Error starting automation:", error);
+
+    const status = error?.response?.status;
+    const code = error?.response?.data?.code;
+    const serverMsg = error?.response?.data?.message;
+
+    if (status === 400) {
+      toast.error(serverMsg || "Invalid input. Please review and try again.");
+    } else if (status === 401) {
+      toast.error("Session expired. Please log in again.");
+      // optionally redirect to login
+      // navigate("/login");
+    } else if (status === 409 || code === "DUPLICATE_AUTOMATION") {
+      toast.error("An automation for this post already exists.");
+    } else if (status >= 500 && status <= 599) {
+      toast.error("Server error. Please try again in a moment.");
+    } else if (error.code === "ERR_CANCELED") {
+      toast.error("Request timed out. Please try again.");
+    } else {
+      toast.error(serverMsg || "Failed to start automation. Please try again.");
+    }
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   // Shared styles
   const cardSurface = {

@@ -1711,10 +1711,32 @@ async function subscribePageToInstagramWebhooks(fbPageId, fbLongLivedToken, user
 
 
 router.post("/automation/config", authenticateToken, async (req, res) => {
+  // --- Utility helpers ---
+  const sendError = (res, status, code, message, details = null) => {
+    return res.status(status).json({
+      success: false,
+      code, // machine-readable
+      message, // user-friendly
+      ...(details ? { details } : {}), // optional debugging info
+    });
+  };
+
+  const isValidUrl = (value) => {
+    try {
+      const u = new URL(String(value));
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  const uniqTrimmed = (arr = []) =>
+    [...new Set(arr.map((k) => String(k || "").trim()).filter(Boolean))];
+
   try {
     const userId = req.user?.user_id || req.user?._id;
     if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return sendError(res, 401, "UNAUTHORIZED", "Unauthorized");
     }
 
     const {
@@ -1724,37 +1746,32 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       dmEnabled,
       caption,
       thumbnail,
-      dm, // optional when dmEnabled = false
+      dm, // optional when dmEnabled=false
       media, // optional { thumbnail, caption }
       status, // optional override
     } = req.body || {};
 
-    // Basic validation
+    // --- Validation ---
     if (!postId || !String(postId).trim()) {
-      return res.status(400).json({ success: false, message: "postId is required" });
+      return sendError(res, 400, "INVALID_POST_ID", "postId is required");
     }
     if (!Array.isArray(keywords) || keywords.length === 0) {
-      return res.status(400).json({ success: false, message: "At least one keyword is required" });
+      return sendError(res, 400, "INVALID_KEYWORDS", "At least one keyword is required");
     }
 
-    // Normalize
-    const normalizedKeywords = [...new Set(
-      keywords.map((k) => String(k || "").trim()).filter(Boolean)
-    )];
-
+    const normalizedKeywords = uniqTrimmed(keywords);
     const normalizedReply = commentReply ? String(commentReply).trim() : null;
-    const hasPublicReply = typeof normalizedReply === "string" && normalizedReply.length > 0;
+    const hasPublicReply = !!(normalizedReply && normalizedReply.length > 0);
 
-
-    // DM validation/shape
+    // --- DM Validation / Shape ---
     let dmPayload = { enabled: !!dmEnabled };
     if (dmEnabled === true) {
       if (!dm || typeof dm !== "object") {
-        return res.status(400).json({ success: false, message: "dm object is required when dmEnabled is true" });
+        return sendError(res, 400, "DM_OBJECT_REQUIRED", "dm object is required when dmEnabled is true");
       }
       const message = String(dm.message || "").trim();
       if (!message) {
-        return res.status(400).json({ success: false, message: "dm.message is required" });
+        return sendError(res, 400, "DM_MESSAGE_REQUIRED", "dm.message is required");
       }
 
       let button;
@@ -1762,84 +1779,118 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
         const text = String(dm.button.text || "").trim();
         const url = String(dm.button.url || "").trim();
         if (!text) {
-          return res.status(400).json({ success: false, message: "dm.button.text is required when button is provided" });
+          return sendError(res, 400, "DM_BUTTON_TEXT_REQUIRED", "dm.button.text is required when button is provided");
         }
         if (!isValidUrl(url)) {
-          return res.status(400).json({ success: false, message: "Valid dm.button.url is required" });
+          return sendError(res, 400, "DM_BUTTON_URL_INVALID", "Valid dm.button.url is required");
         }
         button = { text, url };
       }
-
       dmPayload = { enabled: true, message, ...(button ? { button } : {}) };
     }
 
-    // Optional media snapshot
+    // --- Media Payload (Optional) ---
     const mediaPayload = media
       ? {
-          thumbnail: media.thumbnail ? String(media.thumbnail).trim() : undefined,
-          caption: media.caption ? String(media.caption).trim() : undefined,
+          ...(media.thumbnail ? { thumbnail: String(media.thumbnail).trim() } : {}),
+          ...(media.caption ? { caption: String(media.caption).trim() } : {}),
         }
       : undefined;
 
-    // Prepare doc for upsert
+    // --- Prepare Upsert Payload ---
     const update = {
       platform: "instagram",
       keywords: normalizedKeywords,
       publicReply: normalizedReply || null,
       hasPublicReply,
       dm: dmPayload,
-      caption,
-      thumbnail,
+      caption: caption ?? null,
+      thumbnail: thumbnail ?? null,
       ...(mediaPayload ? { media: mediaPayload } : {}),
-      ...(status ? { status } : {}), // allow overriding status if you pass it
+      ...(status ? { status } : {}),
+      updated_at: new Date(),
     };
 
-    // Upsert by (userId, postId)
+    const query = { userId, postId: String(postId) };
+    const existing = await Automation.findOne(query).select("_id").lean();
+
     const doc = await Automation.findOneAndUpdate(
-      { userId, postId: String(postId) },
-      { $set: update, $setOnInsert: { userId, postId: String(postId) } },
+      query,
+      {
+        $set: update,
+        $setOnInsert: {
+          userId,
+          postId: String(postId),
+          created_at: new Date(),
+        },
+      },
       { upsert: true, new: true }
-    );
+    ).lean();
 
-    const user = await USER.findById(userId).select("fbPageId fbLongLivedToken automationFeedSubscribed").lean();
-    const fbPageId = user.fbPageId;
-    const fbLongLivedToken = user.fbLongLivedToken;
+    const created = !existing;
 
-    let automationFeedSubscribed = false;
+    // --- Fetch User & Handle Webhook Subscription ---
+    const user = await USER.findById(userId)
+      .select("fbPageId fbLongLivedToken automationFeedSubscribed")
+      .lean();
 
-
-    if(!user.automationFeedSubscribed){
-
-    await subscribePageToInstagramWebhooks(fbPageId, fbLongLivedToken, userId);
-    automationFeedSubscribed = true;
-      await USER.findByIdAndUpdate(
-      userId,
-      { automationFeedSubscribed, updated_at: new Date() },
-      { new: false }
-    );
+    if (!user) {
+      return sendError(res, 500, "USER_NOT_FOUND", "User not found");
     }
 
-    return res.json({
+    let subscription = { attempted: false, success: false, reason: null };
+
+    if (!user.automationFeedSubscribed) {
+      subscription.attempted = true;
+
+      if (!user.fbPageId || !user.fbLongLivedToken) {
+        subscription.reason = "Missing fbPageId or fbLongLivedToken";
+      } else {
+        try {
+          await subscribePageToInstagramWebhooks(user.fbPageId, user.fbLongLivedToken, userId);
+          await USER.findByIdAndUpdate(
+            userId,
+            { automationFeedSubscribed: true, updated_at: new Date() },
+            { new: false }
+          );
+          subscription.success = true;
+        } catch (e) {
+          subscription.reason = e?.message || "Subscription failed";
+        }
+      }
+    } else {
+      subscription = { attempted: false, success: true, reason: null };
+    }
+
+    // --- Success Response ---
+    return res.status(created ? 201 : 200).json({
       success: true,
-      message: "Automation configuration saved",
+      code: "AUTOMATION_SAVED",
+      message: created ? "Automation created" : "Automation updated",
       data: doc,
+      meta: {
+        created,
+        subscription,
+      },
     });
   } catch (err) {
     console.error("POST /automation/config error:", err);
-    // Handle unique index race condition gracefully
     if (err?.code === 11000) {
       return res.status(409).json({
         success: false,
+        code: "DUPLICATE_AUTOMATION",
         message: "An automation for this post already exists for this user",
       });
     }
     return res.status(500).json({
       success: false,
+      code: "SERVER_ERROR",
       message: "Failed to save automation config",
-      error: err?.message || String(err),
+      details: err?.message || String(err),
     });
   }
 });
+
 
 
 // GET /usersOn/automations

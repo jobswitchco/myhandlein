@@ -214,7 +214,7 @@ export default function AutomationList() {
     // 2) build OAuth URL
     const q = new URLSearchParams({
       client_id: FB_APP_ID,
-      redirect_uri: REDIRECT_URI, // must equal your /meta-callback URL exactly
+      redirect_uri: REDIRECT_URI,
       state,
       response_type: "code",
       config_id: FB_LOGIN_CONFIG_ID,
