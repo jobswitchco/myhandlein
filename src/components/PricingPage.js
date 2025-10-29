@@ -46,7 +46,7 @@ const PLAN = {
 
 // Core myHandle features — short, scannable, influencer-friendly
 const features = [
-  'Unlimited links',
+  'Unlimited Links',
   'Unlimited Contacts',
   'Unlimited Automated Instagram replies',
   'Unlimited Automated Instagram DMs',
