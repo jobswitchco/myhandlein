@@ -304,7 +304,7 @@ export default function PricingPage() {
       </Box>
 
       {/* Mobile sticky CTA (appears only on very small screens) */}
-      {isMobile && (
+      {/* {isMobile && (
         <Box
           sx={{
             position: 'sticky',
@@ -337,7 +337,7 @@ export default function PricingPage() {
             Start for ₹399
           </Button>
         </Box>
-      )}
+      )} */}
 
       <Footer />
     </>
