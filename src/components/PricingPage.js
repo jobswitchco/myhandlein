@@ -63,7 +63,7 @@ const features = [
 
 // Map each feature string to a specific icon
 const featureIcons = {
-  'Unlimited links': LinkRoundedIcon,
+  'Unlimited Links': LinkRoundedIcon,
   'Unlimited Contacts': ContactsRoundedIcon,
   'Unlimited Automated Instagram replies': QuickreplyRoundedIcon,
   'Unlimited Automated Instagram DMs': SendRoundedIcon,
