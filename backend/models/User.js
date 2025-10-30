@@ -24,7 +24,7 @@ const User_Schema = new Schema({
   igFollowsCount: { type: Number },
   igMediaCount: { type: Number },
   fbLongLivedToken: { type: String },
-  fbTokenExpiry: { type: Date },
+  fbLongLivedTokenExpiry: { type: Date },
   igBiography: {type : String},
   fbPageAccessToken: {type : String},
   has_profile_pic_ig: { type: Boolean, default: false },

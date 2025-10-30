@@ -1146,16 +1146,37 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       },
     });
 
-    console.log('long token response : ', llResp.data);
+    console.log("long token response:", llResp.data);
 
     const fbLongLivedToken = llResp.data?.access_token;
-    const expiresInSec = llResp.data?.expires_in;
-    const fbTokenExpiry = expiresInSec ? new Date(Date.now() + expiresInSec * 1000) : null;
+    if (!fbLongLivedToken) throw new Error("Failed to obtain long-lived token");
+
+    // ✅ Compute expiry: use API expires_in if present, else fallback to 58 days.
+    const expiresInSecRaw = llResp.data?.expires_in;
+    const expiresInSec = Number.isFinite(Number(expiresInSecRaw)) ? Number(expiresInSecRaw) : null;
+
+    const nowMs = Date.now();
+    let fbLongLivedTokenExpiry;
+
+    if (expiresInSec && expiresInSec > 0) {
+      fbLongLivedTokenExpiry = new Date(nowMs + expiresInSec * 1000);
+      
+    } else {
+      // ~60 days typical validity; set conservative 58 days
+      const FIFTY_EIGHT_DAYS_MS = 58 * 24 * 60 * 60 * 1000;
+      fbLongLivedTokenExpiry = new Date(nowMs + FIFTY_EIGHT_DAYS_MS);
+     
+    }
 
     // Save early so we always persist tokens even if next step fails
     await USER.findByIdAndUpdate(
       userId,
-      { fbLongLivedToken, fbTokenExpiry, updated_at: new Date() },
+      {
+        fbLongLivedToken,
+        fbLongLivedTokenExpiry,
+      
+        updated_at: new Date(),
+      },
       { new: false }
     );
 
@@ -1171,13 +1192,13 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     if (!pages.length) throw new Error("No Facebook Pages found for this user.");
 
     // Pick first Page that has linked IG account
-    const pageWithIG = pages.find(p => p?.instagram_business_account?.id);
+    const pageWithIG = pages.find((p) => p?.instagram_business_account?.id);
     if (!pageWithIG) throw new Error("No Page with a linked Instagram Business/Creator account found.");
 
     const fbPageId = pageWithIG.id;
     const igUserId = pageWithIG.instagram_business_account.id;
 
-    // 5️⃣ Fetch Page access token explicitly (since it’s not in /me/accounts)
+    // 5️⃣ Fetch Page access token explicitly
     const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${fbPageId}`, {
       params: {
         fields: "access_token",
@@ -1208,7 +1229,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const has_profile_pic_ig = Boolean(igProfilePic);
 
     // 7️⃣ Save all data to USER
-    const updatedUser = await USER.findByIdAndUpdate(
+   await USER.findByIdAndUpdate(
       userId,
       {
         instagramConnected: true,
@@ -1236,18 +1257,18 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       followersCount: igFollowersCount,
     };
 
-   res.type("html").send(`<!doctype html>
+    res
+      .type("html")
+      .send(`<!doctype html>
 <html><head><meta charset="utf-8"><title>Connected</title></head>
 <body>
 <script>
   try {
     if (window.opener && !window.opener.closed) {
-      // Navigate opener (allowed even cross-origin)
       window.opener.location.replace(${JSON.stringify(OPENER_URL)});
     }
   } catch (e) {}
   try { window.close(); } catch (e) {}
-  // Fallback UX:
   document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
 </script>
 </body></html>`);
@@ -1257,13 +1278,16 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     res.set("Content-Type", "text/html");
     res.send(`<!doctype html><script>
       (function () {
-        var payload = { type: "meta-auth", success: false, error: ${JSON.stringify(err?.message || "Meta OAuth error")} };
+        var payload = { type: "meta-auth", success: false, error: ${JSON.stringify(
+          err?.message || "Meta OAuth error"
+        )} };
         if (window.opener) window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
         window.close();
       })();
     </script>`);
   }
 });
+
 
 
 
