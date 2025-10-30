@@ -1207,6 +1207,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     });
 
     const fbPageAccessToken = pageTokResp.data?.access_token;
+
+    console.log('fbPageAccessToken :', pageTokResp.data);
     if (!fbPageAccessToken) {
       throw new Error("Unable to fetch Page access token. Check your pages_* permissions.");
     }
