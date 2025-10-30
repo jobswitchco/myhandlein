@@ -1095,8 +1095,6 @@ router.post("/meta-state", authenticateToken, async (req, res) => {
   try {
 
     const userId = req.user?.user_id;
-
-    console.log('meta-state hit : ', userId);
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
     const token = jwt.sign({ uid: String(userId) }, META_STATE_SECRET, { expiresIn: "10m" });
@@ -1147,6 +1145,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
         fb_exchange_token: shortUserToken,
       },
     });
+
+    console.log('long token response : ', llResp.data);
 
     const fbLongLivedToken = llResp.data?.access_token;
     const expiresInSec = llResp.data?.expires_in;
