@@ -72,6 +72,11 @@ const upload = multer({
   },
 });
 const IPDATA_KEY = process.env.IPDATA_KEY;
+const META_APP_ID = process.env.META_APP_ID;
+const META_APP_SECRET = process.env.META_APP_SECRET;
+const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
+const META_STATE_SECRET = "change_me_super_secret";
+
 const OID = (v) => new mongoose.Types.ObjectId(String(v));
 const actorKey = (model, id) => `${model}:${id.toString()}`;
 
@@ -370,6 +375,60 @@ const ig = axios.create({
   baseURL: `https://graph.facebook.com/${IG_API_VERSION}`,
   timeout: 20000,
 });
+
+
+const FB_API = "https://graph.facebook.com/v24.0";
+const MS_DAY = 24 * 60 * 60 * 1000;
+const FALLBACK_58_DAYS_MS = 58 * MS_DAY;
+
+function daysLeft(expiry) {
+  if (!expiry) return -Infinity; // force refresh if unknown
+  return Math.floor((new Date(expiry).getTime() - Date.now()) / MS_DAY);
+}
+
+async function refreshFacebookTokensIfNeeded(user) {
+  // Only attempt if we have a user token on file
+  if (!user?.fbLongLivedToken) return null;
+
+  const remaining = daysLeft(user.fbLongLivedTokenExpiry);
+  if (remaining >= 28) return null; // still plenty of time
+
+  // Refresh long-lived user token
+  const llResp = await axios.get(`${FB_API}/oauth/access_token`, {
+    params: {
+      grant_type: "fb_exchange_token",
+      client_id: process.env.META_APP_ID || META_APP_ID,
+      client_secret: process.env.META_APP_SECRET || META_APP_SECRET,
+      fb_exchange_token: user.fbLongLivedToken,
+    },
+  });
+
+  const newUserLL = llResp.data?.access_token;
+  if (!newUserLL) throw new Error("Failed to refresh long-lived user token");
+
+  const newUserExpiry = new Date(Date.now() + FALLBACK_58_DAYS_MS);
+  
+  // Re-fetch Page token (ties to the user token)
+  let newPageToken = user.fbPageAccessToken || null;
+  if (user.fbPageId) {
+    const pageTokResp = await axios.get(`${FB_API}/${user.fbPageId}`, {
+      params: { fields: "access_token", access_token: newUserLL },
+    });
+    newPageToken = pageTokResp.data?.access_token || newPageToken;
+  }
+
+  const patch = {
+    fbLongLivedToken: newUserLL,
+    fbLongLivedTokenExpiry: newUserExpiry,
+    fbPageAccessToken: newPageToken,
+    fbLastRefreshAt: new Date(),
+    fbNeedsReconnect: false,
+    updated_at: new Date(),
+  };
+
+  await USER.findByIdAndUpdate(user._id, patch);
+  return patch; // optional return if you want to use in-memory
+}
 
 
 
@@ -1083,12 +1142,7 @@ const FRONTEND_ORIGIN = "https://myhandle.in"; // your app origin
 const OPENER_URL = `${FRONTEND_ORIGIN}/professional/automations?connected=1`;
 
 
-// NOTE: keep secrets in env vars in real code
-const META_APP_ID = process.env.META_APP_ID;
-const META_APP_SECRET = process.env.META_APP_SECRET;
-const META_REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
-const META_STATE_SECRET = "change_me_super_secret";
 
 /** 1) FE asks for a signed state token (no cookies involved) */
 router.post("/meta-state", authenticateToken, async (req, res) => {
@@ -1611,8 +1665,7 @@ router.get("/instagram/media", authenticateToken, async (req, res) => {
       });
     }
 
-    const fields =
-      "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
+    const fields ="id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
     const limit = 25;
     const after = req.query.after
       ? `&after=${encodeURIComponent(req.query.after)}`
@@ -1966,32 +2019,42 @@ router.get("/automations", authenticateToken, async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
+    // 🔁 Check & refresh FB tokens if expiring in < 28 days (or missing)
+    try {
+      const user = await USER.findById(userId)
+        .select("_id fbLongLivedToken fbLongLivedTokenExpiry fbPageId fbPageAccessToken instagramConnected")
+        .lean();
+
+      if (user?.instagramConnected) {
+        await refreshFacebookTokensIfNeeded(user);
+      }
+    } catch (e) {
+      // Don’t block the main response; just log and continue.
+      // If token is invalid/expired (e.g., OAuthException code 190), you could mark a reconnect flag here.
+      console.error("FB token refresh check failed:", e?.response?.data || e.message || e);
+      // Optional: await User.findByIdAndUpdate(userId, { fbNeedsReconnect: true, fbLastRefreshError: e?.response?.data || e?.message, updated_at: new Date() });
+    }
+
+    // ⬇️ Your existing pagination + aggregation logic
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
     const query = { userId };
-    const projection = "postId status createdAt caption thumbnail"; // adjust if your schema differs
+    const projection = "postId status createdAt caption thumbnail";
     const sort = { createdAt: -1 };
 
     const [total, docs] = await Promise.all([
       Automation.countDocuments(query),
-      Automation.find(query)
-        .select(projection)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Automation.find(query).select(projection).sort(sort).skip(skip).limit(limit).lean(),
     ]);
 
-    const automationIds = docs.map(d => d._id);
+    const automationIds = docs.map((d) => d._id);
 
-    // Aggregate unique commentId count per automationId
     let countsByAutomationId = {};
     if (automationIds.length > 0) {
       const counts = await RepliedComment.aggregate([
         { $match: { automationId: { $in: automationIds } } },
-        // distinct commentId per automationId:
         { $group: { _id: { automationId: "$automationId", commentId: "$commentId" } } },
         { $group: { _id: "$_id.automationId", totalReplies: { $sum: 1 } } },
       ]);
@@ -2005,10 +2068,10 @@ router.get("/automations", authenticateToken, async (req, res) => {
     const items = (docs || []).map((d) => ({
       _id: d._id,
       postId: d.postId,
-      status: d.status,                 // "active" | "inactive"
+      status: d.status,
       caption: d.caption ?? null,
       thumbnail: d.thumbnail ?? null,
-      createdAt: d.createdAt,           // ISO; format on client
+      createdAt: d.createdAt,
       totalReplies: countsByAutomationId[String(d._id)] ?? 0,
     }));
 

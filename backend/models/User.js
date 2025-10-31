@@ -25,9 +25,11 @@ const User_Schema = new Schema({
   igMediaCount: { type: Number },
   fbLongLivedToken: { type: String },
   fbLongLivedTokenExpiry: { type: Date },
+  fbLastRefreshAt: { type: Date },
   igBiography: {type : String},
   fbPageAccessToken: {type : String},
   has_profile_pic_ig: { type: Boolean, default: false },
+  fbNeedsReconnect: { type: Boolean },
 
   automationFeedSubscribed : {type : Boolean, default : false },
 
