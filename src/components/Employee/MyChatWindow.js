@@ -335,7 +335,7 @@ export default function MyChatWindow({
   return (
     <Box 
       sx={{ 
-        bgcolor: "#e5ddd5",
+        background: "transparent",
         height: "100%",
         width: "100%",
         display: "flex",
