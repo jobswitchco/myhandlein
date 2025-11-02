@@ -336,7 +336,7 @@ export default function MyChatWindow({
     <Box 
       sx={{ 
         bgcolor: "#FFFFFF",
-        height: "100vh", // Fixed viewport height
+        height: isMobile ? "80vh" : '100vh',
         width: "100%",
         display: "flex",
         flexDirection: "column",
