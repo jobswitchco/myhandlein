@@ -181,7 +181,7 @@ export default function MyInbox() {
               zIndex: 1
             }}
           >
-            <Typography variant="h5" fontWeight="bold">
+            <Typography fontWeight="bold">
               Messages
             </Typography>
             <Typography variant="caption" sx={{ opacity: 0.9, fontSize: "0.85rem" }}>
@@ -527,8 +527,8 @@ export default function MyInbox() {
         sx={{ 
           bgcolor: "#1976d2", 
           color: "white",
-          py: { xs: 2, sm: 3 },
-          px: { xs: 2, sm: 3 },
+          py: { xs: 1, sm: 2 },
+          px: { xs: 2, sm: 2 },
           position: "sticky",
           top: 0,
           zIndex: 10,
@@ -537,9 +537,10 @@ export default function MyInbox() {
       >
         <Container maxWidth="xl">
           <Typography 
-            variant="h5"
             fontWeight="bold"
             gutterBottom
+            sx={{ fontFamily: 'Inter', fontSize: '18px'}}
+
           >
             Messages
           </Typography>
@@ -677,8 +678,8 @@ export default function MyInbox() {
                         <Avatar 
                           sx={{ 
                             bgcolor: "#1976d2",
-                            width: { xs: 48, sm: 56 },
-                            height: { xs: 48, sm: 56 },
+                              width: { xs: 36, sm: 46 },
+                            height: { xs: 36, sm: 46 },
                             fontSize: { xs: "1.1rem", sm: "1.3rem" },
                             flexShrink: 0
                           }}
@@ -688,9 +689,8 @@ export default function MyInbox() {
                         
                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                           <Typography 
-                            variant="h6" 
                             sx={{ 
-                              fontSize: { xs: "1rem", sm: "1.1rem" },
+                              fontSize: { xs: "14px", sm: "1.1rem" },
                               fontWeight: 600,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
