@@ -357,14 +357,21 @@ export default function MyChatWindow({
       <Box
         ref={scrollRef}
         sx={{
-          height: embedded ? "calc(100vh - 200px)" : 420,
+          flexGrow: 1,
+          height: embedded 
+            ? isMobile 
+              ? "calc(100vh - 220px)" // Mobile: Account for AppBar + input box
+              : "calc(100vh - 140px)"  // Desktop
+            : 420,
           overflowY: "auto",
           bgcolor: "#e5ddd5",
           p: 2,
-          borderRadius: 1,
+          borderRadius: embedded ? 0 : 1,
           display: "flex",
           flexDirection: "column",
-          gap: 1
+          gap: 1,
+          WebkitOverflowScrolling: "touch",
+          // mb: isMobile && embedded ? "80px" : 0
         }}
       >
         {messages.length === 0 ? (
@@ -446,7 +453,24 @@ export default function MyChatWindow({
         )}
       </Box>
 
-      <Box display="flex" gap={1} sx={{ mt: 2 }}>
+       <Box 
+        display="flex" 
+        gap={1} 
+        sx={{ 
+          mt: isMobile && embedded ? 0 : 2,
+          p: isMobile && embedded ? 2 : 0,
+          bgcolor: "white",
+          ...(isMobile && embedded && {
+            position: "sticky",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            borderTop: "1px solid #e0e0e0",
+            boxShadow: "0 -2px 8px rgba(0,0,0,0.1)"
+          })
+        }}
+      >
         <TextField
           value={text}
           onChange={(e) => {
@@ -470,11 +494,16 @@ export default function MyChatWindow({
             }
           }}
         />
-        <Button 
+         <Button 
           variant="contained" 
           endIcon={<SendIcon />} 
           onClick={sendMessage}
-          sx={{ borderRadius: "24px", minWidth: "100px" }}
+          size={isMobile ? "small" : "medium"}
+          sx={{ 
+            borderRadius: "24px", 
+            minWidth: isMobile ? "80px" : "100px",
+            flexShrink: 0
+          }}
         >
           Send
         </Button>

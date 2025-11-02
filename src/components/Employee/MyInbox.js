@@ -420,9 +420,9 @@ export default function MyInbox() {
   // Mobile: Full screen chat when conversation selected
   if (selectedConv) {
     return (
-      <Box sx={{ height: "100vh", display: "flex", flexDirection: "column", bgcolor: "white" }}>
-        {/* Top App Bar */}
-        <AppBar position="static" elevation={1} sx={{ bgcolor: '#1976d2' }}>
+      <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", bgcolor: "white" }}>
+        {/* Top App Bar - Sticky */}
+        <AppBar position="sticky" elevation={1} sx={{ bgcolor: '#1976d2', top: 0, zIndex: theme.zIndex.appBar }}>
           <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
             <IconButton
               edge="start"
@@ -470,14 +470,15 @@ export default function MyInbox() {
           </Toolbar>
         </AppBar>
 
-        {/* Chat Content */}
+        {/* Chat Content - Scrollable */}
         <Box 
           sx={{ 
             flexGrow: 1, 
-            overflow: "hidden",
+            overflow: "auto",
             display: "flex",
             flexDirection: "column",
-            bgcolor: "#FFFFFF"
+            bgcolor: "#FFFFFF",
+            WebkitOverflowScrolling: "touch"
           }}
         >
           <MyChatWindow
