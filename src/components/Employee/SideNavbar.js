@@ -41,7 +41,6 @@ import PolylineOutlinedIcon from "@mui/icons-material/PolylineOutlined";
 import "react-toastify/dist/ReactToastify.css";
 import UpiMandateModern from "./UpiMandate";
 import CurrencyRupeeOutlinedIcon from "@mui/icons-material/CurrencyRupeeOutlined";
-import MyChatWindow from "./MyChatWindow";
 
 const theme = createTheme({
   palette: {
@@ -843,8 +842,6 @@ export default function SideNavbar({ window }) {
     <ThemeProvider theme={theme}>
       {/* Mobile AppBar with hamburger */}
    
-   {!(<MyChatWindow />) && (
-
       <AppBar
         position="fixed"
         color="inherit"
@@ -873,7 +870,6 @@ export default function SideNavbar({ window }) {
           </Box>
         </Toolbar>
       </AppBar>
-   )}
 
       <Box
         sx={{

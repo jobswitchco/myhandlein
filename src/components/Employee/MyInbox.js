@@ -422,7 +422,7 @@ export default function MyInbox() {
     return (
       <Box 
         sx={{ 
-          height: "85vh",
+          height: "86vh",
           width: "100%",
           display: "flex", 
           flexDirection: "column",
@@ -442,7 +442,8 @@ export default function MyInbox() {
           sx={{ 
             bgcolor: '#1976d2', 
             zIndex: theme.zIndex.appBar,
-            flexShrink: 0
+            flexShrink: 0,
+            mt: '14%'
           }}
         >
           <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
