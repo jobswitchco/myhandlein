@@ -331,16 +331,16 @@ export default function MyChatWindow({
     return null;
   }
 
-  // Render - Fixed height container
+  // Render
   return (
     <Box 
       sx={{ 
         bgcolor: "#FFFFFF",
-        height: isMobile ? "80vh" : '100vh',
+        height: "100%",
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden" // Prevent body scroll
+        overflow: "hidden"
       }}
     >
       {!!errorMsg && <Alert severity="error" sx={{ m: 2, flexShrink: 0 }}>{errorMsg}</Alert>}
@@ -475,13 +475,14 @@ export default function MyChatWindow({
       </Box>
 
       {/* Fixed Input Area - Sticky at bottom */}
-       <Box 
+      <Box 
         sx={{ 
           p: 2, 
           borderTop: '1px solid #e0e0e0', 
           bgcolor: 'white', 
-          flexShrink: 1,
+          flexShrink: 0,
           position: 'sticky',
+          bottom: 0,
           zIndex: 10
         }}
       >
