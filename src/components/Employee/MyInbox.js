@@ -422,7 +422,7 @@ export default function MyInbox() {
     return (
       <Box 
         sx={{ 
-          height: "90vh",
+          height: "85vh",
           width: "100%",
           display: "flex", 
           flexDirection: "column",
