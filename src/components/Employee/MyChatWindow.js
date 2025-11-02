@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import io from "socket.io-client";
 import {
-  Box, Paper, Avatar, Typography, TextField, Button, CircularProgress, Alert, useMediaQuery, useTheme
+  Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress, Alert, useMediaQuery, useTheme
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 
@@ -44,10 +44,9 @@ export default function MyChatWindow({
   const typingTimeoutRef = useRef(null);
   const scrollRef = useRef(null);
   const debugEmittedRef = useRef(false);
-  const pendingMessagesRef = useRef(new Set()); // Track optimistic messages
+  const pendingMessagesRef = useRef(new Set());
   const messagesEndRef = useRef(null);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
 
   // derived ids
   const influencerIdRef = useRef(null);
@@ -87,7 +86,6 @@ export default function MyChatWindow({
         setConversation(convoData);
         if (participantData) setParticipant(participantData);
 
-        // derive influencer and participant ids from conversation & participant
         const derived = deriveParticipantInfluencerIds(convoData, participantData);
         influencerIdRef.current = derived.influencerId;
         participantIdRef.current = derived.participantId;
@@ -104,7 +102,6 @@ export default function MyChatWindow({
         const msgs = messagesRes?.data?.messages || [];
         setMessages(msgs);
 
-        // one-time debug log
         if (!debugEmittedRef.current && msgs.length > 0) {
           console.group("MyChatWindow - first message debug");
           console.log("first message example:", msgs[0]);
@@ -209,8 +206,9 @@ export default function MyChatWindow({
 
   // auto scroll
   useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, typingFromParticipant]);
 
   // send message
@@ -219,7 +217,6 @@ export default function MyChatWindow({
     if (!t || !conversation) return;
     setText("");
 
-    // optimistic - with unique ID
     const optimisticId = `tmp-${Date.now()}-${Math.random()}`;
     const tmp = {
       _id: optimisticId,
@@ -230,7 +227,6 @@ export default function MyChatWindow({
       status: "sending"
     };
     
-    // Track this optimistic message
     pendingMessagesRef.current.add(optimisticId);
     setMessages(prev => [...prev, tmp]);
 
@@ -247,10 +243,8 @@ export default function MyChatWindow({
 
   // Helper functions
   function deriveParticipantInfluencerIds(convo, participantObj) {
-    // Prefer explicit ids returned by the API
     let participantId = participantObj?._id ? String(participantObj._id) : null;
-    let influencerId =
-      (convo?.influencer && convo.influencer._id) ? String(convo.influencer._id) : null;
+    let influencerId = (convo?.influencer && convo.influencer._id) ? String(convo.influencer._id) : null;
 
     const parts = Array.isArray(convo?.participants) ? convo.participants : [];
 
@@ -285,10 +279,7 @@ export default function MyChatWindow({
     }
 
     if ((!influencerId || !participantId) && parts.length >= 2) {
-      const ids = parts
-        .map(p => (p?.actor?.id ? String(p.actor.id) : null))
-        .filter(Boolean);
-
+      const ids = parts.map(p => (p?.actor?.id ? String(p.actor.id) : null)).filter(Boolean);
       if (!participantId && influencerId) {
         participantId = ids.find(id => id !== influencerId) || participantId;
       } else if (!influencerId && participantId) {
@@ -311,11 +302,9 @@ export default function MyChatWindow({
 
   function isFromInfluencer(m) {
     const infId = influencerIdRef.current;
-
     if (m?.senderRole && String(m.senderRole).toLowerCase() === "influencer") return true;
     if (m?.sender_type && String(m.sender_type).toLowerCase() === "influencer") return true;
     if (m?.from_influencer === true || m?.fromInfluencer === true) return true;
-
     if (!infId) return false;
     const sid = getSenderIdFromMessage(m);
     return !!(sid && String(sid) === String(infId));
@@ -323,11 +312,9 @@ export default function MyChatWindow({
 
   function isFromParticipant(m) {
     const pId = participantIdRef.current;
-
     if (m?.senderRole && String(m.senderRole).toLowerCase() === "participant") return true;
     if (m?.sender_type && String(m.sender_type).toLowerCase() === "participant") return true;
     if (m?.from_participant === true || m?.fromParticipant === true) return true;
-
     if (!pId) return false;
     const sid = getSenderIdFromMessage(m);
     return !!(sid && String(sid) === String(pId));
@@ -344,64 +331,83 @@ export default function MyChatWindow({
     return null;
   }
 
-  // Render
-  const containerSx = embedded 
-    ? { pt: isMobile ? 1 : 0 } 
-    : { pt: isMobile ? 1 : 0};
-
+  // Render - Fixed height container
   return (
-    <Paper sx={containerSx} elevation={embedded ? 0 : 3}>
-      {!!errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
+    <Box 
+      sx={{ 
+        bgcolor: "#FFFFFF",
+        height: "100vh", // Fixed viewport height
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden" // Prevent body scroll
+      }}
+    >
+      {!!errorMsg && <Alert severity="error" sx={{ m: 2, flexShrink: 0 }}>{errorMsg}</Alert>}
 
-      {/* Messages container - WhatsApp style */}
-      <Box
+      {/* Scrollable Messages Area - Only this scrolls */}
+      <Box 
         ref={scrollRef}
-        sx={{
-          flexGrow: 1,
-          height: embedded 
-            ? isMobile 
-              ? "calc(100vh - 220px)" // Mobile: Account for AppBar + input box
-              : "calc(100vh - 140px)"  // Desktop
-            : 420,
-          overflowY: "auto",
+        sx={{ 
+          flex: 1, 
+          overflowY: "auto", 
+          overflowX: "hidden",
+          p: 2, 
           bgcolor: "#e5ddd5",
-          p: 2,
-          borderRadius: embedded ? 0 : 1,
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-          WebkitOverflowScrolling: "touch",
-          // mb: isMobile && embedded ? "80px" : 0
+          minHeight: 0, // Important for flex scrolling
+          WebkitOverflowScrolling: "touch"
         }}
       >
         {messages.length === 0 ? (
-          <Typography color="text.secondary" sx={{ textAlign: "center" }}>No messages yet</Typography>
+          <Typography color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
+            No messages yet
+          </Typography>
         ) : (
           messages.map((m) => {
             const left = isFromParticipant(m);
             const right = isFromInfluencer(m) || (!left);
-
             const bubbleBg = right ? "#dcf8c6" : "#ffffff";
             const borderRadius = right ? "8px 8px 0px 8px" : "8px 8px 8px 0px";
             const msgKey = m._id || m.id || `${m.createdAt || m.created_at || Date.now()}-${Math.random()}`;
 
             return (
-              <Box key={msgKey}
-                   sx={{ display: "flex", justifyContent: right ? "flex-end" : "flex-start", mb: 0.5 }}>
-                {/* left */}
+              <Box 
+                key={msgKey}
+                sx={{ 
+                  display: "flex", 
+                  justifyContent: right ? "flex-end" : "flex-start", 
+                  mb: 1.5 
+                }}
+              >
                 {!right && (
                   <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
                     <Avatar src={participant?.picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
                       {!participant?.picture && initials(participant?.name || participant?.email || "P")}
                     </Avatar>
                     <Box>
-                      <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
-                                 borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                      <Box 
+                        sx={{ 
+                          p: 1.5, 
+                          bgcolor: bubbleBg, 
+                          boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
+                          borderRadius, 
+                          wordBreak: "break-word", 
+                          overflowWrap: "anywhere" 
+                        }}
+                      >
                         <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                           {m.text || m.message || m.body}
                         </Typography>
                       </Box>
-                      <Typography variant="caption" sx={{ color: "text.secondary", pl: 1, display: "block", mt: 0.25 }}>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: "text.secondary", 
+                          pl: 1, 
+                          display: "block", 
+                          mt: 0.25 
+                        }}
+                      >
                         {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                       : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                       : ""}
@@ -411,17 +417,33 @@ export default function MyChatWindow({
                   </Box>
                 )}
 
-                {/* right */}
                 {right && (
                   <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, maxWidth: "70%" }}>
                     <Box>
-                      <Box sx={{ p: 1.5, bgcolor: bubbleBg, boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
-                                 borderRadius, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                      <Box 
+                        sx={{ 
+                          p: 1.5, 
+                          bgcolor: bubbleBg, 
+                          boxShadow: "0 1px 0.5px rgba(0,0,0,.13)",
+                          borderRadius, 
+                          wordBreak: "break-word", 
+                          overflowWrap: "anywhere" 
+                        }}
+                      >
                         <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                           {m.text || m.message || m.body}
                         </Typography>
                       </Box>
-                      <Typography variant="caption" sx={{ color: "text.secondary", pr: 1, display: "block", mt: 0.25, textAlign: "right" }}>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: "text.secondary", 
+                          pr: 1, 
+                          display: "block", 
+                          mt: 0.25, 
+                          textAlign: "right" 
+                        }}
+                      >
                         {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                       : m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                       : ""}
@@ -439,11 +461,8 @@ export default function MyChatWindow({
         )}
 
         {typingFromParticipant && (
-          <Box sx={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 1 }}>
-            <Avatar
-              src={participant?.picture || ""}
-              sx={{ width: 32, height: 32, fontSize: 12 }}
-            >
+          <Box sx={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 1, mb: 1 }}>
+            <Avatar src={participant?.picture || ""} sx={{ width: 32, height: 32, fontSize: 12 }}>
               {!participant?.picture && initials(participant?.name || participant?.email || "P")}
             </Avatar>
             <Typography variant="caption" sx={{ fontStyle: "italic", color: "text.secondary" }}>
@@ -451,63 +470,71 @@ export default function MyChatWindow({
             </Typography>
           </Box>
         )}
+        
+        <div ref={messagesEndRef} />
       </Box>
 
-       <Box 
-        display="flex" 
-        gap={1} 
+      {/* Fixed Input Area - Sticky at bottom */}
+      <Box 
         sx={{ 
-          mt: isMobile && embedded ? 0 : 2,
-          p: isMobile && embedded ? 2 : 0,
-          bgcolor: "white",
-          ...(isMobile && embedded && {
-            position: "sticky",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            borderTop: "1px solid #e0e0e0",
-            boxShadow: "0 -2px 8px rgba(0,0,0,0.1)"
-          })
+          p: 2, 
+          borderTop: '1px solid #e0e0e0', 
+          bgcolor: 'white', 
+          flexShrink: 0,
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 10
         }}
       >
-        <TextField
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            const socket = socketRef.current;
-            if (socket && conversation && conversation._id) {
-              socket.emit("typing", { conversationId: conversation._id, isTyping: true, fromSocketId: socket.id });
-              if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-              typingTimeoutRef.current = setTimeout(() => {
-                if (socket && conversation && conversation._id) socket.emit("typing", { conversationId: conversation._id, isTyping: false, fromSocketId: socket.id });
-                typingTimeoutRef.current = null;
-              }, 900);
-            }
-          }}
-          fullWidth
-          placeholder="Type a message..."
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-          sx={{
-            "& .MuiOutlinedInput-root": {
-              borderRadius: "24px"
-            }
-          }}
-        />
-         <Button 
-          variant="contained" 
-          endIcon={<SendIcon />} 
-          onClick={sendMessage}
-          size={isMobile ? "small" : "medium"}
-          sx={{ 
-            borderRadius: "24px", 
-            minWidth: isMobile ? "80px" : "100px",
-            flexShrink: 0
-          }}
-        >
-          Send
-        </Button>
+        <Box display="flex" gap={1}>
+          <TextField
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              const socket = socketRef.current;
+              if (socket && conversation && conversation._id) {
+                socket.emit("typing", { conversationId: conversation._id, isTyping: true, fromSocketId: socket.id });
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = setTimeout(() => {
+                  if (socket && conversation && conversation._id) {
+                    socket.emit("typing", { conversationId: conversation._id, isTyping: false, fromSocketId: socket.id });
+                  }
+                  typingTimeoutRef.current = null;
+                }, 900);
+              }
+            }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            variant="outlined"
+            size="small"
+            fullWidth
+            placeholder="Write a message..."
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "8px",
+                bgcolor: "white"
+              }
+            }}
+          />
+          <IconButton 
+            onClick={sendMessage} 
+            color="primary"
+            sx={{
+              bgcolor: "#1976d2",
+              color: "white",
+              "&:hover": {
+                bgcolor: "#1565c0"
+              }
+            }}
+          >
+            <SendIcon />
+          </IconButton>
+        </Box>
       </Box>
-    </Paper>
+    </Box>
   );
 }
