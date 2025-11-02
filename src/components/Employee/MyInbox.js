@@ -441,7 +441,6 @@ export default function MyInbox() {
           elevation={1} 
           sx={{ 
             bgcolor: '#1976d2', 
-            top: 56, 
             zIndex: theme.zIndex.appBar,
             flexShrink: 0
           }}
