@@ -42,6 +42,7 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteIcon from "@mui/icons-material/Delete";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
+import IndiaFlag from '../images/flag.png'
 import SaveIcon from "@mui/icons-material/Save";
 import ShareIcon from "@mui/icons-material/Share";
 import YouTubeIcon from "@mui/icons-material/YouTube";
@@ -1756,7 +1757,7 @@ async function saveAdd() {
         </Grid>
 
       {/* Right Preview Images */}
-<Grid size={{ xs: 12, md: 4}} mt={1.5} sx={{minHeight: '100dvh', overflowY: 'auto', mb: 2 }}>
+<Grid size={{ xs: 12, md: 4}} mt={1.5} sx={{minHeight: '100dvh', overflowY: 'auto'}}>
 
 
 
@@ -1971,19 +1972,13 @@ async function saveAdd() {
         </Typography>
       </Box>
 
-      <Typography
-        sx={{
-          fontFamily: "Inter",
-          fontWeight: 400,
-          color: "grey",
-          fontSize: { xs: 12, sm: 12 },
-          mb: 1,
-        }}
-      >
-        {userDetails.handleUserName
-          ? userDetails.handleUserName + ".myhandle.in"
-          : ""}
-      </Typography>
+     <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "center", mt: 3 }}>
+  
+   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1}}>
+                <Typography sx={{ fontFamily: "Inter", fontWeight: 400, color: "rgba(255,255,255,0.8)", fontSize: { xs: 12, sm: 12 }, mb: 0.25 }}>Made in India</Typography>
+                <Box component="img" src={IndiaFlag} alt="India flag" sx={{ width: 18, height: "auto", display: "block", borderRadius: "2px" }} aria-hidden={false} />
+              </Box>
+    </Box>
     </Box>
   </Box>
 </Grid>
