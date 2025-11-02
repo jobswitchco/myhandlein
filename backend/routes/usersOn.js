@@ -381,6 +381,73 @@ const FB_API = "https://graph.facebook.com/v24.0";
 const MS_DAY = 24 * 60 * 60 * 1000;
 const FALLBACK_58_DAYS_MS = 58 * MS_DAY;
 
+async function verifyPostsExist(postIds, fbPageAccessToken) {
+  if (!postIds || postIds.length === 0) return {};
+  
+  // Meta Graph API batch requests support up to 50 requests per batch
+  const BATCH_SIZE = 50;
+  const results = {};
+  
+  // Split into chunks of 50
+  for (let i = 0; i < postIds.length; i += BATCH_SIZE) {
+    const chunk = postIds.slice(i, i + BATCH_SIZE);
+    
+    // Build batch request array
+    const batchRequests = chunk.map((postId) => ({
+      method: "GET",
+      relative_url: `${postId}?fields=id,media_type,caption,media_url,thumbnail_url,timestamp`,
+    }));
+    
+    try {
+      const response = await axios.post(
+        `https://graph.facebook.com/v24.0/`,
+        null,
+        {
+          params: {
+            batch: JSON.stringify(batchRequests),
+            access_token: fbPageAccessToken,
+          },
+        }
+      );
+      
+      // Process batch response
+      if (response.data && Array.isArray(response.data)) {
+        response.data.forEach((item, index) => {
+          const postId = chunk[index];
+          const code = item.code || 200;
+          
+          if (code === 200 && item.body) {
+            try {
+              const body = JSON.parse(item.body);
+              results[postId] = {
+                exists: true,
+                data: {
+                  caption: body.caption || null,
+                  thumbnail: body.thumbnail_url || body.media_url || null,
+                  timestamp: body.timestamp || null,
+                },
+              };
+            } catch (e) {
+              results[postId] = { exists: false, error: "Parse error" };
+            }
+          } else {
+            // Post not found or error (404, 403, etc.)
+            results[postId] = { exists: false, error: item.body || "Not found" };
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Batch request error:", error?.response?.data || error.message);
+      // Mark all posts in this chunk as unknown (don't change their status)
+      chunk.forEach((postId) => {
+        results[postId] = { exists: null, error: "API error" };
+      });
+    }
+  }
+  
+  return results;
+}
+
 function daysLeft(expiry) {
   if (!expiry) return -Infinity; // force refresh if unknown
   return Math.floor((new Date(expiry).getTime() - Date.now()) / MS_DAY);
@@ -718,206 +785,6 @@ router.get("/get-my-transactions", authenticateToken, async (req, res) => {
 });
 
 
-// router.post("/connect-instagram", authenticateToken, async (req, res) => {
-  
-//   try {
-//     const userId = req.user?.user_id;
-//     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-//       return res.status(401).json({ error: "Unauthorized" });
-//     }
-
-//    const FB_APP_ID = process.env.FB_APP_ID;
-//     const FB_APP_SECRET = process.env.FB_APP_SECRET;
-
-//     const { data } = req.body || {};
-//     if (!data || !data.accessToken) {
-//       return res.status(400).json({ error: "Missing authentication data" });
-//     }
-//     const userAccessToken = data.accessToken;
-//     // --- Resolve igUserId without asking the user ---
-//     const providedIgUserId = data.userID;
-
-//     let igAccounts = [];
-//     let igUsername = null;
-//     let igProfilePic = null;
-//     let followersCount = null;
-//     let igMediaCount = null;
-//     let pageAccessToken = null; // not used in direct path
-
-//   // --- Direct IG user path with Business Account fallback ---
-// if (providedIgUserId) {
-//   try {
-//     // Step 1: Try to get basic user info (this endpoint has limited fields)
-//     const basicFields = "businesses";
-//     const { data: igResp } = await axios.get(
-//       `https://graph.facebook.com/v20.0/${providedIgUserId}`,
-//       { params: { fields: basicFields, access_token: userAccessToken } }
-//     );
-
-
-//     const businesses_id = igResp.businesses.data[0].id;
-
-//     const ownedAssBasicFields = "owned_instagram_assets";
-
-//       const { data: ownedAssResp } = await axios.get(
-//       `https://graph.facebook.com/v20.0/${businesses_id}`,
-//       { params: { fields: ownedAssBasicFields, access_token: userAccessToken } }
-//     );
-
-//     const ig_user_id = ownedAssResp.owned_instagram_assets.data[0].ig_user_id;
-
-
-//       // Step 2: Try to get followers_count via Instagram Business Account
-//       let followersData = null;
-
-//       try {
-//         const { data: businessResp } = await axios.get(
-//           `https://graph.facebook.com/v20.0/${ig_user_id}`,
-//           {
-//             params: {
-//               fields: "id,followers_count,has_profile_pic,ig_id,name,profile_picture_url,biography,media_count,username,follows_count",
-//               access_token: userAccessToken,
-//             },
-//           }
-//         );
-//         followersData = businessResp;
-//         console.log('Business Account Data:', followersData);
-//       } 
-//       catch (businessErr) {
-//         console.warn("Could not fetch business account metrics:", businessErr?.response?.data?.error?.message);
-//         followersData = null;
-//       }
-
-//       followersCount = followersData?.followers_count ?? null;
-//       igMediaCount = followersData?.media_count ?? null;
-
-
-//       igAccounts.push({
-//         ig_user_id: followersData?.id ?? null,
-//         followers_count: followersData?.followers_count ?? null,
-//         has_profile_pic: followersData?.has_profile_pic ?? false,
-//         ig_id: followersData?.ig_id ?? null,
-//         ig_name: followersData?.name ?? null,
-//         profile_picture_url: followersData?.profile_picture_url ?? null,
-//         biography: followersData?.biography ?? "",
-//         media_count: followersData?.media_count ?? 0,
-//         ig_username: followersData?.username ?? "",
-//         follows_count: followersData?.follows_count ?? 0,
-       
-//       });
-    
-//   } catch (e) {
-//     console.warn("Direct IG fetch failed:", {
-//       status: e?.response?.status,
-//       error: e?.response?.data?.error?.message || e.message,
-//       code: e?.response?.data?.error?.code,
-//     });
-//   }
-// }
-
-//     // --- Long-lived token exchange (best effort) ---
-//     let longLivedToken = null;
-//     try {
-//       const { data: tokenExchange } = await axios.get(
-//         "https://graph.facebook.com/v20.0/oauth/access_token",
-//         {
-//           params: {
-//             grant_type: "fb_exchange_token",
-//             client_id: FB_APP_ID,
-//             client_secret: FB_APP_SECRET,
-//             fb_exchange_token: userAccessToken,
-//           },
-//         }
-//       );
-//       longLivedToken = tokenExchange?.access_token || null;
-//     } catch (e) {
-//       console.warn("Could not exchange for long-lived token:", e?.message);
-//     }
-
-//     // --- Token expiry (works for short/long) ---
-//     let tokenExpiry = null;
-//     try {
-//       const appAccessToken = `${FB_APP_ID}|${FB_APP_SECRET}`;
-//       const tokenToInspect = longLivedToken || userAccessToken;
-//       const { data: debugResp } = await axios.get(
-//         "https://graph.facebook.com/debug_token",
-//         {
-//           params: {
-//             input_token: tokenToInspect,
-//             access_token: appAccessToken,
-//           },
-//         }
-//       );
-//       const expiresAt = debugResp?.data?.expires_at; // unix seconds
-//       if (expiresAt) tokenExpiry = new Date(expiresAt * 1000).toISOString();
-//     } catch (e) {
-//       console.warn("Could not fetch token expiry via debug_token:", e?.message);
-//     }
-
-//     // --- Save ---
-//     if (igAccounts.length > 0) {
-//       const first = igAccounts[0];
-
-//         igAccounts.push({
-
-//         ig_user_id: first?.id ?? null,
-//         followers_count: first?.followers_count ?? null,
-//         has_profile_pic: first?.has_profile_pic ?? false,
-//         ig_id: first?.ig_id ?? null,
-//         ig_name: first?.name ?? null,
-//         profile_picture_url: first?.profile_picture_url ?? null,
-//         biography: first?.biography ?? "",
-//         media_count: first?.media_count ?? 0,
-//         ig_username: first?.username ?? "",
-//         follows_count: first?.follows_count ?? 0,
-       
-//       });
-
-//       await USER.updateOne(
-//         { _id: userId },
-//         {
-//           $set: {
-//             instagramConnected: true,
-//             igUserId: first.ig_user_id,
-//             igUsername: first.ig_username,
-//             igProfilePic: first.profile_picture_url,
-//             igFollowersCount: first.followers_count,
-//             igFollowsCount: first.follows_count,
-//             igMediaCount: first.media_count,
-//             igId: first.ig_id,
-//             igName: first.ig_name,
-//             igBiography: first.biography,
-//             has_profile_pic_ig: first.has_profile_pic,
-//             fbLongLivedToken: longLivedToken || userAccessToken,
-//             fbTokenExpiry: tokenExpiry || null,
-//           },
-//         }
-//       );
-//     } else {
-//       // Nothing fetched → explain clearly what’s missing
-//       return res.status(400).json({
-//         error: providedIgUserId
-//           ? "Could not fetch Instagram account with the stored igUserId. Ensure the token has instagram_basic and the IG account is Business/Creator."
-//           : "igUserId not found in request or user record. Save igUserId once during onboarding, or include it in the request.",
-//       });
-//     }
-
-//     return res.json({
-//       success: true,
-//       igAccounts,
-//       igUsername,
-//       igProfilePic,
-//       followersCount,
-//       message: `Connected ${igUsername || "Instagram account"}.`,
-//     });
-//   } catch (err) {
-//     console.error("IG connect error:", err?.response?.data || err.message);
-//     return res.status(500).json({
-//       error: err?.response?.data?.error?.message || err.message || "Server error",
-//       details: err?.response?.data,
-//     });
-//   }
-// });
 
 router.post("/connect-instagram", authenticateToken, async (req, res) => {
   try {
@@ -1973,45 +1840,6 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
 
 
 
-// router.get("/automations", authenticateToken, async (req, res) => {
-//   try {
-//     const userId = req.user?.user_id || req.user?._id;
-//     if (!userId) {
-//       return res.status(401).json({ message: "Unauthorized" });
-//     }
-
-//     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-//     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
-//     const skip = (page - 1) * limit;
-
-//     const query = { userId };
-//     const projection = "postId status createdAt caption thumbnail";
-//     const sort = { createdAt: -1 };
-
-//     const [total, docs] = await Promise.all([
-//       Automation.countDocuments(query),
-//       Automation.find(query).select(projection).sort(sort).skip(skip).limit(limit).lean(),
-//     ]);
-
-//     const items = (docs || []).map((d) => ({
-//       _id: d._id,
-//       postId: d.postId,
-//       status: d.status,                             // "active" | "inactive"
-//       status: d.status,                             // "active" | "inactive"
-//       caption: d.caption,
-//       thumbnail: d.thumbnail,
-//       createdAt: d.createdAt,                       // ISO string; format on client
-//     }));
-
-//     console.log('Items : ', items);
-
-//     return res.json({ items, total, page, limit });
-//   } catch (err) {
-//     console.error("GET /usersOn/automations error:", err);
-//     return res.status(500).json({ message: "Failed to fetch automations" });
-//   }
-// });
-
 router.get("/automations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id || req.user?._id;
@@ -2020,28 +1848,30 @@ router.get("/automations", authenticateToken, async (req, res) => {
     }
 
     // 🔁 Check & refresh FB tokens if expiring in < 28 days (or missing)
+    let user;
     try {
-      const user = await USER.findById(userId)
+      user = await USER.findById(userId)
         .select("_id fbLongLivedToken fbLongLivedTokenExpiry fbPageId fbPageAccessToken instagramConnected")
         .lean();
 
       if (user?.instagramConnected) {
         await refreshFacebookTokensIfNeeded(user);
+        // Refetch user to get updated tokens
+        user = await USER.findById(userId)
+          .select("_id fbLongLivedToken fbLongLivedTokenExpiry fbPageId fbPageAccessToken instagramConnected")
+          .lean();
       }
     } catch (e) {
-      // Don’t block the main response; just log and continue.
-      // If token is invalid/expired (e.g., OAuthException code 190), you could mark a reconnect flag here.
       console.error("FB token refresh check failed:", e?.response?.data || e.message || e);
-      // Optional: await User.findByIdAndUpdate(userId, { fbNeedsReconnect: true, fbLastRefreshError: e?.response?.data || e?.message, updated_at: new Date() });
     }
 
-    // ⬇️ Your existing pagination + aggregation logic
+    // ⬇️ Pagination + aggregation logic
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
     const query = { userId };
-    const projection = "postId status createdAt caption thumbnail";
+    const projection = "postId status createdAt caption thumbnail postLive lastCheckedAt";
     const sort = { createdAt: -1 };
 
     const [total, docs] = await Promise.all([
@@ -2049,9 +1879,67 @@ router.get("/automations", authenticateToken, async (req, res) => {
       Automation.find(query).select(projection).sort(sort).skip(skip).limit(limit).lean(),
     ]);
 
-    const automationIds = docs.map((d) => d._id);
+    // Verify posts exist via batch request
+    const postIds = docs.map((d) => d.postId);
+    let verificationResults = {};
+    
+    if (user?.fbPageAccessToken && postIds.length > 0) {
+      verificationResults = await verifyPostsExist(postIds, user.fbPageAccessToken);
+      
+      // Update postLive and status in DB for posts that changed
+      const bulkOps = [];
+      docs.forEach((doc) => {
+        const result = verificationResults[doc.postId];
+        if (result && result.exists !== null) {
+          const isLive = result.exists === true;
+          
+          // Only update if status changed
+          if (doc.postLive !== isLive) {
+            const updateFields = {
+              postLive: isLive,
+              lastCheckedAt: new Date(),
+            };
 
+            // 🔥 If post is deleted, also set status to inactive
+            if (!isLive) {
+              updateFields.status = "inactive";
+            }
+
+            // Update thumbnail/caption if post exists and data is available
+            if (isLive && result.data?.thumbnail) {
+              updateFields.thumbnail = result.data.thumbnail;
+            }
+            if (isLive && result.data?.caption) {
+              updateFields.caption = result.data.caption;
+            }
+
+            bulkOps.push({
+              updateOne: {
+                filter: { _id: doc._id },
+                update: updateFields,
+              },
+            });
+          } else {
+            // Just update lastCheckedAt
+            bulkOps.push({
+              updateOne: {
+                filter: { _id: doc._id },
+                update: { lastCheckedAt: new Date() },
+              },
+            });
+          }
+        }
+      });
+      
+      if (bulkOps.length > 0) {
+        await Automation.bulkWrite(bulkOps);
+      }
+    }
+
+    // Get reply counts
+    const automationIds = docs.map((d) => d._id);
     let countsByAutomationId = {};
+    
     if (automationIds.length > 0) {
       const counts = await RepliedComment.aggregate([
         { $match: { automationId: { $in: automationIds } } },
@@ -2065,15 +1953,29 @@ router.get("/automations", authenticateToken, async (req, res) => {
       }, {});
     }
 
-    const items = (docs || []).map((d) => ({
-      _id: d._id,
-      postId: d.postId,
-      status: d.status,
-      caption: d.caption ?? null,
-      thumbnail: d.thumbnail ?? null,
-      createdAt: d.createdAt,
-      totalReplies: countsByAutomationId[String(d._id)] ?? 0,
-    }));
+    // Build response items with updated data
+    const items = (docs || []).map((d) => {
+      const verifyResult = verificationResults[d.postId];
+      const isLive = verifyResult?.exists === true ? true : (verifyResult?.exists === false ? false : d.postLive);
+      
+      // 🔥 If post was just found to be deleted, status should be inactive
+      let finalStatus = d.status;
+      if (verifyResult?.exists === false) {
+        finalStatus = "inactive";
+      }
+      
+      return {
+        _id: d._id,
+        postId: d.postId,
+        status: finalStatus,
+        caption: (verifyResult?.data?.caption || d.caption) ?? null,
+        thumbnail: (verifyResult?.data?.thumbnail || d.thumbnail) ?? null,
+        createdAt: d.createdAt,
+        totalReplies: countsByAutomationId[String(d._id)] ?? 0,
+        postLive: isLive,
+        lastCheckedAt: d.lastCheckedAt || new Date(),
+      };
+    });
 
     return res.json({ success: true, items, total, page, limit });
   } catch (err) {
@@ -2098,7 +2000,28 @@ router.post("/automation/details", authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "Automation not found" });
     }
 
-    // 2) Get user's FB token for Graph calls
+    // 🔥 If post is not live, return immediately with limited data
+    // User shouldn't be able to edit or change status
+    if (doc.postLive === false) {
+      const payload = {
+        postId: doc.postId,
+        caption: doc.caption || "",
+        thumbnail: doc.thumbnail || "",
+        keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
+        publicReply: doc.publicReply || "",
+        status: "inactive", // Force inactive
+        postLive: false, // 🔥 NEW: Include postLive status
+        hasPublicReply: !!(doc.publicReply && doc.publicReply.trim() !== ""),
+        dm: {
+          enabled: !!doc?.dm?.enabled,
+          message: doc?.dm?.message || "",
+          button: doc?.dm?.button || null,
+        },
+      };
+      return res.json(payload);
+    }
+
+    // 2) Get user's FB token for Graph calls (only if post is live)
     const user = await USER.findById(userId)
       .select("fbLongLivedToken")
       .lean();
@@ -2119,6 +2042,7 @@ router.post("/automation/details", authenticateToken, async (req, res) => {
     let fetchedCaption = null;
     let fetchedThumbnail = null;
     let fetchedMediaType = null;
+    let postStillExists = true;
 
     try {
       const ig = await getWithRetries(url, { retries: 3, timeout: 5000 });
@@ -2136,14 +2060,56 @@ router.post("/automation/details", authenticateToken, async (req, res) => {
         }
       }
     } catch (graphErr) {
-      // If the Graph call fails, we’ll just fall back to what’s in the Automation doc
-      // but still return a 200 with the best data we have.
-      // Optionally log the error:
+      // 🔥 Check if post was deleted (404, 403, or specific error codes)
+      const errorCode = graphErr?.response?.data?.error?.code;
+      const errorMessage = graphErr?.response?.data?.error?.message || "";
+      
+      if (
+        graphErr?.response?.status === 404 ||
+        errorCode === 100 || // Invalid ID
+        errorCode === 10 ||  // Permission error
+        errorMessage.includes("does not exist") ||
+        errorMessage.includes("not found")
+      ) {
+        postStillExists = false;
+        
+        // Mark post as deleted in DB
+        await Automation.updateOne(
+          { _id: doc._id },
+          { 
+            $set: { 
+              postLive: false, 
+              status: "inactive",
+              lastCheckedAt: new Date()
+            } 
+          }
+        );
+        
+        // Return response indicating post is deleted
+        const payload = {
+          postId: doc.postId,
+          caption: doc.caption || "",
+          thumbnail: doc.thumbnail || "",
+          keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
+          publicReply: doc.publicReply || "",
+          status: "inactive",
+          postLive: false, // 🔥 Mark as deleted
+          hasPublicReply: !!(doc.publicReply && doc.publicReply.trim() !== ""),
+          dm: {
+            enabled: !!doc?.dm?.enabled,
+            message: doc?.dm?.message || "",
+            button: doc?.dm?.button || null,
+          },
+        };
+        return res.json(payload);
+      }
+      
+      // For other errors, log and continue with cached data
       console.warn("Graph fetch failed for post", postId, graphErr?.message);
     }
 
     // 4) Persist the fetched fields back to Automation (only if we got them)
-    const updateSet = {};
+    const updateSet = { lastCheckedAt: new Date() };
     if (fetchedCaption !== null) updateSet.caption = fetchedCaption;
     if (fetchedThumbnail !== null) updateSet.thumbnail = fetchedThumbnail;
 
@@ -2152,30 +2118,24 @@ router.post("/automation/details", authenticateToken, async (req, res) => {
     }
 
     // 5) Build payload using freshest values (Graph > DB > fallback)
-    const captionForPayload =
-      (fetchedCaption ?? doc.caption ?? "").trim();
-
-    const thumbnailForPayload =
-      (fetchedThumbnail ??
-        (doc.thumbnail && doc.thumbnail.trim()));
+    const captionForPayload = (fetchedCaption ?? doc.caption ?? "").trim();
+    const thumbnailForPayload = fetchedThumbnail ?? (doc.thumbnail && doc.thumbnail.trim());
 
     // normalize shape for frontend (same 3-step UI fields)
     const payload = {
       postId: doc.postId,
-      mediaType: fetchedMediaType || doc.mediaType || "", // optional: include it if useful
+      mediaType: fetchedMediaType || doc.mediaType || "",
       caption: captionForPayload,
       thumbnail: thumbnailForPayload,
-
       keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
       publicReply: doc.publicReply || "",
-      status: doc.status || "",
-      hasPublicReply:
-        !!(doc.publicReply && doc.publicReply.trim() !== ""),
-
+      status: doc.status || "inactive",
+      postLive: doc.postLive !== false, // 🔥 Include postLive status (default true)
+      hasPublicReply: !!(doc.publicReply && doc.publicReply.trim() !== ""),
       dm: {
-        enabled: !!doc?.dmEnabled || (!!doc?.dm && !!doc.dm.enabled),
-        message: doc?.dm?.message || doc?.dmMessage || "",
-        button: doc?.dm?.button || (doc?.dmButton ? { ...doc.dmButton } : undefined),
+        enabled: !!doc?.dm?.enabled,
+        message: doc?.dm?.message || "",
+        button: doc?.dm?.button || null,
       },
     };
 

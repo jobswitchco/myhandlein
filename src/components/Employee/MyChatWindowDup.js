@@ -3,11 +3,12 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import io from "socket.io-client";
 import {
-  Box, Paper, Avatar, Typography, TextField, Button, CircularProgress, Alert, useMediaQuery, useTheme
+  Box, Paper, Avatar, Typography, TextField, Button, CircularProgress, Alert
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 
-const API_BASE = "http://localhost:8001";
+const API_BASE = "/api";
+
 
 function initials(name = "") {
   return (name || "").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
@@ -32,7 +33,7 @@ export default function MyChatWindow({
   // Use props if provided (embedded mode), otherwise use URL params
   const conversationId = propConversationId || paramConversationId;
   const participantId = propParticipantId || paramParticipantId;
-  const theme = useTheme();
+
   const [conversation, setConversation] = useState(null);
   const [participant, setParticipant] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -46,8 +47,6 @@ export default function MyChatWindow({
   const debugEmittedRef = useRef(false);
   const pendingMessagesRef = useRef(new Set()); // Track optimistic messages
   const messagesEndRef = useRef(null);
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
 
   // derived ids
   const influencerIdRef = useRef(null);
@@ -346,12 +345,20 @@ export default function MyChatWindow({
 
   // Render
   const containerSx = embedded 
-    ? { pt: isMobile ? 1 : 0 } 
-    : { pt: isMobile ? 1 : 0};
+    ? { p: 2 } 
+    : { p: 2 };
 
   return (
     <Paper sx={containerSx} elevation={embedded ? 0 : 3}>
       {!!errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
+
+      <Box display="flex" alignItems="center" gap={2} sx={{ mb: 2 }}>
+        <Avatar src={participant?.picture || ""}>{!participant?.picture && initials(participant?.name || participant?.email || "P")}</Avatar>
+        <Box>
+          <Typography variant="h6">{participant?.name || participant?.email || "Participant"}</Typography>
+          <Typography variant="body2" color="textSecondary">Conversation</Typography>
+        </Box>
+      </Box>
 
       {/* Messages container - WhatsApp style */}
       <Box

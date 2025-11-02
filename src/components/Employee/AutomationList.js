@@ -13,12 +13,15 @@ import {
   CardContent,
   CardActionArea,
   Skeleton,
+  Tooltip,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import InstagramIcon from "@mui/icons-material/Instagram";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import { DataGrid } from "@mui/x-data-grid";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -81,7 +84,16 @@ function EmptyState({ onCreate }) {
 /* ---------------- Mobile card (xs/sm) ---------------- */
 function AutomationCard({ row, onDetails }) {
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2.5, overflow: "hidden", borderColor: "divider", mb: 1.5 }}>
+    <Card 
+      variant="outlined" 
+      sx={{ 
+        borderRadius: 2.5, 
+        overflow: "hidden", 
+        borderColor: "divider", 
+        mb: 1.5,
+        opacity: row.postLive === false ? 0.6 : 1,
+      }}
+    >
       <CardActionArea onClick={() => onDetails(row?.postId)} disableRipple>
         <Box sx={{ display: "flex", gap: 1.25, p: 1.25 }}>
           <Avatar
@@ -91,13 +103,22 @@ function AutomationCard({ row, onDetails }) {
             sx={{ width: 64, height: 64, flexShrink: 0 }}
           />
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5, flexWrap: "wrap" }}>
               <Chip
                 size="small"
                 label={String(row.status || "").toUpperCase()}
                 color={row.status === "active" ? "success" : "default"}
                 variant="outlined"
               />
+              <Tooltip title={row.postLive ? "Post is live on Instagram" : "Post deleted from Instagram"}>
+                <Chip
+                  size="small"
+                  icon={row.postLive ? <CheckCircleOutlineIcon /> : <CancelOutlinedIcon />}
+                  label={row.postLive ? "LIVE" : "DELETED"}
+                  color={row.postLive ? "success" : "error"}
+                  variant="outlined"
+                />
+              </Tooltip>
               <Typography
                 variant="caption"
                 sx={{ color: "text.secondary" }}
@@ -151,10 +172,12 @@ export default function AutomationList() {
     return () => mq.removeEventListener("change", handler);
   }, [theme.breakpoints.values.md]);
 
+  const baseUrl = "/api/usersOn";
+
   /* ---- Backend endpoints ---- */
-  const STATUS_URL = "/api/usersOn/instagram-status";
-  const META_STATE_URL = "/api/usersOn/meta-state";
-  const AUTOMATIONS_URL = "/api/usersOn/automations";
+  const STATUS_URL = baseUrl + "/instagram-status";
+  const META_STATE_URL = baseUrl + "/meta-state";
+  const AUTOMATIONS_URL = baseUrl + "/automations";
 
   /* ---- Meta app constants ---- */
   const FB_APP_ID = "1360956302356492";
@@ -162,7 +185,7 @@ export default function AutomationList() {
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
   /* ---- IG connect state ---- */
-  const [igConnected, setIgConnected] = useState(null); // null = unknown
+  const [igConnected, setIgConnected] = useState(null);
   const [igCheckErr, setIgCheckErr] = useState("");
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState("");
@@ -173,12 +196,11 @@ export default function AutomationList() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // NEW: ensures EmptyState never flashes before first fetch completes
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
   // DataGrid pagination (desktop)
-  const [page, setPage] = useState(0); // 0-indexed
+  const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
   // Mobile "Load more"
@@ -224,7 +246,7 @@ export default function AutomationList() {
 
     const popup = window.open(url, "metaBusinessLogin", features);
     if (!popup || popup.closed || typeof popup.closed === "undefined") {
-      window.location.href = url; // fallback
+      window.location.href = url;
       return null;
     }
     return popup;
@@ -278,6 +300,7 @@ export default function AutomationList() {
             ...it,
             prettyReplies: formatNumber(totalReplies, { digits: 1 }),
             sno: startIndex + idx + 1,
+            postLive: it.postLive !== false, // Default to true if undefined
           };
         });
 
@@ -302,8 +325,7 @@ export default function AutomationList() {
 
   /* ---- Mobile fetcher (load more) ---- */
   const fetchMobile = useCallback(
-    async (pageArg = 0, limitArg = 10) => {
-      // prevent repeated initial fetches of page 0
+    async (pageArg = 0, limitArg = 10)=> {
       if (pageArg === 0 && mobileInitialLoadedRef.current) {
         setLoading(false);
         return;
@@ -332,6 +354,7 @@ export default function AutomationList() {
             id: it._id || it.postId || `${it.thumbnail}-${idx}-${serverPage}`,
             ...it,
             prettyReplies: formatNumber(totalReplies, { digits: 1 }),
+            postLive: it.postLive !== false,
           };
         });
 
@@ -465,7 +488,11 @@ export default function AutomationList() {
             variant="rounded"
             src={params.value}
             alt={params.row.caption || "thumbnail"}
-            sx={{ width: 72, height: 72 }}
+            sx={{ 
+              width: 72, 
+              height: 72,
+              opacity: params.row.postLive === false ? 0.5 : 1,
+            }}
           />
         ),
       },
@@ -473,14 +500,22 @@ export default function AutomationList() {
         field: "caption",
         headerName: "Caption",
         flex: 1,
-        minWidth: 250,
+        minWidth: 200,
         sortable: false,
-        renderCell: ({ value }) => {
+        renderCell: ({ value, row }) => {
           const full = (value || "").trim();
           const text = full.length > 100 ? `${full.slice(0, 100)}…` : full;
           return (
             <Box sx={{ display: "flex", alignItems: "center", height: "100%", width: "100%" }}>
-              <Typography variant="body2" noWrap title={full} sx={{ maxWidth: "100%" }}>
+              <Typography 
+                variant="body2" 
+                noWrap 
+                title={full} 
+                sx={{ 
+                  maxWidth: "100%",
+                  opacity: row.postLive === false ? 0.6 : 1,
+                }}
+              >
                 {text || "—"}
               </Typography>
             </Box>
@@ -498,6 +533,22 @@ export default function AutomationList() {
             color={params.value === "active" ? "success" : "default"}
             variant="outlined"
           />
+        ),
+      },
+      {
+        field: "postLive",
+        headerName: "Post Live",
+        width: 130,
+        renderCell: (params) => (
+          <Tooltip title={params.value ? "Post is live on Instagram" : "Post deleted from Instagram"}>
+            <Chip
+              size="small"
+              icon={params.value ? <CheckCircleOutlineIcon /> : <CancelOutlinedIcon />}
+              label={params.value ? "LIVE" : "DELETED"}
+              color={params.value ? "success" : "error"}
+              variant="outlined"
+            />
+          </Tooltip>
         ),
       },
       {
@@ -660,7 +711,6 @@ export default function AutomationList() {
     </Stack>
   );
 
-  // Gate UI to avoid EmptyState flash before first fetch completes
   const showInitialSpinner = initializing || (loading && rows.length === 0);
   const showEmpty = !initializing && hasFetchedOnce && !loading && rowCount === 0;
 
@@ -692,6 +742,9 @@ export default function AutomationList() {
               loading={loading}
               disableRowSelectionOnClick
               density="comfortable"
+              getRowClassName={(params) => 
+                params.row.postLive === false ? 'deleted-post-row' : ''
+              }
               sx={{
                 "& .MuiDataGrid-columnHeaders": {
                   position: "sticky",
@@ -702,6 +755,10 @@ export default function AutomationList() {
                 },
                 "& .MuiDataGrid-cell": { alignItems: "center" },
                 "& .MuiTablePagination-root": { overflowX: "auto" },
+                "& .deleted-post-row": {
+                  bgcolor: "action.hover",
+                  opacity: 0.7,
+                },
               }}
             />
           )}

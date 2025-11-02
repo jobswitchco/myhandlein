@@ -20,14 +20,17 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  CircularProgress,
+  Skeleton,
+  Tooltip,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
 import { useParams } from "react-router-dom";
-import WestOutlinedIcon from '@mui/icons-material/WestOutlined';
+import WestOutlinedIcon from "@mui/icons-material/WestOutlined";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 /** Thin, long SVG arrow divider (TOP -> BOTTOM, vector-based, no MUI icon) */
 function ThinDownArrowDivider() {
@@ -35,9 +38,15 @@ function ThinDownArrowDivider() {
     <Box
       role="presentation"
       aria-hidden
-      sx={{ display: "flex", justifyContent: "center", alignItems: "center", color: "#FA812F" }}
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        color: "#FA812F",
+        py: { xs: 1, sm: 1.5 },
+      }}
     >
-      <Box sx={{ height: 56 }}>
+      <Box sx={{ height: { xs: 40, sm: 56 } }}>
         <svg viewBox="0 0 44 200" width="44" height="100%" preserveAspectRatio="xMidYMid meet">
           <line x1="22" y1="0" x2="22" y2="180" stroke="currentColor" strokeOpacity="0.88" strokeWidth="1.25" />
           <path
@@ -54,10 +63,70 @@ function ThinDownArrowDivider() {
   );
 }
 
+/** Image with loading spinner */
+function ImageWithLoader({ src, alt, sx = {} }) {
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <Box sx={{ position: "relative", ...sx }}>
+      {imageLoading && !imageError && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "action.hover",
+            zIndex: 1,
+          }}
+        >
+          <CircularProgress size={48} thickness={3.5} />
+        </Box>
+      )}
+
+      {imageError ? (
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "action.hover",
+            color: "text.secondary",
+          }}
+        >
+          <Typography variant="body2">Failed to load image</Typography>
+        </Box>
+      ) : (
+        <CardMedia
+          component="img"
+          image={src}
+          alt={alt}
+          onLoad={() => setImageLoading(false)}
+          onError={() => {
+            setImageLoading(false);
+            setImageError(true);
+          }}
+          sx={{
+            aspectRatio: "1 / 1",
+            objectFit: "cover",
+            display: imageLoading ? "none" : "block",
+          }}
+        />
+      )}
+    </Box>
+  );
+}
+
 export default function AutomationDetails() {
   const { postId = "" } = useParams();
   const navigate = useNavigate();
-  
 
   // fetch state
   const [loading, setLoading] = useState(false);
@@ -69,8 +138,11 @@ export default function AutomationDetails() {
   // media/meta from backend
   const [media, setMedia] = useState({ thumbnail: "", caption: "" });
 
-  // NEW: status for Stop/Resume button
-  const [status, setStatus] = useState("inactive"); // "active" | "inactive"
+  // 🔥 NEW: postLive status
+  const [postLive, setPostLive] = useState(true);
+
+  // status for Stop/Resume button
+  const [status, setStatus] = useState("inactive");
 
   // Step 1: Keywords
   const [keywordInput, setKeywordInput] = useState("");
@@ -78,14 +150,14 @@ export default function AutomationDetails() {
 
   // Step 2: Public Reply
   const [commentReply, setCommentReply] = useState("");
-  const [shouldReply, setShouldReply] = useState("no"); // "yes" | "no"
+  const [shouldReply, setShouldReply] = useState("no");
 
   // Step 3: DM
   const [shouldDM, setShouldDM] = useState("no");
   const [dmMessage, setDmMessage] = useState("");
   const [dmBtnDialogOpen, setDmBtnDialogOpen] = useState(false);
   const [dmButtonDraft, setDmButtonDraft] = useState({ text: "", url: "" });
-  const [dmButton, setDmButton] = useState(null); // { text, url } | null
+  const [dmButton, setDmButton] = useState(null);
 
   const baseUrl = "/api/usersOn";
 
@@ -121,6 +193,7 @@ export default function AutomationDetails() {
       setKeywordInput("");
     }
   };
+
   const handleDeleteKeyword = (kw) => {
     if (!editMode) return;
     setKeywords((prev) => prev.filter((k) => k !== kw));
@@ -135,17 +208,26 @@ export default function AutomationDetails() {
       setDmButton(null);
     }
   };
+
   const openBtnDialog = () => {
     if (!editMode) return;
     setDmButtonDraft(dmButton || { text: "", url: "" });
     setDmBtnDialogOpen(true);
   };
+
   const closeBtnDialog = () => setDmBtnDialogOpen(false);
+
   const saveBtnDialog = () => {
     const text = (dmButtonDraft.text || "").trim();
     const url = (dmButtonDraft.url || "").trim();
-    if (!text) return alert("Please enter button text");
-    if (!isValidUrl(url)) return alert("Please enter a valid URL (https://...)");
+    if (!text) {
+      toast.error("Please enter button text");
+      return;
+    }
+    if (!isValidUrl(url)) {
+      toast.error("Please enter a valid URL (https://...)");
+      return;
+    }
     setDmButton({ text, url });
     setDmBtnDialogOpen(false);
   };
@@ -196,10 +278,8 @@ export default function AutomationDetails() {
 
     if (!bothNull) {
       if (nextBtn === null) {
-        // clear
         set("dm.button", null);
       } else if (prevBtn === null) {
-        // create
         set("dm.button.text", nextBtn.text);
         set("dm.button.url", nextBtn.url);
       } else {
@@ -211,7 +291,7 @@ export default function AutomationDetails() {
     return patch;
   };
 
-  // Load details from backend (POST, with credentials)
+  // Load details from backend
   useEffect(() => {
     if (!postId) return;
     let alive = true;
@@ -222,7 +302,6 @@ export default function AutomationDetails() {
         const res = await axios.post(baseUrl + "/automation/details", { postId }, { withCredentials: true });
         if (!alive) return;
         const d = res.data || {};
-        // Map into local state
         setMedia({
           thumbnail: d.thumbnail,
           caption: d.caption || "",
@@ -230,7 +309,10 @@ export default function AutomationDetails() {
         setKeywords(Array.isArray(d.keywords) ? d.keywords : []);
         setShouldReply(d.hasPublicReply ? "yes" : "no");
         setCommentReply(d.publicReply || "");
-        setStatus(d.status === "active" ? "active" : "inactive"); // <— NEW
+        setStatus(d.status === "active" ? "active" : "inactive");
+
+        // 🔥 Set postLive status
+        setPostLive(d.postLive !== false);
 
         if (d.dm?.enabled) {
           setShouldDM("yes");
@@ -242,7 +324,6 @@ export default function AutomationDetails() {
           setDmButton(null);
         }
 
-        // Save a normalized snapshot for diffing
         const snapshot = {
           postId,
           keywords: Array.isArray(d.keywords) ? d.keywords : [],
@@ -268,6 +349,12 @@ export default function AutomationDetails() {
 
   // Save only what changed when finishing edit
   const handleDoneEditing = async () => {
+    // 🔥 Prevent editing if post is deleted
+    if (!postLive) {
+      toast.error("Cannot edit automation for a deleted post");
+      return;
+    }
+
     if (!editMode) {
       setEditMode(true);
       return;
@@ -279,6 +366,7 @@ export default function AutomationDetails() {
 
     if (Object.keys(patch).length === 0) {
       setEditMode(false);
+      toast.info("No changes to save");
       return;
     }
 
@@ -288,21 +376,29 @@ export default function AutomationDetails() {
       await axios.post(`${baseUrl}/automation/update`, { postId: next.postId, patch }, { withCredentials: true });
 
       originalRef.current = next;
-      toast.success('Details Updated Successfully!');
+      toast.success("Details Updated Successfully!");
       setEditMode(false);
     } catch (e) {
       setErr(e?.response?.data?.message || e.message || "Failed to update automation");
+      toast.error(e?.response?.data?.message || "Failed to update automation");
     } finally {
       setLoading(false);
     }
   };
 
-  // Toggle Stop/Resume based on current status
+  // Toggle Stop/Resume - DISABLED if post is deleted
   const handleToggleAutomation = async () => {
     if (!data.id) {
-      alert("Missing postId. Open the setup from a specific post.");
+      toast.error("Missing postId. Open the setup from a specific post.");
       return;
     }
+
+    // 🔥 Prevent resuming automation for deleted posts
+    if (!postLive) {
+      toast.error("Cannot resume automation for a deleted post");
+      return;
+    }
+
     try {
       setLoading(true);
       const desired = status === "active" ? "inactive" : "active";
@@ -312,14 +408,14 @@ export default function AutomationDetails() {
       });
       const updated = res?.data?.automation;
       setStatus(updated?.status || desired);
-      toast.success(res?.data?.message || `Automation status updated to ${desired}.`)
+      toast.success(res?.data?.message || `Automation status updated to ${desired}.`);
     } catch (error) {
       console.error("Error toggling automation:", error);
       const msg =
         error.response?.data?.message ||
         error.message ||
         "Failed to update automation status. Please try again.";
-      alert(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -327,36 +423,35 @@ export default function AutomationDetails() {
 
   // Shared styles
   const cardSurface = {
-    p: 3,
-    borderRadius: 3,
+    p: { xs: 2, sm: 2.5, md: 3 },
+    borderRadius: { xs: 2, sm: 2.5, md: 3 },
     border: "1px solid",
     borderColor: "divider",
     bgcolor: "background.paper",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
   };
 
   const sectionTitle = {
     fontFamily: "Inter, ui-sans-serif, system-ui",
-    fontSize: 16,
+    fontSize: { xs: 15, sm: 16 },
     fontWeight: 600,
     letterSpacing: 0.2,
     color: "text.primary",
-    mb: 1,
+    mb: { xs: 1, sm: 1.5 },
   };
 
   const inputTight = {
     "& .MuiOutlinedInput-root": {
-      height: 46,
+      minHeight: { xs: 44, sm: 46 },
       alignItems: "center",
-      borderRadius: 2,
+      borderRadius: { xs: 1.5, sm: 2 },
       width: "100%",
     },
     "& .MuiOutlinedInput-input": {
       height: "100%",
-      lineHeight: "46px",
-      padding: "0 14px",
-      fontSize: 16,
-      "::placeholder": { opacity: 0.5, fontSize: 16 },
+      padding: { xs: "0 12px", sm: "0 14px" },
+      fontSize: { xs: 15, sm: 16 },
+      "::placeholder": { opacity: 0.5, fontSize: { xs: 15, sm: 16 } },
     },
   };
 
@@ -367,16 +462,17 @@ export default function AutomationDetails() {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: 24,
-        height: 24,
+        width: { xs: 22, sm: 24 },
+        height: { xs: 22, sm: 24 },
         borderRadius: "50%",
-        fontSize: 12,
+        fontSize: { xs: 11, sm: 12 },
         fontWeight: 700,
-        mr: 1,
+        mr: { xs: 0.75, sm: 1 },
         color: "primary.main",
         border: "1px solid",
         borderColor: "primary.main",
         bgcolor: "transparent",
+        flexShrink: 0,
       }}
     >
       {n}
@@ -386,35 +482,75 @@ export default function AutomationDetails() {
   const isActive = status === "active";
   const statusBtnLabel = isActive ? "Stop Automation" : "Resume Automation";
 
+  // Loading skeleton
+  if (loading && !media.thumbnail) {
+    return (
+      <Box sx={{ p: { xs: 1.5, sm: 2.5, md: 3 }, maxWidth: 1400, mx: "auto" }}>
+        <Stack sx={{ mb: 3, display: "flex", flexDirection: "row", gap: 2, alignItems: "center" }}>
+          <Skeleton variant="circular" width={24} height={24} />
+          <Skeleton variant="text" width={200} height={32} />
+        </Stack>
+
+        <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 2, md: 3 }}>
+          <Box sx={{ width: { xs: "100%", md: "38%" } }}>
+            <Skeleton variant="rounded" height={400} sx={{ borderRadius: 3 }} />
+          </Box>
+          <Box sx={{ width: { xs: "100%", md: "62%" } }}>
+            <Stack spacing={2}>
+              <Skeleton variant="rounded" height={150} sx={{ borderRadius: 3 }} />
+              <Skeleton variant="rounded" height={150} sx={{ borderRadius: 3 }} />
+              <Skeleton variant="rounded" height={200} sx={{ borderRadius: 3 }} />
+            </Stack>
+          </Box>
+        </Stack>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2.5, md: 3 }, maxWidth: 1400, mx: "auto" }}>
+      <Stack sx={{ mb: { xs: 2, sm: 3 }, display: "flex", flexDirection: "row", gap: { xs: 2, sm: 3 }, alignItems: "center" }}>
+        <IconButton
+          onClick={() => navigate("/professional/automations")}
+          sx={{
+            p: { xs: 0.5, sm: 1 },
+            "&:hover": { bgcolor: "action.hover" },
+          }}
+        >
+          <WestOutlinedIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />
+        </IconButton>
+        <Typography sx={{ fontFamily: "Inter", fontSize: { xs: 18, sm: 20 }, fontWeight: 600, letterSpacing: 0.2 }}>
+          Automation Details
+        </Typography>
+      </Stack>
 
-          <Stack sx={{ mb: 3, display : 'flex', flexDirection : 'row', gap: 3, alignItems : 'center' }}>
-            <WestOutlinedIcon sx={{ cursor : 'pointer'}}onClick={() => navigate("/professional/automations")}/>
-            <Typography sx={{fontFamily : 'Inter', fontSize : '20px', fontWeight: 600, letterSpacing: 0.2 }}>
-              Automation Details
-            </Typography>
-          </Stack>
+      {/* 🔥 Warning banner if post is deleted */}
+      {!postLive && (
+        <Alert
+          severity="warning"
+          icon={<WarningAmberIcon />}
+          sx={{
+            mb: 2,
+            borderRadius: { xs: 1.5, sm: 2 },
+            fontWeight: 500,
+          }}
+        >
+          This post has been deleted from Instagram. The automation is now inactive and cannot be edited or resumed.
+        </Alert>
+      )}
 
-          
-      {/* Responsive two-column layout: stacked on mobile, side-by-side at md+ */}
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        alignItems="flex-start"
-        spacing={{ xs: 2, md: 3 }}
-      >
+      {/* Responsive two-column layout */}
+      <Stack direction={{ xs: "column", md: "row" }} alignItems="flex-start" spacing={{ xs: 2, md: 3 }}>
         {/* LEFT: Media + DM Preview */}
         <Box sx={{ width: { xs: "100%", md: "38%" } }}>
-        
-
           {!postId && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
+            <Alert severity="warning" sx={{ mb: 2, borderRadius: { xs: 1.5, sm: 2 } }}>
               Missing <strong>postId</strong> in the URL.
             </Alert>
           )}
 
           {err && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2, borderRadius: { xs: 1.5, sm: 2 } }}>
               {err}
             </Alert>
           )}
@@ -422,10 +558,12 @@ export default function AutomationDetails() {
           <Card
             variant="outlined"
             sx={{
-              borderRadius: 3,
+              borderRadius: { xs: 2, sm: 2.5, md: 3 },
               overflow: "hidden",
               borderColor: "divider",
               boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+              // 🔥 Dim the card if post is deleted
+              opacity: postLive ? 1 : 0.6,
             }}
           >
             {missingThumb ? (
@@ -443,18 +581,25 @@ export default function AutomationDetails() {
                 </Typography>
               </Box>
             ) : (
-              <CardMedia
-                component="img"
-                image={data.thumbnail}
-                alt={data.caption || `IG media ${data.id}`}
-                sx={{ aspectRatio: "1 / 1", objectFit: "cover" }}
-              />
+              <ImageWithLoader src={data.thumbnail} alt={data.caption || `IG media ${data.id}`} sx={{ aspectRatio: "1 / 1" }} />
             )}
 
-            <CardContent sx={{ p: 2.25 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Caption
-              </Typography>
+            <CardContent sx={{ p: { xs: 1.75, sm: 2.25 } }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: { xs: 12, sm: 13 } }}>
+                  Caption
+                </Typography>
+                {/* 🔥 Post status chip */}
+                <Tooltip title={postLive ? "Post is live on Instagram" : "Post deleted from Instagram"}>
+                  <Chip
+                    size="small"
+                    label={postLive ? "LIVE" : "DELETED"}
+                    color={postLive ? "success" : "error"}
+                    variant="outlined"
+                    sx={{ fontSize: 11, height: 22 }}
+                  />
+                </Tooltip>
+              </Stack>
               <Typography
                 variant="body2"
                 sx={{
@@ -462,6 +607,8 @@ export default function AutomationDetails() {
                   WebkitLineClamp: 3,
                   WebkitBoxOrient: "vertical",
                   overflow: "hidden",
+                  fontSize: { xs: 14, sm: 15 },
+                  lineHeight: 1.6,
                 }}
               >
                 {data.caption?.trim() ? data.caption : "No Caption"}
@@ -474,36 +621,68 @@ export default function AutomationDetails() {
             <Paper
               elevation={0}
               sx={{
-                mt: 4,
-                p: 2,
-                borderRadius: 3,
+                mt: { xs: 2, sm: 3, md: 4 },
+                p: { xs: 1.5, sm: 2 },
+                borderRadius: { xs: 2, sm: 2.5, md: 3 },
                 border: "1px solid",
                 borderColor: "divider",
                 bgcolor: "background.paper",
               }}
             >
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  mb: { xs: 1, sm: 1.5 },
+                  fontWeight: 600,
+                  fontSize: { xs: 14, sm: 15 },
+                }}
+              >
                 DM Preview
               </Typography>
 
-              <Box sx={{ display: "flex", gap: 1.5 }}>
-                <Box sx={{ width: 36, height: 36, borderRadius: "50%", bgcolor: "action.hover", flexShrink: 0 }} />
+              <Box sx={{ display: "flex", gap: { xs: 1, sm: 1.5 } }}>
+                <Box
+                  sx={{
+                    width: { xs: 32, sm: 36 },
+                    height: { xs: 32, sm: 36 },
+                    borderRadius: "50%",
+                    bgcolor: "action.hover",
+                    flexShrink: 0,
+                  }}
+                />
                 <Box
                   sx={{
                     maxWidth: "100%",
-                    p: 1.25,
-                    borderRadius: 2,
+                    p: { xs: 1, sm: 1.25 },
+                    borderRadius: { xs: 1.5, sm: 2 },
                     bgcolor: "grey.100",
                     border: "1px solid",
                     borderColor: "grey.200",
                   }}
                 >
-                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      whiteSpace: "pre-wrap",
+                      fontSize: { xs: 14, sm: 15 },
+                      lineHeight: 1.5,
+                    }}
+                  >
                     {dmMessage || "Your DM message will appear here..."}
                   </Typography>
 
                   {dmButton && (
-                    <Button variant="contained" size="small" sx={{ mt: 1, textTransform: "none", borderRadius: 2 }} disableElevation>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      sx={{
+                        mt: { xs: 0.75, sm: 1 },
+                        textTransform: "none",
+                        borderRadius: { xs: 1.5, sm: 2 },
+                        fontSize: { xs: 13, sm: 14 },
+                      }}
+                      disableElevation
+                    >
                       {dmButton.text}
                     </Button>
                   )}
@@ -515,12 +694,12 @@ export default function AutomationDetails() {
 
         {/* RIGHT: Form (3 boxes) */}
         <Box sx={{ width: { xs: "100%", md: "62%" } }}>
-          <Stack spacing={3}>
+          <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
             {/* Step 1 */}
             <Paper elevation={0} sx={cardSurface}>
-              <Stack sx={{ display: "flex", flexDirection: "row", gap: 1 }}>
-                <Typography> {stepBadge(1)}</Typography>
-                <Box sx={{ flex: 1 }}>
+              <Stack sx={{ display: "flex", flexDirection: "row", gap: { xs: 0.75, sm: 1 } }}>
+                {stepBadge(1)}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={sectionTitle}>Keyword(s) to trigger Automation</Typography>
 
                   <TextField
@@ -531,12 +710,15 @@ export default function AutomationDetails() {
                     onChange={(e) => setKeywordInput(e.target.value)}
                     onKeyDown={handleKeywordKeyDown}
                     variant="outlined"
-                    sx={{ mb: 1.5, ...inputTight }}
-                    slotProps={{ input: { inputProps: { "aria-label": "Keyword input" } } }}
-                    disabled={!editMode}
+                    sx={{ mb: { xs: 1, sm: 1.5 }, ...inputTight }}
+                    slotProps={{
+                      input: { inputProps: { "aria-label": "Keyword input" } },
+                      formHelperText: { sx: { fontSize: { xs: 12, sm: 13 } } },
+                    }}
+                    disabled={!editMode || !postLive}
                   />
 
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: { xs: 0.75, sm: 1 } }}>
                     {keywords.map((kw, i) => (
                       <Chip
                         key={i}
@@ -544,12 +726,20 @@ export default function AutomationDetails() {
                         onDelete={() => handleDeleteKeyword(kw)}
                         color="primary"
                         variant="outlined"
-                        sx={{ borderRadius: 2, "& .MuiChip-label": { px: 1.5, fontWeight: 500 } }}
-                        {...(!editMode ? { onDelete: undefined } : {})}
+                        size={window.innerWidth < 600 ? "small" : "medium"}
+                        sx={{
+                          borderRadius: { xs: 1.5, sm: 2 },
+                          "& .MuiChip-label": {
+                            px: { xs: 1.25, sm: 1.5 },
+                            fontWeight: 500,
+                            fontSize: { xs: 13, sm: 14 },
+                          },
+                        }}
+                        {...(!editMode || !postLive ? { onDelete: undefined } : {})}
                       />
                     ))}
                     {keywords.length === 0 && (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: 13, sm: 14 } }}>
                         {editMode ? "Add keywords above" : "No keywords configured"}
                       </Typography>
                     )}
@@ -562,15 +752,29 @@ export default function AutomationDetails() {
 
             {/* Step 2 */}
             <Paper elevation={0} sx={cardSurface}>
-              <Stack sx={{ display: "flex", flexDirection: "row", gap: 1 }}>
-                <Typography> {stepBadge(2)}</Typography>
-                <Box sx={{ flex: 1 }}>
+              <Stack sx={{ display: "flex", flexDirection: "row", gap: { xs: 0.75, sm: 1 } }}>
+                {stepBadge(2)}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={sectionTitle}>Would you like to set up a Public Reply in the feed?</Typography>
 
-                  <FormControl component="fieldset" sx={{ mb: 1 }}>
-                    <RadioGroup value={shouldReply} onChange={(e) => (editMode ? setShouldReply(e.target.value) : null)} row>
-                      <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" disabled={!editMode} />
-                      <FormControlLabel value="no" control={<Radio size="small" />} label="No" disabled={!editMode} />
+                  <FormControl component="fieldset" sx={{ mb: { xs: 0.75, sm: 1 } }}>
+                    <RadioGroup
+                      value={shouldReply}
+                      onChange={(e) => (editMode && postLive ? setShouldReply(e.target.value) : null)}
+                      row
+                    >
+                      <FormControlLabel
+                        value="yes"
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: { xs: 14, sm: 15 } }}>Yes</Typography>}
+                        disabled={!editMode || !postLive}
+                      />
+                      <FormControlLabel
+                        value="no"
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: { xs: 14, sm: 15 } }}>No</Typography>}
+                        disabled={!editMode || !postLive}
+                      />
                     </RadioGroup>
                   </FormControl>
 
@@ -582,7 +786,7 @@ export default function AutomationDetails() {
                       onChange={(e) => setCommentReply(e.target.value)}
                       variant="outlined"
                       sx={inputTight}
-                      disabled={!editMode}
+                      disabled={!editMode || !postLive}
                     />
                   )}
                 </Box>
@@ -593,15 +797,25 @@ export default function AutomationDetails() {
 
             {/* Step 3 — DM */}
             <Paper elevation={0} sx={cardSurface}>
-              <Stack sx={{ display: "flex", flexDirection: "row", gap: 1 }}>
-                <Typography> {stepBadge(3)}</Typography>
-                <Box sx={{ flex: 1 }}>
+              <Stack sx={{ display: "flex", flexDirection: "row", gap: { xs: 0.75, sm: 1 } }}>
+                {stepBadge(3)}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={sectionTitle}>Would you like to send a DM?</Typography>
 
-                  <FormControl component="fieldset" sx={{ mb: 1 }}>
+                  <FormControl component="fieldset" sx={{ mb: { xs: 0.75, sm: 1 } }}>
                     <RadioGroup value={shouldDM} onChange={handleDMChoice} row>
-                      <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" disabled={!editMode} />
-                      <FormControlLabel value="no" control={<Radio size="small" />} label="No" disabled={!editMode} />
+                      <FormControlLabel
+                        value="yes"
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: { xs: 14, sm: 15 } }}>Yes</Typography>}
+                        disabled={!editMode || !postLive}
+                      />
+                      <FormControlLabel
+                        value="no"
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: { xs: 14, sm: 15 } }}>No</Typography>}
+                        disabled={!editMode || !postLive}
+                      />
                     </RadioGroup>
                   </FormControl>
 
@@ -615,8 +829,14 @@ export default function AutomationDetails() {
                         variant="outlined"
                         multiline
                         minRows={2}
-                        sx={{ mb: 1.25, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                        disabled={!editMode}
+                        sx={{
+                          mb: { xs: 1, sm: 1.25 },
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: { xs: 1.5, sm: 2 },
+                            fontSize: { xs: 14, sm: 15 },
+                          },
+                        }}
+                        disabled={!editMode || !postLive}
                       />
 
                       {/* Optional Button control */}
@@ -624,8 +844,13 @@ export default function AutomationDetails() {
                         <Button
                           variant="text"
                           onClick={openBtnDialog}
-                          sx={{ textTransform: "none", px: 0, fontWeight: 600 }}
-                          disabled={!editMode}
+                          sx={{
+                            textTransform: "none",
+                            px: 0,
+                            fontWeight: 600,
+                            fontSize: { xs: 13, sm: 14 },
+                          }}
+                          disabled={!editMode || !postLive}
                         >
                           {dmButton ? "Edit Button" : "Add Button (optional)"}
                         </Button>
@@ -635,13 +860,21 @@ export default function AutomationDetails() {
                               label={`${dmButton.text} → ${dmButton.url}`}
                               variant="outlined"
                               size="small"
-                              sx={{ maxWidth: "100%", borderRadius: 2 }}
+                              sx={{
+                                maxWidth: "100%",
+                                borderRadius: { xs: 1.5, sm: 2 },
+                                "& .MuiChip-label": {
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  fontSize: { xs: 12, sm: 13 },
+                                },
+                              }}
                             />
                             <IconButton
                               size="small"
                               aria-label="remove button"
-                              onClick={() => (editMode ? setDmButton(null) : null)}
-                              disabled={!editMode}
+                              onClick={() => (editMode && postLive ? setDmButton(null) : null)}
+                              disabled={!editMode || !postLive}
                             >
                               <CloseIcon fontSize="small" />
                             </IconButton>
@@ -655,18 +888,28 @@ export default function AutomationDetails() {
             </Paper>
 
             {/* Footer actions: Edit + Stop/Resume */}
-            <Box sx={{ display: "flex", justifyContent: "space-between", pt: 2, gap: 2, flexWrap: "wrap" }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                justifyContent: "space-between",
+                pt: { xs: 1, sm: 2 },
+                gap: { xs: 1.5, sm: 2 },
+              }}
+            >
               <Button
                 variant={editMode ? "contained" : "outlined"}
                 size="large"
                 onClick={handleDoneEditing}
-                disabled={loading}
+                disabled={loading || !postLive}
                 sx={{
-                  minWidth: 200,
+                  flex: { xs: 1, sm: "0 1 auto" },
+                  minWidth: { sm: 200 },
                   textTransform: "none",
-                  fontSize: 16,
+                  fontSize: { xs: 15, sm: 16 },
                   fontWeight: 700,
-                  borderRadius: 2.5,
+                  borderRadius: { xs: 2, sm: 2.5 },
+                  py: { xs: 1.25, sm: 1.5 },
                 }}
               >
                 {editMode ? "Done Editing" : "Edit Automation"}
@@ -677,14 +920,16 @@ export default function AutomationDetails() {
                 size="large"
                 color={isActive ? "error" : "success"}
                 onClick={handleToggleAutomation}
-                disabled={loading || !postId}
+                disabled={loading || !postId || !postLive}
                 sx={{
-                  minWidth: 200,
+                  flex: { xs: 1, sm: "0 1 auto" },
+                  minWidth: { sm: 200 },
                   textTransform: "none",
                   fontFamily: "Inter, ui-sans-serif, system-ui",
-                  fontSize: 16,
+                  fontSize: { xs: 15, sm: 16 },
                   fontWeight: 700,
-                  borderRadius: 2.5,
+                  borderRadius: { xs: 2, sm: 2.5 },
+                  py: { xs: 1.25, sm: 1.5 },
                 }}
               >
                 {statusBtnLabel}
@@ -695,8 +940,19 @@ export default function AutomationDetails() {
       </Stack>
 
       {/* Dialog: Add/Edit Button */}
-      <Dialog open={dmBtnDialogOpen} onClose={closeBtnDialog} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700 }}>DM Button</DialogTitle>
+      <Dialog
+        open={dmBtnDialogOpen}
+        onClose={closeBtnDialog}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 2, sm: 2.5 },
+            m: { xs: 2, sm: 3 },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: { xs: 18, sm: 20 } }}>DM Button</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <TextField
             fullWidth
@@ -715,10 +971,23 @@ export default function AutomationDetails() {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeBtnDialog} sx={{ textTransform: "none" }}>
+          <Button
+            onClick={closeBtnDialog}
+            sx={{
+              textTransform: "none",
+              fontSize: { xs: 14, sm: 15 },
+            }}
+          >
             Cancel
           </Button>
-          <Button variant="contained" onClick={saveBtnDialog} sx={{ textTransform: "none" }}>
+          <Button
+            variant="contained"
+            onClick={saveBtnDialog}
+            sx={{
+              textTransform: "none",
+              fontSize: { xs: 14, sm: 15 },
+            }}
+          >
             Save
           </Button>
         </DialogActions>

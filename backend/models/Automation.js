@@ -2,7 +2,6 @@
 import mongoose from "mongoose";
 const { Schema } = mongoose;
 
-
 const ButtonSchema = new Schema(
   {
     text: { type: String, trim: true },
@@ -22,7 +21,6 @@ const DMSchema = new Schema(
 
 const MediaSchema = new Schema(
   {
-    // Optional: store a snapshot of media for context
     thumbnail: { type: String, trim: true },
     caption: { type: String, trim: true },
   },
@@ -42,9 +40,11 @@ const AutomationSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "users", required: true, index: true },
     platform: { type: String, enum: ["instagram"], default: "instagram", index: true },
-
-    postId: { type: String, required: true, index: true }, // IG media id
-    thumbnail: { type: String},
+    postId: { type: String, required: true, index: true },
+    repliedCount: { type: Number, default: 0 },
+    thumbnail: { type: String },
+    postLive: { type: Boolean, default: true, index: true }, // NEW FIELD
+    lastCheckedAt: { type: Date, default: Date.now }, // NEW FIELD - tracks last verification
     keywords: {
       type: [String],
       default: [],
@@ -55,34 +55,27 @@ const AutomationSchema = new Schema(
       set: (arr) =>
         [...new Set(arr.map((k) => String(k || "").trim()).filter(Boolean))],
     },
-
-    // Step 2: optional public reply
     publicReply: { type: String, default: null, trim: true },
     caption: { type: String, default: null, trim: true },
     hasPublicReply: { type: Boolean, default: false },
-
-    // Step 3: DM config
     dm: { type: DMSchema, default: { enabled: false } },
-    createdAt: { type: Date},
-
-    // Optional media snapshot
+    createdAt: { type: Date },
     media: { type: MediaSchema, default: undefined },
-
     status: {
       type: String,
-      enum: ["active", "paused", "archived"],
+      enum: ["active", "paused", "archived", "inactive"],
       default: "active",
       index: true,
     },
-
-    // Runtime stats (optional, for dashboarding)
     runStats: { type: RunStatsSchema, default: () => ({}) },
   },
   { timestamps: true }
 );
 
-// Ensure one automation per user per post
-// AutomationSchema.index({ userId: 1, postId: 1 }, { unique: true });
+AutomationSchema.index({ userId: 1, postId: 1 }, { unique: true });
+AutomationSchema.index({ status: 1, platform: 1, postId: 1 });
+AutomationSchema.index({ "runStats.lastRunAt": 1 });
+AutomationSchema.index({ postLive: 1, userId: 1 }); // NEW INDEX
 
 const Automation = mongoose.models.Automation || mongoose.model("Automation", AutomationSchema, "automations");
 export default Automation;
