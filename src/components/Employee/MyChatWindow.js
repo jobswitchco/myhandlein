@@ -482,7 +482,6 @@ export default function MyChatWindow({
           bgcolor: 'white', 
           flexShrink: 1,
           position: 'sticky',
-          pb: 20,
           zIndex: 10
         }}
       >
