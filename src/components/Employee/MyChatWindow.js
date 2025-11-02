@@ -475,14 +475,14 @@ export default function MyChatWindow({
       </Box>
 
       {/* Fixed Input Area - Sticky at bottom */}
-      <Box 
+       <Box 
         sx={{ 
           p: 2, 
           borderTop: '1px solid #e0e0e0', 
           bgcolor: 'white', 
-          flexShrink: 0,
+          flexShrink: 1,
           position: 'sticky',
-          bottom: 0,
+          pb: 20,
           zIndex: 10
         }}
       >
