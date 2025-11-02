@@ -7,7 +7,7 @@ import {
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 
-const API_BASE = "http://localhost:8001";
+const API_BASE = "/api";
 
 function initials(name = "") {
   return (name || "").split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase();
