@@ -331,20 +331,17 @@ export default function MyChatWindow({
     return null;
   }
 
-  // Render
+  // Render with proper visible input box
   return (
     <Box 
       sx={{ 
-        bgcolor: "#FFFFFF",
+        bgcolor: "#e5ddd5",
         height: "100%",
         width: "100%",
         display: "flex",
-        flexDirection: "column",
-        overflow: "hidden"
+        flexDirection: "column"
       }}
     >
-      {!!errorMsg && <Alert severity="error" sx={{ m: 2, flexShrink: 0 }}>{errorMsg}</Alert>}
-
       {/* Scrollable Messages Area - Only this scrolls */}
       <Box 
         ref={scrollRef}
@@ -353,11 +350,12 @@ export default function MyChatWindow({
           overflowY: "auto", 
           overflowX: "hidden",
           p: 2, 
-          bgcolor: "#e5ddd5",
-          minHeight: 0, // Important for flex scrolling
+          minHeight: 0,
           WebkitOverflowScrolling: "touch"
         }}
       >
+        {!!errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
+        
         {messages.length === 0 ? (
           <Typography color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
             No messages yet
@@ -474,16 +472,13 @@ export default function MyChatWindow({
         <div ref={messagesEndRef} />
       </Box>
 
-      {/* Fixed Input Area - Sticky at bottom */}
+      {/* Fixed Input Area - Always visible at bottom */}
       <Box 
         sx={{ 
           p: 2, 
           borderTop: '1px solid #e0e0e0', 
           bgcolor: 'white', 
-          flexShrink: 0,
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 10
+          flexShrink: 0
         }}
       >
         <Box display="flex" gap={1}>
@@ -526,6 +521,7 @@ export default function MyChatWindow({
             sx={{
               bgcolor: "#1976d2",
               color: "white",
+              flexShrink: 0,
               "&:hover": {
                 bgcolor: "#1565c0"
               }
