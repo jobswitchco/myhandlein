@@ -220,24 +220,24 @@ export default function FetchInstagramMedia() {
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
       <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ mb: 2 }}
+        sx={{ mb: 4, display: 'flex', flexDirection : 'row', alignItems : 'center', justifyContent : 'space-between' }}
       >
-       <Stack sx={{ mb: 3, display : 'flex', flexDirection : 'row', gap: 3, alignItems : 'center' }}>
+
+        <Stack sx={{ display : 'flex', flexDirection : 'row', gap: 3, alignItems : 'center'}}>
+
                  <WestOutlinedIcon sx={{ cursor : 'pointer'}}onClick={() => navigate("/professional/automations")}/>
-                 <Typography sx={{fontFamily : 'Inter', fontSize : '20px', fontWeight: 600, letterSpacing: 0.2 }}>
+                  <Typography sx={{fontFamily : 'Inter', fontSize : {xs: '15px', sm: '15px', md: '20px'}, fontWeight: 600, letterSpacing: 0.2 }}>
                    Instagram Posts
                  </Typography>
-               </Stack>
 
-        {selectedItem ? (
+        </Stack>
+
+                    {selectedItem ? (
           <Button
             variant="contained"
             onClick={handleSetupAutomation}
             disabled={!selectedItem}
-            sx={{ borderRadius: 999 }}
+            sx={{ borderRadius: 999, textTransform : 'none', fontFamily : 'Inter', fontSize : {xs: '12px', sm: '12px', md: '14px'} }}
           >
             Setup Automation
           </Button>
@@ -250,8 +250,9 @@ export default function FetchInstagramMedia() {
             Select a post to set-up automation.
           </Typography>
         )}
-      </Stack>
 
+               </Stack>
+     
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
