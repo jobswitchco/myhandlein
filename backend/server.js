@@ -143,8 +143,8 @@ app.get('*', async (req, res, next) => {
     if (!TEMPLATE_HTML) return next();
 
     const host = req.headers.host || '';
-    // const subdomain = extractSubdomain(host);
-    const subdomain = 'sid4real';
+    const subdomain = extractSubdomain(host);
+    // const subdomain = 'sid4real';
 
 
     // If no subdomain, just serve normal index.html (no injection)
