@@ -181,7 +181,9 @@ export default function SideNavbar({ window }) {
           scrollbarColor: "#CBD5E1 #F3F4F6",
         }}
       >
-        <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 0 }}>
+        {!isSmallScreen && (
+
+           <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 0 }}>
           <Link
             to="/professional/dashboard/analytics"
             style={{
@@ -195,6 +197,9 @@ export default function SideNavbar({ window }) {
          
           </Link>
         </Toolbar>
+
+        )}
+       
 
         <List sx={{ px: 2, pt: 1 }}>
           {/* ===== LINK IN BIO MAIN MENU ===== */}

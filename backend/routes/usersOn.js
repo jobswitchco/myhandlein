@@ -494,36 +494,6 @@ async function refreshFacebookTokensIfNeeded(user) {
 
 
 
-// async function uploadBufferToGCS(buffer, originalName, mimeType) {
-//   if (!bucket) throw new Error("GCS bucket not configured.");
-//   const ext = path.extname(originalName) || "";
-//   const objectName = `products/${Date.now()}-${crypto
-//     .randomBytes(6)
-//     .toString("hex")}${ext}`;
-//   const file = bucket.file(objectName);
-
-//   return new Promise((resolve, reject) => {
-//     const stream = file.createWriteStream({
-//       metadata: { contentType: mimeType },
-//       resumable: false,
-//     });
-
-//     stream.on("error", (err) => reject(err));
-//     stream.on("finish", async () => {
-//       try {
-//         await file.makePublic();
-//         const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
-//         resolve({ publicUrl, objectName });
-//       } catch (err) {
-//         reject(err);
-//       }
-//     });
-
-//     // 🔑 Actually write the in-memory buffer to GCS
-//     stream.end(buffer);
-//   });
-// }
-
 
 
 async function uploadBufferToGCS(buffer, filename, mimetype) {
@@ -612,6 +582,34 @@ async function uploadFilePathToGCS(filePath, originalName, mimeType) {
     // pipe the local file into GCS write stream
     readStream.pipe(writeStream);
   });
+}
+
+// Choose which Graph API version you want to lock to:
+const GRAPH_VERSION = process.env.FB_GRAPH_VERSION || "v24.0";
+
+// Pick a usable token: prefer long-lived IG token, then page access token
+function pickInstagramToken(user) {
+  if (user.igLongLivedToken) return user.igLongLivedToken;
+  if (user.fbPageAccessToken) return user.fbPageAccessToken;
+  return null;
+}
+
+// Hit IG Graph to get fresh profile picture and username
+async function fetchInstagramProfile({ igUserId, accessToken }) {
+  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}`;
+  const params = { fields: "profile_picture_url,username", access_token: accessToken };
+  const { data } = await axios.get(url, { params });
+  // data: { id, username, profile_picture_url }
+  return {
+    username: data?.username || "",
+    profile_picture_url: data?.profile_picture_url || "",
+  };
+}
+
+// 6h TTL to avoid spamming Graph API (adjust as you like)
+function needsRefresh(lastChecked, ttlMs = 1000 * 60 * 60 * 6) {
+  if (!lastChecked) return true;
+  return Date.now() - new Date(lastChecked).getTime() > ttlMs;
 }
 
 
@@ -707,6 +705,149 @@ console.error("demo-login error", err);
 return res.status(500).json({ success: false, message: "Server error" });
 }
 });
+
+router.post("/instagram/get-details", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    // include tokens if they're select:false in the schema
+    const user = await USER.findById(userId)
+      .select("+fbLongLivedToken +fbPageAccessToken")
+      .lean();
+
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+
+    // If not connected or missing IG user id, just return what's stored
+    if (!user.instagramConnected || !user.igUserId) {
+      return res.json({
+        success: true,
+        data: {
+          connected: !!user.instagramConnected,
+          username: user.igUsername || "",
+          imageUrl: user.igProfilePic || "",
+        },
+      });
+    }
+
+    let updatedUsername = user.igUsername || "";
+    let updatedPic = user.igProfilePic || "";
+
+    const token = pickInstagramToken(user);
+
+    // Try to refresh if we have a token and TTL says it's time
+    if (token && needsRefresh(user.igPicLastChecked)) {
+      try {
+        const fresh = await fetchInstagramProfile({
+          igUserId: user.igUserId,
+          accessToken: token,
+        });
+
+        // Only write if something changed (or we had nothing)
+        const shouldUpdate =
+          fresh.username && fresh.username !== user.igUsername
+            ? true
+            : fresh.profile_picture_url && fresh.profile_picture_url !== user.igProfilePic;
+
+        if (shouldUpdate) {
+          await USER.findByIdAndUpdate(
+            userId,
+            {
+              $set: {
+                igUsername: fresh.username || user.igUsername || "",
+                igProfilePic: fresh.profile_picture_url || user.igProfilePic || "",
+                igPicLastChecked: new Date(),
+              },
+            },
+            { new: false }
+          );
+          updatedUsername = fresh.username || updatedUsername;
+          updatedPic = fresh.profile_picture_url || updatedPic;
+        } else {
+          // Just bump the last-checked time so we don't keep calling
+          await USER.findByIdAndUpdate(
+            userId,
+            { $set: { igPicLastChecked: new Date() } },
+            { new: false }
+          );
+        }
+      } catch (err) {
+        // If token is invalid/expired, you may mark as disconnected or keep stale values
+        // Here we log and fall back to stored values
+        console.error("IG refresh failed:", err?.response?.data || err.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        connected: true,
+        username: updatedUsername,
+        imageUrl: updatedPic,
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+
+
+
+router.post("/instagram/unlink", authenticateToken, async (req, res) => {
+  const userId = req.user?.user_id;
+  if (!userId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+  const session = await mongoose.startSession();
+  try {
+    let automationsResult = { matchedCount: 0, modifiedCount: 0 };
+
+    await session.withTransaction(async () => {
+      // 1) Mark the user as disconnected from Instagram
+      const updatedUser = await USER.findByIdAndUpdate(
+        userId,
+        { $set: { instagramConnected: false } },
+        { new: true, session }
+      );
+
+      if (!updatedUser) {
+        // Causes the transaction to abort
+        const err = new Error("User not found");
+        err.statusCode = 404;
+        throw err;
+      }
+
+      // 2) Inactivate all Instagram automations for this user
+      const updateRes = await Automation.updateMany(
+        {
+          userId,
+          platform: "instagram",
+          status: { $ne: "inactive" },
+        },
+        { $set: { status: "inactive" } },
+        { session }
+      );
+
+      // For response payload
+      automationsResult.matchedCount = updateRes.matchedCount ?? updateRes.n ?? 0;
+      automationsResult.modifiedCount = updateRes.modifiedCount ?? updateRes.nModified ?? 0;
+    });
+
+    return res.json({
+      success: true,
+      message: "Instagram unlinked. All your Instagram automations were set to inactive.",
+      automations: automationsResult,
+    });
+  } catch (e) {
+    console.error(e);
+    const code = e.statusCode || 500;
+    const msg = e.statusCode === 404 ? "User not found" : "Server error";
+    return res.status(code).json({ success: false, error: msg });
+  } finally {
+    session.endSession();
+  }
+});
+
 
 router.get("/get-my-transactions", authenticateToken, async (req, res) => {
   try {
