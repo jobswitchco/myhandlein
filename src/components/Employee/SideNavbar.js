@@ -181,9 +181,11 @@ export default function SideNavbar({ window }) {
           scrollbarColor: "#CBD5E1 #F3F4F6",
         }}
       >
-        {!isSmallScreen && (
+    
+        <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 0 }}>
 
-           <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 0 }}>
+      {!isSmallScreen && (
+
           <Link
             to="/professional/dashboard/analytics"
             style={{
@@ -196,9 +198,9 @@ export default function SideNavbar({ window }) {
             <img src={logo} alt="MyHandle Logo" width="140" height="60" style={{ display: "block" }} />
          
           </Link>
-        </Toolbar>
 
         )}
+        </Toolbar>
        
 
         <List sx={{ px: 2, pt: 1 }}>
