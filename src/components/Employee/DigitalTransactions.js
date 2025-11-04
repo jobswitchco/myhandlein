@@ -55,7 +55,7 @@ export default function DigitalTransactions() {
   const navigate = useNavigate();
 
   // Date range state
-  const [preset, setPreset] = useState("last7");
+  const [preset, setPreset] = useState("last30");
   const [start, setStart] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 7); return toISODateString(d);
   });

@@ -16,10 +16,11 @@ const ProductsCatalogue_Schema = new Schema({
   imagePublicId: { type: String },
     productCategory: {
     type: Schema.Types.ObjectId,
-    ref: "product_categories",   // matches the model name you exported
+    ref: "product_categories",
     default: null,
     index: true,
   },
+  image_last_checked: Date,
 
 
     link_click_analytics: [{

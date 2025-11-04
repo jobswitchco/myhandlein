@@ -48,9 +48,12 @@ const User_Schema = new Schema({
   last_login: { type: Date },
   loginHistory: [{ type: Date }],
   free_trial: { type: Boolean, default: true },
+  free_trial_started_date: { type: Date, default: Date.now },
+  free_trial_used: { type: Boolean, default: false },
+  paid_subscription_active : { type: Boolean, default: false },
+
   store_enabled: { type: Boolean, default: false },
   dm_enabled: { type: Boolean, default: false },
-  free_trial_started_date: { type: Date, default: Date.now },
   is_del: { type: Boolean, default: false },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date },

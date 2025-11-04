@@ -19,6 +19,7 @@ import Product from "../models/ProductsCatalogue.js";
 import PageAnalytics from "../models/PageAnalytics.js";
 import NewsletterModel from "../models/Newsletter.js";
 import ProductCategory from "../models/ProductCategory.js";
+import * as cheerio from 'cheerio';
 import mongoose from 'mongoose';
 router.use(cookieParser());
 import authenticateToken from "../middleware/authenticateTokenProfessional.js";
@@ -198,47 +199,6 @@ async function getClientIp(req) {
 
 const UA ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36";
 
-const getFirst = async(html, regexes) => {
-  for (const rx of regexes) {
-    const m = html.match(rx);
-    if (m && m[1]) return m[1].trim();
-  }
-  return null;
-};
-
-// Amazon-specific fallbacks
-async function extractAmazonImage(html) {
-  // 1) data-old-hires on landing image
-  let m = html.match(/id=["']landingImage["'][^>]+data-old-hires=["']([^"']+)["']/i);
-  if (m?.[1]) return m[1];
-
-  // 2) data-a-dynamic-image JSON with urls as keys
-  m = html.match(/data-a-dynamic-image=['"]({.*?})['"]/i);
-  if (m?.[1]) {
-    try {
-      const obj = JSON.parse(m[1]
-        .replace(/&quot;/g, '"') // sometimes encoded
-      );
-      const keys = Object.keys(obj || {});
-      if (keys.length) return keys[0];
-    } catch (_) {}
-  }
-
-  // 3) hiRes or main image in embedded JSON
-  m = html.match(/"hiRes"\s*:\s*"([^"]+)"/i);
-  if (m?.[1]) return m[1];
-
-  // 4) twitter:image as last resort (Amazon often sets this)
-  m = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
-  if (m?.[1]) return m[1];
-
-  return null;
-}
-
-const resolveUrl = async(base, maybeRelative) => {
-  try { return maybeRelative ? new URL(maybeRelative, base).href : null; }
-  catch { return maybeRelative || null; }
-};
 
 
 async function getWithRetries(url, { retries = 3, timeout = 5000 } = {}) {
@@ -278,16 +238,51 @@ async function getWithRetries(url, { retries = 3, timeout = 5000 } = {}) {
   }
   throw e;
 }
+// Helper function to check if image URL is valid
+async function isImageUrlValid(url) {
+  if (!url) return false;
+  
+  try {
+    const response = await axios.head(url, {
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    // Check if response is OK and content type is image
+    const contentType = response.headers['content-type'];
+    return response.status === 200 && contentType && contentType.startsWith('image/');
+  } catch (error) {
+    return false;
+  }
+}
 
-// low-level fetch wrapper
-async function tryFetch(url, headers, timeout = 10000) {
-  return axios.get(url, {
-    responseType: "text",
-    maxRedirects: 10,
-    timeout,
-    headers,
-    validateStatus: (s) => s >= 200 && s < 400, // treat redirects as ok (axios follows them)
-  });
+// Helper function to scrape fresh image URL from product page
+async function scrapeProductImage(productUrl) {
+  try {
+    // Add your scraping logic here
+    // This is a placeholder - implement based on your scraping method
+    const response = await axios.get(productUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    // Parse HTML and extract image URL
+    // Example for Amazon (adjust based on your needs)
+    const $ = cheerio.load(response.data);
+    
+    // Amazon main image selector (may need updating)
+    const imageUrl = $('#landingImage').attr('src') || 
+                    $('.a-dynamic-image').first().attr('src') ||
+                    $('img[data-old-hires]').first().attr('data-old-hires');
+    
+    return imageUrl;
+  } catch (error) {
+    console.error('Error scraping image:', error.message);
+    return null;
+  }
 }
 
 
@@ -3555,6 +3550,7 @@ router.get("/blocks/options", authenticateToken, async (req, res) => {
           user_id: new mongoose.Types.ObjectId(userId),
           is_del: { $ne: true },
           archived: { $ne: true },
+          type: { $in: ["link", "video"] }, // ← ADD THIS LINE
         },
       },
       { $sort: { order: 1, created_at: 1 } },
@@ -3771,10 +3767,11 @@ router.post("/product-analytics/table", authenticateToken, async (req, res) => {
         $project: {
           title: 1,
           imageUrl: 1,
+          productUrl: 1,
+          image_last_checked: 1,
+          updated_at: 1,
           created_at: 1,
-          // Total events
           clicks: { $size: { $ifNull: ["$link_click_analytics", []] } },
-          // Unique IPs (exclude null/empty), count them
           visitors: {
             $size: {
               $setDifference: [
@@ -3784,13 +3781,13 @@ router.post("/product-analytics/table", authenticateToken, async (req, res) => {
                       $map: {
                         input: { $ifNull: ["$link_click_analytics", []] },
                         as: "lc",
-                        in: "$$lc.ip", // keep raw ip
+                        in: "$$lc.ip",
                       },
                     },
-                    [], // ensure array
+                    [],
                   ],
                 },
-                [null, ""], // exclude bad values
+                [null, ""],
               ],
             },
           },
@@ -3800,7 +3797,126 @@ router.post("/product-analytics/table", authenticateToken, async (req, res) => {
     ];
 
     const docs = await Product.aggregate(pipeline);
+
+    // Return data immediately
     res.json({ ok: true, data: docs });
+
+    // Validate and refresh images in background (non-blocking)
+    setImmediate(async () => {
+      try {
+        const bulkOperations = [];
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+        for (const doc of docs) {
+          // Only check images that haven't been validated in last 7 days
+          if (!doc.imageUrl || (doc.image_last_checked && doc.image_last_checked > sevenDaysAgo)) {
+            continue;
+          }
+
+          // Wrap per-doc work in try/catch so a single failure can't create a malformed op
+          try {
+            const isValid = await isImageUrlValid(doc.imageUrl);
+
+            if (!isValid && doc.productUrl) {
+              const newImageUrl = await scrapeProductImage(doc.productUrl);
+
+              if (newImageUrl && newImageUrl !== doc.imageUrl) {
+                bulkOperations.push({
+                  updateOne: {
+                    filter: { _id: doc._id },
+                    update: {
+                      $set: {
+                        imageUrl: newImageUrl,
+                        image_last_checked: new Date(),
+                        updated_at: new Date()
+                      }
+                    }
+                  }
+                });
+              } else {
+                // Mark as checked even if scrape failed
+                bulkOperations.push({
+                  updateOne: {
+                    filter: { _id: doc._id },
+                    update: {
+                      $set: {
+                        image_last_checked: new Date()
+                      }
+                    }
+                  }
+                });
+              }
+            } else if (isValid) {
+              // Mark valid images as checked
+              bulkOperations.push({
+                updateOne: {
+                  filter: { _id: doc._id },
+                  update: {
+                    $set: {
+                      image_last_checked: new Date()
+                    }
+                  }
+                }
+              });
+            } else {
+              // Case: !isValid && !doc.productUrl -> still mark checked
+              bulkOperations.push({
+                updateOne: {
+                  filter: { _id: doc._id },
+                  update: {
+                    $set: {
+                      image_last_checked: new Date()
+                    }
+                  }
+                }
+              });
+            }
+          } catch (perDocErr) {
+            // Log but continue processing other docs
+            console.error(`Error checking image for product ${doc._id}:`, perDocErr);
+            // As a fallback, mark image as checked to avoid repeated failures,
+            // or you could skip this — choose what's best for your product.
+            bulkOperations.push({
+              updateOne: {
+                filter: { _id: doc._id },
+                update: {
+                  $set: { image_last_checked: new Date() }
+                }
+              }
+            });
+          }
+        }
+
+        // Sanitize operations: remove any malformed ops that don't have update operators
+        const sanitized = bulkOperations.filter(op => {
+          try {
+            if (!op || !op.updateOne || !op.updateOne.update) return false;
+            const updateKeys = Object.keys(op.updateOne.update);
+            // At least one update key must start with $
+            return updateKeys.some(k => typeof k === "string" && k.startsWith("$"));
+          } catch (e) {
+            return false;
+          }
+        });
+
+        // Log the count difference so you can detect lost/invalid ops
+        if (sanitized.length !== bulkOperations.length) {
+          console.warn(`Dropped ${bulkOperations.length - sanitized.length} malformed bulk ops before bulkWrite.`);
+          // Optional: persist malformed ops somewhere for inspection
+          // console.log('Malformed ops:', bulkOperations.filter(op => !sanitized.includes(op)));
+        }
+
+        if (sanitized.length > 0) {
+          await Product.bulkWrite(sanitized);
+          console.log(`Background: Updated ${sanitized.length} product images`);
+        } else {
+          console.log("Background: No valid product image updates to apply");
+        }
+      } catch (bgErr) {
+        console.error("Background image refresh error:", bgErr);
+      }
+    });
+
   } catch (err) {
     console.error("/product-analytics/table error", err);
     res.status(500).json({ ok: false, message: "Server error" });
@@ -5529,34 +5645,35 @@ router.post("/edit-product/:id", upload.single("image"), authenticateToken, asyn
 });
 
 
-// GET /api/products/fet-user-products?page=1&limit=10
 router.get("/fet-user-products", authenticateToken, async (req, res) => {
+  const userId = req.user?.user_id;
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const limit = Math.max(parseInt(req.query.limit || "10", 10), 1);
+  const skip = (page - 1) * limit;
 
-    const userId = req.user?.user_id;
-    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
-    const limit = Math.max(parseInt(req.query.limit || "10", 10), 1);
-    const skip = (page - 1) * limit;
-
-    try {
-      // support req.user.id or req.user._id
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized: no user id" });
-      }
-
-      const filter = { user_id: userId, is_del: false };
-
-      const [data, total] = await Promise.all([
-        Product.find(filter).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
-        Product.countDocuments(filter),
-      ]);
-
-      return res.json({ data, total });
-    } catch (err) {
-      console.error("List user products error:", err);
-      return res.status(500).json({ message: "Error fetching products" });
+  try {
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized: no user id" });
     }
+
+    const filter = { user_id: userId, is_del: false };
+
+    const [data, total] = await Promise.all([
+      Product.find(filter)
+        .populate('productCategory')  // ← ADD THIS LINE
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    return res.json({ data, total });
+  } catch (err) {
+    console.error("List user products error:", err);
+    return res.status(500).json({ message: "Error fetching products" });
   }
-);
+});
 
 
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -22,6 +22,8 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useGoogleLogin } from "@react-oauth/google";
 import GmailIcon from "../../images/google.png";
 import wallBack from "../../images/4159942_89781.jpg";
+import logo from "../../images/myhandle_logo.svg"
+
 
 /**
  * Influencer-focused auth screen
@@ -148,7 +150,7 @@ export default function WaitlistSignup() {
         display: "grid",
         gridTemplateColumns: { xs: "1fr", md: "1.1fr 0.9fr" },
         minHeight: "100dvh",
-        backgroundImage: `linear-gradient( to bottom right, rgba(5,11,40,0.65), rgba(5,11,40,0.35) ), url(${wallBack})`,
+        backgroundImage: `linear-gradient( to bottom right, #F4F4F4, #468A9A ), url(${wallBack})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
@@ -163,35 +165,34 @@ export default function WaitlistSignup() {
         }}
       >
         <Box maxWidth={560}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3 }}>
-            <Box
-              sx={{
-                width: 36,
-                height: 36,
-                bgcolor: "rgba(255,255,255,0.15)",
-                borderRadius: 2,
-                backdropFilter: "blur(4px)",
-              }}
-            />
-            <Typography variant="h6" sx={{ letterSpacing: 1, fontWeight: 700 }}>myhandle.in</Typography>
-          </Box>
+        
+      
+          <img
+            src={logo}
+            alt="MyHandle Logo"
+            width="140"
+            height="60"
+            loading="eager"
+            decoding="async"
+            style={{ display: "block" }}
+          />
 
-          <Typography variant="h3" sx={{ fontWeight: 700, lineHeight: 1.1, mb: 2, fontFamily : 'Inter' }}>
-            The fastest way for creators to manage brand deals.
+          <Typography variant="h3" sx={{ fontWeight: 700, lineHeight: 1.1, mb: 2, fontFamily : 'Inter', color: '#450693' }}>
+            Ultimate Link-in-Bio & Instagram automation platform.
           </Typography>
-          <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400, mb: 4, fontFamily : 'Inter' }}>
-            Join top influencers who streamline pitches, inbox, and payments in one place.
+          <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400, mb: 4, fontFamily : 'Inter', color: '#44444E' }}>
+            Power your creator journey with smart automations and a beautiful bio page, all in one place.
           </Typography>
 
           <Stack direction="row" spacing={3} sx={{ opacity: 0.9 }}>
             <Stack>
               <Typography variant="h4" fontWeight={800}>10k+</Typography>
-              <Typography variant="body2">Link in Bio Pages</Typography>
+              <Typography variant="body2">Creators Onboard</Typography>
             </Stack>
             <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(255,255,255,0.2)" }} />
             <Stack>
               <Typography variant="h4" fontWeight={800}>4.9★</Typography>
-              <Typography variant="body2">Creator satisfaction</Typography>
+              <Typography variant="body2">Satisfaction</Typography>
             </Stack>
           </Stack>
         </Box>
@@ -217,7 +218,7 @@ export default function WaitlistSignup() {
           <Stack spacing={2.5}>
             <Box>
               <Typography variant="overline" sx={{ color: "text.secondary", fontWeight: 700, letterSpacing: 1.6, fontFamily : 'Inter', fontSize : isSmallScreen ? '10px' : '16px' }}>
-                Influencer Access
+                Creator — Brand
               </Typography>
               <Typography variant="h4" sx={{fontFamily : 'Inter', fontSize : isSmallScreen ? '22px' : '36px', fontWeight: 700, mt: 0.5, mb: 3 }}>
                 Sign in or create your account

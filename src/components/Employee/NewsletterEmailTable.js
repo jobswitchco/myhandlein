@@ -14,53 +14,122 @@ import {
   TableHead,
   TableRow,
   Paper,
-  TablePagination,
+  Pagination,
   CircularProgress,
   Stack,
   Divider,
+  useTheme,
+  useMediaQuery,
+  alpha
 } from "@mui/material";
-
-// 📊 Recharts
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Cell,
-} from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, LabelList } from "recharts";
 
 const API_BASE = "/api/usersOn";
 
-// 🎨 Distinct bar colors (cycled if >10)
 const BAR_COLORS = [
-  "#6366F1", // indigo
-  "#22C55E", // green
-  "#F59E0B", // amber
-  "#EF4444", // red
-  "#3B82F6", // blue
-  "#A855F7", // purple
-  "#14B8A6", // teal
-  "#EAB308", // yellow
-  "#F97316", // orange
-  "#10B981", // emerald
+  "#6366F1",
+  "#22C55E",
+  "#F59E0B",
+  "#EF4444",
+  "#3B82F6",
+  "#A855F7",
+  "#14B8A6",
+  "#EAB308",
+  "#F97316",
+  "#10B981",
 ];
 
+// Stat Card Component
+const StatCard = ({ label, value, icon: Icon }) => (
+  <Card
+    elevation={0}
+    sx={{
+      borderRadius: 2.5,
+      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      color: "white",
+      transition: "all 0.3s ease",
+      "&:hover": {
+        transform: "translateY(-2px)",
+        boxShadow: "0 8px 20px rgba(102, 126, 234, 0.4)",
+      },
+    }}
+  >
+    <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+        <Box>
+          <Typography
+            sx={{
+              fontSize: { xs: "0.7rem", md: "0.75rem" },
+              opacity: 0.9,
+              fontWeight: 600,
+              mb: 0.5,
+            }}
+          >
+            {label}
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: { xs: "1.5rem", md: "2rem" },
+              fontWeight: 800,
+              letterSpacing: "-0.5px",
+            }}
+          >
+            {value}
+          </Typography>
+        </Box>
+        {Icon && <Icon sx={{ fontSize: { xs: 28, md: 36 }, opacity: 0.2 }} />}
+      </Stack>
+    </CardContent>
+  </Card>
+);
+
 export default function NewsletterEmailsTable({ blockId = null }) {
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.down("sm"));
+  const isSm = useMediaQuery(theme.breakpoints.between("sm", "md"));
+
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState({ totalSubscribers: 0, last7Days: 0, last28Days: 0 });
-  const [page, setPage] = useState(0); // zero-based for MUI
+  const [page, setPage] = useState(1); // 1-based for pagination
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [topCities, setTopCities] = useState([]);
+  const [topRegions, setTopRegions] = useState([]);
 
-  // Chart data
-  const [topCities, setTopCities] = useState([]);   // [{ name, count }]
-  const [topRegions, setTopRegions] = useState([]); // [{ name, count }]
+  const totalPages = Math.ceil(total / limit);
+  const yAxisWidth = isXs ? 70 : isSm ? 100 : 140;
+  const fontSize = isXs ? 10 : 12;
 
-  const pageForApi = useMemo(() => page + 1, [page]); // API expects 1-based
+  {/* Custom Tooltip Component */}
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    return (
+      <Box
+        sx={{
+          backgroundColor: "rgba(0, 0, 0, 0.95)",
+          color: "#FFFFFF",
+          padding: "12px 16px",
+          borderRadius: 2,
+          border: "1px solid rgba(255,255,255,0.2)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          fontFamily: "Inter",
+          fontSize: "14px",
+          fontWeight: 600,
+          zIndex: 9999,
+        }}
+      >
+        <Typography sx={{ color: "white", fontFamily: "Inter", fontWeight: 600 }}>
+          {numberFmt(payload[0].value)}
+        </Typography>
+      </Box>
+    );
+  }
+  return null;
+};
+
+
+
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +138,7 @@ export default function NewsletterEmailsTable({ blockId = null }) {
       try {
         const res = await axios.post(
           `${API_BASE}/newsletter-list-emails`,
-          { page: pageForApi, limit, blockId },
+          { page, limit, blockId },
           { withCredentials: true }
         );
 
@@ -78,7 +147,6 @@ export default function NewsletterEmailsTable({ blockId = null }) {
           setStats(res.data.stats || { totalSubscribers: 0, last7Days: 0, last28Days: 0 });
           setTotal(res.data.total || 0);
 
-          // Clamp to top-10 in UI even if backend sends more
           const cities = (res.data.topCities || [])
             .sort((a, b) => (b.count || 0) - (a.count || 0))
             .slice(0, 10);
@@ -106,188 +174,347 @@ export default function NewsletterEmailsTable({ blockId = null }) {
     return () => {
       cancelled = true;
     };
-  }, [pageForApi, limit, blockId]);
+  }, [page, limit, blockId]);
 
-  const handleChangePage = (e, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (e) => {
-    setLimit(parseInt(e.target.value, 10));
-    setPage(0);
+  const handlePageChange = (e, value) => {
+    setPage(value);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const numberFmt = (v) => Intl.NumberFormat().format(v ?? 0);
+
   return (
-    <Box sx={{ p: 2 }}>
-      {/* Stats cards */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, md: 4}}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary">
-                Total Subscribers
-              </Typography>
-              <Typography variant="h4">{stats.totalSubscribers}</Typography>
-            </CardContent>
-          </Card>
+    <Box sx={{ p: { xs: 1.5, md: 2 }, maxWidth: 1400, mx: "auto" }}>
+      {/* Header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography
+          sx={{
+            fontFamily: "Inter",
+            fontWeight: 700,
+            fontSize: { xs: "1.5rem", md: "2rem" },
+            mb: 0.5,
+          }}
+        >
+          📧 Newsletter Subscribers
+        </Typography>
+        <Typography
+          sx={{
+            fontFamily: "Inter",
+            fontSize: { xs: "0.875rem", md: "1rem" },
+            opacity: 0.7,
+          }}
+        >
+          Manage and analyze your subscriber list
+        </Typography>
+      </Box>
+
+      {/* Stats Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <StatCard label="Total Subscribers" value={numberFmt(stats.totalSubscribers)} />
         </Grid>
-        <Grid size={{ xs: 12, md: 4}}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary">
-                Last 7 days
-              </Typography>
-              <Typography variant="h4">{stats.last7Days}</Typography>
-            </CardContent>
-          </Card>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <StatCard label="Last 7 Days" value={numberFmt(stats.last7Days)} />
         </Grid>
-        <Grid size={{ xs: 12, md: 4}}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary">
-                Last 28 days
-              </Typography>
-              <Typography variant="h4">{stats.last28Days}</Typography>
-            </CardContent>
-          </Card>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <StatCard label="Last 28 Days" value={numberFmt(stats.last28Days)} />
         </Grid>
       </Grid>
 
-      {/* Table */}
-      <Paper elevation={0} variant="outlined">
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>S.No</TableCell>
-                <TableCell>Email Address</TableCell>
-                <TableCell>Subscribed Date</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+      {/* Email Table */}
+      <Card elevation={0} sx={{ borderRadius: 2.5, mb: 3, border: `1px solid ${alpha(theme.palette.divider, 0.5)}` }}>
+        <CardContent sx={{ p: { xs: 0, md: 2 } }}>
+          <Typography
+            variant="subtitle1"
+            fontWeight={700}
+            sx={{ mb: 2, px: { xs: 1.5, md: 0 }, pt: { xs: 1.5, md: 0 }, fontFamily: "Inter" }}
+          >
+            Subscribers List
+          </Typography>
+          <Divider sx={{ mb: 2, display: { xs: "none", md: "block" } }} />
+
+          {/* Table - Desktop View */}
+          {!isXs && (
+            <TableContainer>
+              <Table size={isXs ? "small" : "medium"}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.05) }}>
+                    <TableCell sx={{ fontWeight: 700, fontFamily: "Inter" }}>S.No</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontFamily: "Inter" }}>Email</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontFamily: "Inter" }}>Subscribed Date</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                        <CircularProgress size={32} />
+                      </TableCell>
+                    </TableRow>
+                  ) : rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontFamily: "Inter" }}>
+                          No subscribers yet
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((r, idx) => {
+                      const serial = (page - 1) * limit + idx + 1;
+                      const dateStr = r.subscribed_at
+                        ? new Date(r.subscribed_at).toLocaleDateString("en-IN")
+                        : "-";
+                      return (
+                        <TableRow
+                          key={`${r.email}-${serial}`}
+                          sx={{
+                            "&:hover": { backgroundColor: alpha(theme.palette.primary.main, 0.02) },
+                            fontFamily: "Inter",
+                          }}
+                        >
+                          <TableCell sx={{ fontFamily: "Inter" }}>{serial}</TableCell>
+                          <TableCell sx={{ fontFamily: "Inter", wordBreak: "break-all" }}>
+                            {r.email}
+                          </TableCell>
+                          <TableCell sx={{ fontFamily: "Inter" }}>{dateStr}</TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {/* Mobile Card View */}
+          {isXs && (
+            <Box sx={{ px: 1.5 }}>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={3}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <CircularProgress size={20} />
-                      <Typography variant="body2">Loading...</Typography>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
+                <Box sx={{ py: 4, display: "flex", justifyContent: "center" }}>
+                  <CircularProgress size={32} />
+                </Box>
               ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3}>
-                    <Typography variant="body2" color="text.secondary">
-                      No subscribers found.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 3, fontFamily: "Inter" }}>
+                  No subscribers yet
+                </Typography>
               ) : (
                 rows.map((r, idx) => {
-                  const serial = page * limit + idx + 1;
+                  const serial = (page - 1) * limit + idx + 1;
                   const dateStr = r.subscribed_at
-                    ? new Date(r.subscribed_at).toLocaleString()
+                    ? new Date(r.subscribed_at).toLocaleDateString("en-IN")
                     : "-";
                   return (
-                    <TableRow key={`${r.email}-${serial}`}>
-                      <TableCell>{serial}</TableCell>
-                      <TableCell>{r.email}</TableCell>
-                      <TableCell>{dateStr}</TableCell>
-                    </TableRow>
+                    <Paper
+                      key={`${r.email}-${serial}`}
+                      elevation={0}
+                      sx={{
+                        p: 1.5,
+                        mb: 1.5,
+                        borderRadius: 1.5,
+                        backgroundColor: alpha(theme.palette.primary.main, 0.03),
+                        border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                      }}
+                    >
+                      <Stack spacing={0.5}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, fontFamily: "Inter" }}>
+                            #{serial}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "Inter" }}>
+                            {dateStr}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          sx={{
+                            fontSize: "0.875rem",
+                            fontWeight: 600,
+                            wordBreak: "break-all",
+                            fontFamily: "Inter",
+                          }}
+                        >
+                          {r.email}
+                        </Typography>
+                      </Stack>
+                    </Paper>
                   );
                 })
               )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            </Box>
+          )}
+        </CardContent>
 
-        <TablePagination
-          component="div"
-          rowsPerPageOptions={[10, 25, 50]}
-          count={total}
-          rowsPerPage={limit}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </Paper>
+        {/* Pagination */}
+        {rows.length > 0 && (
+          <Box sx={{ display: "flex", justifyContent: "center", pt: 2, pb: 2, px: 2 }}>
+            <Pagination
+              count={totalPages}
+              page={page}
+              onChange={handlePageChange}
+              color="primary"
+              size={isXs ? "small" : "medium"}
+              sx={{ fontFamily: "Inter" }}
+            />
+          </Box>
+        )}
+      </Card>
 
       {/* Charts Section */}
-      <Box sx={{ mt: 3 }}>
-        <Divider sx={{ mb: 2 }} />
+      {(topCities.length > 0 || topRegions.length > 0) && (
+        <>
 
-        {/* Top 10 Cities - Horizontal bars (full width) */}
-        <Card variant="outlined" sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              Top 10 Cities
-            </Typography>
-            <Box sx={{ width: "100%", height: 380 }}>
-              <ResponsiveContainer>
-                <BarChart
-                  data={topCities}
-                  layout="vertical" // horizontal bars
-                  margin={{ top: 8, right: 16, left: 16, bottom: 8 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickLine={false} axisLine={false} />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    width={120}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {topCities.map((_, index) => (
-                      <Cell
-                        key={`city-cell-${index}`}
-                        fill={BAR_COLORS[index % BAR_COLORS.length]}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
-          </CardContent>
-        </Card>
+{/* Top Cities Chart */}
+<Card elevation={0} sx={{ borderRadius: 2.5, mb: 3, border: `1px solid ${alpha(theme.palette.divider, 0.5)}`, overflow: "visible" }}>
+  <CardContent sx={{ p: { xs: 1.5, md: 2 }, overflow: "visible" }}>
+    <Typography
+      variant="subtitle1"
+      fontWeight={700}
+      sx={{ mb: 2, fontFamily: "Inter" }}
+    >
+      🏙️ Top Cities
+    </Typography>
+    <Divider sx={{ mb: 2 }} />
+    
+    {/* Dark Background Box for Chart */}
+    <Box 
+      sx={{ 
+        width: "100%", 
+        height: { xs: 280, md: 360 },
+        backgroundColor: "#70B2B2",
+        borderRadius: 2,
+        p: 1.5,
+        overflow: "visible"
+      }}
+    >
+      <ResponsiveContainer>
+        <BarChart
+          data={topCities}
+          layout="vertical"
+          margin={{
+            top: 8,
+            right: 16,
+            left: isXs ? 0 : 8,
+            bottom: 8,
+          }}
+          barCategoryGap={isXs ? 10 : 20}
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+          <XAxis
+            type="number"
+            tick={{ fontSize, fill: "#FFFFFF" }}
+            tickLine={false}
+            axisLine={false}
+            domain={[0, "dataMax"]}
+          />
+          <YAxis
+            dataKey="name"
+            type="category"
+            width={yAxisWidth}
+            tick={{ fontSize, fill: "#FFFFFF" }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(v) =>
+              isXs && String(v).length > 12 ? `${String(v).slice(0, 12)}…` : v
+            }
+          />
+          <Tooltip
+            content={<CustomTooltip />}
+            cursor={{ fill: "rgba(255,255,255,0.15)" }}
+            wrapperStyle={{ outline: "none" }}
+          />
+          <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+            <LabelList 
+              dataKey="count" 
+              position="right" 
+              formatter={numberFmt}
+            />
+            {topCities.map((_, idx) => (
+              <Cell key={`city-${idx}`} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </Box>
+  </CardContent>
+</Card>
 
-        {/* Top 10 States/Regions - Vertical bars (full width) */}
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              Top 10 States
-            </Typography>
-            <Box sx={{ width: "100%", height: 360 }}>
-              <ResponsiveContainer>
-                <BarChart
-                  data={topRegions}
-                  margin={{ top: 8, right: 16, left: 8, bottom: 24 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="name"
-                    angle={-20}
-                    textAnchor="end"
-                    interval={0}
-                    height={50}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis tickLine={false} axisLine={false} />
-                  <Tooltip />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {topRegions.map((_, index) => (
-                      <Cell
-                        key={`region-cell-${index}`}
-                        fill={BAR_COLORS[index % BAR_COLORS.length]}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
+{/* Top States Chart */}
+<Card elevation={0} sx={{ borderRadius: 2.5, border: `1px solid ${alpha(theme.palette.divider, 0.5)}`, overflow: "visible" }}>
+  <CardContent sx={{ p: { xs: 1.5, md: 2 }, overflow: "visible" }}>
+    <Typography
+      variant="subtitle1"
+      fontWeight={700}
+      sx={{ mb: 2, fontFamily: "Inter" }}
+    >
+      📍 Top States
+    </Typography>
+    <Divider sx={{ mb: 2 }} />
+    
+    {/* Dark Background Box for Chart */}
+    <Box 
+      sx={{ 
+        width: "100%", 
+        height: { xs: 280, md: 360 },
+        backgroundColor: "#70B2B2",
+        borderRadius: 2,
+        p: 1.5,
+        overflow: "visible"
+      }}
+    >
+      <ResponsiveContainer>
+        <BarChart
+          data={topRegions}
+          margin={{
+            top: 8,
+            right: 16,
+            left: 8,
+            bottom: isXs ? 40 : 32,
+          }}
+          barCategoryGap={isXs ? 8 : 16}
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+          <XAxis
+            dataKey="name"
+            tick={{ fontSize, fill: "#FFFFFF" }}
+            angle={-30}
+            textAnchor="end"
+            height={isXs ? 50 : 60}
+            tickLine={false}
+            axisLine={false}
+            interval={0}
+          />
+          <YAxis
+            tick={{ fontSize, fill: "#FFFFFF" }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip
+            content={<CustomTooltip />}
+            cursor={{ fill: "rgba(255,255,255,0.15)" }}
+            wrapperStyle={{ outline: "none" }}
+          />
+          <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+            <LabelList 
+              dataKey="count" 
+              position="top" 
+              formatter={numberFmt}
+            />
+            {topRegions.map((_, idx) => (
+              <Cell key={`region-${idx}`} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </Box>
+  </CardContent>
+</Card>
+
+
+
+
+
+        </>
+      )}
     </Box>
   );
 }

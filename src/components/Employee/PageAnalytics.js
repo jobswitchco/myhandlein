@@ -45,7 +45,7 @@ export default function PageAnalytics({
   cardSx,
   showBarLabels = true, // ⬅️ NEW (in case you want to toggle later)
 }) {
-  const [duration, setDuration] = useState("7d"); // today|7d|28d
+  const [duration, setDuration] = useState("28d"); // today|7d|28d
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState({
