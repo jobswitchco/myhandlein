@@ -42,6 +42,10 @@ import "react-toastify/dist/ReactToastify.css";
 import UpiMandateModern from "./UpiMandate";
 import CurrencyRupeeOutlinedIcon from "@mui/icons-material/CurrencyRupeeOutlined";
 
+import { logout } from "../../store/professionalSlice";
+import { useDispatch } from "react-redux";
+
+
 const theme = createTheme({
   palette: {
     primary: { main: deepOrange[500] },
@@ -63,6 +67,8 @@ export default function SideNavbar({ window }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
 
   // Main menu states
   const [linkInBioOpen, setLinkInBioOpen] = useState(true);
@@ -116,9 +122,15 @@ export default function SideNavbar({ window }) {
   const handleSessionExpired = () => {
     toast.error("Session expired. Please log in again.");
     setTimeout(() => {
-      navigate("/professional/login");
+      axios.post(baseUrl + "/logout", {}, { withCredentials: true });
+        dispatch(logout()); // Clear Redux state
+        window.location.href = "/professional/login"; // Ensures full logout
     }, 1500);
   };
+
+
+
+
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);

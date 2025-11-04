@@ -30,12 +30,17 @@ import EmailIcon from "@mui/icons-material/Email";
 import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CircularProgress from "@mui/material/CircularProgress";
+import { logout } from "../../store/professionalSlice";
+import { useDispatch } from "react-redux";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+
 
 const RZP_KEY_ID = "rzp_live_RbZ0rhbWlR25Cl";
 
 export default function UpiMandateModern() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const dispatch = useDispatch();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,6 +51,16 @@ export default function UpiMandateModern() {
 
   const PLAN_ID = "plan_RbbqqMpteltFu2";
   const baseUrl = "/api/usersOn";
+
+    const handleLogout = async () => {
+    try {
+      await axios.post(baseUrl + "/logout", {}, { withCredentials: true });
+      dispatch(logout()); // Clear Redux state
+      window.location.href = "/professional/login"; // Ensures full logout
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   // Load Razorpay script
   useEffect(() => {
@@ -581,6 +596,22 @@ export default function UpiMandateModern() {
                   </Stack>
                 </Stack>
               </Paper>
+
+    <Button
+                onClick={handleLogout}
+                startIcon={<LogoutRoundedIcon />}
+                variant="text"
+                color="error"
+                fullWidth
+                sx={{
+                  mt: 1.5,
+                  textTransform: "none",
+                  fontWeight: 700,
+                }}
+              >
+                Log out
+              </Button>
+
             </CardContent>
           </Card>
         </Fade>
