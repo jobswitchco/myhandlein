@@ -1,12 +1,6 @@
 // import logo from './logo.svg';
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers';
-import {
-  Box,
-  Typography,
-  Button
-} from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ToastContainer } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
@@ -68,98 +62,6 @@ function App({ initialSubdomain = null, initialProfile = null }) {
 
    const GOOGLE_CLIENT_ID = "191478155465-ldeodgltp87ehgudqg648no94cuitbqs.apps.googleusercontent.com";
 
-      function openExternal(url) {
-  if (!url) return;
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function buildAndroidIntentForCurrentUrl() {
-  try {
-    const u = new URL(window.location.href);
-    const fallback = encodeURIComponent(window.location.href);
-    return (
-      `intent://${u.host}${u.pathname}${u.search}${u.hash}` +
-      `#Intent;scheme=${u.protocol.replace(":", "")};` +
-      `package=com.android.chrome;S.browser_fallback_url=${fallback};end`
-    );
-  } catch {
-    return null;
-  }
-}
-
-function isInAppBrowser() {
-  const ua = navigator.userAgent || "";
-  // Instagram / Facebook / Messenger webviews
-  return /Instagram|FBAN|FBAV|FB_IAB|Messenger/i.test(ua);
-}
-
-function isAndroid() {
-  return /Android/i.test(navigator.userAgent || "");
-}
-
-function ExternalizeGuard({ children }) {
-  const [showBanner, setShowBanner] = useState(false);
-  const triedRef = useRef(false);
-
-  useEffect(() => {
-    if (triedRef.current) return;
-    triedRef.current = true;
-
-    if (!isInAppBrowser()) return; // nothing to do
-
-    // Try to escape automatically
-    if (isAndroid()) {
-      const intent = buildAndroidIntentForCurrentUrl();
-      if (intent) {
-        // A tiny delay improves reliability in some webviews
-        setTimeout(() => { window.location.href = intent; }, 120);
-      }
-    } else {
-      // iOS / others — try a new tab (often blocked without user gesture)
-      setTimeout(() => { openExternal(window.location.href); }, 120);
-    }
-
-    // Show banner as a fallback if auto-open is blocked
-    setShowBanner(true);
-  }, []);
-
-  return (
-    <>
-      {showBanner && (
-        <Box
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 2000,
-            bgcolor: "#111827",
-            color: "#fff",
-            px: 2,
-            py: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid rgba(255,255,255,0.12)"
-          }}
-        >
-          <Typography sx={{ fontSize: 13 }}>
-            For the best experience, open this page in your browser.
-          </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            onClick={() => openExternal(window.location.href)}
-            sx={{ textTransform: "none", borderRadius: 2, ml: 2 }}
-          >
-            Open in Browser
-          </Button>
-        </Box>
-      )}
-
-      {children}
-    </>
-  );
-}
-
  // inside App component, replace the early-return branch with this:
 
 if (initialSubdomain) {
@@ -170,9 +72,7 @@ if (initialSubdomain) {
           {/* Wrap in a Router so any components using useLocation/useNavigate work */}
           <Router>
             <GoogleAnalytics />
-              <ExternalizeGuard>
-              <PublicProfile handle={initialSubdomain} initialProfile={initialProfile} />
-            </ExternalizeGuard>
+            <PublicProfile handle={initialSubdomain} initialProfile={initialProfile} />
           </Router>
 
           <ToastContainer
