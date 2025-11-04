@@ -4770,12 +4770,13 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
     const userId = req.user?.user_id;
     if (!userId) return res.status(401).json({ error: "Unauthenticated" });
 
-    const { name, action, type = "link", fields } = req.body;
+    const { name, action, type = "link", fields, newsletterText } = req.body;
 
     // Basic validation: name always required
     if (!name || !name.trim()) return res.status(400).json({ error: "name is required" });
 
-    const allowed = ["link", "video", "product", "store", "form", "cta"];
+    // allow newsletter type
+    const allowed = ["link", "video", "product", "store", "form", "cta", "newsletter"];
     if (!allowed.includes(type)) return res.status(400).json({ error: "invalid type" });
 
     // If it's a form, expect an array of fields (but allow empty array if user will add later)
@@ -4793,14 +4794,12 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
 
           if (!label || !label.trim()) throw { status: 400, message: `field ${i} missing label` };
 
-          // extend supported types to include 'radio' and 'textarea' etc.
           const supportedTypes = ["text", "email", "tel", "textarea", "number", "radio"];
           if (!supportedTypes.includes(ftype)) throw { status: 400, message: `field ${i} has invalid type` };
 
           // normalize options for radio fields
           let options = undefined;
           if (ftype === "radio") {
-            // accept array or comma-string
             if (f.options === undefined) {
               throw { status: 400, message: `field ${i} (radio) missing options` };
             }
@@ -4814,18 +4813,25 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
             if (options.length === 0) throw { status: 400, message: `field ${i} (radio) requires at least one option` };
           }
 
-          // Build normalized field object including options when present
           const normalized = { key, label: label.trim(), type: ftype, placeholder, required };
           if (options !== undefined) normalized.options = options;
           return normalized;
         });
       } else {
-        // fields not supplied by the client — allow empty array to be created
         normalizedFields = [];
       }
     } else {
-      // non-form: action required (URL or string)
-      if (!action || !action.trim()) return res.status(400).json({ error: "action (URL) is required for this block type" });
+      // non-form: action required except for newsletter (newsletter uses newsletterText)
+      if (type !== "newsletter") {
+        if (!action || !action.trim()) return res.status(400).json({ error: "action (URL or text) is required for this block type" });
+      }
+    }
+
+    // If newsletter: newsletterText is required
+    if (type === "newsletter") {
+      if (!newsletterText || !String(newsletterText).trim()) {
+        return res.status(400).json({ error: "newsletterText is required for newsletter block" });
+      }
     }
 
     // compute new order: put at the end
@@ -4835,7 +4841,7 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
     const payload = {
       user_id: userId,
       name: name.trim(),
-      action: (action && action.trim()) || "",
+      action: (action && action.trim()) || (type === "newsletter" ? String(newsletterText).trim() : ""),
       type,
       order: newOrder,
       created_at: new Date(),
@@ -4846,6 +4852,22 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
       payload.fields = normalizedFields;
       // optional: store a little preview in action for backward compatibility
       payload.action = JSON.stringify({ fields: normalizedFields });
+    }
+
+    // If newsletter, also create a newsletters collection entry
+    if (type === "newsletter") {
+      try {
+        await NewsletterModel.create({
+          user_id: userId,
+          newsletterText: String(newsletterText).trim(),
+          created_at: new Date(),
+          updatedAt: new Date(),
+        });
+      } catch (e) {
+        console.error("Failed to create newsletter record:", e);
+        // bubble up so client knows saving failed
+        return res.status(500).json({ error: "Failed to save newsletter" });
+      }
     }
 
     const doc = await Block.create(payload);
@@ -4861,7 +4883,6 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
       updated_at: doc.updated_at,
     });
   } catch (err) {
-    // handle thrown validation object from map above
     if (err && err.status && err.message) {
       return res.status(err.status).json({ error: err.message });
     }
