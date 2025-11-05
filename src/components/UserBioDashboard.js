@@ -42,7 +42,7 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteIcon from "@mui/icons-material/Delete";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
-import IndiaFlag from '../images/flag.png'
+import IndiaFlag from "../images/flag.png";
 import SaveIcon from "@mui/icons-material/Save";
 import ShareIcon from "@mui/icons-material/Share";
 import YouTubeIcon from "@mui/icons-material/YouTube";
@@ -53,12 +53,15 @@ import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import MovieIcon from "@mui/icons-material/Movie";
+import EmailIcon from '@mui/icons-material/EmailOutlined';
+import DescriptionIcon from '@mui/icons-material/DescriptionOutlined';
 import axios from "axios";
 import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import newsletterBg from "../images/newsLetterBg.jpg";
 import MailOutlinedIcon from '@mui/icons-material/MailOutlined';
+import EventIcon from '@mui/icons-material/CalendarMonth';
 
 // ---------- Responsive Custom styled buttons ----------
 const PrimaryBtn = styled("button")(({ theme }) => ({
@@ -68,11 +71,31 @@ const PrimaryBtn = styled("button")(({ theme }) => ({
   border: "none",
   cursor: "pointer",
   padding: "10px 16px",
-  borderRadius: 999,
+  borderRadius: 6,
   color: "#fff",
   fontWeight: 700,
-  background: "linear-gradient(90deg,#7c3aed,#9f7aea)",
-  boxShadow: "0 8px 24px rgba(124,58,237,0.14)",
+  background: "#077A7D",
+  transition: "transform .12s ease, box-shadow .12s ease",
+  fontSize: 14,
+  textTransform: "none",
+  [theme.breakpoints.down("sm")]: {
+    width: "100%",
+    justifyContent: "center",
+    padding: "12px 14px",
+  },
+}));
+
+const MeetingButton = styled("button")(({ theme }) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  border: "none",
+  cursor: "pointer",
+  padding: "10px 16px",
+  borderRadius: 6,
+  color: "#fff",
+  fontWeight: 700,
+  background: "#EFEFF0",
   transition: "transform .12s ease, box-shadow .12s ease",
   fontSize: 14,
   textTransform: "none",
@@ -164,6 +187,277 @@ const AddPill = styled("button")(({ theme }) => ({
   },
 }));
 
+
+const BookingDialog = ({ open, onClose, onSave }) => {
+  const [bookingData, setBookingData] = useState({
+    title: '',
+    duration: '30',
+    description: '',
+    bufferTime: '0',
+    interactionType: 'voice',
+  });
+
+  const baseUrl = "/api/usersOn";
+  const [apiSnack, setApiSnack] = useState({ open: false, message: "" });
+
+
+
+  // put this near your component (or in a utils file)
+const truncate = (str = "", max = 100) => {
+  if (!str) return "";
+  if (str.length <= max) return str;
+  const slice = str.slice(0, max);
+  // try to avoid cutting mid-word (fallback to hard cut)
+  const cutAt = slice.lastIndexOf(" ");
+  const safe = cutAt > max * 0.6 ? slice.slice(0, cutAt) : slice;
+  // avoid trailing punctuation before ellipsis
+  return safe.replace(/[.,;:!?-]+$/,"").trimEnd() + "...";
+};
+
+// tweak limits here
+const MAX_TITLE = 40;
+const MAX_DESC  = 90;
+
+const [savingBlock, setSavingBlock] = useState(false);
+
+const handleSave = async () => {
+  setSavingBlock(true);
+
+  // Prepare payload as object (not JSON string)
+  const payload = {
+    type: 'booking',
+    name: bookingData.title,
+    duration: bookingData.duration,
+    description: bookingData.description,
+    bufferTime: bookingData.bufferTime,
+    interactionType: bookingData.interactionType,
+  };
+
+  try {
+    const res = await axios.post(baseUrl + "/save-blocks", payload, {
+      withCredentials: true,
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const saved = res.data;
+
+    const normalized = {
+      id: saved._id || saved.id || `temp-${Date.now()}`,
+      title: saved.name || payload.name,
+      action: saved.action || payload.action,
+      type: saved.type || payload.type,
+      image: saved.image,
+      raw: saved,
+    };
+
+    onSave(normalized);
+    setApiSnack({ open: true, message: "Booking block added" });
+    onClose();
+  } catch (err) {
+    console.error("saveBooking error:", err);
+    const msg =
+      err?.response?.data?.error ||
+      err?.response?.data?.message ||
+      err?.message ||
+      "Could not save booking block";
+    setApiSnack({ open: true, message: msg });
+  } finally {
+    setSavingBlock(false);
+  }
+};
+
+
+
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Configure 1:1 Booking</DialogTitle>
+
+      <DialogContent sx={{ pt: 2 }}>
+        <Stack spacing={2.5} mt={1}>
+          {/* Booking Title */}
+          <TextField
+            fullWidth
+            label="Booking Title"
+            placeholder="e.g., 30-Min Consultation"
+            value={bookingData.title}
+            onChange={(e) => setBookingData({ ...bookingData, title: e.target.value })}
+            required
+          />
+
+          {/* Duration */}
+          <TextField
+            select
+            fullWidth
+            label="Duration"
+            value={bookingData.duration}
+            onChange={(e) => setBookingData({ ...bookingData, duration: e.target.value })}
+            SelectProps={{ native: true }}
+          >
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="45">45 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="90">1.5 hours</option>
+            <option value="120">2 hours</option>
+          </TextField>
+
+          {/* Description */}
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Description (optional)"
+            placeholder="Brief description of what this session includes..."
+            value={bookingData.description}
+            onChange={(e) => setBookingData({ ...bookingData, description: e.target.value })}
+          />
+
+          {/* Advanced Settings */}
+          <Box sx={{ pt: 1 }}>
+            <Typography variant="caption" sx={{ opacity: 0.7, mb: 1, display: "block" }}>
+              Advanced Settings
+            </Typography>
+            
+            <Stack spacing={2}>
+              {/* Buffer Time */}
+              <TextField
+                select
+                fullWidth
+                label="Buffer Time Between Bookings"
+                value={bookingData.bufferTime}
+                onChange={(e) => setBookingData({ ...bookingData, bufferTime: e.target.value })}
+                SelectProps={{ native: true }}
+              >
+                <option value="0">No buffer</option>
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+              </TextField>
+
+               {/* Call Type */}
+              <TextField
+                select
+                fullWidth
+                label="Interaction Type"
+                value={bookingData.interactionType}
+                onChange={(e) => setBookingData({ ...bookingData, interactionType: e.target.value })}
+                SelectProps={{ native: true }}
+              >
+                <option value="voice">Voice Meeting</option>
+                <option value="video">Video Meeting</option>
+              </TextField>
+
+             
+            </Stack>
+          </Box>
+
+          {/* Preview */}
+          <Box sx={{ maxWidth : '75%'}}>
+            <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mb: 1 }}>
+              Preview
+            </Typography>
+            <Paper elevation={0} sx={{ borderRadius: 2, border: (t) => `1px solid ${t.palette.divider}`, p: 2 }}>
+              <Stack spacing={1.5}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+               <Box sx={{ mb: 0.75 }}>
+  <Typography
+    sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 600, mb: 0.5 }}
+    title={bookingData.title || '30-Min Consultation'} // hover shows full text
+  >
+    {truncate(bookingData.title || '30-Min Consultation', MAX_TITLE)}
+  </Typography>
+
+  {!!bookingData.description && (
+    <Typography
+      sx={{ opacity: 0.8, fontFamily: 'Inter', fontSize: '14px' }}
+      title={bookingData.description} // hover shows full text
+    >
+      {truncate(bookingData.description, MAX_DESC)}
+    </Typography>
+  )}
+</Box>
+
+
+                </Box>
+              
+               <MeetingButton sx={{ width: '100%', px: 1, py: 1 }}>
+  <Stack
+    direction="row"
+    alignItems="center"
+    sx={{ width: '100%' }}
+  >
+    {/* Left: icon + details */}
+    <Stack direction="row" alignItems="center" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+      <EventIcon sx={{ fontSize: 36, color: '#AEAEB0' }} />
+
+      <Stack sx={{ textAlign: 'left' }}>
+        <Typography sx={{ fontFamily: 'Inter', fontSize: 13, color: '#44444E', fontWeight: 600 }}>
+          {bookingData.duration} mins
+        </Typography>
+        <Typography sx={{ fontFamily: 'Inter', fontSize: 12, color: '#4C585B', fontWeight: 400 }}>
+          {bookingData.interactionType === 'voice' ? 'Voice Meeting' : 'Video Meeting'}
+        </Typography>
+      </Stack>
+    </Stack>
+
+    {/* Right: Register box */}
+    <Box
+      sx={{
+        ml: 'auto',
+        border: '1px solid grey',
+        borderRadius: 2,
+        color: '#FFFFFF',
+        background: '#393E46',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        px: 3,
+        py: 1,
+        fontFamily: 'Inter',
+        fontWeight: 500,
+        fontSize: 14,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      Details
+    </Box>
+  </Stack>
+</MeetingButton>
+
+              </Stack>
+            </Paper>
+          </Box>
+        </Stack>
+      </DialogContent>
+
+    <DialogActions sx={{ gap: 1, p: 2 }}>
+        <button
+          onClick={onClose}
+          style={{
+            border: "none",
+            background: "transparent",
+            padding: "8px 12px",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 700,
+          }}
+        >
+          Cancel
+        </button>
+
+        <PrimaryBtn onClick={handleSave} disabled={!bookingData.title || savingBlock}>
+          {savingBlock ? <CircularProgress size={18} /> : <SaveIcon />}
+          <span style={{ marginLeft: 6 }}>
+            {savingBlock ? "Saving..." : "Save Booking Block"}
+          </span>
+        </PrimaryBtn>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // ---------- Component ----------
 export default function ProfileBlocksEditor() {
   const theme = useTheme();
@@ -183,6 +477,7 @@ export default function ProfileBlocksEditor() {
 const addCloseTimer = useRef(null);
   // ---------- Form submission dialog state ----------
   const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [currentFormBlock, setCurrentFormBlock] = useState(null); // the block user clicked
   const [formValues, setFormValues] = useState({}); // { fieldKey: value }
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -194,6 +489,23 @@ const addCloseTimer = useRef(null);
 const [newsletterDialogText, setNewsletterDialogText] = useState("");
 const [newsletterEmail, setNewsletterEmail] = useState("");
 const [newsletterAccept, setNewsletterAccept] = useState(true);
+const truncate = (str = "", max = 100) => {
+  if (!str) return "";
+  if (str.length <= max) return str;
+  const slice = str.slice(0, max);
+  // try to avoid cutting mid-word (fallback to hard cut)
+  const cutAt = slice.lastIndexOf(" ");
+  const safe = cutAt > max * 0.6 ? slice.slice(0, cutAt) : slice;
+  // avoid trailing punctuation before ellipsis
+  return safe.replace(/[.,;:!?-]+$/,"").trimEnd() + "...";
+};
+
+// tweak limits here
+const MAX_TITLE = 40;
+const MAX_DESC  = 90;
+
+
+
 
 function openNewsletterDialog(block) {
   setNewsletterDialogText(block.action || block.title || "Subscribe to Newsletter");
@@ -918,7 +1230,6 @@ async function saveAdd() {
             boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
             cursor: "pointer",
             textAlign: "left",
-       
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
@@ -967,7 +1278,6 @@ async function saveAdd() {
             boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
             cursor: "pointer",
             textAlign: "left",
-            
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 2, sm: 3, md: 3 } }}>
@@ -1155,7 +1465,7 @@ async function saveAdd() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          borderRadius: 2,
+          borderRadius: 3,
       background: (t) =>
       t.palette.mode === "dark"
         ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
@@ -1235,6 +1545,152 @@ async function saveAdd() {
       </Paper>
     );
   }
+
+  if (b.type === "booking") {
+  // Extract booking data from b.raw or parse from b.action
+  let bookingConfig = {};
+  if (b.raw?.duration) {
+    bookingConfig = {
+      duration: b.raw.duration,
+      description: b.raw.description || "",
+      interactionType: b.raw.interactionType || "voice",
+    };
+  } else if (typeof b.action === "string") {
+    try {
+      bookingConfig = JSON.parse(b.action);
+    } catch {}
+  }
+
+  const isMeetingType = bookingConfig.interactionType === "voice"
+    ? "Voice Meeting"
+    : "Video Meeting";
+
+  return (
+    <Paper
+      key={b.id}
+      sx={{
+        p: 1.5,
+        borderRadius: 2,
+        boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "transform .12s ease, box-shadow .12s ease",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: "0 12px 30px rgba(2,6,23,0.16)",
+        },
+      }}
+      // onClick={() => openBookingDialog?.(b)}
+      elevation={0}
+    >
+      <Stack spacing={1.5}>
+        {/* Header: Title + Description */}
+        <Box>
+          <Typography
+            sx={{
+              fontFamily: "Inter",
+              fontSize: "14px",
+              fontWeight: 600,
+              mb: 0.5,
+            }}
+            title={b.title}
+            noWrap
+          >
+    {truncate(b.title || '1:1 Booking', MAX_TITLE)}
+
+          </Typography>
+
+          {bookingConfig.description && (
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontSize: "12px",
+                opacity: 0.7,
+              }}
+              title={bookingConfig.description}
+            >
+    {truncate(bookingConfig.description || '30-Min Consultation', MAX_DESC)}
+
+            </Typography>
+          )}
+        </Box>
+
+        {/* Meeting Details */}
+        <Box
+          sx={{
+            p: 1.25,
+            borderRadius: 1.5,
+            bgcolor: "#F8F9FA",
+            border: "1px solid #E5E7EB",
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            justifyContent: "space-between",
+          }}
+        >
+          {/* Left: Icon + Duration/Type */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+           
+              <EventIcon sx={{ fontSize: 34, color: "#44444E" }} />
+
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontFamily: "Inter",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#1F2937",
+                }}
+              >
+                {bookingConfig.duration || 30} mins
+              </Typography>
+              <Typography
+                sx={{
+                  fontFamily: "Inter",
+                  fontSize: 12,
+                  fontWeight: 400,
+                  color: "#6B7280",
+                }}
+              >
+                {isMeetingType}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Right: Register Button */}
+          <Box
+            sx={{
+              px: 2,
+              py: 0.75,
+              borderRadius: 1,
+              bgcolor: "#1F2937",
+              color: "#FFFFFF",
+              fontFamily: "Inter",
+              fontWeight: 500,
+              fontSize: 12,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              border: "1px solid #374151",
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              cursor: "pointer",
+              transition: "all .12s ease",
+              "&:hover": {
+                bgcolor: "#111827",
+                borderColor: "#1F2937",
+              },
+            }}
+          >
+            Details
+            <ArrowForwardIosIcon sx={{ fontSize: 11 }} />
+          </Box>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
 
     return (
       <Paper key={b.id} sx={{ p: 1.5 }}>
@@ -1972,7 +2428,7 @@ async function saveAdd() {
         </Typography>
       </Box>
 
-     <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "center", mt: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "center", mt: 3 }}>
   
    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1}}>
                 <Typography sx={{ fontFamily: "Inter", fontWeight: 400, color: "rgba(255,255,255,0.8)", fontSize: { xs: 12, sm: 12 }, mb: 0.25 }}>Made in India</Typography>
@@ -2036,51 +2492,62 @@ async function saveAdd() {
 
         <DialogContent sx={{ pt: 1 }}>
           {/* Rounded tabs */}
-          <Box
-            sx={{
-              bgcolor: (t) => (t.palette.mode === "dark" ? "#0b1220" : "#f5f7fb"),
-              p: 0.5,
-              borderRadius: 3,
-              mb: 2,
-            }}
-          >
-            <Tabs
-              value={tab}
-              onChange={(_, v) => {
-                setTab(v);
-                if (v === "form") setFormFields([]);
-              }}
-              variant="fullWidth"
-              sx={{
-                minHeight: 40,
-                "& .MuiTabs-flexContainer": { gap: 0.5 },
-              }}
-            >
-              {[
-                { label: "Link", value: "link" },
-                { label: "Video", value: "video" },
-                { label: "Form", value: "form" },
-                { label: "Newsletter", value: "newsletter" },
-              ].map((t) => (
-                <Tab
-                  key={t.value}
-                  label={t.label}
-                  value={t.value}
-                  sx={{
-                    minHeight: 36,
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 2,
-                    mx: 0.25,
-                    "&.Mui-selected": {
-                      bgcolor: "background.paper",
-                      boxShadow: 1,
-                    },
-                  }}
-                />
-              ))}
-            </Tabs>
-          </Box>
+           <Box sx={{ mb: 3 }}>
+      <Typography variant="caption" sx={{ opacity: 0.7, mb: 1, display: "block" }}>
+        Block Type
+      </Typography>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(4, 1fr)" },
+          gap: 1,
+          p: 0.5,
+          bgcolor: (t) => (t.palette.mode === "dark" ? "#0b1220" : "#f5f7fb"),
+          borderRadius: 2.5,
+        }}
+      >
+        {[
+          { label: "Link", value: "link", icon: <LinkIcon /> },
+          { label: "Video", value: "video", icon: <MovieIcon /> },
+          { label: "1:1 Booking", value: "booking", icon: <EventIcon /> },
+          { label: "Form", value: "form", icon: <DescriptionIcon /> },
+          { label: "Newsletter", value: "newsletter", icon: <EmailIcon /> },
+        ].map((item) => (
+          <Button
+    key={item.value}
+    onClick={() => {
+      if (item.value === "booking") {
+        setBookingDialogOpen(true); // Open nested dialog
+      } else {
+        setTab(item.value);
+        if (item.value === "form") setFormFields([]);
+      }
+    }}
+    sx={{
+      textTransform: "none",
+      fontWeight: 600,
+      fontSize: { xs: "0.75rem", sm: "0.875rem" }, // Adjusted for 5 items
+      py: { xs: 1.5, sm: 1.75 },
+      px: { xs: 0.5, sm: 1 },
+      borderRadius: 2,
+      display: "flex",
+      flexDirection: "column",
+      gap: 0.5,
+      bgcolor: tab === item.value ? "background.paper" : "transparent",
+      color: tab === item.value ? "primary.main" : "text.secondary",
+      boxShadow: tab === item.value ? 2 : 0,
+      transition: "all 0.2s ease",
+      "&:hover": {
+        bgcolor: tab === item.value ? "background.paper" : "rgba(0,0,0,0.02)",
+      },
+    }}
+  >
+    <Box sx={{ fontSize: "1.2rem" }}>{item.icon}</Box>
+    {item.label}
+  </Button>
+        ))}
+      </Box>
+    </Box>
 
           {/* LINK TAB CONTENT */}
           {tab === "link" && (
@@ -2216,7 +2683,7 @@ async function saveAdd() {
                           />
                         </Grid> */}
 
-                        <Grid size={{ xs: 4, sm : 2}} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                        <Grid size={{ xs: 4, sm: 2}} sx={{ display: "flex", justifyContent: "flex-end" }}>
                           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                             <TextField
                               select
@@ -2650,6 +3117,19 @@ async function saveAdd() {
     </Button>
   </DialogActions>
 </Dialog>
+
+ <BookingDialog
+      open={bookingDialogOpen}
+      onClose={() => setBookingDialogOpen(false)}
+      onSave={(normalizedBlock) => {
+        // Add the saved block to state
+        setBlocks((s) => [...s, normalizedBlock]);
+        setBookingDialogOpen(false);
+        setAddOpen(false); // Close main dialog too
+      }}
+    />
+
+
     </>
 
 
