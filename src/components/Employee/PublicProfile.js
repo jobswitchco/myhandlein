@@ -544,7 +544,24 @@ function renderPreviewBlock(b) {
               {truncate(title, MAX_TITLE)}
             </Typography>
 
-            {/* Duration + Meeting Type */}
+           
+
+            {/* Description */}
+            {bookingConfig.description && (
+              <Typography
+                sx={{
+                  fontFamily: "Inter",
+                  fontSize: 12,
+                  color: "#9CA3AF",
+                  mt: 0.25,
+                }}
+                title={bookingConfig.description}
+              >
+                {truncate(bookingConfig.description, MAX_DESC)}
+              </Typography>
+            )}
+
+             {/* Duration + Meeting Type */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography
                 sx={{
@@ -569,24 +586,6 @@ function renderPreviewBlock(b) {
                 {isMeetingType}
               </Typography>
             </Box>
-
-            {/* Description */}
-            {bookingConfig.description && (
-              <Typography
-                sx={{
-                  fontFamily: "Inter",
-                  fontSize: 12,
-                  color: "#9CA3AF",
-                  whiteSpace: "nowrap",
-                  textOverflow: "ellipsis",
-                  overflow: "hidden",
-                  mt: 0.25,
-                }}
-                title={bookingConfig.description}
-              >
-                {truncate(bookingConfig.description, MAX_DESC)}
-              </Typography>
-            )}
           </Box>
         </Box>
 
