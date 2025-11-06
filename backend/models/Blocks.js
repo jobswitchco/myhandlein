@@ -62,7 +62,8 @@ const BlockSchema = new Schema(
     duration: { type: Number, required: false }, // Duration in minutes
     description: { type: String, required: false, trim: true },
     bufferTime: { type: Number, required: false, default: 0 }, // Buffer time in minutes
-    interactionType: { type: String, required: false, default: 'voice' }, // Max days for advance booking
+    interactionType: { type: String, required: false, default: 'voice' },
+    pricing: { type: Number, required: false, default: 0 }, 
 
     order: { type: Number, required: true, default: 1000, index: true },
     published: { type: Boolean, default: true },

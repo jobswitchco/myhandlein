@@ -1239,6 +1239,8 @@ function renderPreviewBlock(b) {
             title: selectedBooking.name,
             block_id: selectedBooking._id,
             user_id: selectedBooking.user_id,
+            pricing: selectedBooking.pricing,
+            buffer_time: selectedBooking.bufferTime,
             duration: selectedBooking.raw?.duration || selectedBooking.duration,
             description: selectedBooking.raw?.description || selectedBooking.description,
             interactionType: selectedBooking.raw?.interactionType || selectedBooking.interactionType,

@@ -11,6 +11,8 @@ import {
   Tooltip,
   CircularProgress,
   TextField,
+  Divider,
+  Collapse
 } from '@mui/material';
 import { 
   Close as CloseIcon, 
@@ -19,32 +21,53 @@ import {
   Person as PersonIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
+  KeyboardArrowDown as ArrowDownIcon,
+  KeyboardArrowUp as ArrowUpIcon,
 } from '@mui/icons-material';
+
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import WatchLaterIcon from '@mui/icons-material/WatchLater';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider, StaticDatePicker } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
 import axios from 'axios';
+import { CurrencyRupee } from '@mui/icons-material';
+
 
 // TIME SLOTS GENERATOR (10:00 AM to 11:00 PM, 30-min intervals)
-const generateTimeSlots = () => {
+const generateTimeSlots = (sessionDuration, bufferTime) => {
   const slots = [];
-  for (let hour = 10; hour <= 23; hour++) {
-    for (let min = 0; min < 60; min += 30) {
-      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-      const period = hour >= 12 ? 'PM' : 'AM';
-      const timeStr = `${String(displayHour).padStart(2, '0')}:${String(min).padStart(2, '0')} ${period}`;
-      slots.push(timeStr);
-    }
+  const intervalMinutes = sessionDuration + bufferTime;
+  
+  // Start from 10:00 AM (600 minutes from midnight)
+  let currentMinutes = 10 * 60;
+  // End at 11:00 PM (1380 minutes from midnight)
+  const endMinutes = 23 * 60;
+  
+  while (currentMinutes <= endMinutes) {
+    const hour = Math.floor(currentMinutes / 60);
+    const min = currentMinutes % 60;
+    
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const timeStr = `${String(displayHour).padStart(2, '0')}:${String(min).padStart(2, '0')} ${period}`;
+    
+    slots.push(timeStr);
+    currentMinutes += intervalMinutes;
   }
+  
   return slots;
 };
+
+
 
 // DATE BUTTONS COMPONENT
 const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCalendar }) => {
   const today = dayjs();
   const dates = [];
 
-  for (let i = 1; i <= 4; i++) {
+  // Only generate 3 future dates instead of 4
+  for (let i = 1; i <= 3; i++) {
     dates.push(today.add(i, 'day'));
   }
 
@@ -91,6 +114,7 @@ const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCal
 
   return (
     <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1 }}>
+      {/* First 3 date buttons */}
       {dates.map((date) => (
         <Button
           key={date.format('YYYY-MM-DD')}
@@ -99,13 +123,13 @@ const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCal
             px: 2,
             py: 1.5,
             borderRadius: 2,
-            minWidth: 100,
-            border: '2px solid #E5E7EB',
+            minWidth: 80,
+            border: '2px solid #41A67E',
             bgcolor: selectedDate?.format('YYYY-MM-DD') === date.format('YYYY-MM-DD')
-              ? '#fff'
+              ? '#41A67E'
               : '#F9FAFB',
             borderColor: selectedDate?.format('YYYY-MM-DD') === date.format('YYYY-MM-DD')
-              ? '#D4A574'
+              ? '#41A67E'
               : '#E5E7EB',
             color: '#1F2937',
             fontFamily: 'Inter',
@@ -124,7 +148,7 @@ const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCal
           }}
         >
           <Box sx={{ textAlign: 'left' }}>
-            <Box sx={{ fontSize: 12, fontWeight: 400, color: '#6B7280' }}>
+            <Box sx={{ fontSize: 12, fontWeight: 400, color: '#000000' }}>
               {date.format('ddd')}
             </Box>
             <Box sx={{ fontSize: 14, fontWeight: 600 }}>
@@ -133,9 +157,45 @@ const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCal
           </Box>
         </Button>
       ))}
+
+      {/* 4th button - "More" with Calendar Icon */}
+      <Button
+        onClick={onOpenCalendar}
+        sx={{
+          px: 2,
+          py: 1.5,
+          borderRadius: 2,
+          minWidth: 100,
+          border: '2px solid #E5E7EB',
+          bgcolor: '#F9FAFB',
+          borderColor: '#E5E7EB',
+          color: '#1F2937',
+          fontFamily: 'Inter',
+          fontWeight: 600,
+          fontSize: 14,
+          textTransform: 'none',
+          whiteSpace: 'nowrap',
+          transition: 'all .15s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 0.5,
+          '&:hover': {
+            borderColor: '#D4A574',
+            bgcolor: '#fff',
+          },
+        }}
+      >
+        <CalendarMonthIcon sx={{ fontSize: 24, color: '#6B7280' }} />
+        <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>
+          More
+        </Typography>
+      </Button>
     </Box>
   );
 };
+
 
 // CALENDAR DIALOG
 const CalendarDialog = ({ open, onClose, selectedDate, onDateSelect }) => {
@@ -198,14 +258,14 @@ const CalendarDialog = ({ open, onClose, selectedDate, onDateSelect }) => {
 };
 
 // CUSTOMER DETAILS DIALOG
-// CUSTOMER DETAILS DIALOG
-const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSubmit, submitting }) => {
+const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSubmit, submitting, bookingData }) => {
   const [formData, setFormData] = useState({
     name: '',
     mobile: '',
     email: '',
   });
   const [errors, setErrors] = useState({});
+   const [expanded, setExpanded] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
@@ -263,6 +323,7 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
       }}
     >
       <DialogContent sx={{ p: 3 }}>
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography sx={{ fontFamily: 'Inter', fontSize: 20, fontWeight: 700 }}>
             Complete Your Booking
@@ -282,13 +343,14 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
               border: '1px solid #D4A574',
             }}
           >
-            <Typography sx={{ fontSize: 12, fontWeight: 400, color: '#6B7280', mb: 0.5 }}>
+            <Typography sx={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 400, color: '#6B7280', mb: 0.5 }}>
               Your Selected Slot
             </Typography>
             <Typography
               sx={{
+                fontFamily: 'Inter',
                 fontSize: 16,
-                fontWeight: 700,
+                fontWeight: 600,
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
@@ -306,8 +368,8 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
           {/* Name Field */}
           <TextField
             fullWidth
-            label="Full Name"
-            placeholder="Enter your full name"
+            label="Name"
+            placeholder="Enter name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             error={!!errors.name}
@@ -319,6 +381,7 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
+                fontSize : '15px'
               },
             }}
           />
@@ -327,7 +390,7 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
           <TextField
             fullWidth
             label="Mobile Number"
-            placeholder="Enter your mobile number"
+            placeholder="Enter mobile number"
             value={formData.mobile}
             onChange={(e) => {
               const value = e.target.value.replace(/\D/g, '');
@@ -344,6 +407,8 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
+                fontSize : '15px'
+
               },
             }}
           />
@@ -352,7 +417,7 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
           <TextField
             fullWidth
             label="Email Address"
-            placeholder="Enter your email"
+            placeholder="Enter email"
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -365,37 +430,270 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
+                fontSize : '15px'
+
               },
             }}
           />
 
-          {/* Submit Button */}
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting}
-            fullWidth
+ <Box
+      sx={{
+        border: '1px solid #E5E7EB',
+        borderRadius: 2,
+        overflow: 'hidden',
+        bgcolor: '#F0F0F0',
+      }}
+    >
+      {/* Header - Always Visible */}
+      <Box
+        onClick={() => setExpanded(!expanded)}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          p: 2,
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            bgcolor: '#F3F4F6',
+          },
+        }}
+      >
+        <Typography
+          sx={{
+            fontFamily: 'Inter',
+            fontSize: 15,
+            fontWeight: 600,
+            color: '#1F2937',
+          }}
+        >
+          Order Summary
+        </Typography>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        
+            { bookingData.pricing != 0 ?
+              ( 
+              <>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
+
+              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
+              
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>{bookingData.pricing}</Typography>
+              </Stack>
+
+              </> ) : (
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>FREE</Typography>
+              )}
+          <IconButton size="small" sx={{ color: '#6B7280' }}>
+            {expanded ? <ArrowUpIcon /> : <ArrowDownIcon />}
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Collapsible Content */}
+      <Collapse in={expanded}>
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Divider sx={{ mb: 1 }} />
+
+          {/* Item 1: Session Title + Price */}
+          <Box
             sx={{
-              py: 1.75,
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: '#fff',
-              fontFamily: 'Inter',
-              fontWeight: 600,
-              fontSize: 15,
-              textTransform: 'none',
-              transition: 'all .2s ease',
-              '&:hover': {
-                transform: 'scale(1.02)',
-                boxShadow: '0 8px 20px rgba(102, 126, 234, 0.3)',
-              },
-              '&:disabled': {
-                background: '#9CA3AF',
-                color: '#fff',
-              },
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              py: 1.5,
             }}
           >
-            {submitting ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : 'Confirm Booking'}
-          </Button>
+            <Typography
+              sx={{
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: 500,
+                color: '#4B5563',
+              }}
+            >
+              {bookingData.title || 'Consultation'}
+            </Typography>
+             { bookingData.pricing != 0 ?
+              ( 
+              <>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
+
+              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
+              
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>{bookingData.pricing}</Typography>
+              </Stack>
+
+              </> ) : (
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>FREE</Typography>
+              )}
+          </Box>
+
+          <Divider sx={{ my: 0 }} />
+
+          {/* Item 2: Platform Fee */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              py: 1.5,
+            }}
+          >
+            <Typography
+              sx={{
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: 500,
+                color: '#4B5563',
+              }}
+            >
+              Platform fee
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                sx={{
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: '#9CA3AF',
+                  textDecoration: 'line-through',
+                }}
+              >
+                ₹12
+              </Typography>
+              <Typography
+                sx={{
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#10B981',
+                }}
+              >
+                FREE
+              </Typography>
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Item 3: Total */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              py: 1.5,
+              bgcolor: 'rgba(102, 126, 234, 0.08)',
+              px: 2,
+              borderRadius: 1.5,
+              mt: 1,
+            }}
+          >
+            <Typography
+              sx={{
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: 600,
+                color: '#1F2937',
+              }}
+            >
+              Total
+            </Typography>
+      
+              { bookingData.pricing != 0 ?
+              ( 
+              <>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
+
+              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
+              
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>{bookingData.pricing}</Typography>
+              </Stack>
+
+              </> ) : (
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>FREE</Typography>
+              )}
+       
+          </Box>
+        </Box>
+      </Collapse>
+    </Box>
+          {/* Submit Button */}
+        <Box
+  sx={{
+    display: 'flex',
+    gap: 1.5,
+    width: '100%',
+  }}
+>
+  {/* Left: Price Button (30%) */}
+  <Box
+    sx={{
+      width: '30%',
+      py: 1.75,
+      borderRadius: 1,
+      border: '1px solid #000000',
+      bgcolor: '#fff',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'Inter',
+      fontWeight: 700,
+      fontSize: 18,
+      color: '#667eea',
+    }}
+  >
+     { bookingData.pricing != 0 ?
+              ( 
+              <>
+              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
+
+              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
+              
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>{bookingData.pricing}</Typography>
+              </Stack>
+
+              </> ) : (
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>FREE</Typography>
+              )}
+  </Box>
+
+  {/* Right: Confirm Booking Button (70%) */}
+  <Button
+    onClick={handleSubmit}
+    disabled={submitting}
+    sx={{
+      width: '70%',
+      py: 1.75,
+      borderRadius: 1,
+      background: '#000000',
+      color: '#FFFFFF',
+      fontFamily: 'Inter',
+      fontWeight: 600,
+      fontSize: 15,
+      textTransform: 'none',
+      transition: 'all .2s ease',
+      '&:hover': {
+        transform: 'scale(1.02)',
+        boxShadow: '0 8px 20px #000000',
+      },
+      '&:disabled': {
+        background: '#9CA3AF',
+        color: '#fff',
+      },
+    }}
+  >
+    {submitting ? (
+      <CircularProgress size={24} sx={{ color: '#fff' }} />
+    ) : (
+      'Book Session'
+    )}
+  </Button>
+</Box>
+
+         
         </Stack>
       </DialogContent>
     </Dialog>
@@ -404,8 +702,8 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
 
 
 // TIME SLOTS COMPONENT
-const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading }) => {
-  const slots = generateTimeSlots();
+const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading, bufferTime, sessionDuration}) => {
+  const slots = generateTimeSlots(sessionDuration, bufferTime);
 
   if (loading) {
     return (
@@ -434,7 +732,7 @@ const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading }) => {
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 1.5,
-          maxHeight: 400,
+          maxHeight: '100%',
           overflowY: 'auto',
           pr: 1,
           '&::-webkit-scrollbar': {
@@ -477,7 +775,7 @@ const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading }) => {
                       ? '1px solid #DD0303'
                       : '1px solid #E5E7EB',
                     background: isSelected
-                      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                      ? 'linear-gradient(135deg, #41A67E 0%, #41A67E 100%)'
                       : isBooked
                       ? 'linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 50%)'
                       : '#F9FAFB',
@@ -638,15 +936,15 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
       fullScreen={window.innerWidth < 600}
     >
       <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" sx={{ color : '#FFFFFF'}}>
           <CloseIcon />
         </IconButton>
       </Box>
 
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          p: 3,
+          background: 'linear-gradient(135deg, #70B2B2 0%, #313647 100%)',
+          px: 2,
           pt: 5,
           color: '#fff',
           textAlign: 'center',
@@ -655,8 +953,9 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
         <Typography
           sx={{
             fontFamily: 'Inter',
-            fontSize: { xs: 24, sm: 28 },
-            fontWeight: 700,
+            fontSize: { xs: 20, sm: 20 },
+            fontWeight: 600,
+            textAlign : 'left',
             mb: 1,
           }}
         >
@@ -667,25 +966,37 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
       <DialogContent sx={{ p: 3 }}>
         <Stack spacing={3}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
+           
+         
             <Box
               sx={{
                 px: 2,
                 py: 1,
-                borderRadius: 2,
-                border: '2px solid #1F2937',
-                fontFamily: 'Inter',
-                fontWeight: 600,
-                fontSize: 14,
-                color: '#1F2937',
+                borderRadius: 1,
+                background: '#1F2937',
+                display: 'flex',
+                flexDirection: 'row',
+                gap: 0.5,
+                alignItems : 'center'
+              
               }}
             >
-              {isMeetingType}
+              { bookingData.pricing != 0 ?
+              ( 
+              <>
+              <CurrencyRupee sx={{fontSize : '16px', color: '#FFFFFF'}}/>
+              
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#FFFFFF'}}>{bookingData.pricing}</Typography>
+
+              </> ) : (
+                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#FFFFFF'}}>FREE</Typography>
+              )}
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CalendarIcon sx={{ fontSize: 20, color: '#6B7280' }} />
+              <WatchLaterIcon sx={{ fontSize: 20, color: '#6B7280' }} />
               <Typography sx={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 500 }}>
-                {bookingData.duration || 30} mins meeting
+                {bookingData.duration || 30} Mins • {isMeetingType}
               </Typography>
             </Box>
           </Box>
@@ -715,23 +1026,21 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
               >
                 Book your session
               </Typography>
-              <IconButton
-                onClick={handleOpenCalendar}
+      
+                <CalendarMonthIcon  onClick={handleOpenCalendar}
                 sx={{
                   width: 40,
                   height: 40,
                   borderRadius: 1.5,
-                  border: '2px solid #E5E7EB',
+                  cursor: 'pointer',
+                  // border: '2px solid #E5E7EB',
                   color: '#6B7280',
                   transition: 'all .15s ease',
                   '&:hover': {
                     borderColor: '#D4A574',
                     bgcolor: alpha('#D4A574', 0.08),
                   },
-                }}
-              >
-                <CalendarIcon sx={{ fontSize: 20 }} />
-              </IconButton>
+                }} />
             </Box>
 
             <DateButtons
@@ -747,6 +1056,8 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
             onTimeSelect={setSelectedTime}
             bookedSlots={bookedSlots}
             loading={loading}
+            bufferTime={bookingData.buffer_time}
+            sessionDuration={bookingData.duration}
           />
 
           <Box
@@ -762,13 +1073,14 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
               color: '#6B7280',
             }}
           >
-            <Typography sx={{ fontSize: 12, fontWeight: 400, mb: 0.5 }}>
+            <Typography sx={{ fontFamily : 'Inter', fontSize: 12, fontWeight: 400, mb: 0.5 }}>
               {selectedTime ? 'Selected Slot' : 'Next available'}
             </Typography>
             <Typography
               sx={{
+                fontFamily: 'Inter',
                 fontSize: 15,
-                fontWeight: 700,
+                fontWeight: 600,
                 color: '#1F2937',
                 background: selectedTime
                   ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
@@ -821,6 +1133,7 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
       selectedTime={selectedTime}
       onSubmit={handleBookingSubmit}
       submitting={submitting}
+      bookingData={bookingData}
     />
   </>
 );
