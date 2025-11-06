@@ -14,14 +14,13 @@ import {
 } from '@mui/material';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import SpeedRoundedIcon from '@mui/icons-material/SpeedRounded';
+import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 
-// NEW icon imports for features
+// Feature Icons
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import ContactsRoundedIcon from '@mui/icons-material/ContactsRounded';
 import QuickreplyRoundedIcon from '@mui/icons-material/QuickreplyRounded';
@@ -35,6 +34,7 @@ import TranslateRoundedIcon from '@mui/icons-material/TranslateRounded';
 import HttpsRoundedIcon from '@mui/icons-material/HttpsRounded';
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded';
 import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
+import InstagramIcon from '@mui/icons-material/Instagram';
 
 const PLAN = {
   price: 399,
@@ -44,39 +44,43 @@ const PLAN = {
   note: '7 days free trial'
 };
 
-// Core myHandle features — short, scannable, influencer-friendly
-const features = [
-  'Unlimited Links',
-  'Unlimited Contacts',
-  'Unlimited Automated Instagram replies',
-  'Unlimited Automated Instagram DMs',
-  'Social icons, videos & embeds',
-  'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State',
-  'Collect & manage your subscribers',
-  'Custom subdomain (yourname.myhandle.in)',
-  'UPI/Razorpay payments (Sell digital items)',
-  'English + Hindi support',
-  'Fast, secure hosting with SSL',
-  'Simple editor • drag & reorder links',
-  'Priority support (24–48 business hours)'
+// Organized features by category
+const featureCategories = [
+  {
+    title: 'Link-in-Bio Features',
+    icon: LinkRoundedIcon,
+    color: '#7c3aed',
+    features: [
+      { text: 'Unlimited Links', icon: LinkRoundedIcon },
+      { text: 'Custom subdomain (username.myhandle.in)', icon: LanguageRoundedIcon },
+      { text: 'Collect & manage your subscribers', icon: GroupAddRoundedIcon },
+      { text: 'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State', icon: InsightsRoundedIcon },
+      { text: 'UPI/Razorpay payments (Sell digital items)', icon: PaymentsRoundedIcon },
+      { text: 'Simple editor • drag & reorder links', icon: DragIndicatorRoundedIcon },
+      { text: 'Social icons, videos & embeds', icon: ShareRoundedIcon },
+      { text: 'English + Hindi support', icon: TranslateRoundedIcon },
+    ]
+  },
+  {
+    title: 'Instagram Automation',
+    icon: InstagramIcon,
+    color: '#e4405f',
+    features: [
+      { text: 'Unlimited Contacts', icon: ContactsRoundedIcon },
+      { text: 'Unlimited Automated Instagram Replies', icon: QuickreplyRoundedIcon },
+      { text: 'Unlimited Automated Instagram DMs', icon: SendRoundedIcon },
+    ]
+  },
+  {
+    title: 'Support & Security',
+    icon: ShieldRoundedIcon,
+    color: '#10b981',
+    features: [
+      { text: 'Fast, secure hosting with SSL', icon: HttpsRoundedIcon },
+      { text: 'Priority support (24–48 business hours)', icon: SupportAgentRoundedIcon },
+    ]
+  }
 ];
-
-// Map each feature string to a specific icon
-const featureIcons = {
-  'Unlimited Links': LinkRoundedIcon,
-  'Unlimited Contacts': ContactsRoundedIcon,
-  'Unlimited Automated Instagram replies': QuickreplyRoundedIcon,
-  'Unlimited Automated Instagram DMs': SendRoundedIcon,
-  'Social icons, videos & embeds': ShareRoundedIcon,
-  'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State': InsightsRoundedIcon,
-  'Collect & manage your subscribers': GroupAddRoundedIcon,
-  'Custom subdomain (yourname.myhandle.in)': LanguageRoundedIcon,
-  'UPI/Razorpay payments (sell digital items)': PaymentsRoundedIcon,
-  'English + Hindi support': TranslateRoundedIcon,
-  'Fast, secure hosting with SSL': HttpsRoundedIcon,
-  'Simple editor • drag & reorder links': DragIndicatorRoundedIcon,
-  'Priority support (24–48 business hours)': SupportAgentRoundedIcon
-};
 
 export default function PricingPage() {
   const isMobile = useMediaQuery('(max-width:600px)');
@@ -89,8 +93,7 @@ export default function PricingPage() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="Checkout the prices and rates for MyHandle." />
       </header>
-
-
+      
       <Navbar />
 
       {/* Background */}
@@ -121,9 +124,9 @@ export default function PricingPage() {
             <Typography
               sx={{
                 fontFamily: 'Inter',
-                fontWeight: 800,
+                fontWeight: 700,
                 letterSpacing: '-0.02em',
-                fontSize: isMobile ? 24 : 40,
+                fontSize: isMobile ? 22 : 42,
                 lineHeight: 1.1
               }}
             >
@@ -144,12 +147,7 @@ export default function PricingPage() {
                 variant="outlined"
                 sx={{ borderRadius: 2 }}
               />
-              <Chip
-                icon={<SpeedRoundedIcon />}
-                label="Fast CDN"
-                variant="outlined"
-                sx={{ borderRadius: 2 }}
-              />
+             
               <Chip
                 icon={<BoltRoundedIcon />}
                 label="UPI/Razorpay"
@@ -161,7 +159,7 @@ export default function PricingPage() {
 
           {/* Pricing Card */}
           <Grid container justifyContent="center">
-            <Grid size={{ xs: 12, sm: 12, md: 5, lg: 5}}>
+            <Grid size={{ xs: 12, sm: 12, md:6, lg: 6}}>
               <Card
                 elevation={0}
                 sx={{
@@ -169,22 +167,24 @@ export default function PricingPage() {
                   borderRadius: 4,
                   border: '1px solid rgba(0,0,0,0.06)',
                   background:
-                    'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.85) 100%)',
+                    'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 100%)',
                   backdropFilter: 'blur(6px)',
                   boxShadow:
                     '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(17,24,39,0.06)'
                 }}
               >
                 <CardContent sx={{ p: isMobile ? 3 : 5 }}>
-                  {/* Top row */}
+                  {/* Header */}
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: isMobile ? 'flex-start' : 'center',
                       justifyContent: 'space-between',
                       gap: 2,
-                      flexWrap: 'wrap',
-                      mb: 2
+                      mb: 3,
+                      pb: 3,
+                      borderBottom: '2px solid rgba(0,0,0,0.06)',
+                      flexWrap: 'wrap'
                     }}
                   >
                     <Box>
@@ -192,13 +192,13 @@ export default function PricingPage() {
                         sx={{
                           letterSpacing: '-0.01em',
                           fontFamily: 'Inter',
-                          fontSize: isMobile ? 18 : 26,
+                          fontSize: isMobile ? 20 : 28,
                           fontWeight: 700
                         }}
                       >
                         {PLAN.label} Plan
                       </Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                      <Typography color="text.secondary" sx={{ mt: 0.5, fontSize: 15 }}>
                         {PLAN.subLabel}
                       </Typography>
                     </Box>
@@ -208,7 +208,7 @@ export default function PricingPage() {
                         sx={{
                           letterSpacing: '-0.01em',
                           fontFamily: 'Inter',
-                          fontSize: isMobile ? 22 : 36,
+                          fontSize: isMobile ? 32 : 42,
                           fontWeight: 800
                         }}
                       >
@@ -216,12 +216,12 @@ export default function PricingPage() {
                         <Typography
                           component="span"
                           color="text.secondary"
-                          sx={{ ml: 0.5, fontSize: isMobile ? 12 : 14, fontWeight: 500 }}
+                          sx={{ ml: 0.5, fontSize: isMobile ? 14 : 16, fontWeight: 500 }}
                         >
                           /month
                         </Typography>
                       </Typography>
-                      <Typography color="text.secondary">
+                      <Typography color="success.dark" sx={{ fontWeight: 600, fontSize: 14 }}>
                         {PLAN.note}
                       </Typography>
                     </Box>
@@ -234,62 +234,128 @@ export default function PricingPage() {
                     variant="contained"
                     endIcon={<StarRoundedIcon />}
                     sx={{
-                      mt: 1,
-                      mb: 3,
-                      py: 1.4,
+                      mb: 4,
+                      py: 1.6,
                       borderRadius: 2.5,
                       textTransform: 'none',
                       fontFamily: 'Inter',
+                      fontSize: 17,
                       fontWeight: 700,
                       letterSpacing: '0.02em',
                       background:
                         'linear-gradient(90deg, #111827 0%, #4f46e5 50%, #7c3aed 100%)',
                       boxShadow: '0 6px 20px rgba(79,70,229,0.35)',
-                      '&:hover': { opacity: 0.95 }
+                      '&:hover': { 
+                        opacity: 0.95,
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 24px rgba(79,70,229,0.4)'
+                      }
                     }}
                     onClick={() => (window.location.href = '/professional/login')}
                   >
                     {PLAN.cta}
                   </Button>
 
-                  <Divider sx={{ my: 2 }} />
-
-                  {/* Features — always one per row */}
-                  <Stack spacing={1.25}>
-                    {features.map((text, i) => {
-                      const Icon = featureIcons[text] || CheckCircleIcon;
-                      return (
-                        <Box key={i} sx={{ display: 'flex', gap: 2 }}>
-                          <Icon
-                            fontSize="small"
-                            sx={{ color: '#7c3aed', mt: '2px', flexShrink: 0 }}
+                  {/* Feature Categories */}
+                  {featureCategories.map((category, idx) => {
+                    const CategoryIcon = category.icon;
+                    return (
+                      <Box key={idx} sx={{ mb: idx < featureCategories.length - 1 ? 0 : 0 }}>
+                        {/* Category Header */}
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            mb: 2.5
+                          }}
+                        >
+                          <CategoryIcon
+                            sx={{
+                              fontSize: 24,
+                              color: category.color
+                            }}
                           />
                           <Typography
-                            sx={{ color: '#111827', fontFamily: 'Inter', fontSize : isMobile ? '16px' : '16px' }}
+                            sx={{
+                              fontFamily: 'Inter',
+                              fontSize: 18,
+                              fontWeight: 700,
+                              color: category.color
+                            }}
                           >
-                            {text}
+                            {category.title}
                           </Typography>
                         </Box>
-                      );
-                    })}
-                  </Stack>
+
+                        {/* Features List */}
+                        <Stack>
+                          {category.features.map((feature, i) => {
+                            const FeatureIcon = feature.icon;
+                            return (
+                              <Box
+                                key={i}
+                                sx={{
+                                  display: 'flex',
+                                  gap: 1.5,
+                                  p: 1.5,
+                                  bgcolor: 'rgba(255,255,255,0.5)',
+                                  borderRadius: 1.5,
+                                  transition: 'all 0.2s',
+                                  '&:hover': {
+                                    bgcolor: 'rgba(124,58,237,0.05)',
+                                    transform: 'translateX(4px)'
+                                  }
+                                }}
+                              >
+                                <FeatureIcon
+                                  fontSize="small"
+                                  sx={{
+                                    color: category.color,
+                                    mt: '2px',
+                                    flexShrink: 0
+                                  }}
+                                />
+                                <Typography
+                                  sx={{
+                                    color: '#111827',
+                                    fontFamily: 'Inter',
+                                    fontSize: isMobile ? 16 : 16,
+                                    lineHeight: 1.5,
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  {feature.text}
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+
+                        {/* Divider between categories */}
+                        {idx < featureCategories.length - 1 && (
+                          <Divider sx={{ my: 3 }} />
+                        )}
+                      </Box>
+                    );
+                  })}
 
                   {/* Guarantee strip */}
                   <Box
                     sx={{
-                      mt: 2.5,
-                      p: 1.5,
+                      mt: 3,
+                      p: 2,
                       bgcolor: '#f0fdf4',
                       border: '1px solid #dcfce7',
                       borderRadius: 2
                     }}
                   >
-                    <Typography variant="body2" sx={{ color: '#065f46' }}>
-                      7-day no-questions-asked refund. Cancel anytime from your dashboard{' '}
+                    <Typography variant="body2" sx={{ color: '#065f46', lineHeight: 1.6 }}>
+                      <strong>7-day no-questions-asked refund.</strong> Cancel anytime from your dashboard.{' '}
                       Read our{' '}
                       <a
                         href="/refund-cancellation-policy"
-                        style={{ color: '#065f46', fontWeight: 600 }}
+                        style={{ color: '#065f46', fontWeight: 600, textDecoration: 'underline' }}
                       >
                         Refund Policy
                       </a>
@@ -302,42 +368,6 @@ export default function PricingPage() {
           </Grid>
         </Box>
       </Box>
-
-      {/* Mobile sticky CTA (appears only on very small screens) */}
-      {/* {isMobile && (
-        <Box
-          sx={{
-            position: 'sticky',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            p: 1.5,
-            backdropFilter: 'blur(8px)',
-            background: 'rgba(255,255,255,0.8)',
-            borderTop: '1px solid rgba(0,0,0,0.06)',
-            zIndex: 10
-          }}
-        >
-          <Button
-            fullWidth
-            size="large"
-            variant="contained"
-            endIcon={<StarRoundedIcon />}
-            sx={{
-              py: 1.2,
-              borderRadius: 2,
-              textTransform: 'none',
-              fontFamily: 'Inter',
-              fontWeight: 700,
-              background:
-                'linear-gradient(90deg, #111827 0%, #4f46e5 50%, #7c3aed 100%)'
-            }}
-            onClick={() => (window.location.href = '/professional/login')}
-          >
-            Start for ₹399
-          </Button>
-        </Box>
-      )} */}
 
       <Footer />
     </>
