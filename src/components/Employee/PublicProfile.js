@@ -439,34 +439,82 @@ const MAX_DESC  = 90;
 
 function renderPreviewBlock(b) {
   if (!b) return null;
-  const title = b.name || b.title || "(untitled)";
-  const url = b.action || b.actionUrl || b.link || "";
+
+  const title = b.name || b.title || "untitled";
+  const url = b.action || b.actionUrl || b.link;
   const type = (b.type || "").toLowerCase();
 
+  // ===== FORM BLOCK =====
   if (type === "form") {
     let fields = b.fields;
     if (!fields && typeof b.action === "string") {
-      try { fields = JSON.parse(b.action).fields; } catch {}
+      try {
+        fields = JSON.parse(b.action).fields;
+      } catch {
+        // ignore
+      }
     }
     return (
-      <Paper key={b._id || title} elevation={0} sx={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
-        boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: "pointer"
-      }} onClick={() => openFormDialog(b)}>
+      <Paper
+        key={b._id || title}
+        elevation={0}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1.5,
+          p: 1.25,
+          borderRadius: 2,
+          bgcolor: "#fff",
+          boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
+          cursor: "pointer",
+        }}
+        onClick={() => openFormDialog(b)}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 }}>
-          <Box sx={{ width: 44, height: 44, borderRadius: 1.25, display: "grid", placeItems: "center", bgcolor: alpha("#10b981", 0.06), color: "#10b981", flexShrink: 0 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 1.25,
+              display: "grid",
+              placeItems: "center",
+              bgcolor: alpha("#10b981", 0.06),
+              color: "#10b981",
+              flexShrink: 0,
+            }}
+          >
             <AddIcon sx={{ fontSize: 18 }} />
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-            <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 15, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontWeight: 600,
+                fontSize: 15,
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+              }}
+            >
               {title}
             </Typography>
           </Box>
         </Box>
-
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <IconButton aria-label="open" onClick={() => openFormDialog(b)} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#10b981", 0.06), color: "#10b981", "&:hover": { bgcolor: alpha("#10b981", 0.14) } }} size="small">
+          <IconButton
+            aria-label="open"
+            onClick={() => openFormDialog(b)}
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1,
+              bgcolor: alpha("#10b981", 0.06),
+              color: "#10b981",
+              "&:hover": { bgcolor: alpha("#10b981", 0.14) },
+            }}
+            size="small"
+          >
             <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
           </IconButton>
         </Box>
@@ -474,25 +522,27 @@ function renderPreviewBlock(b) {
     );
   }
 
+  // ===== BOOKING BLOCK =====
   if (type === "booking") {
     // Extract booking data from b.raw or parse from b.action
-    let bookingConfig = {};
+    let bookingConfig;
     if (b.raw?.duration) {
       bookingConfig = {
         duration: b.raw.duration,
         title: b.raw.name,
-        description: b.raw.description || "",
+        description: b.raw.description,
         interactionType: b.raw.interactionType || "voice",
       };
     } else if (typeof b.action === "string") {
       try {
         bookingConfig = JSON.parse(b.action);
-      } catch {}
+      } catch {
+        bookingConfig = {};
+      }
     }
 
-    const isMeetingType = bookingConfig.interactionType === "voice"
-      ? "Voice Meeting"
-      : "Video Meeting";
+    const isMeetingType =
+      bookingConfig.interactionType === "voice" ? "Voice Meeting" : "Video Meeting";
 
     return (
       <Paper
@@ -514,11 +564,11 @@ function renderPreviewBlock(b) {
             boxShadow: "0 12px 30px rgba(2,6,23,0.16)",
           },
         }}
-          onClick={(e) => {
-    e.stopPropagation();
-    setSelectedBooking(b);
-    setBookingDialogOpen(true);
-  }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedBooking(b);
+          setBookingDialogOpen(true);
+        }}
       >
         {/* Left: Icon + Title + Description */}
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.25, minWidth: 0, flex: 1 }}>
@@ -554,8 +604,6 @@ function renderPreviewBlock(b) {
               {truncate(title, MAX_TITLE)}
             </Typography>
 
-         
-
             {/* Description */}
             {bookingConfig.description && (
               <Typography
@@ -573,7 +621,7 @@ function renderPreviewBlock(b) {
               </Typography>
             )}
 
-               {/* Duration + Meeting Type */}
+            {/* Duration + Meeting Type */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography
                 sx={{
@@ -603,63 +651,18 @@ function renderPreviewBlock(b) {
 
         {/* Right: Action Button */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-        
-<IconButton
-  aria-label="open booking"
-  sx={{
-    width: 36,
-    height: 36,
-    borderRadius: 1,
-    bgcolor: alpha("#3b82f6", 0.06),
-    color: "#3b82f6",
-    "&:hover": { bgcolor: alpha("#3b82f6", 0.14) },
-  }}
-  size="small"
->
-  <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
-</IconButton>
-
-{selectedBooking && (
-  <BookingSessionDialog
-    open={bookingDialogOpen}
-    onClose={() => setBookingDialogOpen(false)}
-    bookingData={{
-      title: selectedBooking.name,
-      block_id: selectedBooking._id,
-      user_id: selectedBooking.user_id,
-      duration: selectedBooking.raw?.duration || selectedBooking.duration,
-      description: selectedBooking.raw?.description || selectedBooking.description,
-      interactionType: selectedBooking.raw?.interactionType || selectedBooking.interactionType,
-    }}
-  />
-)}
-
-        </Box>
-      </Paper>
-    );
-  }
-
-  if (type === "link" || type === "cta" || !type) {
-    return (
-      <Paper key={b._id || url || title} elevation={0} sx={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
-        boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: url ? "pointer" : "default"
-      }}
-        onClick={() => url && handleLinkClick(b, url, { newTab: true })} >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 }}>
-          <Box sx={{ width: 44, height: 44, borderRadius: 1.25, display: "grid", placeItems: "center", bgcolor: alpha("#6366f1", 0.06), color: "#6366f1", flexShrink: 0 }}>
-            <LinkIcon sx={{ fontSize: 18 }} />
-          </Box>
-          <Box sx={{ display: "flex", overflow: "hidden", minWidth: 0 }}>
-            <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 15, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-              {title}
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <IconButton aria-label="open" sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
+          <IconButton
+            aria-label="open booking"
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1,
+              bgcolor: alpha("#3b82f6", 0.06),
+              color: "#3b82f6",
+              "&:hover": { bgcolor: alpha("#3b82f6", 0.14) },
+            }}
+            size="small"
+          >
             <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
           </IconButton>
         </Box>
@@ -667,12 +670,92 @@ function renderPreviewBlock(b) {
     );
   }
 
+  // ===== LINK/CTA BLOCK =====
+  if (type === "link" || type === "cta" || !type) {
+    return (
+      <Paper
+        key={b._id || url || title}
+        elevation={0}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1.5,
+          p: 1.25,
+          borderRadius: 2,
+          bgcolor: "#fff",
+          boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
+          cursor: url ? "pointer" : "default",
+        }}
+        onClick={() => url && handleLinkClick(b, url, { newTab: true })}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 1.25,
+              display: "grid",
+              placeItems: "center",
+              bgcolor: alpha("#6366f1", 0.06),
+              color: "#6366f1",
+              flexShrink: 0,
+            }}
+          >
+            <LinkIcon sx={{ fontSize: 18 }} />
+          </Box>
+          <Box sx={{ display: "flex", overflow: "hidden", minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontWeight: 600,
+                fontSize: 15,
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+              }}
+            >
+              {title}
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <IconButton
+            aria-label="open"
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1,
+              bgcolor: alpha("#6d28d9", 0.06),
+              color: "#6d28d9",
+              "&:hover": { bgcolor: alpha("#6d28d9", 0.14) },
+            }}
+            size="small"
+          >
+            <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Box>
+      </Paper>
+    );
+  }
+
+  // ===== VIDEO BLOCK =====
   if (type === "video") {
     const ytId = getYouTubeId(url);
     const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
 
     return (
-      <Paper key={b._id || url || title} elevation={0} sx={{ borderRadius: 2, overflow: "hidden", boxShadow: "0 10px 30px rgba(2,6,23,0.12)", cursor: url ? "pointer" : "default" }} onClick={() => url && handleLinkClick(b, url, { newTab: true })}>
+      <Paper
+        key={b._id || url || title}
+        elevation={0}
+        sx={{
+          borderRadius: 2,
+          overflow: "hidden",
+          boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
+          cursor: url ? "pointer" : "default",
+        }}
+        onClick={() => url && handleLinkClick(b, url, { newTab: true })}
+      >
         <Box sx={{ position: "relative", width: "100%", aspectRatio: "16/9", bgcolor: "#000" }}>
           {thumb ? (
             <Box component="img" src={thumb} alt={title} sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -693,6 +776,7 @@ function renderPreviewBlock(b) {
     );
   }
 
+  // ===== NEWSLETTER BLOCK =====
   if (type === "newsletter") {
     return (
       <Paper
@@ -715,56 +799,25 @@ function renderPreviewBlock(b) {
           cursor: "pointer",
           textAlign: "left",
           transition: "transform .12s ease, box-shadow .12s ease",
-          "&:hover": { transform: "translateY(-2px)", boxShadow: "0 12px 30px rgba(2,6,23,0.16)" },
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 12px 30px rgba(2,6,23,0.16)",
+          },
           overflow: "hidden",
         }}
         onClick={() => openNewsletterDialog(b)}
         elevation={0}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box
-            sx={{
-              width: 42,
-              height: 42,
-              borderRadius: 2,
-              display: "grid",
-              placeItems: "center",
-              border: "1px solid #1055C9",
-              flexShrink: 0,
-            }}
-          >
+          <Box sx={{ width: 42, height: 42, borderRadius: 2, display: "grid", placeItems: "center", border: "1px solid #1055C9", flexShrink: 0 }}>
             <MailOutlinedIcon sx={{ color: "#1055C9" }} />
           </Box>
-
           <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <Typography sx={{ fontFamily: "Inter", fontSize: 15, fontWeight: 500, mb: 1, color: "#FFFFFF" }}>
               {b.action || b.title || "Subscribe to Newsletter"}
             </Typography>
-
-            <Box
-              sx={{
-                width: "220%",
-                border: "1px solid black",
-                borderRadius: 2,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "flex-start",
-                px: 1.25,
-                py: 1,
-                cursor: "pointer",
-              }}
-            >
-              <Typography
-                sx={{
-                  fontFamily: "Inter",
-                  fontSize: 14,
-                  fontWeight: 400,
-                  lineHeight: 1,
-                  mb: 0,
-                  py: 1,
-                  color: "#CBDCEB",
-                }}
-              >
+            <Box sx={{ width: 220, border: "1px solid black", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "flex-start", px: 1.25, py: 1, cursor: "pointer" }}>
+              <Typography sx={{ fontFamily: "Inter", fontSize: 14, fontWeight: 400, lineHeight: 1, mb: 0, py: 1, color: "#CBDCEB" }}>
                 Your Email
               </Typography>
             </Box>
@@ -774,20 +827,52 @@ function renderPreviewBlock(b) {
     );
   }
 
+  // ===== FALLBACK =====
   return (
-    <Paper key={b._id || url || title} elevation={0} sx={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      gap: 1.5, p: 1.25, borderRadius: 2, bgcolor: "#fff",
-      boxShadow: "0 10px 30px rgba(2,6,23,0.12)"
-    }}>
+    <Paper
+      key={b._id || url || title}
+      elevation={0}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 1.5,
+        p: 1.25,
+        borderRadius: 2,
+        bgcolor: "#fff",
+        boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
+      }}
+    >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-        <Box sx={{ width: 44, height: 44, borderRadius: 1.25, display: "grid", placeItems: "center", bgcolor: alpha("#6366f1", 0.06), color: "#6366f1", flexShrink: 0 }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: 1.25,
+            display: "grid",
+            placeItems: "center",
+            bgcolor: alpha("#6366f1", 0.06),
+            color: "#6366f1",
+            flexShrink: 0,
+          }}
+        >
           <LinkIcon sx={{ fontSize: 18 }} />
         </Box>
         <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 15 }}>{title}</Typography>
       </Box>
-
-      <IconButton aria-label="open" onClick={() => url && handleLinkClick(b, url, { newTab: true })} sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: alpha("#6d28d9", 0.06), color: "#6d28d9", "&:hover": { bgcolor: alpha("#6d28d9", 0.14) } }} size="small">
+      <IconButton
+        aria-label="open"
+        onClick={() => url && handleLinkClick(b, url, { newTab: true })}
+        sx={{
+          width: 36,
+          height: 36,
+          borderRadius: 1,
+          bgcolor: alpha("#6d28d9", 0.06),
+          color: "#6d28d9",
+          "&:hover": { bgcolor: alpha("#6d28d9", 0.14) },
+        }}
+        size="small"
+      >
         <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
       </IconButton>
     </Paper>
@@ -1142,6 +1227,24 @@ function renderPreviewBlock(b) {
 
       <Snackbar open={snack.open} autoHideDuration={3500} onClose={() => setSnack({ open: false, message: "" })} message={snack.message} />
     </Grid>
+
+      {selectedBooking && (
+        <BookingSessionDialog
+          open={bookingDialogOpen}
+          onClose={() => {
+            setBookingDialogOpen(false);
+            setSelectedBooking(null);
+          }}
+          bookingData={{
+            title: selectedBooking.name,
+            block_id: selectedBooking._id,
+            user_id: selectedBooking.user_id,
+            duration: selectedBooking.raw?.duration || selectedBooking.duration,
+            description: selectedBooking.raw?.description || selectedBooking.description,
+            interactionType: selectedBooking.raw?.interactionType || selectedBooking.interactionType,
+          }}
+        />
+      )}
     </Box>
   );
 }

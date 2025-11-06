@@ -198,6 +198,7 @@ const CalendarDialog = ({ open, onClose, selectedDate, onDateSelect }) => {
 };
 
 // CUSTOMER DETAILS DIALOG
+// CUSTOMER DETAILS DIALOG
 const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSubmit, submitting }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -246,6 +247,9 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
           borderRadius: { xs: '24px 24px 0 0', sm: '16px' },
           position: { xs: 'fixed', sm: 'relative' },
           bottom: { xs: 0, sm: 'auto' },
+          width: { xs: '100%', sm: 'auto' },
+          margin: { xs: 0, sm: 'auto' },
+          maxHeight: { xs: '90vh', sm: 'calc(100% - 64px)' },
           animation: { xs: 'slideUp 0.3s ease-out', sm: 'fadeIn 0.3s ease-out' },
           '@keyframes slideUp': {
             from: { transform: 'translateY(100%)' },
@@ -397,6 +401,7 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
     </Dialog>
   );
 };
+
 
 // TIME SLOTS COMPONENT
 const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading }) => {
@@ -623,196 +628,203 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
     ? 'Voice Meeting'
     : 'Video Meeting';
 
-  return (
-    <>
-      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Box>
+ return (
+  <>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      fullWidth 
+      maxWidth="sm"
+      fullScreen={window.innerWidth < 600}
+    >
+      <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
+        <IconButton onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
+      </Box>
 
-        <Box
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          p: 3,
+          pt: 5,
+          color: '#fff',
+          textAlign: 'center',
+        }}
+      >
+        <Typography
           sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            p: 3,
-            pt: 5,
-            color: '#fff',
-            textAlign: 'center',
+            fontFamily: 'Inter',
+            fontSize: { xs: 24, sm: 28 },
+            fontWeight: 700,
+            mb: 1,
           }}
         >
-          <Typography
-            sx={{
-              fontFamily: 'Inter',
-              fontSize: { xs: 24, sm: 28 },
-              fontWeight: 700,
-              mb: 1,
-            }}
-          >
-            {bookingData.title || '1:1 Booking'}
-          </Typography>
-        </Box>
+          {bookingData.title || '1:1 Booking'}
+        </Typography>
+      </Box>
 
-        <DialogContent sx={{ p: 3 }}>
-          <Stack spacing={3}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
-              <Box
-                sx={{
-                  px: 2,
-                  py: 1,
-                  borderRadius: 2,
-                  border: '2px solid #1F2937',
-                  fontFamily: 'Inter',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  color: '#1F2937',
-                }}
-              >
-                {isMeetingType}
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CalendarIcon sx={{ fontSize: 20, color: '#6B7280' }} />
-                <Typography sx={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 500 }}>
-                  {bookingData.duration || 30} mins meeting
-                </Typography>
-              </Box>
-            </Box>
-
-            {bookingData.description && (
-              <Typography
-                sx={{
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  lineHeight: 1.6,
-                  color: '#4B5563',
-                }}
-              >
-                {bookingData.description}
-              </Typography>
-            )}
-
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography
-                  sx={{
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: '#1F2937',
-                  }}
-                >
-                  Book your session
-                </Typography>
-                <IconButton
-                  onClick={() => handleOpenCalendar()}
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 1.5,
-                    border: '2px solid #E5E7EB',
-                    color: '#6B7280',
-                    transition: 'all .15s ease',
-                    '&:hover': {
-                      borderColor: '#D4A574',
-                      bgcolor: alpha('#D4A574', 0.08),
-                    },
-                  }}
-                >
-                  <CalendarIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-              </Box>
-
-              <DateButtons
-                selectedDate={selectedDate}
-                onDateChange={handleQuickDateSelect}
-                isDateFromCalendar={isDateFromCalendar}
-                onOpenCalendar={handleOpenCalendar}
-              />
-            </Box>
-
-            <TimeSlots
-              selectedTime={selectedTime}
-              onTimeSelect={setSelectedTime}
-              bookedSlots={bookedSlots}
-              loading={loading}
-            />
-
+      <DialogContent sx={{ p: 3 }}>
+        <Stack spacing={3}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
             <Box
               sx={{
-                p: 2,
+                px: 2,
+                py: 1,
                 borderRadius: 2,
-                background: selectedTime
-                  ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)'
-                  : '#F3F4F6',
-                border: selectedTime ? '1px solid #D4A574' : 'none',
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: '#6B7280',
-              }}
-            >
-              <Typography sx={{ fontSize: 12, fontWeight: 400, mb: 0.5 }}>
-                {selectedTime ? 'Selected Slot' : 'Next available'}
-              </Typography>
-              <Typography
-                sx={{
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: '#1F2937',
-                  background: selectedTime
-                    ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                    : 'transparent',
-                  backgroundClip: selectedTime ? 'text' : 'unset',
-                  WebkitBackgroundClip: selectedTime ? 'text' : 'unset',
-                  WebkitTextFillColor: selectedTime ? 'transparent' : '#1F2937',
-                }}
-              >
-                {selectedDate.format('ddd, DD MMM')} at {selectedTime || '10:00 AM'}
-              </Typography>
-            </Box>
-
-            <Button
-              onClick={handleContinue}
-              fullWidth
-              sx={{
-                py: 1.75,
-                borderRadius: 2,
-                background: 'linear-gradient(135deg, #1F2937 0%, #111827 100%)',
-                color: '#fff',
+                border: '2px solid #1F2937',
                 fontFamily: 'Inter',
                 fontWeight: 600,
-                fontSize: 15,
-                textTransform: 'none',
-                transition: 'all .2s ease',
-                '&:hover': {
-                  transform: 'scale(1.02)',
-                  boxShadow: '0 8px 20px rgba(31, 41, 55, 0.3)',
-                },
+                fontSize: 14,
+                color: '#1F2937',
               }}
             >
-              Continue
-            </Button>
-          </Stack>
-        </DialogContent>
-      </Dialog>
+              {isMeetingType}
+            </Box>
 
-      <CalendarDialog
-        open={calendarOpen}
-        onClose={() => setCalendarOpen(false)}
-        selectedDate={selectedDate}
-        onDateSelect={handleCalendarDateSelect}
-      />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CalendarIcon sx={{ fontSize: 20, color: '#6B7280' }} />
+              <Typography sx={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 500 }}>
+                {bookingData.duration || 30} mins meeting
+              </Typography>
+            </Box>
+          </Box>
 
-      <CustomerDetailsDialog
-        open={customerDialogOpen}
-        onClose={() => setCustomerDialogOpen(false)}
-        selectedDate={selectedDate}
-        selectedTime={selectedTime}
-        onSubmit={handleBookingSubmit}
-        submitting={submitting}
-      />
-    </>
-  );
+          {bookingData.description && (
+            <Typography
+              sx={{
+                fontFamily: 'Inter',
+                fontSize: 14,
+                lineHeight: 1.6,
+                color: '#4B5563',
+              }}
+            >
+              {bookingData.description}
+            </Typography>
+          )}
+
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography
+                sx={{
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: '#1F2937',
+                }}
+              >
+                Book your session
+              </Typography>
+              <IconButton
+                onClick={handleOpenCalendar}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 1.5,
+                  border: '2px solid #E5E7EB',
+                  color: '#6B7280',
+                  transition: 'all .15s ease',
+                  '&:hover': {
+                    borderColor: '#D4A574',
+                    bgcolor: alpha('#D4A574', 0.08),
+                  },
+                }}
+              >
+                <CalendarIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Box>
+
+            <DateButtons
+              selectedDate={selectedDate}
+              onDateChange={handleQuickDateSelect}
+              isDateFromCalendar={isDateFromCalendar}
+              onOpenCalendar={handleOpenCalendar}
+            />
+          </Box>
+
+          <TimeSlots
+            selectedTime={selectedTime}
+            onTimeSelect={setSelectedTime}
+            bookedSlots={bookedSlots}
+            loading={loading}
+          />
+
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              background: selectedTime
+                ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)'
+                : '#F3F4F6',
+              border: selectedTime ? '1px solid #D4A574' : 'none',
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: '#6B7280',
+            }}
+          >
+            <Typography sx={{ fontSize: 12, fontWeight: 400, mb: 0.5 }}>
+              {selectedTime ? 'Selected Slot' : 'Next available'}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: 15,
+                fontWeight: 700,
+                color: '#1F2937',
+                background: selectedTime
+                  ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  : 'transparent',
+                backgroundClip: selectedTime ? 'text' : 'unset',
+                WebkitBackgroundClip: selectedTime ? 'text' : 'unset',
+                WebkitTextFillColor: selectedTime ? 'transparent' : '#1F2937',
+              }}
+            >
+              {selectedDate.format('ddd, DD MMM')} at {selectedTime || '10:00 AM'}
+            </Typography>
+          </Box>
+
+          <Button
+            onClick={handleContinue}
+            fullWidth
+            sx={{
+              py: 1.75,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #1F2937 0%, #111827 100%)',
+              color: '#fff',
+              fontFamily: 'Inter',
+              fontWeight: 600,
+              fontSize: 15,
+              textTransform: 'none',
+              transition: 'all .2s ease',
+              '&:hover': {
+                transform: 'scale(1.02)',
+                boxShadow: '0 8px 20px rgba(31, 41, 55, 0.3)',
+              },
+            }}
+          >
+            Continue
+          </Button>
+        </Stack>
+      </DialogContent>
+    </Dialog>
+
+    <CalendarDialog
+      open={calendarOpen}
+      onClose={() => setCalendarOpen(false)}
+      selectedDate={selectedDate}
+      onDateSelect={handleCalendarDateSelect}
+    />
+
+    <CustomerDetailsDialog
+      open={customerDialogOpen}
+      onClose={() => setCustomerDialogOpen(false)}
+      selectedDate={selectedDate}
+      selectedTime={selectedTime}
+      onSubmit={handleBookingSubmit}
+      submitting={submitting}
+    />
+  </>
+);
+
 };
 
 export default BookingSessionDialog;
