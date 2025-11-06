@@ -65,6 +65,10 @@ export default function PublicProfile({ handle, initialProfile = null }) {
   const [newsletterAccept, setNewsletterAccept] = useState(true);
   const [newsletterDialogBlock, setNewsletterDialogBlock] = useState(null); // store block opened
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
+
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+const [selectedBooking, setSelectedBooking] = useState(null);
+
   const API_BASE = "/api/usersOn";
 
 
