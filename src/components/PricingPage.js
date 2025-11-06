@@ -35,6 +35,21 @@ import HttpsRoundedIcon from '@mui/icons-material/HttpsRounded';
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded';
 import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 import InstagramIcon from '@mui/icons-material/Instagram';
+import WebStoriesOutlinedIcon from '@mui/icons-material/WebStoriesOutlined';
+import PolylineOutlinedIcon from '@mui/icons-material/PolylineOutlined';
+import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined';
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import LoyaltyOutlinedIcon from '@mui/icons-material/LoyaltyOutlined';
+import MoveDownOutlinedIcon from '@mui/icons-material/MoveDownOutlined';
+import CurrencyRupeeOutlinedIcon from '@mui/icons-material/CurrencyRupeeOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import CardGiftcardOutlinedIcon from '@mui/icons-material/CardGiftcardOutlined';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import AdUnitsOutlinedIcon from '@mui/icons-material/AdUnitsOutlined';
+import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
 
 const PLAN = {
   price: 399,
@@ -48,16 +63,21 @@ const PLAN = {
 const featureCategories = [
   {
     title: 'Link-in-Bio Features',
-    icon: LinkRoundedIcon,
+    icon: WebStoriesOutlinedIcon,
     color: '#7c3aed',
     features: [
       { text: 'Unlimited Links', icon: LinkRoundedIcon },
-      { text: 'Custom subdomain (username.myhandle.in)', icon: LanguageRoundedIcon },
-      { text: 'Collect & manage your subscribers', icon: GroupAddRoundedIcon },
+      { 
+        text: 'username.myhandle.in NOT myhandle.in/username', 
+        icon: LanguageRoundedIcon,
+        strikethrough: 'myhandle.in/username' // Mark text to strikethrough
+      },
+      { text: 'Collect & Manage Subscribers', icon: GroupAddRoundedIcon },
       { text: 'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State', icon: InsightsRoundedIcon },
-      { text: 'UPI/Razorpay payments (Sell digital items)', icon: PaymentsRoundedIcon },
-      { text: 'Simple editor • drag & reorder links', icon: DragIndicatorRoundedIcon },
-      { text: 'Social icons, videos & embeds', icon: ShareRoundedIcon },
+      { text: 'Private & Secured Chat Feature', icon: ChatOutlinedIcon },
+      { text: 'Digital Store (Sell digital items)', icon: StorefrontOutlinedIcon },
+      { text: 'Simple Editor • drag & reorder links', icon: DragIndicatorRoundedIcon },
+      { text: 'Social Icons, videos & embeds', icon: ShareRoundedIcon },
       { text: 'English + Hindi support', icon: TranslateRoundedIcon },
     ]
   },
@@ -67,8 +87,9 @@ const featureCategories = [
     color: '#e4405f',
     features: [
       { text: 'Unlimited Contacts', icon: ContactsRoundedIcon },
-      { text: 'Unlimited Automated Instagram Replies', icon: QuickreplyRoundedIcon },
-      { text: 'Unlimited Automated Instagram DMs', icon: SendRoundedIcon },
+      { text: 'Unlimited Automations', icon: PolylineOutlinedIcon },
+      { text: 'Unlimited Automated Replies', icon: QuickreplyRoundedIcon },
+      { text: 'Unlimited Automated DMs', icon: SendRoundedIcon },
     ]
   },
   {
@@ -76,8 +97,44 @@ const featureCategories = [
     icon: ShieldRoundedIcon,
     color: '#10b981',
     features: [
+      { text: 'Data stays in India', icon: StorageOutlinedIcon },
       { text: 'Fast, secure hosting with SSL', icon: HttpsRoundedIcon },
       { text: 'Priority support (24–48 business hours)', icon: SupportAgentRoundedIcon },
+    ]
+  },
+
+   {
+    title: 'Payments & Transactions',
+    icon: PaymentsRoundedIcon,
+    color: '#5B532C',
+    features: [
+      { text: 'Razorpay Payment Gateway', icon: AccountBalanceOutlinedIcon },
+       { 
+        text: '4% on Digital Sale NOT ', 
+        icon: LoyaltyOutlinedIcon,
+        strikethrough: '10%'
+      },
+       { 
+        text: 'Weekly Settlements NOT ', 
+        icon: MoveDownOutlinedIcon,
+        strikethrough: 'Monthly'
+      },
+      { text: 'Supports All Payment Methods', icon: CurrencyRupeeOutlinedIcon },
+    ]
+  },
+
+   {
+    title: 'Coming Very Soon',
+    icon: PaymentsRoundedIcon,
+    color: '#F25912',
+    features: [
+      { text: 'Brand Outreach & Collaboration', icon: Inventory2OutlinedIcon },
+      { text: 'Give-away Feature in Bio', icon: CardGiftcardOutlinedIcon },
+      { text: 'AI-powered Reply & DM suggestions', icon: AutoAwesomeOutlinedIcon },
+      { text: 'Competitor Benchmarks', icon: FactCheckOutlinedIcon },
+      { text: 'Pop-up Banner for Faster Sale', icon: AdUnitsOutlinedIcon },
+      { text: 'Link shortner', icon: ShortcutOutlinedIcon },
+      
     ]
   }
 ];
@@ -85,9 +142,25 @@ const featureCategories = [
 export default function PricingPage() {
   const isMobile = useMediaQuery('(max-width:600px)');
 
+  // Helper function to render text with strikethrough
+  const renderFeatureText = (feature) => {
+    if (feature.strikethrough) {
+      const parts = feature.text.split(feature.strikethrough);
+      return (
+        <>
+          {parts[0]}
+          <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>
+            {feature.strikethrough}
+          </span>
+          {parts[1]}
+        </>
+      );
+    }
+    return feature.text;
+  };
+
   return (
     <>
-
       <header>
         <title>Pricing and Packages | MyHandle</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -147,7 +220,6 @@ export default function PricingPage() {
                 variant="outlined"
                 sx={{ borderRadius: 2 }}
               />
-             
               <Chip
                 icon={<BoltRoundedIcon />}
                 label="UPI/Razorpay"
@@ -159,7 +231,7 @@ export default function PricingPage() {
 
           {/* Pricing Card */}
           <Grid container justifyContent="center">
-            <Grid size={{ xs: 12, sm: 12, md:6, lg: 6}}>
+            <Grid item xs={12} sm={12} md={6} lg={6}>
               <Card
                 elevation={0}
                 sx={{
@@ -325,7 +397,7 @@ export default function PricingPage() {
                                     fontWeight: 500
                                   }}
                                 >
-                                  {feature.text}
+                                  {renderFeatureText(feature)}
                                 </Typography>
                               </Box>
                             );
