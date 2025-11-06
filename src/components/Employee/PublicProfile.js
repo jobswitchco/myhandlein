@@ -622,7 +622,7 @@ function renderPreviewBlock(b) {
             )}
 
             {/* Duration + Meeting Type */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
               <Typography
                 sx={{
                   fontFamily: "Inter",
