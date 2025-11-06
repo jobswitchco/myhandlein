@@ -93,7 +93,7 @@ export default function PricingPage() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="Checkout the prices and rates for MyHandle." />
       </header>
-      
+
       <Navbar />
 
       {/* Background */}
@@ -192,7 +192,7 @@ export default function PricingPage() {
                         sx={{
                           letterSpacing: '-0.01em',
                           fontFamily: 'Inter',
-                          fontSize: isMobile ? 20 : 28,
+                          fontSize: isMobile ? 18 : 24,
                           fontWeight: 700
                         }}
                       >
@@ -208,7 +208,7 @@ export default function PricingPage() {
                         sx={{
                           letterSpacing: '-0.01em',
                           fontFamily: 'Inter',
-                          fontSize: isMobile ? 32 : 42,
+                          fontSize: isMobile ? 22 : 28,
                           fontWeight: 800
                         }}
                       >
