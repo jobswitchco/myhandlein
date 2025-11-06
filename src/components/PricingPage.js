@@ -17,7 +17,6 @@ import Footer from './Footer';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
-import SpeedRoundedIcon from '@mui/icons-material/SpeedRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 
 // Feature Icons
@@ -50,6 +49,7 @@ import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import AdUnitsOutlinedIcon from '@mui/icons-material/AdUnitsOutlined';
 import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
+import OutdoorGrillOutlinedIcon from '@mui/icons-material/OutdoorGrillOutlined';
 
 const PLAN = {
   price: 399,
@@ -106,7 +106,7 @@ const featureCategories = [
    {
     title: 'Payments & Transactions',
     icon: PaymentsRoundedIcon,
-    color: '#5B532C',
+    color: '#F87B1B',
     features: [
       { text: 'Razorpay Payment Gateway', icon: AccountBalanceOutlinedIcon },
        { 
@@ -125,8 +125,8 @@ const featureCategories = [
 
    {
     title: 'Coming Very Soon',
-    icon: PaymentsRoundedIcon,
-    color: '#F25912',
+    icon: OutdoorGrillOutlinedIcon,
+    color: '#44444E',
     features: [
       { text: 'Brand Outreach & Collaboration', icon: Inventory2OutlinedIcon },
       { text: 'Give-away Feature in Bio', icon: CardGiftcardOutlinedIcon },
