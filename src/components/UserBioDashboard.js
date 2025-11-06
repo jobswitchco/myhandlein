@@ -1546,7 +1546,7 @@ async function saveAdd() {
     );
   }
 
-  if (b.type === "booking") {
+if (b.type === "booking") {
   // Extract booking data from b.raw or parse from b.action
   let bookingConfig = {};
   if (b.raw?.duration) {
@@ -1568,12 +1568,17 @@ async function saveAdd() {
   return (
     <Paper
       key={b.id}
+      elevation={0}
       sx={{
-        p: 1.5,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 1.5,
+        p: 1.25,
         borderRadius: 2,
-        boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
+        bgcolor: "#fff",
+        boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
         cursor: "pointer",
-        textAlign: "left",
         transition: "transform .12s ease, box-shadow .12s ease",
         "&:hover": {
           transform: "translateY(-2px)",
@@ -1581,112 +1586,102 @@ async function saveAdd() {
         },
       }}
       // onClick={() => openBookingDialog?.(b)}
-      elevation={0}
     >
-      <Stack spacing={1.5}>
-        {/* Header: Title + Description */}
-        <Box>
+      {/* Left: Icon + Title + Description */}
+      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.25, minWidth: 0, flex: 1 }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: 1.25,
+            display: "grid",
+            placeItems: "center",
+            bgcolor: alpha("#3b82f6", 0.06),
+            color: "#3b82f6",
+            flexShrink: 0,
+          }}
+        >
+          <EventIcon sx={{ fontSize: 18 }} />
+        </Box>
+
+        <Box sx={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1 }}>
+          {/* Title */}
           <Typography
             sx={{
               fontFamily: "Inter",
-              fontSize: "14px",
               fontWeight: 600,
-              mb: 0.5,
+              fontSize: 15,
+              mb: 0.25,
             }}
-            title={b.title}
-            noWrap
           >
-    {truncate(b.title || '1:1 Booking', MAX_TITLE)}
-
+            {truncate(b.title || "1:1 Booking", MAX_TITLE)}
           </Typography>
 
+           {/* Description */}
           {bookingConfig.description && (
             <Typography
               sx={{
                 fontFamily: "Inter",
-                fontSize: "12px",
-                opacity: 0.7,
+                fontSize: 12,
+                color: "#9CA3AF",
+                mt: 0.25,
               }}
-              title={bookingConfig.description}
             >
-    {truncate(bookingConfig.description || '30-Min Consultation', MAX_DESC)}
-
+              {truncate(bookingConfig.description, MAX_DESC)}
             </Typography>
           )}
-        </Box>
 
-        {/* Meeting Details */}
-        <Box
-          sx={{
-            p: 1.25,
-            borderRadius: 1.5,
-            bgcolor: "#F8F9FA",
-            border: "1px solid #E5E7EB",
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            justifyContent: "space-between",
+          {/* Duration + Meeting Type */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#6B7280",
+              }}
+            >
+              {bookingConfig.duration || 30} mins
+            </Typography>
+            <Box sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: "#D1D5DB" }} />
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontSize: 12,
+                fontWeight: 400,
+                color: "#6B7280",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isMeetingType}
+            </Typography>
+          </Box>
+
+         
+        </Box>
+      </Box>
+
+      {/* Right: Action Button */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+        <IconButton
+          aria-label="open booking"
+          onClick={(e) => {
+            e.stopPropagation();
+            // openBookingDialog?.(b);
           }}
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: 1,
+            bgcolor: alpha("#3b82f6", 0.06),
+            color: "#3b82f6",
+            "&:hover": { bgcolor: alpha("#3b82f6", 0.14) },
+          }}
+          size="small"
         >
-          {/* Left: Icon + Duration/Type */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
-           
-              <EventIcon sx={{ fontSize: 34, color: "#44444E" }} />
-
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                sx={{
-                  fontFamily: "Inter",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#1F2937",
-                }}
-              >
-                {bookingConfig.duration || 30} mins
-              </Typography>
-              <Typography
-                sx={{
-                  fontFamily: "Inter",
-                  fontSize: 12,
-                  fontWeight: 400,
-                  color: "#6B7280",
-                }}
-              >
-                {isMeetingType}
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* Right: Register Button */}
-          <Box
-            sx={{
-              px: 2,
-              py: 0.75,
-              borderRadius: 1,
-              bgcolor: "#1F2937",
-              color: "#FFFFFF",
-              fontFamily: "Inter",
-              fontWeight: 500,
-              fontSize: 12,
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-              border: "1px solid #374151",
-              display: "flex",
-              alignItems: "center",
-              gap: 0.5,
-              cursor: "pointer",
-              transition: "all .12s ease",
-              "&:hover": {
-                bgcolor: "#111827",
-                borderColor: "#1F2937",
-              },
-            }}
-          >
-            Details
-            <ArrowForwardIosIcon sx={{ fontSize: 11 }} />
-          </Box>
-        </Box>
-      </Stack>
+          <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
+        </IconButton>
+      </Box>
     </Paper>
   );
 }

@@ -41,6 +41,7 @@ import MailOutlinedIcon from '@mui/icons-material/MailOutlined';
 import 'react-toastify/dist/ReactToastify.css';
 import { toast } from "react-toastify";
 import EventIcon from '@mui/icons-material/CalendarMonth';
+import BookingSessionDialog from "./BookingSessionDialog";
 
 
 
@@ -475,6 +476,7 @@ function renderPreviewBlock(b) {
     if (b.raw?.duration) {
       bookingConfig = {
         duration: b.raw.duration,
+        title: b.raw.name,
         description: b.raw.description || "",
         interactionType: b.raw.interactionType || "voice",
       };
@@ -508,7 +510,11 @@ function renderPreviewBlock(b) {
             boxShadow: "0 12px 30px rgba(2,6,23,0.16)",
           },
         }}
-        // onClick={() => openBookingDialog?.(b)}
+          onClick={(e) => {
+    e.stopPropagation();
+    setSelectedBooking(b);
+    setBookingDialogOpen(true);
+  }}
       >
         {/* Left: Icon + Title + Description */}
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.25, minWidth: 0, flex: 1 }}>
@@ -544,7 +550,7 @@ function renderPreviewBlock(b) {
               {truncate(title, MAX_TITLE)}
             </Typography>
 
-           
+         
 
             {/* Description */}
             {bookingConfig.description && (
@@ -553,6 +559,8 @@ function renderPreviewBlock(b) {
                   fontFamily: "Inter",
                   fontSize: 12,
                   color: "#9CA3AF",
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
                   mt: 0.25,
                 }}
                 title={bookingConfig.description}
@@ -561,12 +569,12 @@ function renderPreviewBlock(b) {
               </Typography>
             )}
 
-             {/* Duration + Meeting Type */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+               {/* Duration + Meeting Type */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography
                 sx={{
                   fontFamily: "Inter",
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 600,
                   color: "#6B7280",
                 }}
@@ -578,7 +586,7 @@ function renderPreviewBlock(b) {
                 sx={{
                   fontFamily: "Inter",
                   fontSize: 12,
-                  fontWeight: 500,
+                  fontWeight: 400,
                   color: "#6B7280",
                   whiteSpace: "nowrap",
                 }}
@@ -591,24 +599,37 @@ function renderPreviewBlock(b) {
 
         {/* Right: Action Button */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-          <IconButton
-            aria-label="open"
-            onClick={(e) => {
-              e.stopPropagation();
-              // openBookingDialog?.(b);
-            }}
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 1,
-              bgcolor: alpha("#3b82f6", 0.06),
-              color: "#3b82f6",
-              "&:hover": { bgcolor: alpha("#3b82f6", 0.14) },
-            }}
-            size="small"
-          >
-            <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
-          </IconButton>
+        
+<IconButton
+  aria-label="open booking"
+  sx={{
+    width: 36,
+    height: 36,
+    borderRadius: 1,
+    bgcolor: alpha("#3b82f6", 0.06),
+    color: "#3b82f6",
+    "&:hover": { bgcolor: alpha("#3b82f6", 0.14) },
+  }}
+  size="small"
+>
+  <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
+</IconButton>
+
+{selectedBooking && (
+  <BookingSessionDialog
+    open={bookingDialogOpen}
+    onClose={() => setBookingDialogOpen(false)}
+    bookingData={{
+      title: selectedBooking.name,
+      block_id: selectedBooking._id,
+      user_id: selectedBooking.user_id,
+      duration: selectedBooking.raw?.duration || selectedBooking.duration,
+      description: selectedBooking.raw?.description || selectedBooking.description,
+      interactionType: selectedBooking.raw?.interactionType || selectedBooking.interactionType,
+    }}
+  />
+)}
+
         </Box>
       </Paper>
     );

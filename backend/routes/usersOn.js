@@ -9,6 +9,7 @@ import ParticipantUser from "../models/ParticipantUser.js";
 import Conversation from "../models/Conversations.js";
 import Subscriptions from "../models/Subscriptions.js";
 import Message from "../models/Messages.js";
+import Bookings from "../models/Bookings.js";
 import Block from "../models/Blocks.js";
 import FormsData from "../models/FormsData.js";
 import BankDetails from "../models/BankDetails.js";
@@ -4932,6 +4933,116 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
     }
 
     console.error("POST /api/blocks error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// router.get for fetching booked slots
+router.get("/bookings/available-slots", async (req, res) => {
+  try {
+    const { block_id, date } = req.query;
+
+    if (!block_id) {
+      return res.status(400).json({ error: "block_id is required" });
+    }
+
+    if (!date) {
+      return res.status(400).json({ error: "date is required" });
+    }
+
+    // Parse the date and get start and end of day
+    const selectedDate = new Date(date);
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find all bookings for this block_id on the selected date
+    const bookedSlots = await Bookings.find({
+      block_id: block_id,
+      selected_date: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+      is_del: false,
+    })
+      .select("selected_timeSlot")
+      .lean();
+
+    // Extract just the time slots
+    const bookedTimeSlots = bookedSlots.map((booking) => booking.selected_timeSlot);
+
+    console.log('bookedTimeSlots : ', bookedTimeSlots);
+    return res.status(200).json({
+      success: true,
+      date: date,
+      bookedSlots: bookedTimeSlots,
+    });
+  } catch (err) {
+    console.error("GET /bookings/available-slots error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST route to create a booking
+router.post("/bookings/create", async (req, res) => {
+  try {
+
+    const { block_id, customer_name, customer_mobile, customer_email, selected_date, selected_timeSlot, userId } = req.body;
+
+    // Validation
+    if (!block_id) return res.status(400).json({ error: "block_id is required" });
+    if (!customer_name || !customer_name.trim()) return res.status(400).json({ error: "Customer name is required" });
+    if (!customer_mobile) return res.status(400).json({ error: "Customer mobile is required" });
+    if (!customer_email || !customer_email.trim()) return res.status(400).json({ error: "Customer email is required" });
+    if (!selected_date) return res.status(400).json({ error: "Selected date is required" });
+    if (!selected_timeSlot) return res.status(400).json({ error: "Selected time slot is required" });
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(customer_email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    // Check if slot is already booked
+    const existingBooking = await Bookings.findOne({
+      block_id: block_id,
+      selected_date: new Date(selected_date),
+      selected_timeSlot: selected_timeSlot,
+      is_del: false,
+    });
+
+    if (existingBooking) {
+      return res.status(409).json({ error: "This time slot is already booked" });
+    }
+
+    // Create booking
+    const newBooking = await Bookings.create({
+      user_id: userId,
+      block_id: block_id,
+      customer_name: customer_name.trim(),
+      customer_mobile: customer_mobile,
+      customer_email: customer_email.trim().toLowerCase(),
+      selected_date: new Date(selected_date),
+      selected_timeSlot: selected_timeSlot,
+      created_at: new Date(),
+      updatedAt: new Date(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      booking: {
+        id: newBooking._id,
+        customer_name: newBooking.customer_name,
+        customer_email: newBooking.customer_email,
+        selected_date: newBooking.selected_date,
+        selected_timeSlot: newBooking.selected_timeSlot,
+      },
+    });
+  } catch (err) {
+    console.error("POST /bookings/create error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
