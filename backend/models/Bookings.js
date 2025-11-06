@@ -34,7 +34,7 @@ const Bookings_Schema = new Schema({
     },
 
     selected_date: {
-        type: String,  // Format: 'YYYY-MM-DD'
+        type: Date,  // Format: 'YYYY-MM-DD'
         required: true,
         index: true
     },
