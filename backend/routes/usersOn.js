@@ -2652,6 +2652,366 @@ router.post("/payments/verify", async (req, res) => {
   }
 });
 
+// Route 1: Create order with slot reservation
+router.post("/bookings/create-order", async (req, res) => {
+  try {
+    const { 
+      block_id, 
+      user_id, 
+      customer_name, 
+      customer_mobile, 
+      customer_email, 
+      selected_date, 
+      selected_timeSlot 
+    } = req.body;
+
+    // Validate required fields
+    if (!block_id || !user_id || !customer_name || !customer_email || !customer_mobile) {
+      return res.status(400).json({ error: "Missing required booking fields" });
+    }
+
+    // ✅ STEP 1: Check slot availability FIRST
+    const existingBooking = await Bookings.findOne({
+      block_id,
+      selected_date,
+      selected_timeSlot,
+      is_del: false,
+      status: { $in: ['confirmed', 'pending'] } // Include pending reservations
+    });
+
+    if (existingBooking) {
+      return res.status(409).json({ 
+        error: "This time slot is already booked. Please select another slot." 
+      });
+    }
+
+    // Fetch booking block to get pricing
+    const bookingBlock = await Block.findOne({ _id: block_id, user_id });
+    if (!bookingBlock) {
+      return res.status(404).json({ error: "Booking block not found" });
+    }
+
+    const pricing = bookingBlock.pricing;
+    
+    // If free booking, reject (should use direct booking route)
+    if (pricing === 0) {
+      return res.status(400).json({ error: "This is a free booking. Use direct booking endpoint." });
+    }
+
+    // Convert rupees to paise
+    const amountInPaise = pricing * 100;
+    
+    if (!Number.isInteger(amountInPaise) || amountInPaise <= 0) {
+      return res.status(400).json({ error: "Invalid booking amount" });
+    }
+
+    // Generate unique receipt
+    const receipt = await makeReceipt(block_id);
+
+    // ✅ STEP 2: Create Razorpay order
+    const order = await rz.orders.create({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt,
+      notes: {
+        booking_type: "session_booking",
+        block_id: String(block_id),
+        user_id: String(user_id),
+        title: String(bookingBlock.title || ""),
+        customer_name: String(customer_name || ""),
+        customer_email: String(customer_email || ""),
+        customer_phone: String(customer_mobile || ""),
+        selected_date: String(selected_date || ""),
+        selected_timeSlot: String(selected_timeSlot || "")
+      }
+    });
+
+    // ✅ STEP 3: Create Transaction record
+    const transaction = await Transaction.create({
+      userId: user_id,
+      userEmail: customer_email,
+      userName: customer_name,
+
+      productId: block_id,
+      productTitle: bookingBlock.title || null,
+      productImage: null,
+      subdomain: null,
+
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      status: "created",
+
+      customer: {
+        name: customer_name,
+        email: customer_email,
+        phone: customer_mobile
+      },
+
+      bookingDetails: {
+        block_id,
+        selected_date,
+        selected_timeSlot,
+        duration: bookingBlock.duration,
+        interaction_type: bookingBlock.interactionType
+      },
+
+      razorpay: { order },
+      rawOrder: order
+    });
+
+    // ✅ STEP 4: Create PENDING booking to reserve the slot
+    const pendingBooking = await Bookings.create({
+      block_id,
+      user_id,
+      customer_name,
+      customer_mobile,
+      customer_email,
+      selected_date,
+      selected_timeSlot,
+      duration: bookingBlock.duration,
+      interaction_type: bookingBlock.interactionType,
+      payment_status: "pending",
+      status: "pending", // Reserve slot but not confirmed yet
+      transaction_id: transaction._id,
+      order_id: order.id,
+      payment_id: null, // Will be added after payment
+      created_at: new Date()
+    });
+
+    res.json({
+      order,
+      bookingId: pendingBooking._id, // Send booking ID to frontend
+      customer: { 
+        name: customer_name, 
+        email: customer_email,
+        phone: customer_mobile 
+      }
+    });
+  } catch (e) {
+    const status = e?.statusCode || 500;
+    const msg = e?.error?.description || "Failed to create order";
+    console.error("create-order error:", JSON.stringify(e, null, 2));
+    res.status(status).json({ error: msg });
+  }
+});
+
+// Route 2: Verify payment and confirm booking
+router.post("/bookings/verify-payment", async (req, res) => {
+  try {
+    const { 
+      orderId, 
+      paymentId, 
+      signature, 
+      bookingId // ✅ Get bookingId from frontend
+    } = req.body;
+
+    // Validate required fields
+    if (!orderId || !paymentId || !signature || !bookingId) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Verify payment signature
+    const body = `${orderId}|${paymentId}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", RZP_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    const valid = expectedSignature === signature;
+
+    if (!valid) {
+      // ✅ Payment verification failed - DELETE pending booking
+      await Bookings.findByIdAndDelete(bookingId);
+      
+      await Transaction.findOneAndUpdate(
+        { orderId },
+        { 
+          $set: { 
+            status: "failed",
+            paymentId,
+            signature,
+            rawVerifyPayload: req.body
+          } 
+        }
+      );
+      
+      return res.status(400).json({ 
+        ok: false, 
+        error: "Payment signature verification failed" 
+      });
+    }
+
+    // Fetch payment details from Razorpay
+    let payment = null;
+    try {
+      payment = await rz.payments.fetch(paymentId);
+    } catch (err) {
+      console.warn("Could not fetch payment from Razorpay:", err?.message || err);
+    }
+
+    // Build payment method details
+    const method = payment?.method || null;
+    const methodDetails = {
+      type: method || null,
+      bank: payment?.bank || null,
+      wallet: payment?.wallet || null,
+      vpa: payment?.vpa || null,
+      card: payment?.card
+        ? {
+            last4: payment.card.last4 || null,
+            network: payment.card.network || null,
+            issuer: payment.card.issuer || null,
+            type: payment.card.type || null,
+            international: payment.card.international || false
+          }
+        : undefined
+    };
+
+    // Get canonical customer info
+    const canonicalCustomer = {
+      name: payment?.email || undefined,
+      email: payment?.email || undefined,
+      phone: payment?.contact || undefined
+    };
+
+    // ✅ Update transaction with payment details
+    const txUpdate = {
+      paymentId,
+      signature,
+      status: "paid",
+      paidAt: new Date(),
+      paymentMethod: methodDetails,
+      razorpay: {
+        payment: payment || undefined
+      },
+      amount: payment?.amount || undefined,
+      currency: payment?.currency || undefined,
+      rawVerifyPayload: req.body
+    };
+
+    const tx = await Transaction.findOneAndUpdate(
+      { orderId }, 
+      { $set: txUpdate }, 
+      { new: true }
+    );
+
+    if (!tx) {
+      // Transaction not found - delete pending booking
+      await Bookings.findByIdAndDelete(bookingId);
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    // ✅ Update PENDING booking to CONFIRMED
+    const booking = await Bookings.findByIdAndUpdate(
+      bookingId,
+      {
+        $set: {
+          payment_status: "paid",
+          status: "confirmed",
+          payment_id: paymentId,
+          customer_mobile: canonicalCustomer.phone || undefined,
+          customer_email: canonicalCustomer.email || undefined,
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking record not found" });
+    }
+
+    // TODO: Send confirmation email to customer
+    // TODO: Send notification to service provider (user_id)
+
+    return res.json({ 
+      ok: true, 
+      txId: tx._id,
+      bookingId: booking._id,
+      message: "Payment verified and booking confirmed successfully"
+    });
+
+  } catch (e) {
+    console.error("verify-payment error:", e);
+    return res.status(500).json({ error: "Payment verification failed" });
+  }
+});
+
+// ✅ BONUS: Cleanup route for expired pending bookings (run via cron job)
+router.post("/bookings/cleanup-expired", async (req, res) => {
+  try {
+    const expiryTime = new Date(Date.now() - 15 * 60 * 1000); // 15 minutes ago
+
+    const result = await Bookings.deleteMany({
+      status: "pending",
+      payment_status: "pending",
+      created_at: { $lt: expiryTime }
+    });
+
+    res.json({ 
+      success: true, 
+      deletedCount: result.deletedCount 
+    });
+  } catch (error) {
+    console.error("Cleanup error:", error);
+    res.status(500).json({ error: "Cleanup failed" });
+  }
+});
+
+// Route 3: Delete pending booking (immediate slot release)
+router.delete("/bookings/:bookingId", async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    // Validate bookingId
+    if (!bookingId) {
+      return res.status(400).json({ error: "Booking ID is required" });
+    }
+
+    // Find and validate booking
+    const booking = await Bookings.findById(bookingId);
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    // Only allow deletion of pending bookings
+    if (booking.status !== 'pending' || booking.payment_status !== 'pending') {
+      return res.status(400).json({ 
+        error: "Only pending bookings can be deleted. Contact support for confirmed bookings." 
+      });
+    }
+
+    // Delete the pending booking
+    await Bookings.findByIdAndDelete(bookingId);
+
+    // Update associated transaction if exists
+    if (booking.transaction_id) {
+      await Transaction.findByIdAndUpdate(
+        booking.transaction_id,
+        { 
+          $set: { 
+            status: "cancelled",
+            cancelledAt: new Date(),
+            cancellationReason: "User cancelled payment"
+          } 
+        }
+      );
+    }
+
+    return res.json({ 
+      success: true, 
+      message: "Pending booking deleted successfully",
+      bookingId: bookingId 
+    });
+
+  } catch (error) {
+    console.error("Delete booking error:", error);
+    return res.status(500).json({ error: "Failed to delete booking" });
+  }
+});
+
 
 router.get('/details-for-mandate', authenticateToken, async (req, res) => {
   try {

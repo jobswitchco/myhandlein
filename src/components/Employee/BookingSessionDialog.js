@@ -1,4 +1,4 @@
-import { useState, useEffect} from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -33,15 +33,23 @@ import dayjs from 'dayjs';
 import axios from 'axios';
 import { CurrencyRupee } from '@mui/icons-material';
 
+// Load Razorpay script
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 // TIME SLOTS GENERATOR (10:00 AM to 11:00 PM, 30-min intervals)
 const generateTimeSlots = (sessionDuration, bufferTime) => {
   const slots = [];
   const intervalMinutes = sessionDuration + bufferTime;
   
-  // Start from 10:00 AM (600 minutes from midnight)
   let currentMinutes = 10 * 60;
-  // End at 11:00 PM (1380 minutes from midnight)
   const endMinutes = 23 * 60;
   
   while (currentMinutes <= endMinutes) {
@@ -59,14 +67,11 @@ const generateTimeSlots = (sessionDuration, bufferTime) => {
   return slots;
 };
 
-
-
 // DATE BUTTONS COMPONENT
 const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCalendar }) => {
   const today = dayjs();
   const dates = [];
 
-  // Only generate 3 future dates instead of 4
   for (let i = 1; i <= 3; i++) {
     dates.push(today.add(i, 'day'));
   }
@@ -114,7 +119,6 @@ const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCal
 
   return (
     <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1 }}>
-      {/* First 3 date buttons */}
       {dates.map((date) => (
         <Button
           key={date.format('YYYY-MM-DD')}
@@ -158,7 +162,6 @@ const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCal
         </Button>
       ))}
 
-      {/* 4th button - "More" with Calendar Icon */}
       <Button
         onClick={onOpenCalendar}
         sx={{
@@ -195,7 +198,6 @@ const DateButtons = ({ selectedDate, onDateChange, isDateFromCalendar, onOpenCal
     </Box>
   );
 };
-
 
 // CALENDAR DIALOG
 const CalendarDialog = ({ open, onClose, selectedDate, onDateSelect }) => {
@@ -258,14 +260,22 @@ const CalendarDialog = ({ open, onClose, selectedDate, onDateSelect }) => {
 };
 
 // CUSTOMER DETAILS DIALOG
-const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSubmit, submitting, bookingData }) => {
+const CustomerDetailsDialog = ({ 
+  open, 
+  onClose, 
+  selectedDate, 
+  selectedTime, 
+  onSubmit, 
+  submitting, 
+  bookingData 
+}) => {
   const [formData, setFormData] = useState({
     name: '',
     mobile: '',
     email: '',
   });
   const [errors, setErrors] = useState({});
-   const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
@@ -323,7 +333,6 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
       }}
     >
       <DialogContent sx={{ p: 3 }}>
-
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography sx={{ fontFamily: 'Inter', fontSize: 20, fontWeight: 700 }}>
             Complete Your Booking
@@ -381,7 +390,7 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
-                fontSize : '15px'
+                fontSize: '15px'
               },
             }}
           />
@@ -407,8 +416,7 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
-                fontSize : '15px'
-
+                fontSize: '15px'
               },
             }}
           />
@@ -430,279 +438,270 @@ const CustomerDetailsDialog = ({ open, onClose, selectedDate, selectedTime, onSu
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
-                fontSize : '15px'
-
+                fontSize: '15px'
               },
             }}
           />
 
- <Box
-      sx={{
-        border: '1px solid #E5E7EB',
-        borderRadius: 2,
-        overflow: 'hidden',
-        bgcolor: '#F0F0F0',
-      }}
-    >
-      {/* Header - Always Visible */}
-      <Box
-        onClick={() => setExpanded(!expanded)}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          p: 2,
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          '&:hover': {
-            bgcolor: '#F3F4F6',
-          },
-        }}
-      >
-        <Typography
-          sx={{
-            fontFamily: 'Inter',
-            fontSize: 15,
-            fontWeight: 600,
-            color: '#1F2937',
-          }}
-        >
-          Order Summary
-        </Typography>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        
-            { bookingData.pricing != 0 ?
-              ( 
-              <>
-              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
-
-              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
-              
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>{bookingData.pricing}</Typography>
-              </Stack>
-
-              </> ) : (
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>FREE</Typography>
-              )}
-          <IconButton size="small" sx={{ color: '#6B7280' }}>
-            {expanded ? <ArrowUpIcon /> : <ArrowDownIcon />}
-          </IconButton>
-        </Box>
-      </Box>
-
-      {/* Collapsible Content */}
-      <Collapse in={expanded}>
-        <Box sx={{ px: 2, pb: 2 }}>
-          <Divider sx={{ mb: 1 }} />
-
-          {/* Item 1: Session Title + Price */}
+          {/* Order Summary */}
           <Box
             sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              py: 1.5,
+              border: '1px solid #E5E7EB',
+              borderRadius: 2,
+              overflow: 'hidden',
+              bgcolor: '#F0F0F0',
             }}
           >
-            <Typography
+            {/* Header - Always Visible */}
+            <Box
+              onClick={() => setExpanded(!expanded)}
               sx={{
-                fontFamily: 'Inter',
-                fontSize: 14,
-                fontWeight: 500,
-                color: '#4B5563',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                p: 2,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  bgcolor: '#F3F4F6',
+                },
               }}
             >
-              {bookingData.title || 'Consultation'}
-            </Typography>
-             { bookingData.pricing != 0 ?
-              ( 
-              <>
-              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
-
-              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
-              
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>{bookingData.pricing}</Typography>
-              </Stack>
-
-              </> ) : (
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#1F2937'}}>FREE</Typography>
-              )}
-          </Box>
-
-          <Divider sx={{ my: 0 }} />
-
-          {/* Item 2: Platform Fee */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              py: 1.5,
-            }}
-          >
-            <Typography
-              sx={{
-                fontFamily: 'Inter',
-                fontSize: 14,
-                fontWeight: 500,
-                color: '#4B5563',
-              }}
-            >
-              Platform fee
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography
                 sx={{
                   fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: '#9CA3AF',
-                  textDecoration: 'line-through',
-                }}
-              >
-                ₹12
-              </Typography>
-              <Typography
-                sx={{
-                  fontFamily: 'Inter',
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: 600,
-                  color: '#10B981',
+                  color: '#1F2937',
                 }}
               >
-                FREE
+                Order Summary
               </Typography>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {bookingData.pricing != 0 ? (
+                  <Stack sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <CurrencyRupee sx={{ fontSize: '16px', color: '#1F2937' }} />
+                    <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 500, color: '#1F2937' }}>
+                      {bookingData.pricing}
+                    </Typography>
+                  </Stack>
+                ) : (
+                  <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 500, color: '#1F2937' }}>
+                    FREE
+                  </Typography>
+                )}
+                <IconButton size="small" sx={{ color: '#6B7280' }}>
+                  {expanded ? <ArrowUpIcon /> : <ArrowDownIcon />}
+                </IconButton>
+              </Box>
             </Box>
+
+            {/* Collapsible Content */}
+            <Collapse in={expanded}>
+              <Box sx={{ px: 2, pb: 2 }}>
+                <Divider sx={{ mb: 1 }} />
+
+                {/* Item 1: Session Title + Price */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    py: 1.5,
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: '#4B5563',
+                    }}
+                  >
+                    {bookingData.title || 'Consultation'}
+                  </Typography>
+                  {bookingData.pricing != 0 ? (
+                    <Stack sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                      <CurrencyRupee sx={{ fontSize: '16px', color: '#1F2937' }} />
+                      <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 500, color: '#1F2937' }}>
+                        {bookingData.pricing}
+                      </Typography>
+                    </Stack>
+                  ) : (
+                    <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 500, color: '#1F2937' }}>
+                      FREE
+                    </Typography>
+                  )}
+                </Box>
+
+                <Divider sx={{ my: 0 }} />
+
+                {/* Item 2: Platform Fee */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    py: 1.5,
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: '#4B5563',
+                    }}
+                  >
+                    Platform fee
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography
+                      sx={{
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: '#9CA3AF',
+                        textDecoration: 'line-through',
+                      }}
+                    >
+                      ₹12
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: '#10B981',
+                      }}
+                    >
+                      FREE
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 1 }} />
+
+                {/* Item 3: Total */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    py: 1.5,
+                    bgcolor: 'rgba(102, 126, 234, 0.08)',
+                    px: 2,
+                    borderRadius: 1.5,
+                    mt: 1,
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontFamily: 'Inter',
+                      fontSize: 16,
+                      fontWeight: 600,
+                      color: '#1F2937',
+                    }}
+                  >
+                    Total
+                  </Typography>
+                  {bookingData.pricing != 0 ? (
+                    <Stack sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                      <CurrencyRupee sx={{ fontSize: '16px', color: '#1F2937' }} />
+                      <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 600, color: '#1F2937' }}>
+                        {bookingData.pricing}
+                      </Typography>
+                    </Stack>
+                  ) : (
+                    <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 600, color: '#1F2937' }}>
+                      FREE
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </Collapse>
           </Box>
 
-          <Divider sx={{ my: 1 }} />
-
-          {/* Item 3: Total */}
+          {/* Submit Button */}
           <Box
             sx={{
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              py: 1.5,
-              bgcolor: 'rgba(102, 126, 234, 0.08)',
-              px: 2,
-              borderRadius: 1.5,
-              mt: 1,
+              gap: 1.5,
+              width: '100%',
             }}
           >
-            <Typography
+            {/* Left: Price Button (30%) */}
+            <Box
               sx={{
+                width: '30%',
+                py: 1.75,
+                borderRadius: 1,
+                border: '1px solid #000000',
+                bgcolor: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: 600,
-                color: '#1F2937',
+                fontWeight: 700,
+                fontSize: 18,
+                color: '#667eea',
               }}
             >
-              Total
-            </Typography>
-      
-              { bookingData.pricing != 0 ?
-              ( 
-              <>
-              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
-
-              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
-              
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>{bookingData.pricing}</Typography>
-              </Stack>
-
-              </> ) : (
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>FREE</Typography>
+              {bookingData.pricing != 0 ? (
+                <Stack sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                  <CurrencyRupee sx={{ fontSize: '16px', color: '#1F2937' }} />
+                  <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 600, color: '#1F2937' }}>
+                    {bookingData.pricing}
+                  </Typography>
+                </Stack>
+              ) : (
+                <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 600, color: '#1F2937' }}>
+                  FREE
+                </Typography>
               )}
-       
+            </Box>
+
+            {/* Right: Confirm Booking Button (70%) */}
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              sx={{
+                width: '70%',
+                py: 1.75,
+                borderRadius: 1,
+                background: '#000000',
+                color: '#FFFFFF',
+                fontFamily: 'Inter',
+                fontWeight: 600,
+                fontSize: 15,
+                textTransform: 'none',
+                transition: 'all .2s ease',
+                '&:hover': {
+                  transform: 'scale(1.02)',
+                  boxShadow: '0 8px 20px #000000',
+                },
+                '&:disabled': {
+                  background: '#9CA3AF',
+                  color: '#fff',
+                },
+              }}
+            >
+              {submitting ? (
+                <CircularProgress size={24} sx={{ color: '#fff' }} />
+              ) : (
+                'Book Session'
+              )}
+            </Button>
           </Box>
-        </Box>
-      </Collapse>
-    </Box>
-          {/* Submit Button */}
-        <Box
-  sx={{
-    display: 'flex',
-    gap: 1.5,
-    width: '100%',
-  }}
->
-  {/* Left: Price Button (30%) */}
-  <Box
-    sx={{
-      width: '30%',
-      py: 1.75,
-      borderRadius: 1,
-      border: '1px solid #000000',
-      bgcolor: '#fff',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontFamily: 'Inter',
-      fontWeight: 700,
-      fontSize: 18,
-      color: '#667eea',
-    }}
-  >
-     { bookingData.pricing != 0 ?
-              ( 
-              <>
-              <Stack sx={{ display : 'flex', flexDirection : 'row', alignItems : 'center'}}>
-
-              <CurrencyRupee sx={{fontSize : '16px', color: '#1F2937'}}/>
-              
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>{bookingData.pricing}</Typography>
-              </Stack>
-
-              </> ) : (
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 600, color: '#1F2937'}}>FREE</Typography>
-              )}
-  </Box>
-
-  {/* Right: Confirm Booking Button (70%) */}
-  <Button
-    onClick={handleSubmit}
-    disabled={submitting}
-    sx={{
-      width: '70%',
-      py: 1.75,
-      borderRadius: 1,
-      background: '#000000',
-      color: '#FFFFFF',
-      fontFamily: 'Inter',
-      fontWeight: 600,
-      fontSize: 15,
-      textTransform: 'none',
-      transition: 'all .2s ease',
-      '&:hover': {
-        transform: 'scale(1.02)',
-        boxShadow: '0 8px 20px #000000',
-      },
-      '&:disabled': {
-        background: '#9CA3AF',
-        color: '#fff',
-      },
-    }}
-  >
-    {submitting ? (
-      <CircularProgress size={24} sx={{ color: '#fff' }} />
-    ) : (
-      'Book Session'
-    )}
-  </Button>
-</Box>
-
-         
         </Stack>
       </DialogContent>
     </Dialog>
   );
 };
 
-
 // TIME SLOTS COMPONENT
-const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading, bufferTime, sessionDuration}) => {
+const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading, bufferTime, sessionDuration }) => {
   const slots = generateTimeSlots(sessionDuration, bufferTime);
 
   if (loading) {
@@ -834,7 +833,12 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
 
   const baseUrl = "/api/usersOn";
 
-  // Manual fetch function - called when date is clicked
+  // Load Razorpay script on component mount
+  useEffect(() => {
+    loadRazorpayScript();
+  }, []);
+
+  // Fetch booked slots
   const fetchBookedSlots = async (date) => {
     if (!bookingData?.user_id) return;
 
@@ -858,12 +862,11 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
     }
   };
 
-  // Fetch slots for initial date when dialog opens
   useEffect(() => {
     if (open && bookingData?.block_id) {
       fetchBookedSlots(selectedDate);
     }
-  }, [open]); // Only run when dialog opens
+  }, [open]);
 
   const handleContinue = () => {
     if (!selectedTime) {
@@ -873,33 +876,143 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
     setCustomerDialogOpen(true);
   };
 
+  // Handle payment with Razorpay
+  const handleRazorpayPayment = async (orderData, customerData, bookingId) => {
+    const options = {
+      key: "rzp_live_RbZ0rhbWlR25Cl", // Replace with your actual Razorpay Key ID
+      amount: orderData.order.amount,
+      currency: orderData.order.currency,
+      name: bookingData.title || "Booking Session",
+      description: `Session on ${selectedDate.format('DD MMM YYYY')} at ${selectedTime}`,
+      order_id: orderData.order.id,
+      prefill: {
+        name: customerData.name,
+        email: customerData.email,
+        contact: customerData.mobile,
+      },
+      theme: {
+        color: "#667eea"
+      },
+      handler: async function (response) {
+        // Payment successful - verify on backend
+        try {
+          const verifyResponse = await axios.post(
+            `${baseUrl}/bookings/verify-payment`,
+            {
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+              bookingId: bookingId, // Send bookingId for confirmation
+            }
+          );
+
+          if (verifyResponse.data.ok) {
+            alert(
+              `Payment Successful! Booking Confirmed!\n\nName: ${customerData.name}\nDate: ${selectedDate.format('ddd, DD MMM YYYY')}\nTime: ${selectedTime}\n\nConfirmation email sent to ${customerData.email}`
+            );
+            setCustomerDialogOpen(false);
+            onClose();
+          } else {
+            // Payment verification failed - booking already deleted by backend
+            alert('Payment verification failed. Your slot has been released. Please try again.');
+          }
+        } catch (error) {
+          console.error('Payment verification error:', error);
+          // Try to delete booking if it exists
+          try {
+            await axios.delete(`${baseUrl}/bookings/${bookingId}`);
+          } catch (deleteError) {
+            console.error('Error cleaning up booking:', deleteError);
+          }
+          alert('Payment verification failed. Please contact support.');
+        } finally {
+          setSubmitting(false);
+        }
+      },
+      modal: {
+        ondismiss: async function () {
+          // Payment cancelled - immediately delete pending booking
+          setSubmitting(false);
+          
+          try {
+            const deleteResponse = await axios.delete(`${baseUrl}/bookings/${bookingId}`);
+            console.log('Pending booking deleted:', deleteResponse.data);
+            alert('Payment cancelled. Your slot has been released.');
+          } catch (error) {
+            console.error('Error deleting cancelled booking:', error);
+            alert('Payment cancelled');
+          }
+        }
+      }
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
+
+  // Handle booking submission
   const handleBookingSubmit = async (customerData) => {
     setSubmitting(true);
 
     try {
-      const response = await axios.post(
-        `${baseUrl}/bookings/create`,
-        {
-          block_id: bookingData.block_id,
-          userId: bookingData.user_id,
-          customer_name: customerData.name,
-          customer_mobile: customerData.mobile,
-          customer_email: customerData.email,
-          selected_date: selectedDate.format('YYYY-MM-DD'),
-          selected_timeSlot: selectedTime,
-        }
-      );
+      // Check if it's a free booking
+      if (bookingData.pricing === 0) {
+        // Free booking - direct creation
+        const response = await axios.post(
+          `${baseUrl}/bookings/create`,
+          {
+            block_id: bookingData.block_id,
+            userId: bookingData.user_id,
+            customer_name: customerData.name,
+            customer_mobile: customerData.mobile,
+            customer_email: customerData.email,
+            selected_date: selectedDate.format('YYYY-MM-DD'),
+            selected_timeSlot: selectedTime,
+          }
+        );
 
-      if (response.data.success) {
-        alert(`Booking Confirmed Successfully!\n\nName: ${customerData.name}\nDate: ${selectedDate.format('ddd, DD MMM YYYY')}\nTime: ${selectedTime}\n\nConfirmation email sent to ${customerData.email}`);
-        setCustomerDialogOpen(false);
-        onClose();
+        if (response.data.success) {
+          alert(
+            `Booking Confirmed Successfully!\n\nName: ${customerData.name}\nDate: ${selectedDate.format('ddd, DD MMM YYYY')}\nTime: ${selectedTime}\n\nConfirmation email sent to ${customerData.email}`
+          );
+          setCustomerDialogOpen(false);
+          onClose();
+        }
+        setSubmitting(false);
+      } else {
+        // Paid booking - create order and initiate payment
+        const orderResponse = await axios.post(
+          `${baseUrl}/bookings/create-order`,
+          {
+            block_id: bookingData.block_id,
+            user_id: bookingData.user_id,
+            customer_name: customerData.name,
+            customer_mobile: customerData.mobile,
+            customer_email: customerData.email,
+            selected_date: selectedDate.format('YYYY-MM-DD'),
+            selected_timeSlot: selectedTime,
+          }
+        );
+
+        if (orderResponse.data.order && orderResponse.data.bookingId) {
+          // Open Razorpay payment gateway with bookingId
+          handleRazorpayPayment(orderResponse.data, customerData, orderResponse.data.bookingId);
+        }
       }
     } catch (error) {
       console.error('Booking error:', error);
       const errorMsg = error?.response?.data?.error || 'Failed to create booking. Please try again.';
+      
+      // If order was created but payment modal failed to open, clean up
+      if (error?.response?.data?.bookingId) {
+        try {
+          await axios.delete(`${baseUrl}/bookings/${error.response.data.bookingId}`);
+        } catch (deleteError) {
+          console.error('Error cleaning up failed booking:', deleteError);
+        }
+      }
+      
       alert(errorMsg);
-    } finally {
       setSubmitting(false);
     }
   };
@@ -908,14 +1021,14 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
     setSelectedDate(date);
     setSelectedTime(null);
     setIsDateFromCalendar(true);
-    fetchBookedSlots(date); // Fetch slots when calendar date is selected
+    fetchBookedSlots(date);
   };
 
   const handleQuickDateSelect = (date) => {
     setSelectedDate(date);
     setSelectedTime(null);
     setIsDateFromCalendar(false);
-    fetchBookedSlots(date); // Fetch slots when quick date is selected
+    fetchBookedSlots(date);
   };
 
   const handleOpenCalendar = () => {
@@ -926,218 +1039,216 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
     ? 'Voice Meeting'
     : 'Video Meeting';
 
- return (
-  <>
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      fullWidth 
-      maxWidth="sm"
-      fullScreen={window.innerWidth < 600}
-    >
-      <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
-        <IconButton onClick={onClose} size="small" sx={{ color : '#FFFFFF'}}>
-          <CloseIcon />
-        </IconButton>
-      </Box>
-
-      <Box
-        sx={{
-          background: 'linear-gradient(135deg, #70B2B2 0%, #313647 100%)',
-          px: 2,
-          pt: 5,
-          color: '#fff',
-          textAlign: 'center',
-        }}
+  return (
+    <>
+      <Dialog 
+        open={open} 
+        onClose={onClose} 
+        fullWidth 
+        maxWidth="sm"
+        fullScreen={window.innerWidth < 600}
       >
-        <Typography
+        <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
+          <IconButton onClick={onClose} size="small" sx={{ color: '#FFFFFF' }}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        <Box
           sx={{
-            fontFamily: 'Inter',
-            fontSize: { xs: 20, sm: 20 },
-            fontWeight: 600,
-            textAlign : 'left',
-            mb: 1,
+            background: 'linear-gradient(135deg, #70B2B2 0%, #313647 100%)',
+            px: 2,
+            pt: 5,
+            color: '#fff',
+            textAlign: 'center',
           }}
         >
-          {bookingData.title || '1:1 Booking'}
-        </Typography>
-      </Box>
+          <Typography
+            sx={{
+              fontFamily: 'Inter',
+              fontSize: { xs: 20, sm: 20 },
+              fontWeight: 600,
+              textAlign: 'left',
+              mb: 1,
+            }}
+          >
+            {bookingData.title || '1:1 Booking'}
+          </Typography>
+        </Box>
 
-      <DialogContent sx={{ p: 3 }}>
-        <Stack spacing={3}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
-           
-         
-            <Box
-              sx={{
-                px: 2,
-                py: 1,
-                borderRadius: 1,
-                background: '#1F2937',
-                display: 'flex',
-                flexDirection: 'row',
-                gap: 0.5,
-                alignItems : 'center'
-              
-              }}
-            >
-              { bookingData.pricing != 0 ?
-              ( 
-              <>
-              <CurrencyRupee sx={{fontSize : '16px', color: '#FFFFFF'}}/>
-              
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#FFFFFF'}}>{bookingData.pricing}</Typography>
+        <DialogContent sx={{ p: 3 }}>
+          <Stack spacing={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1,
+                  borderRadius: 1,
+                  background: '#1F2937',
+                  display: 'flex',
+                  flexDirection: 'row',
+                  gap: 0.5,
+                  alignItems: 'center'
+                }}
+              >
+                {bookingData.pricing != 0 ? (
+                  <>
+                    <CurrencyRupee sx={{ fontSize: '16px', color: '#FFFFFF' }} />
+                    <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 500, color: '#FFFFFF' }}>
+                      {bookingData.pricing}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography sx={{ fontFamily: 'Inter', fontSize: '16px', fontWeight: 500, color: '#FFFFFF' }}>
+                    FREE
+                  </Typography>
+                )}
+              </Box>
 
-              </> ) : (
-                <Typography sx={{ fontFamily: 'Inter', fontSize : '16px', fontWeight: 500, color: '#FFFFFF'}}>FREE</Typography>
-              )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WatchLaterIcon sx={{ fontSize: 20, color: '#6B7280' }} />
+                <Typography sx={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 500 }}>
+                  {bookingData.duration || 30} Mins • {isMeetingType}
+                </Typography>
+              </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <WatchLaterIcon sx={{ fontSize: 20, color: '#6B7280' }} />
-              <Typography sx={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 500 }}>
-                {bookingData.duration || 30} Mins • {isMeetingType}
-              </Typography>
-            </Box>
-          </Box>
-
-          {bookingData.description && (
-            <Typography
-              sx={{
-                fontFamily: 'Inter',
-                fontSize: 14,
-                lineHeight: 1.6,
-                color: '#4B5563',
-              }}
-            >
-              {bookingData.description}
-            </Typography>
-          )}
-
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            {bookingData.description && (
               <Typography
                 sx={{
                   fontFamily: 'Inter',
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: '#1F2937',
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: '#4B5563',
                 }}
               >
-                Book your session
+                {bookingData.description}
               </Typography>
-      
-                <CalendarMonthIcon  onClick={handleOpenCalendar}
-                sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 1.5,
-                  cursor: 'pointer',
-                  // border: '2px solid #E5E7EB',
-                  color: '#6B7280',
-                  transition: 'all .15s ease',
-                  '&:hover': {
-                    borderColor: '#D4A574',
-                    bgcolor: alpha('#D4A574', 0.08),
-                  },
-                }} />
+            )}
+
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography
+                  sx={{
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: '#1F2937',
+                  }}
+                >
+                  Book your session
+                </Typography>
+                <CalendarMonthIcon  
+                  onClick={handleOpenCalendar}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 1.5,
+                    cursor: 'pointer',
+                    color: '#6B7280',
+                    transition: 'all .15s ease',
+                    '&:hover': {
+                      borderColor: '#D4A574',
+                      bgcolor: alpha('#D4A574', 0.08),
+                    },
+                  }} 
+                />
+              </Box>
+
+              <DateButtons
+                selectedDate={selectedDate}
+                onDateChange={handleQuickDateSelect}
+                isDateFromCalendar={isDateFromCalendar}
+                onOpenCalendar={handleOpenCalendar}
+              />
             </Box>
 
-            <DateButtons
-              selectedDate={selectedDate}
-              onDateChange={handleQuickDateSelect}
-              isDateFromCalendar={isDateFromCalendar}
-              onOpenCalendar={handleOpenCalendar}
+            <TimeSlots
+              selectedTime={selectedTime}
+              onTimeSelect={setSelectedTime}
+              bookedSlots={bookedSlots}
+              loading={loading}
+              bufferTime={bookingData.buffer_time}
+              sessionDuration={bookingData.duration}
             />
-          </Box>
 
-          <TimeSlots
-            selectedTime={selectedTime}
-            onTimeSelect={setSelectedTime}
-            bookedSlots={bookedSlots}
-            loading={loading}
-            bufferTime={bookingData.buffer_time}
-            sessionDuration={bookingData.duration}
-          />
-
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              background: selectedTime
-                ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)'
-                : '#F3F4F6',
-              border: selectedTime ? '1px solid #D4A574' : 'none',
-              fontFamily: 'Inter',
-              fontSize: 14,
-              color: '#6B7280',
-            }}
-          >
-            <Typography sx={{ fontFamily : 'Inter', fontSize: 12, fontWeight: 400, mb: 0.5 }}>
-              {selectedTime ? 'Selected Slot' : 'Next available'}
-            </Typography>
-            <Typography
+            <Box
               sx={{
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: 600,
-                color: '#1F2937',
+                p: 2,
+                borderRadius: 2,
                 background: selectedTime
-                  ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                  : 'transparent',
-                backgroundClip: selectedTime ? 'text' : 'unset',
-                WebkitBackgroundClip: selectedTime ? 'text' : 'unset',
-                WebkitTextFillColor: selectedTime ? 'transparent' : '#1F2937',
+                  ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)'
+                  : '#F3F4F6',
+                border: selectedTime ? '1px solid #D4A574' : 'none',
+                fontFamily: 'Inter',
+                fontSize: 14,
+                color: '#6B7280',
               }}
             >
-              {selectedDate.format('ddd, DD MMM')} at {selectedTime || '10:00 AM'}
-            </Typography>
-          </Box>
+              <Typography sx={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 400, mb: 0.5 }}>
+                {selectedTime ? 'Selected Slot' : 'Next available'}
+              </Typography>
+              <Typography
+                sx={{
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: '#1F2937',
+                  background: selectedTime
+                    ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                    : 'transparent',
+                  backgroundClip: selectedTime ? 'text' : 'unset',
+                  WebkitBackgroundClip: selectedTime ? 'text' : 'unset',
+                  WebkitTextFillColor: selectedTime ? 'transparent' : '#1F2937',
+                }}
+              >
+                {selectedDate.format('ddd, DD MMM')} at {selectedTime || '10:00 AM'}
+              </Typography>
+            </Box>
 
-          <Button
-            onClick={handleContinue}
-            fullWidth
-            sx={{
-              py: 1.75,
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #1F2937 0%, #111827 100%)',
-              color: '#fff',
-              fontFamily: 'Inter',
-              fontWeight: 600,
-              fontSize: 15,
-              textTransform: 'none',
-              transition: 'all .2s ease',
-              '&:hover': {
-                transform: 'scale(1.02)',
-                boxShadow: '0 8px 20px rgba(31, 41, 55, 0.3)',
-              },
-            }}
-          >
-            Continue
-          </Button>
-        </Stack>
-      </DialogContent>
-    </Dialog>
+            <Button
+              onClick={handleContinue}
+              fullWidth
+              sx={{
+                py: 1.75,
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #1F2937 0%, #111827 100%)',
+                color: '#fff',
+                fontFamily: 'Inter',
+                fontWeight: 600,
+                fontSize: 15,
+                textTransform: 'none',
+                transition: 'all .2s ease',
+                '&:hover': {
+                  transform: 'scale(1.02)',
+                  boxShadow: '0 8px 20px rgba(31, 41, 55, 0.3)',
+                },
+              }}
+            >
+              Continue
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
 
-    <CalendarDialog
-      open={calendarOpen}
-      onClose={() => setCalendarOpen(false)}
-      selectedDate={selectedDate}
-      onDateSelect={handleCalendarDateSelect}
-    />
+      <CalendarDialog
+        open={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        selectedDate={selectedDate}
+        onDateSelect={handleCalendarDateSelect}
+      />
 
-    <CustomerDetailsDialog
-      open={customerDialogOpen}
-      onClose={() => setCustomerDialogOpen(false)}
-      selectedDate={selectedDate}
-      selectedTime={selectedTime}
-      onSubmit={handleBookingSubmit}
-      submitting={submitting}
-      bookingData={bookingData}
-    />
-  </>
-);
-
+      <CustomerDetailsDialog
+        open={customerDialogOpen}
+        onClose={() => setCustomerDialogOpen(false)}
+        selectedDate={selectedDate}
+        selectedTime={selectedTime}
+        onSubmit={handleBookingSubmit}
+        submitting={submitting}
+        bookingData={bookingData}
+      />
+    </>
+  );
 };
 
 export default BookingSessionDialog;

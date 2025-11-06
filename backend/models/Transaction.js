@@ -34,6 +34,15 @@ paymentMethod: {
   }
 },
 
+cancelledAt: {
+  type: Date,
+  default: null
+},
+cancellationReason: {
+  type: String,
+  default: null
+},
+
 razorpay: {
   order: Object,                 // full order object (rawOrder already stored)
   payment: Object                // store full payment object for audit
