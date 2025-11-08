@@ -681,23 +681,6 @@ const tabCounts = getTabCounts();
             </Grid>
 
       
-
-            {/* Price */}
-            {booking.block_id?.pricing > 0 && (
-              <Grid item xs={6} sm={3}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <AttachMoney sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
-                  <Box>
-                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter', display: 'block' }}>
-                      Amount
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Inter' }}>
-                      ₹{booking.block_id.pricing}
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Grid>
-            )}
           </Grid>
 
         </CardContent>
