@@ -50,6 +50,7 @@ import FetchInstagramMedia from './components/Employee/FetchInstagramMedia.js';
 import SetupAutomation from './components/Employee/SetupAutomation.js';
 import AutomationList from './components/Employee/AutomationList.js';
 import AutomationDetails from './components/Employee/AutomationDetails.js';
+import CreatorBookings from './components/Employee/BookingSessions.js';
 
 
 // very critial yes
@@ -147,6 +148,8 @@ if (initialSubdomain) {
                 <Route path="automations" element={<AutomationList />} />
                 <Route path="automation/setup/:post_id" element={<SetupAutomation />} />
                 <Route path="automation/details/:postId" element={<AutomationDetails />} />
+                <Route path="booking/sessions" element={<CreatorBookings />} />
+
 
 
 
