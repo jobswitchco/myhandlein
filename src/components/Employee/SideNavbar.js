@@ -26,7 +26,6 @@ import MenuIcon from "@mui/icons-material/Menu";
 import logo from "../../images/myhandle_logo.svg";
 import axios from "axios";
 import { toast } from "react-toastify";
-import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -41,7 +40,7 @@ import PolylineOutlinedIcon from "@mui/icons-material/PolylineOutlined";
 import "react-toastify/dist/ReactToastify.css";
 import UpiMandateModern from "./UpiMandate";
 import CurrencyRupeeOutlinedIcon from "@mui/icons-material/CurrencyRupeeOutlined";
-
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import { logout } from "../../store/professionalSlice";
 import { useDispatch } from "react-redux";
 
@@ -340,44 +339,45 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-              {/* Inbox */}
+                {/* Inbox */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
-                  onClick={() => goTo("/professional/my/inbox")}
-                  selected={location.pathname === "/professional/my/inbox"}
+                  onClick={() => goTo("/professional/booking/sessions")}
+                  selected={location.pathname === "/professional/booking/sessions"}
                   sx={{
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/my/inbox" ? "#6E8CFB" : "transparent",
-                    "&:hover": {
+                    backgroundColor: location.pathname === "/professional/booking/sessions" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <InboxOutlinedIcon
+                    <GroupsOutlinedIcon
                       sx={{
-                        color: location.pathname === "/professional/my/inbox" ? "#FFFFFF" : "#9CA3AF",
+                        color: location.pathname === "/professional/booking/sessions" ? "#FFFFFF" : "#9CA3AF",
                         fontSize: "1.2rem",
                       }}
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Inbox"
+                    primary="1:1 Sessions"
                     primaryTypographyProps={{
                       sx: {
-                        color: location.pathname === "/professional/my/inbox" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/my/inbox" ? 500 : 400,
+                        color: location.pathname === "/professional/booking/sessions" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/booking/sessions" ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}
                   />
                 </ListItemButton>
               </ListItem>
+
 
               {/* Store */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>

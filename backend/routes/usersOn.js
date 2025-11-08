@@ -2938,26 +2938,6 @@ router.post("/bookings/verify-payment", async (req, res) => {
   }
 });
 
-// ✅ BONUS: Cleanup route for expired pending bookings (run via cron job)
-router.post("/bookings/cleanup-expired", async (req, res) => {
-  try {
-    const expiryTime = new Date(Date.now() - 15 * 60 * 1000); // 15 minutes ago
-
-    const result = await Bookings.deleteMany({
-      status: "pending",
-      payment_status: "pending",
-      created_at: { $lt: expiryTime }
-    });
-
-    res.json({ 
-      success: true, 
-      deletedCount: result.deletedCount 
-    });
-  } catch (error) {
-    console.error("Cleanup error:", error);
-    res.status(500).json({ error: "Cleanup failed" });
-  }
-});
 
 // Route 3: Delete pending booking (immediate slot release)
 router.delete("/bookings/:bookingId", async (req, res) => {
@@ -3009,6 +2989,194 @@ router.delete("/bookings/:bookingId", async (req, res) => {
   } catch (error) {
     console.error("Delete booking error:", error);
     return res.status(500).json({ error: "Failed to delete booking" });
+  }
+});
+
+// Route 1: Fetch all booking campaigns (blocks)
+router.get('/bookings/campaigns', authenticateToken, async (req, res) => {
+  try {
+    const user_id = req.user?.user_id;
+
+    // Fetch all booking blocks for this user
+    const campaigns = await Block.find({
+      user_id,
+      type: 'booking',
+      is_del: false
+    })
+      .select('name description duration interactionType pricing created_at')
+      .sort({ created_at: -1 })
+      .lean();
+
+    // Get booking count for each campaign
+    const campaignsWithCount = await Promise.all(
+      campaigns.map(async (campaign) => {
+        const bookingCount = await Bookings.countDocuments({
+          block_id: campaign._id,
+          is_del: false
+        });
+
+        return {
+          ...campaign,
+          bookingCount
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: campaignsWithCount
+    });
+
+  } catch (error) {
+    console.error('Error fetching booking campaigns:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch booking campaigns',
+      error: error.message
+    });
+  }
+});
+
+// Route 2: Fetch bookings for a specific campaign
+router.post('/bookings/creator', authenticateToken, async (req, res) => {
+  try {
+    const user_id = req.user?.user_id;
+    const { block_id, status, payment_status, page = 1, limit = 20 } = req.body;
+
+    // Build query - block_id is now required
+    if (!block_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'block_id is required'
+      });
+    }
+
+    const query = {
+      user_id,
+      block_id,
+      is_del: false,
+      status: status || { $in: ['confirmed', 'completed', 'pending'] },
+      session_status: status || { $in: ['active', 'completed', 'cancelled', 'expired'] },
+      payment_status: payment_status || { $in: ['free', 'paid'] }
+    };
+
+    // Pagination
+    const skip = (page - 1) * limit;
+
+    // Fetch bookings with block details
+    const bookings = await Bookings.find(query)
+      .populate({
+        path: 'block_id',
+        select: 'name duration description interactionType pricing'
+      })
+      .sort({ selected_date: -1, created_at: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Get total count for pagination
+    const total = await Bookings.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        bookings,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching creator bookings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bookings',
+      error: error.message
+    });
+  }
+});
+
+// Route: Update booking status (Mark as Completed/Cancelled)
+router.post('/bookings/update-status', authenticateToken, async (req, res) => {
+  try {
+    const user_id = req.user?.user_id;
+    const { booking_id, action } = req.body;
+
+    // Validate inputs
+    if (!booking_id || !action) {
+      return res.status(400).json({
+        success: false,
+        message: 'booking_id and action are required'
+      });
+    }
+
+    if (!['completed', 'cancelled'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid action. Must be "completed" or "cancelled"'
+      });
+    }
+
+    // Find booking and verify ownership
+    const booking = await Bookings.findOne({
+      _id: booking_id,
+      user_id,
+      is_del: false
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found or you do not have permission'
+      });
+    }
+
+    // Prepare update data based on action
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    if (action === 'completed') {
+      updateData.session_status = 'completed';
+      updateData.status = 'completed';
+    } else if (action === 'cancelled') {
+      updateData.session_status = 'cancelled';
+      updateData.status = 'cancelled';
+      updateData.cancelled_at = new Date();
+      updateData.cancelled_by = 'host';
+      updateData.cancellation_reason = 'Cancelled by creator';
+    }
+
+    // Update booking
+    const updatedBooking = await Bookings.findByIdAndUpdate(
+      booking_id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).populate({
+      path: 'block_id',
+      select: 'name duration description interactionType pricing'
+    });
+
+    // Log the action
+    console.log(`Booking ${booking_id} marked as ${action} by user ${user_id}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Booking marked as ${action} successfully`,
+      data: updatedBooking
+    });
+
+  } catch (error) {
+    console.error('Error updating booking status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update booking status',
+      error: error.message
+    });
   }
 });
 

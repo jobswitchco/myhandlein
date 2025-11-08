@@ -31,8 +31,11 @@ import {
   Button,
   ClickAwayListener,
   Switch,
-  Checkbox
+  Checkbox,
+  useMediaQuery,
+  Slide
 } from "@mui/material";
+import { forwardRef } from 'react';
 import { alpha } from "@mui/material/styles";
 import { styled } from "@mui/material/styles";
 import EditIcon from "@mui/icons-material/Edit";
@@ -189,8 +192,13 @@ const AddPill = styled("button")(({ theme }) => ({
   },
 }));
 
+// Create the Slide transition component
+const SlideTransition = forwardRef(function Transition(props, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 const BookingDialog = ({ open, onClose, onSave }) => {
+
   const [bookingData, setBookingData] = useState({
     title: '',
     duration: '30',
@@ -202,6 +210,8 @@ const BookingDialog = ({ open, onClose, onSave }) => {
 
   const baseUrl = "/api/usersOn";
   const [apiSnack, setApiSnack] = useState({ open: false, message: "" });
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
 // tweak limits here
 const MAX_TITLE = 40;
@@ -274,264 +284,285 @@ const handleSave = async () => {
 
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Configure 1:1 Booking</DialogTitle>
 
-      <DialogContent sx={{ pt: 2 }}>
-        <Stack spacing={2.5} mt={1}>
-          {/* Booking Title */}
-          <TextField
-            fullWidth
-            label="Session Title"
-            placeholder="e.g., 30-Min Consultation"
-            value={bookingData.title}
-            onChange={(e) => setBookingData({ ...bookingData, title: e.target.value })}
-          />
+// Updated Dialog
+<Dialog 
+  open={open} 
+  onClose={onClose} 
+  fullWidth 
+  maxWidth="sm" 
+  fullScreen={fullScreen}
+  TransitionComponent={SlideTransition}
+  sx={{
+    '& .MuiDialog-paper': {
+      ...(fullScreen && {
+        margin: 0,
+        borderRadius: 0,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        maxHeight: '90vh',
+      }),
+    },
+  }}
+>
+  <DialogTitle sx={{ fontFamily: 'Inter', fontSize: '18px', fontWeight: 500 }}>
+    Configure 1:1 Booking
+  </DialogTitle>
 
-          {/* Duration */}
+  <DialogContent sx={{ pt: 2 }}>
+    <Stack spacing={2.5} mt={1}>
+      {/* Session Title */}
+      <TextField
+        fullWidth
+        label="Session Title"
+        placeholder="e.g., 30-Min Consultation"
+        value={bookingData.title}
+        onChange={(e) => setBookingData({ ...bookingData, title: e.target.value })}
+      />
+
+      {/* Duration */}
+      <TextField
+        select
+        fullWidth
+        label="Session Duration"
+        value={bookingData.duration}
+        onChange={(e) => setBookingData({ ...bookingData, duration: e.target.value })}
+        SelectProps={{ native: true }}
+      >
+        <option value="15">15 minutes</option>
+        <option value="30">30 minutes</option>
+        <option value="45">45 minutes</option>
+        <option value="60">1 hour</option>
+        <option value="90">1.5 hours</option>
+        <option value="120">2 hours</option>
+      </TextField>
+
+      {/* Description */}
+      <TextField
+        fullWidth
+        multiline
+        rows={3}
+        label="Session Description"
+        placeholder="Brief description of what this session includes..."
+        value={bookingData.description}
+        onChange={(e) => setBookingData({ ...bookingData, description: e.target.value })}
+      />
+
+      {/* Advanced Settings */}
+      <Box sx={{ pt: 1 }}>
+        <Stack spacing={2}>
+          {/* Buffer Time */}
           <TextField
             select
             fullWidth
-            label="Session Duration"
-            value={bookingData.duration}
-            onChange={(e) => setBookingData({ ...bookingData, duration: e.target.value })}
+            label="Buffer Time Between Bookings"
+            value={bookingData.bufferTime}
+            onChange={(e) => setBookingData({ ...bookingData, bufferTime: e.target.value })}
             SelectProps={{ native: true }}
           >
+            <option value="0">No buffer</option>
+            <option value="5">5 minutes</option>
+            <option value="10">10 minutes</option>
             <option value="15">15 minutes</option>
             <option value="30">30 minutes</option>
-            <option value="45">45 minutes</option>
-            <option value="60">1 hour</option>
-            <option value="90">1.5 hours</option>
-            <option value="120">2 hours</option>
           </TextField>
 
-          {/* Description */}
+          {/* Call Type */}
           <TextField
+            select
             fullWidth
-            multiline
-            rows={3}
-            label="Session Description"
-            placeholder="Brief description of what this session includes..."
-            value={bookingData.description}
-            onChange={(e) => setBookingData({ ...bookingData, description: e.target.value })}
-          />
+            label="Interaction Type"
+            value={bookingData.interactionType}
+            onChange={(e) => setBookingData({ ...bookingData, interactionType: e.target.value })}
+            SelectProps={{ native: true }}
+          >
+            <option value="voice">Voice Meeting</option>
+            <option value="video">Video Meeting</option>
+          </TextField>
+        </Stack>
+      </Box>
 
-          {/* Advanced Settings */}
-          <Box sx={{ pt: 1 }}>
-            
-            <Stack spacing={2}>
-              {/* Buffer Time */}
-              <TextField
-                select
-                fullWidth
-                label="Buffer Time Between Bookings"
-                value={bookingData.bufferTime}
-                onChange={(e) => setBookingData({ ...bookingData, bufferTime: e.target.value })}
-                SelectProps={{ native: true }}
+      {/* Pricing */}
+      <TextField
+        fullWidth
+        label="Session Price"
+        placeholder="e.g., 300, 500, 900"
+        type="number"
+        value={bookingData.pricing}
+        onChange={(e) => setBookingData({ ...bookingData, pricing: e.target.value })}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <CurrencyRupee sx={{ fontSize: 18, color: '#6B7280' }} />
+            </InputAdornment>
+          ),
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            fontFamily: 'Inter',
+            borderRadius: 2,
+          },
+        }}
+      />
+
+      {/* Preview */}
+      <Box sx={{ maxWidth: fullScreen? '100%' : '75%' }}>
+        <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mb: 1 }}>
+          Preview
+        </Typography>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1.5,
+            p: 1.25,
+            borderRadius: 2,
+            bgcolor: "#fff",
+            border: (t) => `1px solid ${t.palette.divider}`,
+            boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
+          }}
+        >
+          {/* Left: Icon + Title + Description */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.25, minWidth: 0, flex: 1 }}>
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 1.25,
+                display: "grid",
+                placeItems: "center",
+                bgcolor: alpha("#3b82f6", 0.06),
+                color: "#3b82f6",
+                flexShrink: 0,
+              }}
+            >
+              <EventIcon sx={{ fontSize: 18 }} />
+            </Box>
+
+            <Box sx={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1 }}>
+              {/* Title */}
+              <Typography
+                sx={{
+                  fontFamily: "Inter",
+                  fontWeight: 600,
+                  fontSize: 15,
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
+                  mb: 0.25,
+                }}
+                title={bookingData.title || "30-Min Consultation"}
               >
-                <option value="0">No buffer</option>
-                <option value="5">5 minutes</option>
-                <option value="10">10 minutes</option>
-                <option value="15">15 minutes</option>
-                <option value="30">30 minutes</option>
-              </TextField>
+                {truncate(bookingData.title || "30-Min Consultation", MAX_TITLE)}
+              </Typography>
 
-               {/* Call Type */}
-              <TextField
-                select
-                fullWidth
-                label="Interaction Type"
-                value={bookingData.interactionType}
-                onChange={(e) => setBookingData({ ...bookingData, interactionType: e.target.value })}
-                SelectProps={{ native: true }}
-              >
-                <option value="voice">Voice Meeting</option>
-                <option value="video">Video Meeting</option>
-              </TextField>
+              {/* Description */}
+              {!!bookingData.description && (
+                <Typography
+                  sx={{
+                    fontFamily: "Inter",
+                    fontSize: 12,
+                    color: "#9CA3AF",
+                    textOverflow: "ellipsis",
+                    mt: 0.25,
+                    mb: 0.5,
+                  }}
+                  title={bookingData.description}
+                >
+                  {truncate(bookingData.description, MAX_DESC)}
+                </Typography>
+              )}
 
-             
-            </Stack>
+              {/* Duration + Meeting Type */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography
+                  sx={{
+                    fontFamily: "Inter",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#6B7280",
+                  }}
+                >
+                  {bookingData.duration || 30} mins
+                </Typography>
+                <Box sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: "#D1D5DB" }} />
+                <Typography
+                  sx={{
+                    fontFamily: "Inter",
+                    fontSize: 12,
+                    fontWeight: 400,
+                    color: "#6B7280",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {bookingData.interactionType === "voice" ? "Voice Meeting" : "Video Meeting"}
+                </Typography>
+              </Box>
+            </Box>
           </Box>
 
-          {/* Pricing  */}
-
-<TextField
-  fullWidth
-  label="Session Price"
-  placeholder="e.g., 300, 500, 900"
-  type="number"
-  value={bookingData.pricing}
-  onChange={(e) => setBookingData({ ...bookingData, pricing: e.target.value })}
-  InputProps={{
-    startAdornment: (
-      <InputAdornment position="start">
-        <CurrencyRupee sx={{ fontSize: 18, color: '#6B7280' }} />
-      </InputAdornment>
-    ),
-  }}
-  sx={{
-    '& .MuiOutlinedInput-root': {
-      fontFamily: 'Inter',
-      borderRadius: 2,
-    },
-  }}
-/>
-
-
-       {/* Preview */}
-<Box sx={{ maxWidth : '75%'}}>
-  <Typography variant="overline" sx={{ opacity: 0.7, display: "block", mb: 1 }}>
-    Preview
-  </Typography>
-  <Paper 
-    elevation={0} 
-    sx={{ 
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 1.5,
-      p: 1.25,
-      borderRadius: 2,
-      bgcolor: "#fff",
-      border: (t) => `1px solid ${t.palette.divider}`,
-      boxShadow: "0 10px 30px rgba(2,6,23,0.12)",
-    }}
-  >
-    {/* Left: Icon + Title + Description */}
-    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.25, minWidth: 0, flex: 1 }}>
-      <Box
-        sx={{
-          width: 44,
-          height: 44,
-          borderRadius: 1.25,
-          display: "grid",
-          placeItems: "center",
-          bgcolor: alpha("#3b82f6", 0.06),
-          color: "#3b82f6",
-          flexShrink: 0,
-        }}
-      >
-        <EventIcon sx={{ fontSize: 18 }} />
+          {/* Right: Action Button */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+            <IconButton
+              aria-label="open booking"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 1,
+                bgcolor: alpha("#3b82f6", 0.06),
+                color: "#3b82f6",
+                "&:hover": { bgcolor: alpha("#3b82f6", 0.14) },
+              }}
+              size="small"
+            >
+              <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
+        </Paper>
       </Box>
+    </Stack>
+  </DialogContent>
 
-      <Box sx={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1 }}>
-        {/* Title */}
-        <Typography
-          sx={{
-            fontFamily: "Inter",
-            fontWeight: 600,
-            fontSize: 15,
-            whiteSpace: "nowrap",
-            textOverflow: "ellipsis",
-            overflow: "hidden",
-            mb: 0.25,
-          }}
-          title={bookingData.title || "30-Min Consultation"}
-        >
-          {truncate(bookingData.title || "30-Min Consultation", MAX_TITLE)}
-        </Typography>
+  <DialogActions sx={{ gap: 1, p: 2 }}>
+    <button
+      onClick={onClose}
+      style={{
+        border: "none",
+        background: "transparent",
+        padding: "8px 12px",
+        borderRadius: 8,
+        cursor: "pointer",
+        fontWeight: 700,
+      }}
+    >
+      Cancel
+    </button>
 
-        {/* Description */}
-        {!!bookingData.description && (
-          <Typography
-            sx={{
-              fontFamily: "Inter",
-              fontSize: 12,
-              color: "#9CA3AF",
-              textOverflow: "ellipsis",
-              mt: 0.25,
-              mb: 0.5,
-            }}
-            title={bookingData.description}
-          >
-            {truncate(bookingData.description, MAX_DESC)}
-          </Typography>
-        )}
+    <PrimaryBtn onClick={handleSave} disabled={!bookingData.title || savingBlock}>
+      {savingBlock ? <CircularProgress size={18} /> : <SaveIcon />}
+      <span style={{ marginLeft: 6 }}>
+        {savingBlock ? "Saving..." : "Save Booking Block"}
+      </span>
+    </PrimaryBtn>
+  </DialogActions>
+</Dialog>
 
-        {/* Duration + Meeting Type */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Typography
-            sx={{
-              fontFamily: "Inter",
-              fontSize: 12,
-              fontWeight: 600,
-              color: "#6B7280",
-            }}
-          >
-            {bookingData.duration || 30} mins
-          </Typography>
-          <Box sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: "#D1D5DB" }} />
-          <Typography
-            sx={{
-              fontFamily: "Inter",
-              fontSize: 12,
-              fontWeight: 400,
-              color: "#6B7280",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {bookingData.interactionType === "voice" ? "Voice Meeting" : "Video Meeting"}
-          </Typography>
-        </Box>
-      </Box>
-    </Box>
-
-    {/* Right: Action Button */}
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-      <IconButton
-        aria-label="open booking"
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-        sx={{
-          width: 36,
-          height: 36,
-          borderRadius: 1,
-          bgcolor: alpha("#3b82f6", 0.06),
-          color: "#3b82f6",
-          "&:hover": { bgcolor: alpha("#3b82f6", 0.14) },
-        }}
-        size="small"
-      >
-        <ArrowForwardIosIcon sx={{ fontSize: 14 }} />
-      </IconButton>
-    </Box>
-  </Paper>
-</Box>
-
-
-        </Stack>
-      </DialogContent>
-
-    <DialogActions sx={{ gap: 1, p: 2 }}>
-        <button
-          onClick={onClose}
-          style={{
-            border: "none",
-            background: "transparent",
-            padding: "8px 12px",
-            borderRadius: 8,
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
-          Cancel
-        </button>
-
-        <PrimaryBtn onClick={handleSave} disabled={!bookingData.title || savingBlock}>
-          {savingBlock ? <CircularProgress size={18} /> : <SaveIcon />}
-          <span style={{ marginLeft: 6 }}>
-            {savingBlock ? "Saving..." : "Save Booking Block"}
-          </span>
-        </PrimaryBtn>
-      </DialogActions>
-    </Dialog>
   );
 };
 
 // ---------- Component ----------
 export default function ProfileBlocksEditor() {
   const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingIntro, setIsEditingIntro] = useState(false);
@@ -543,7 +574,7 @@ export default function ProfileBlocksEditor() {
   const [userIntro, setUserIntro] = useState("");
   const [link, setLink] = useState("");
   const [copySnackOpen, setCopySnackOpen] = useState(false);
-  const baseUrl = "http://localhost:8001/usersOn";
+  const baseUrl = "/api/usersOn";
   const [userDetails, setUserDetails] = useState({});
 const addCloseTimer = useRef(null);
   // ---------- Form submission dialog state ----------
@@ -1527,7 +1558,7 @@ async function saveAdd() {
       );
     }
 
- if (b.type === "newsletter") {
+if (b.type === "newsletter") {
   return (
     <Paper
       key={b.id}
@@ -1549,105 +1580,54 @@ async function saveAdd() {
       elevation={0}
     >
       {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, mb: 2 }}>
-        <Box
-          sx={{
-            width: 36,
-            height: 36,
-            borderRadius: 1.5,
-            display: "grid",
-            placeItems: "center",
-            bgcolor: "#F3F4F6",
-            flexShrink: 0,
-          }}
-        >
-          <MailOutlinedIcon sx={{ fontSize: 18, color: "#1F2937" }} />
-        </Box>
-
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, flex: 1, minWidth: 0 }}>
+          <Box
             sx={{
-              fontFamily: "Inter",
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#1F2937",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              mb: 0.25,
-            }}
-            title={b.action || b.title || "Subscribe to Newsletter"}
-          >
-            {b.action || b.title || "Newsletter"}
-          </Typography>
-          <Typography
-            sx={{
-              fontFamily: "Inter",
-              fontSize: 12,
-              fontWeight: 400,
-              color: "#6B7280",
+              width: 36,
+              height: 36,
+              borderRadius: 1.5,
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "#F3F4F6",
+              flexShrink: 0,
             }}
           >
-            Stay updated with our latest news
-          </Typography>
-        </Box>
-      </Box>
+            <MailOutlinedIcon sx={{ fontSize: 18, color: "#1F2937" }} />
+          </Box>
 
-      {/* Input Row */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "stretch",
-          gap: 1,
-          bgcolor: "#F9FAFB",
-          borderRadius: 1.5,
-          p: 0.5,
-          border: "1px solid #E5E7EB",
-        }}
-      >
-        <Box
-          sx={{
-            flex: 1,
-            px: 1.5,
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <Typography
-            sx={{
-              fontFamily: "Inter",
-              fontSize: 13,
-              fontWeight: 400,
-              color: "#9CA3AF",
-            }}
-          >
-            Enter your email
-          </Typography>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#1F2937",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                mb: 0.25,
+              }}
+              title={b.action || b.title || "Subscribe to Newsletter"}
+            >
+              {b.action || b.title || "Newsletter"}
+            </Typography>
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontSize: 12,
+                fontWeight: 400,
+                color: "#6B7280",
+              }}
+            >
+              For latest updates
+            </Typography>
+          </Box>
         </Box>
 
-        <Box
-          sx={{
-            px: 2,
-            py: 0.75,
-            borderRadius: 1,
-            bgcolor: "#1F2937",
-            color: "#FFFFFF",
-            fontFamily: "Inter",
-            fontWeight: 600,
-            fontSize: 13,
-            whiteSpace: "nowrap",
-            display: "flex",
-            alignItems: "center",
-            gap: 0.5,
-            cursor: "pointer",
-            transition: "all .15s ease",
-            "&:hover": {
-              bgcolor: "#111827",
-            },
-          }}
-        >
-          Subscribe
-          <ArrowForwardIosIcon sx={{ fontSize: 11 }} />
+        {/* Right Arrow */}
+        <Box sx={{ display: "flex", alignItems: "center", ml: 1 }}>
+          <ArrowForwardIosIcon sx={{ fontSize: 16, color: "rgba(15,23,42,0.5)" }} />
         </Box>
       </Box>
     </Paper>
@@ -2040,42 +2020,6 @@ if (b.type === "booking") {
                   )}
                 </Box>
 
-                  <Box>
-            <Stack sx={{ display : 'flex', flexDirection : 'column', justifyContent : 'space-between', mt: 1.5}}>
-            
-            <Stack sx={{ display : 'flex', flexDirection : 'row', gap: 2, alignItems : 'center'}}>
-
-              <Typography>
-                {toggling ? "Updating..." : "Enable DM (Direct Message)"}
-              </Typography>
-
-   <FormControlLabel
-                    control={
-                      <Switch
-                        checked={dmEnabled}
-                        onChange={(e) => toggleStoreEnabled(e.target.checked)}
-                        disabled={toggling}
-                        inputProps={{ "aria-label": "Enable DM(Direct Message)" }}
-                      />
-                    }
-                  />
-
-            </Stack>
-                  
-
-
-               <Typography>
-              Activate this feature to allow users to send you messages directly.
-              </Typography>
-
-
-
-             
-
-            </Stack>
-                
-        
-                </Box>
 
               </Box>
   </Grid>
@@ -2592,8 +2536,14 @@ if (b.type === "booking") {
       <Snackbar open={apiSnack.open} autoHideDuration={2000} onClose={() => setApiSnack({ open: false, message: "" })} message={apiSnack.message} />
 
       {/* Add Block Dialog */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add New Block</DialogTitle>
+        <Dialog 
+  open={addOpen} 
+  onClose={() => setAddOpen(false)} 
+  fullWidth 
+  maxWidth="sm"
+  fullScreen={fullScreen}
+>
+        <DialogTitle sx={{ fontFamily : 'Inter', fontSize: '18px', fontWeight : 500}}>Add New Block</DialogTitle>
 
         <DialogContent sx={{ pt: 1 }}>
           {/* Rounded tabs */}

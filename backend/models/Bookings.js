@@ -48,7 +48,15 @@ const Bookings_Schema = new Schema({
     payment_status: {
         type: String,
         enum: ['free', 'pending', 'paid', 'failed', 'refunded'],
-        default: 'pending',
+        default: 'free',
+        index: true
+    },
+
+     // Session-related fields
+    session_status: {
+        type: String,
+        enum: ['active', 'completed', 'expired', 'cancelled'],
+        default: 'active',
         index: true
     },
 
@@ -132,7 +140,7 @@ const Bookings_Schema = new Schema({
 // Compound indexes for common query patterns
 Bookings_Schema.index({ user_id: 1, is_del: 1 });
 Bookings_Schema.index({ user_id: 1, block_id: 1 });
-Bookings_Schema.index({ user_id: 1, status: 1, payment_status: 1 });
+Bookings_Schema.index({ user_id: 1, status: 1, payment_status: 1, session_status: 1 });
 
 // Critical index: Prevent double-booking of same slot
 Bookings_Schema.index(

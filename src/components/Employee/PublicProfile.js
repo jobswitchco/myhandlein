@@ -777,55 +777,81 @@ function renderPreviewBlock(b) {
   }
 
   // ===== NEWSLETTER BLOCK =====
-  if (type === "newsletter") {
-    return (
-      <Paper
-        key={b._id || title}
-        sx={{
-          p: 1.5,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderRadius: 3,
-          background: (t) =>
-            t.palette.mode === "dark"
-              ? `linear-gradient(rgba(0,0,0,0.36), rgba(0,0,0,0.36)), url(${newsletterBg})`
-              : `linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.06)), url(${newsletterBg})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          color: "#fff",
-          boxShadow: "0 8px 24px rgba(2,6,23,0.08)",
-          cursor: "pointer",
-          textAlign: "left",
-          transition: "transform .12s ease, box-shadow .12s ease",
-          "&:hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 12px 30px rgba(2,6,23,0.16)",
-          },
-          overflow: "hidden",
-        }}
-        onClick={() => openNewsletterDialog(b)}
-        elevation={0}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box sx={{ width: 42, height: 42, borderRadius: 2, display: "grid", placeItems: "center", border: "1px solid #1055C9", flexShrink: 0 }}>
-            <MailOutlinedIcon sx={{ color: "#1055C9" }} />
+if (type === "newsletter") {
+  return (
+    <Paper
+      key={b._id || title}
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        bgcolor: "#FFFFFF",
+        border: "2px solid #E5E7EB",
+        boxShadow: "none",
+        cursor: "pointer",
+        transition: "all .2s ease",
+        "&:hover": {
+          borderColor: "#1F2937",
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 24px rgba(0, 0, 0, 0.08)",
+        },
+      }}
+      onClick={() => openNewsletterDialog(b)}
+      elevation={0}
+    >
+      {/* Header */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, flex: 1, minWidth: 0 }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1.5,
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "#F3F4F6",
+              flexShrink: 0,
+            }}
+          >
+            <MailOutlinedIcon sx={{ fontSize: 18, color: "#1F2937" }} />
           </Box>
-          <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <Typography sx={{ fontFamily: "Inter", fontSize: 15, fontWeight: 500, mb: 1, color: "#FFFFFF" }}>
-              {b.action || b.title || "Subscribe to Newsletter"}
+
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "#1F2937",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                mb: 0.25,
+              }}
+              title={b.action || b.title || "Subscribe to Newsletter"}
+            >
+              {b.action || b.title || "Newsletter"}
             </Typography>
-            <Box sx={{ width: 220, border: "1px solid black", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "flex-start", px: 1.25, py: 1, cursor: "pointer" }}>
-              <Typography sx={{ fontFamily: "Inter", fontSize: 14, fontWeight: 400, lineHeight: 1, mb: 0, py: 1, color: "#CBDCEB" }}>
-                Your Email
-              </Typography>
-            </Box>
+            <Typography
+              sx={{
+                fontFamily: "Inter",
+                fontSize: 12,
+                fontWeight: 400,
+                color: "#6B7280",
+              }}
+            >
+              For latest updates
+            </Typography>
           </Box>
         </Box>
-      </Paper>
-    );
-  }
+
+        {/* Right Arrow */}
+        <Box sx={{ display: "flex", alignItems: "center", ml: 1 }}>
+          <ArrowForwardIosIcon sx={{ fontSize: 16, color: "rgba(15,23,42,0.5)" }} />
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
 
   // ===== FALLBACK =====
   return (
