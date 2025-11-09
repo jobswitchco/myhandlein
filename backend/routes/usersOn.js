@@ -3424,6 +3424,247 @@ router.post('/bookings/update-status', authenticateToken, async (req, res) => {
   }
 });
 
+router.post("/transactions/paid", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    const { 
+      page = 1, 
+      limit = 10, 
+      dateFilter = 'last28days',
+      startDate,
+      endDate 
+    } = req.body;
+
+    // Build date filter query
+    let dateQuery = {};
+    const now = new Date();
+    
+    switch(dateFilter) {
+      case 'last7days':
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(now.getDate() - 7);
+        dateQuery = { createdAt: { $gte: sevenDaysAgo } };
+        break;
+      
+      case 'last28days':
+        const twentyEightDaysAgo = new Date(now);
+        twentyEightDaysAgo.setDate(now.getDate() - 28);
+        dateQuery = { createdAt: { $gte: twentyEightDaysAgo } };
+        break;
+      
+      case 'lifetime':
+        // No date filter
+        dateQuery = {};
+        break;
+      
+      case 'custom':
+        if (startDate && endDate) {
+          dateQuery = {
+            createdAt: {
+              $gte: new Date(startDate),
+              $lte: new Date(endDate)
+            }
+          };
+        }
+        break;
+      
+      default:
+        const defaultDaysAgo = new Date(now);
+        defaultDaysAgo.setDate(now.getDate() - 28);
+        dateQuery = { createdAt: { $gte: defaultDaysAgo } };
+    }
+
+    // Base query
+    const baseQuery = {
+      userId: userId,
+      status: "paid",
+      cancelledAt: null,
+      ...dateQuery
+    };
+
+    // Get total count for pagination
+    const totalCount = await Transaction.countDocuments(baseQuery);
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Query transactions with pagination
+    const transactions = await Transaction.find(baseQuery)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Calculate summary statistics (for all filtered data, not just current page)
+    const allFilteredTransactions = await Transaction.find(baseQuery).lean();
+    const totalRevenue = allFilteredTransactions.reduce((sum, txn) => sum + (txn.amount || 0), 0);
+    const totalTransactions = allFilteredTransactions.length;
+
+    // Group by month for analytics
+    const monthlyStats = await Transaction.aggregate([
+      {
+        $match: baseQuery
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          count: { $sum: 1 },
+          revenue: { $sum: "$amount" }
+        }
+      },
+      {
+        $sort: { "_id.year": -1, "_id.month": -1 }
+      }
+    ]);
+
+    // Format monthly data
+    const monthlyData = monthlyStats.reduce((acc, stat) => {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const key = `${monthNames[stat._id.month - 1]} ${stat._id.year}`;
+      acc[key] = {
+        count: stat.count,
+        revenue: (stat.revenue / 100).toFixed(2)
+      };
+      return acc;
+    }, {});
+
+    // Get payment method breakdown
+    const paymentMethodStats = await Transaction.aggregate([
+      {
+        $match: baseQuery
+      },
+      {
+        $group: {
+          _id: "$paymentMethod.type",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$amount" }
+        }
+      }
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        transactions,
+        summary: {
+          totalRevenue: (totalRevenue / 100).toFixed(2),
+          totalTransactions,
+          currency: 'INR',
+          monthlyData,
+          paymentMethods: paymentMethodStats
+        },
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalRecords: totalCount,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+          limit
+        }
+      }
+    });
+  } catch (error) {
+    console.error("POST /transactions/paid error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch transactions"
+    });
+  }
+});
+
+router.get("/transactions/:transactionId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    const { transactionId } = req.params;
+
+    const transaction = await Transaction.findOne({
+      _id: transactionId,
+      userId: userId
+    }).lean();
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        error: "Transaction not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: transaction
+    });
+  } catch (error) {
+    console.error("GET /transactions/:id error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch transaction details"
+    });
+  }
+});
+
+
+
+router.get("/transactions/stats", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+
+    const stats = await Transaction.aggregate([
+      {
+        $match: {
+          userId: userId,
+          status: "paid",
+          cancelledAt: null
+        }
+      },
+      {
+        $facet: {
+          // Total revenue and count
+          overview: [
+            {
+              $group: {
+                _id: null,
+                totalRevenue: { $sum: "$amount" },
+                totalCount: { $sum: 1 },
+                avgTransaction: { $avg: "$amount" }
+              }
+            }
+          ],
+          // Recent transactions
+          recentTransactions: [
+            { $sort: { createdAt: -1 } },
+            { $limit: 5 }
+          ],
+          // Payment method breakdown
+          paymentMethods: [
+            {
+              $group: {
+                _id: "$paymentMethod.type",
+                count: { $sum: 1 }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: stats[0]
+    });
+  } catch (error) {
+    console.error("GET /transactions/stats error:", error);
+    return res.status(500).json({ 
+      success: false, 
+      error: "Failed to fetch transaction statistics" 
+    });
+  }
+});
+
 
 router.get('/details-for-mandate', authenticateToken, async (req, res) => {
   try {

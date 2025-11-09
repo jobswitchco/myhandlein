@@ -28,7 +28,7 @@ import {
   alpha,
   Paper,
   Badge,
-   Menu,
+  Menu,
   ListItemIcon,
   ListItemText,
 } from '@mui/material';
@@ -49,17 +49,24 @@ import {
   ChevronRight,
   CheckCircleOutline,
   CancelOutlined,
+  Campaign as CampaignIcon,
+  Payments as PaymentsIcon,
 } from '@mui/icons-material';
 import { format, parseISO, isPast, isFuture, isToday, addHours, addMinutes } from 'date-fns';
-
 import axios from 'axios';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
+
+// Import the TransactionsPage component
+import TransactionsPage from './TransactionsPage'; // Adjust path as needed
 
 const CreatorBookings = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const baseUrl = "/api/usersOn";
+  const IST_TIMEZONE = 'Asia/Kolkata';
 
   // State
+  const [mainTab, setMainTab] = useState('campaigns'); // 'campaigns' or 'payments'
   const [step, setStep] = useState('campaigns'); // 'campaigns' or 'bookings'
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -76,16 +83,15 @@ const CreatorBookings = () => {
     message: '',
   });
 
-// Add new state for menu dialog
-const [menuDialogOpen, setMenuDialogOpen] = useState(false);
+  // Add new state for menu dialog
+  const [menuDialogOpen, setMenuDialogOpen] = useState(false);
 
- const IST_OFFSET_HOURS = 5;
+  const IST_OFFSET_HOURS = 5;
   const IST_OFFSET_MINUTES = 30;
 
   // Helper function to convert UTC date to IST
   const convertToIST = (dateString) => {
     const utcDate = parseISO(dateString);
-    // Add 5 hours 30 minutes to convert UTC to IST
     let istDate = addHours(utcDate, IST_OFFSET_HOURS);
     istDate = addMinutes(istDate, IST_OFFSET_MINUTES);
     return istDate;
@@ -103,7 +109,6 @@ const [menuDialogOpen, setMenuDialogOpen] = useState(false);
   const isTodayIST = (dateString) => {
     const istDate = convertToIST(dateString);
     const nowIST = getNowIST();
-    
     return format(istDate, 'yyyy-MM-dd') === format(nowIST, 'yyyy-MM-dd');
   };
 
@@ -111,10 +116,8 @@ const [menuDialogOpen, setMenuDialogOpen] = useState(false);
   const isFutureIST = (dateString) => {
     const istDate = convertToIST(dateString);
     const nowIST = getNowIST();
-    
     const istDateOnly = format(istDate, 'yyyy-MM-dd');
     const nowISTOnly = format(nowIST, 'yyyy-MM-dd');
-    
     return istDateOnly > nowISTOnly;
   };
 
@@ -122,51 +125,45 @@ const [menuDialogOpen, setMenuDialogOpen] = useState(false);
   const isPastIST = (dateString) => {
     const istDate = convertToIST(dateString);
     const nowIST = getNowIST();
-    
     const istDateOnly = format(istDate, 'yyyy-MM-dd');
     const nowISTOnly = format(nowIST, 'yyyy-MM-dd');
-    
     return istDateOnly < nowISTOnly;
   };
 
-
-
-
-// Update handlers
-const handleMenuOpen = (event, booking) => {
-  event.stopPropagation();
-  setSelectedBooking(booking);
-  setMenuDialogOpen(true);
-};
-
-const handleMenuDialogClose = () => {
-  setMenuDialogOpen(false);
-  setSelectedBooking(null);
-};
-
-const handleMenuAction = (action) => {
-  setMenuDialogOpen(false);
-  
-  const dialogConfig = {
-    completed: {
-      title: 'Mark as Completed',
-      message: 'Are you sure you want to mark this booking as completed? This action will update the session status.',
-    },
-    cancelled: {
-      title: 'Cancel Booking',
-      message: 'Are you sure you want to cancel this booking? This action cannot be undone.',
-    },
+  // Update handlers
+  const handleMenuOpen = (event, booking) => {
+    event.stopPropagation();
+    setSelectedBooking(booking);
+    setMenuDialogOpen(true);
   };
 
-  setConfirmDialog({
-    open: true,
-    action,
-    ...dialogConfig[action],
-  });
-};
+  const handleMenuDialogClose = () => {
+    setMenuDialogOpen(false);
+    setSelectedBooking(null);
+  };
 
+  const handleMenuAction = (action) => {
+    setMenuDialogOpen(false);
+    
+    const dialogConfig = {
+      completed: {
+        title: 'Mark as Completed',
+        message: 'Are you sure you want to mark this booking as completed? This action will update the session status.',
+      },
+      cancelled: {
+        title: 'Cancel Booking',
+        message: 'Are you sure you want to cancel this booking? This action cannot be undone.',
+      },
+    };
 
-   const handleConfirmAction = async () => {
+    setConfirmDialog({
+      open: true,
+      action,
+      ...dialogConfig[action],
+    });
+  };
+
+  const handleConfirmAction = async () => {
     try {
       const response = await axios.post(
         `${baseUrl}/bookings/update-status`,
@@ -178,7 +175,6 @@ const handleMenuAction = (action) => {
       );
 
       if (response.data.success) {
-        // Update the local bookings state
         setBookings((prevBookings) =>
           prevBookings.map((booking) =>
             booking._id === selectedBooking._id
@@ -187,7 +183,6 @@ const handleMenuAction = (action) => {
           )
         );
 
-        // Close dialog
         setConfirmDialog({ open: false, action: '', title: '', message: '' });
         setSelectedBooking(null);
       }
@@ -197,7 +192,7 @@ const handleMenuAction = (action) => {
     }
   };
 
-    const handleCancelDialog = () => {
+  const handleCancelDialog = () => {
     setConfirmDialog({ open: false, action: '', title: '', message: '' });
     setSelectedBooking(null);
   };
@@ -213,8 +208,8 @@ const handleMenuAction = (action) => {
     return configs[sessionStatus] || configs.active;
   };
 
-   // Helper to get card background color
-const getCardBackgroundColor = (booking) => {
+  // Helper to get card background color
+  const getCardBackgroundColor = (booking) => {
     if (booking.session_status === 'completed') {
       return '#EEEEEE';
     }
@@ -231,9 +226,6 @@ const getCardBackgroundColor = (booking) => {
     
     return 'transparent';
   };
-
-
-
 
   const getTabCounts = () => {
     return {
@@ -253,8 +245,7 @@ const getCardBackgroundColor = (booking) => {
     };
   };
 
-const tabCounts = getTabCounts();
-
+  const tabCounts = getTabCounts();
 
   // Fetch campaigns (Step 1)
   const fetchCampaigns = async () => {
@@ -298,11 +289,12 @@ const tabCounts = getTabCounts();
     }
   };
 
-
   // Initial load - fetch campaigns
   useEffect(() => {
-    fetchCampaigns();
-  }, []);
+    if (mainTab === 'campaigns') {
+      fetchCampaigns();
+    }
+  }, [mainTab]);
 
   // When campaign is selected
   useEffect(() => {
@@ -325,7 +317,7 @@ const tabCounts = getTabCounts();
   };
 
   // Filter bookings by tab
- const getFilteredBookings = () => {
+  const getFilteredBookings = () => {
     switch (selectedTab) {
       case 'upcoming':
         return bookings.filter(b =>
@@ -345,20 +337,6 @@ const tabCounts = getTabCounts();
   };
 
   const filteredBookings = getFilteredBookings();
-
-  // Status chip config
-  const getStatusConfig = (status) => {
-    const configs = {
-      confirmed: { color: 'success', label: 'Confirmed', icon: <CheckCircle /> },
-      completed: { color: 'info', label: 'Completed', icon: <CheckCircle /> },
-      cancelled: { color: 'error', label: 'Cancelled', icon: <Cancel /> },
-      pending: { color: 'warning', label: 'Pending', icon: <AccessTime /> },
-      no_show: { color: 'default', label: 'No Show', icon: <Cancel /> },
-    };
-    return configs[status] || configs.pending;
-  };
-
-
 
   // Campaign Card Component
   const CampaignCard = ({ campaign }) => {
@@ -381,7 +359,6 @@ const tabCounts = getTabCounts();
         <CardContent sx={{ px: 2, py: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              {/* Campaign Icon + Name */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Box
                   sx={{
@@ -425,7 +402,6 @@ const tabCounts = getTabCounts();
                 </Box>
               </Box>
 
-              {/* Description */}
               {campaign.description && (
                 <Typography
                   variant="body2"
@@ -444,7 +420,6 @@ const tabCounts = getTabCounts();
                 </Typography>
               )}
 
-              {/* Stats */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Chip
                   label={`${campaign.bookingCount || 0} Bookings`}
@@ -467,7 +442,6 @@ const tabCounts = getTabCounts();
               </Box>
             </Box>
 
-            {/* Arrow */}
             <IconButton
               sx={{
                 bgcolor: alpha(theme.palette.primary.main, 0.1),
@@ -484,9 +458,8 @@ const tabCounts = getTabCounts();
 
   // Booking Card Component
   const BookingCard = ({ booking }) => {
-
     const sessionConfig = getSessionStatusConfig(booking.session_status);
-    const bookingDateIST = convertToIST(booking.selected_date); // Convert to IST
+    const bookingDateIST = convertToIST(booking.selected_date);
     const cardBgColor = getCardBackgroundColor(booking);
 
     return (
@@ -505,29 +478,22 @@ const tabCounts = getTabCounts();
         }}
       >
         <CardContent sx={{ p: 2.5}}>
-          {/* Header: Status */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-        
-              <Chip
-                label={sessionConfig.label}
-                color={sessionConfig.color}
-                size="small"
-                sx={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 600 }}
-              />
-            
-             
-           <IconButton 
+            <Chip
+              label={sessionConfig.label}
+              color={sessionConfig.color}
+              size="small"
+              sx={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 600 }}
+            />
+            <IconButton 
               size="small" 
               onClick={(e) => handleMenuOpen(e, booking)}
             >
               <MoreVert fontSize="small" />
             </IconButton>
-            
           </Box>
 
-          {/* Booking Details */}
           <Grid container spacing={2}>
-            {/* Date & Time */}
             <Grid size={{ xs: 12, sm: 3, md: 6, lg: 6}}>
               <Stack direction="row" spacing={1.5} alignItems="center">
                 <Box
@@ -542,7 +508,7 @@ const tabCounts = getTabCounts();
                 >
                   <CalendarMonth sx={{ fontSize: 20, color: theme.palette.primary.main }} />
                 </Box>
-        <Box>
+                <Box>
                   <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter' }}>
                     Date & Time
                   </Typography>
@@ -556,7 +522,6 @@ const tabCounts = getTabCounts();
               </Stack>
             </Grid>
 
-            {/* Customer Info */}
             <Grid size={{ xs: 12, sm: 3, md: 6, lg: 6}}>
               <Stack direction="row" spacing={1.5} alignItems="center">
                 <Avatar
@@ -602,517 +567,474 @@ const tabCounts = getTabCounts();
               </Stack>
             </Grid>
 
-            {/* Duration */}
             <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
               <Stack direction="column" spacing={1} alignItems="flex-start">
                 <Stack direction="row" spacing={1}>
-                <AccessTime sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
-
-                <Stack direction="column" spacing={1}>
-                   <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter', display: 'block' }}>
-                    Duration
-                  </Typography>
-
+                  <AccessTime sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
+                  <Stack direction="column" spacing={1}>
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter', display: 'block' }}>
+                      Duration
+                    </Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Inter' }}>
-                    {booking.duration || booking.block_id?.duration || 30} mins
-                  </Typography>
-
-
+                      {booking.duration || booking.block_id?.duration || 30} mins
+                    </Typography>
+                  </Stack>
                 </Stack>
-                    
-
-                </Stack>
-                 
-                
               </Stack>
             </Grid>
 
-            {/* Meeting Type */}
-              <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
+            <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
               <Stack direction="column" spacing={1} alignItems="flex-start">
                 <Stack direction="row" spacing={1}>
-                {booking.interaction_type === 'video' ? (
-                  <VideoCall sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
-                ) : (
+                  {booking.interaction_type === 'video' ? (
+                    <VideoCall sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
+                  ) : (
+                    <Phone sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
+                  )}
+                  <Stack direction="column" spacing={1} >
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter', display: 'block' }}>
+                      Session Type
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Inter' }}>
+                      {booking.interaction_type === 'video' ? 'Video' : 'Voice'}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </Stack>
+            </Grid>
+
+            <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
+              <Stack direction="column" spacing={1} alignItems="flex-start">
+                <Stack direction="row" spacing={1}>
                   <Phone sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
-                )}
-                <Stack direction="column" spacing={1} >
-                   <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter', display: 'block' }}>
-                    Session Type
-                  </Typography>
-
+                  <Stack direction="column" spacing={1} >
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter', display: 'block' }}>
+                      Mobile
+                    </Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Inter' }}>
-                    {booking.interaction_type === 'video' ? 'Video' : 'Voice'}
-                  </Typography>
-
-
+                      {booking.customer_mobile}
+                    </Typography>
+                  </Stack>
                 </Stack>
-                    
-
-                </Stack>
-                 
-                
               </Stack>
             </Grid>
-
-            {/* Phone */}
-             <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
-              <Stack direction="column" spacing={1} alignItems="flex-start">
-                <Stack direction="row" spacing={1}>
-                <Phone sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
-              
-                <Stack direction="column" spacing={1} >
-                   <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter', display: 'block' }}>
-                    Mobile
-                  </Typography>
-
-                  <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Inter' }}>
-                    {booking.customer_mobile}
-                  </Typography>
-
-                </Stack>
-                    
-
-                </Stack>
-                 
-                
-              </Stack>
-            </Grid>
-
-    
           </Grid>
-
         </CardContent>
       </Card>
     );
   };
 
-  // RENDER: Campaigns List (Step 1)
-  if (step === 'campaigns') {
-    return (
-      <Box sx={{ mx: 'auto', px: { xs: 1, sm: 3 }, pt: { xs: 2, sm: 3 } }}>
-        {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Typography
-            variant="h4"
-            sx={{
-              fontFamily: 'Inter',
-              fontWeight: 700,
-              fontSize: { xs: 24, sm: 32 },
-              mb: 1,
-            }}
-          >
-            Booking Campaigns
-          </Typography>
-          <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter' }}>
-            Select a campaign to view bookings and analytics
-          </Typography>
-        </Box>
+  // Main Tab Change Handler
+  const handleMainTabChange = (event, newValue) => {
+    setMainTab(newValue);
+    if (newValue === 'campaigns') {
+      setStep('campaigns');
+      setSelectedCampaign(null);
+      setBookings([]);
+    }
+  };
 
-        {/* Campaigns List */}
-        {loading ? (
-          <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 400 }}>
-            <CircularProgress />
-          </Box>
-        ) : campaigns.length === 0 ? (
-          <Alert severity="info" sx={{ borderRadius: 2 }}>
-            No booking campaigns found. Create your first booking block to get started!
-          </Alert>
-        ) : (
-          <Grid container spacing={2}>
-            {campaigns.map((campaign) => (
-              <Grid size={{ xs: 12, sm: 6, md: 6}} key={campaign._id}>
-                <CampaignCard campaign={campaign} />
-              </Grid>
-            ))}
-          </Grid>
-        )}
-      </Box>
-    );
-  }
-
-  // RENDER: Bookings View (Step 2)
+  // RENDER: Main Container with Top-Level Tabs
   return (
-    <Box sx={{ mx: 'auto', px: { xs: 0, sm: 2 } }}>
-      {/* Header with Back Button */}
-      <Box sx={{ mb: 4 }}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={backToCampaigns}
+    <Box sx={{ mx: 'auto', px: { xs: 1, sm: 3 }, pt: { xs: 2, sm: 3 } }}>
+      {/* Top Level Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs 
+          value={mainTab} 
+          onChange={handleMainTabChange}
           sx={{
-            textTransform: 'none',
-            fontFamily: 'Inter',
-            fontWeight: 600,
-            mb: 2,
-            color: theme.palette.text.secondary,
+            '& .MuiTab-root': {
+              fontFamily: 'Inter',
+              fontWeight: 600,
+              textTransform: 'none',
+              fontSize: 16,
+              minHeight: 56,
+            }
           }}
         >
-          Back to Campaigns
-        </Button>
-     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-  <Typography
-    variant="h4"
-    sx={{
-      fontFamily: 'Inter',
-      fontWeight: 700,
-      fontSize: { xs: 24, sm: 32 },
-      mb: 1,
-    }}
-  >
-    {selectedCampaign?.name}
-  </Typography>
-  
-  <Chip
-    label={selectedCampaign?.pricing > 0 ? `₹${selectedCampaign.pricing}` : 'FREE'}
-    size="medium"
-    sx={{
-      fontFamily: 'Inter',
-      fontWeight: 700,
-      fontSize: { xs: 13, sm: 14 },
-      height: { xs: 28, sm: 32 },
-      bgcolor: selectedCampaign?.pricing > 0 
-        ? alpha(theme.palette.success.main, 0.15) 
-        : alpha(theme.palette.info.main, 0.15),
-      color: selectedCampaign?.pricing > 0 
-        ? theme.palette.success.main 
-        : theme.palette.info.main,
-      border: `1.5px solid ${selectedCampaign?.pricing > 0 
-        ? alpha(theme.palette.success.main, 0.3) 
-        : alpha(theme.palette.info.main, 0.3)}`,
-    }}
-  />
-</Box>
-
-      <Typography 
-  variant="body2" 
-  sx={{ 
-    color: theme.palette.text.secondary, 
-    fontFamily: 'Inter',
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  }}
->
-  {selectedCampaign?.description || 'Manage and track bookings for this campaign'}
-</Typography>
-
+          <Tab 
+            icon={<GroupsOutlinedIcon />} 
+            iconPosition="start" 
+            label="Campaigns" 
+            value="campaigns"
+          />
+          <Tab 
+            icon={<PaymentsIcon />} 
+            iconPosition="start" 
+            label="Payments" 
+            value="payments"
+          />
+        </Tabs>
       </Box>
 
-      {/* Tabs + Filter */}
-<Box
-  sx={{
-    width: '100%',
-    mb: 3,
-  }}
->
-  <Tabs
-    value={selectedTab}
-    onChange={(e, val) => setSelectedTab(val)}
-    variant="scrollable"
-    scrollButtons="auto"
-    allowScrollButtonsMobile
-    sx={{
-      '& .MuiTab-root': {
-        fontFamily: 'Inter',
-        fontWeight: 600,
-        textTransform: 'none',
-        fontSize: 14,
-        minWidth: { xs: 'auto', sm: 90 },
-        px: { xs: 2, sm: 3 },
-      },
-      '& .MuiTabs-scrollButtons': {
-        color: theme.palette.primary.main,
-        '&.Mui-disabled': {
-          opacity: 0.3,
-        },
-      },
-      '& .MuiTabs-indicator': {
-        height: 3,
-        borderRadius: '3px 3px 0 0',
-      },
-      // Hide scrollbar but keep functionality
-      '& .MuiTabs-scroller': {
-        '&::-webkit-scrollbar': {
-          display: 'none',
-        },
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none',
-      },
-    }}
-  >
-    <Tab 
-      label={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span>All</span>
-          <Badge
-            badgeContent={tabCounts.all}
-            sx={{
-              '& .MuiBadge-badge': {
-                bgcolor: alpha(theme.palette.primary.main, 0.15),
-                color: theme.palette.primary.main,
-                fontWeight: 700,
-                fontSize: 11,
-                height: 20,
-                minWidth: 20,
-                borderRadius: '10px',
-              }
-            }}
-          />
-        </Box>
-      } 
-      value="all" 
-    />
-    
-    <Tab 
-      label={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span>Today</span>
-          <Badge
-            badgeContent={tabCounts.today}
-            sx={{
-              '& .MuiBadge-badge': {
-                bgcolor: alpha(theme.palette.success.main, 0.15),
-                color: theme.palette.success.main,
-                fontWeight: 700,
-                fontSize: 11,
-                height: 20,
-                minWidth: 20,
-                borderRadius: '10px',
-              }
-            }}
-          />
-        </Box>
-      } 
-      value="today" 
-    />
-    
-    <Tab 
-      label={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span>Upcoming</span>
-          <Badge
-            badgeContent={tabCounts.upcoming}
-            sx={{
-              '& .MuiBadge-badge': {
-                bgcolor: alpha(theme.palette.info.main, 0.15),
-                color: theme.palette.info.main,
-                fontWeight: 700,
-                fontSize: 11,
-                height: 20,
-                minWidth: 20,
-                borderRadius: '10px',
-              }
-            }}
-          />
-        </Box>
-      } 
-      value="upcoming" 
-    />
-    
-    <Tab 
-      label={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span>Completed</span>
-          <Badge
-            badgeContent={tabCounts.completed}
-            sx={{
-              '& .MuiBadge-badge': {
-                bgcolor: alpha(theme.palette.grey[600], 0.15),
-                color: theme.palette.grey[700],
-                fontWeight: 700,
-                fontSize: 11,
-                height: 20,
-                minWidth: 20,
-                borderRadius: '10px',
-              }
-            }}
-          />
-        </Box>
-      } 
-      value="completed" 
-    />
+      {/* Campaigns Tab Content */}
+      {mainTab === 'campaigns' && (
+        <>
+          {step === 'campaigns' ? (
+            // RENDER: Campaigns List (Step 1)
+            <>
+              <Box sx={{ mb: 4 }}>
+               
+                <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontFamily: 'Inter' }}>
+                  Select a campaign to view bookings and analytics
+                </Typography>
+              </Box>
 
-    <Tab 
-      label={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span>Cancelled</span>
-          <Badge
-            badgeContent={tabCounts.cancelled}
-            sx={{
-              '& .MuiBadge-badge': {
-                bgcolor: alpha(theme.palette.error.main, 0.15),
-                color: theme.palette.error.main,
-                fontWeight: 700,
-                fontSize: 11,
-                height: 20,
-                minWidth: 20,
-                borderRadius: '10px',
-              }
-            }}
-          />
-        </Box>
-      } 
-      value="cancelled" 
-    />
-  </Tabs>
-</Box>
+              {loading ? (
+                <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 400 }}>
+                  <CircularProgress />
+                </Box>
+              ) : campaigns.length === 0 ? (
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  No booking campaigns found. Create your first booking block to get started!
+                </Alert>
+              ) : (
+                <Grid container spacing={2}>
+                  {campaigns.map((campaign) => (
+                    <Grid size={{ xs: 12, sm: 6, md: 6}} key={campaign._id}>
+                      <CampaignCard campaign={campaign} />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </>
+          ) : (
+            // RENDER: Bookings View (Step 2)
+            <>
+              <Box sx={{ mb: 4 }}>
+                <Button
+                  startIcon={<ArrowBack />}
+                  onClick={backToCampaigns}
+                  sx={{
+                    textTransform: 'none',
+                    fontFamily: 'Inter',
+                    fontWeight: 600,
+                    mb: 2,
+                    color: theme.palette.text.secondary,
+                  }}
+                >
+                  Back to Campaigns
+                </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontFamily: 'Inter',
+                      fontWeight: 700,
+                      fontSize: { xs: 20, sm: 24 },
+                      mb: 1,
+                    }}
+                  >
+                    {selectedCampaign?.name}
+                  </Typography>
+                  
+                  <Chip
+                    label={selectedCampaign?.pricing > 0 ? `₹${selectedCampaign.pricing}` : 'FREE'}
+                    size="medium"
+                    sx={{
+                      fontFamily: 'Inter',
+                      fontWeight: 700,
+                      fontSize: { xs: 13, sm: 14 },
+                      height: { xs: 28, sm: 32 },
+                      bgcolor: selectedCampaign?.pricing > 0 
+                        ? alpha(theme.palette.success.main, 0.15) 
+                        : alpha(theme.palette.info.main, 0.15),
+                      color: selectedCampaign?.pricing > 0 
+                        ? theme.palette.success.main 
+                        : theme.palette.info.main,
+                      border: `1.5px solid ${selectedCampaign?.pricing > 0 
+                        ? alpha(theme.palette.success.main, 0.3) 
+                        : alpha(theme.palette.info.main, 0.3)}`,
+                    }}
+                  />
+                </Box>
 
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: theme.palette.text.secondary, 
+                    fontFamily: 'Inter',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {selectedCampaign?.description || 'Manage and track bookings for this campaign'}
+                </Typography>
+              </Box>
 
-  
+              {/* Bookings Tabs */}
+              <Box sx={{ width: '100%', mb: 3 }}>
+                <Tabs
+                  value={selectedTab}
+                  onChange={(e, val) => setSelectedTab(val)}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  allowScrollButtonsMobile
+                  sx={{
+                    '& .MuiTab-root': {
+                      fontFamily: 'Inter',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      fontSize: 14,
+                      minWidth: { xs: 'auto', sm: 90 },
+                      px: { xs: 2, sm: 3 },
+                    },
+                    '& .MuiTabs-scrollButtons': {
+                      color: theme.palette.primary.main,
+                      '&.Mui-disabled': {
+                        opacity: 0.3,
+                      },
+                    },
+                    '& .MuiTabs-indicator': {
+                      height: 3,
+                      borderRadius: '3px 3px 0 0',
+                    },
+                    '& .MuiTabs-scroller': {
+                      '&::-webkit-scrollbar': {
+                        display: 'none',
+                      },
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                    },
+                  }}
+                >
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <span>All</span>
+                        <Badge
+                          badgeContent={tabCounts.all}
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              bgcolor: alpha(theme.palette.primary.main, 0.15),
+                              color: theme.palette.primary.main,
+                              fontWeight: 700,
+                              fontSize: 11,
+                              height: 20,
+                              minWidth: 20,
+                              borderRadius: '10px',
+                            }
+                          }}
+                        />
+                      </Box>
+                    } 
+                    value="all" 
+                  />
+                  
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <span>Today</span>
+                        <Badge
+                          badgeContent={tabCounts.today}
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              bgcolor: alpha(theme.palette.success.main, 0.15),
+                              color: theme.palette.success.main,
+                              fontWeight: 700,
+                              fontSize: 11,
+                              height: 20,
+                              minWidth: 20,
+                              borderRadius: '10px',
+                            }
+                          }}
+                        />
+                      </Box>
+                    } 
+                    value="today" 
+                  />
+                  
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <span>Upcoming</span>
+                        <Badge
+                          badgeContent={tabCounts.upcoming}
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              bgcolor: alpha(theme.palette.info.main, 0.15),
+                              color: theme.palette.info.main,
+                              fontWeight: 700,
+                              fontSize: 11,
+                              height: 20,
+                              minWidth: 20,
+                              borderRadius: '10px',
+                            }
+                          }}
+                        />
+                      </Box>
+                    } 
+                    value="upcoming" 
+                  />
+                  
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <span>Completed</span>
+                        <Badge
+                          badgeContent={tabCounts.completed}
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              bgcolor: alpha(theme.palette.grey[600], 0.15),
+                              color: theme.palette.grey[700],
+                              fontWeight: 700,
+                              fontSize: 11,
+                              height: 20,
+                              minWidth: 20,
+                              borderRadius: '10px',
+                            }
+                          }}
+                        />
+                      </Box>
+                    } 
+                    value="completed" 
+                  />
 
-      {/* Bookings List */}
-      {loading ? (
-        <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 400 }}>
-          <CircularProgress />
-        </Box>
-      ) : filteredBookings.length === 0 ? (
-        <Alert severity="info" sx={{ borderRadius: 2 }}>
-          No bookings found.
-        </Alert>
-      ) : (
-       <Grid container spacing={2}>
-  {filteredBookings.map((booking) => (
-    <Grid 
-      size={{ 
-        xs: 12,    // 1 card per row on mobile
-        sm: 6,     // 2 cards per row on tablets
-        md: 6,     // 3 cards per row on medium screens
-        lg: 6,     // 3 cards per row on large screens
-        xl: 3      // 4 cards per row on extra large screens
-      }} 
-      key={booking._id}
-    >
-      <BookingCard booking={booking} />
-    </Grid>
-  ))}
-</Grid>
+                  <Tab 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <span>Cancelled</span>
+                        <Badge
+                          badgeContent={tabCounts.cancelled}
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              bgcolor: alpha(theme.palette.error.main, 0.15),
+                              color: theme.palette.error.main,
+                              fontWeight: 700,
+                              fontSize: 11,
+                              height: 20,
+                              minWidth: 20,
+                              borderRadius: '10px',
+                            }
+                          }}
+                        />
+                      </Box>
+                    } 
+                    value="cancelled" 
+                  />
+                </Tabs>
+              </Box>
 
-       
-        
+              {/* Bookings List */}
+              {loading ? (
+                <Box sx={{ display: 'grid', placeItems: 'center', minHeight: 400 }}>
+                  <CircularProgress />
+                </Box>
+              ) : filteredBookings.length === 0 ? (
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  No bookings found.
+                </Alert>
+              ) : (
+                <Grid container spacing={2}>
+                  {filteredBookings.map((booking) => (
+                    <Grid 
+                      size={{ 
+                        xs: 12,
+                        sm: 6,
+                        md: 6,
+                        lg: 6,
+                        xl: 3
+                      }} 
+                      key={booking._id}
+                    >
+                      <BookingCard booking={booking} />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </>
+          )}
+        </>
       )}
 
+      {/* Payments Tab Content */}
+      {mainTab === 'payments' && (
+        <TransactionsPage />
+      )}
 
-
-      
-{/* REMOVE the Menu component entirely and add this instead */}
-
-{/* Action Selection Dialog */}
-<Dialog
-  open={menuDialogOpen}
-  onClose={handleMenuDialogClose}
-  maxWidth="xs"
-  fullWidth
-  PaperProps={{
-    sx: {
-      borderRadius: 3,
-    }
-  }}
->
-  <DialogTitle sx={{ fontFamily: 'Inter', fontWeight: 600, pb: 1 }}>
-    Select Action
-  </DialogTitle>
-  <DialogContent sx={{ pb: 1 }}>
-    <Stack spacing={1}>
-      <Button
+      {/* Action Selection Dialog */}
+      <Dialog
+        open={menuDialogOpen}
+        onClose={handleMenuDialogClose}
+        maxWidth="xs"
         fullWidth
-        variant="outlined"
-        startIcon={<CheckCircleOutline />}
-        onClick={() => handleMenuAction('completed')}
-        sx={{
-          justifyContent: 'flex-start',
-          textTransform: 'none',
-          fontFamily: 'Inter',
-          fontWeight: 500,
-          py: 1.5,
-          px: 2,
-          borderColor: alpha(theme.palette.success.main, 0.3),
-          color: theme.palette.success.main,
-          '&:hover': {
-            borderColor: theme.palette.success.main,
-            bgcolor: alpha(theme.palette.success.main, 0.1),
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
           }
         }}
       >
-        Mark as Completed
-      </Button>
-      
-      <Button
-        fullWidth
-        variant="outlined"
-        startIcon={<CancelOutlined />}
-        onClick={() => handleMenuAction('cancelled')}
-        sx={{
-          justifyContent: 'flex-start',
-          textTransform: 'none',
-          fontFamily: 'Inter',
-          fontWeight: 500,
-          py: 1.5,
-          px: 2,
-          borderColor: alpha(theme.palette.error.main, 0.3),
-          color: theme.palette.error.main,
-          '&:hover': {
-            borderColor: theme.palette.error.main,
-            bgcolor: alpha(theme.palette.error.main, 0.1),
-          }
-        }}
-      >
-        Mark as Cancelled
-      </Button>
-    </Stack>
-  </DialogContent>
-  <DialogActions sx={{ px: 3, pb: 2 }}>
-    <Button
-      onClick={handleMenuDialogClose}
-      sx={{ 
-        textTransform: 'none', 
-        fontFamily: 'Inter', 
-        fontWeight: 600,
-        color: theme.palette.text.secondary,
-      }}
-    >
-      Cancel
-    </Button>
-  </DialogActions>
-</Dialog>
+        <DialogTitle sx={{ fontFamily: 'Inter', fontWeight: 600, pb: 1 }}>
+          Select Action
+        </DialogTitle>
+        <DialogContent sx={{ pb: 1 }}>
+          <Stack spacing={1}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<CheckCircleOutline />}
+              onClick={() => handleMenuAction('completed')}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                fontFamily: 'Inter',
+                fontWeight: 500,
+                py: 1.5,
+                px: 2,
+                borderColor: alpha(theme.palette.success.main, 0.3),
+                color: theme.palette.success.main,
+                '&:hover': {
+                  borderColor: theme.palette.success.main,
+                  bgcolor: alpha(theme.palette.success.main, 0.1),
+                }
+              }}
+            >
+              Mark as Completed
+            </Button>
+            
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<CancelOutlined />}
+              onClick={() => handleMenuAction('cancelled')}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                fontFamily: 'Inter',
+                fontWeight: 500,
+                py: 1.5,
+                px: 2,
+                borderColor: alpha(theme.palette.error.main, 0.3),
+                color: theme.palette.error.main,
+                '&:hover': {
+                  borderColor: theme.palette.error.main,
+                  bgcolor: alpha(theme.palette.error.main, 0.1),
+                }
+              }}
+            >
+              Mark as Cancelled
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={handleMenuDialogClose}
+            sx={{ 
+              textTransform: 'none', 
+              fontFamily: 'Inter', 
+              fontWeight: 600,
+              color: theme.palette.text.secondary,
+            }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-{/* Confirmation Dialog - Keep this as is */}
-<Dialog
-  open={confirmDialog.open}
-  onClose={handleCancelDialog}
-  maxWidth="xs"
-  fullWidth
->
-  <DialogTitle sx={{ fontFamily: 'Inter', fontWeight: 600 }}>
-    {confirmDialog.title}
-  </DialogTitle>
-  <DialogContent>
-    <Typography sx={{ fontFamily: 'Inter', color: theme.palette.text.secondary }}>
-      {confirmDialog.message}
-    </Typography>
-  </DialogContent>
-  <DialogActions sx={{ px: 3, pb: 2 }}>
-    <Button
-      onClick={handleCancelDialog}
-      sx={{ textTransform: 'none', fontFamily: 'Inter', fontWeight: 600 }}
-    >
-      Cancel
-    </Button>
-    <Button
-      onClick={handleConfirmAction}
-      variant="contained"
-      color={confirmDialog.action === 'cancelled' ? 'error' : 'primary'}
-      sx={{ textTransform: 'none', fontFamily: 'Inter', fontWeight: 600 }}
-    >
-      Confirm
-    </Button>
-  </DialogActions>
-</Dialog>
-
-     
-
-      {/* Add Confirmation Dialog */}
+      {/* Confirmation Dialog */}
       <Dialog
         open={confirmDialog.open}
         onClose={handleCancelDialog}
@@ -1144,8 +1066,6 @@ const tabCounts = getTabCounts();
           </Button>
         </DialogActions>
       </Dialog>
-
-   
     </Box>
   );
 };
