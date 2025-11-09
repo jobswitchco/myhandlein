@@ -2835,86 +2835,149 @@ router.post("/bookings/create-order", async (req, res) => {
 // POST route to create a booking
 router.post("/bookings/create", async (req, res) => {
   try {
-    const { block_id, customer_name, customer_mobile, customer_email, selected_date, selected_timeSlot, userId, title} = req.body;
+    const {
+      block_id,
+      customer_name,
+      customer_mobile,
+      customer_email,
+      selected_date,
+      selected_timeSlot,
+      userId,
+      title,
+      meeting_link, // if you pass this in req.body, we’ll forward it
+      venue,        // optional
+      interaction_type
+    } = req.body;
 
-    // Validation
+
+    // ---- Validation ----
     if (!block_id) return res.status(400).json({ error: "block_id is required" });
     if (!customer_name || !customer_name.trim()) return res.status(400).json({ error: "Customer name is required" });
     if (!customer_mobile) return res.status(400).json({ error: "Customer mobile is required" });
     if (!customer_email || !customer_email.trim()) return res.status(400).json({ error: "Customer email is required" });
     if (!selected_date) return res.status(400).json({ error: "Selected date is required" });
     if (!selected_timeSlot) return res.status(400).json({ error: "Selected time slot is required" });
+    if (!userId) return res.status(400).json({ error: "userId is required" });
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(customer_email)) {
       return res.status(400).json({ error: "Invalid email format" });
     }
 
-    // Check if slot is already booked
+    // Normalize date once
+    const selectedDateObj = new Date(selected_date);
+    if (isNaN(selectedDateObj.getTime())) {
+      return res.status(400).json({ error: "selected_date must be a valid date/ISO string" });
+    }
+
+    // ---- Slot clash check ----
     const existingBooking = await Bookings.findOne({
-      block_id: block_id,
-      selected_date: new Date(selected_date),
-      selected_timeSlot: selected_timeSlot,
+      block_id,
+      selected_date: selectedDateObj,
+      selected_timeSlot,
       is_del: false,
-    });
+    }).lean();
 
     if (existingBooking) {
       return res.status(409).json({ error: "This time slot is already booked" });
     }
 
-    // ✅ Generate unique 8-digit order ID
+    // ---- Fetch creator (from USER collection) ----
+    const creator = await USER.findById(userId).select("email name").lean();
+    if (!creator) {
+      return res.status(404).json({ error: "Creator (userId) not found" });
+    }
+    const creatorEmail = (creator.email || "").trim().toLowerCase();
+    const creatorName = creator.name || "Creator";
+
+    // ---- Generate booking id ----
     const bookingId = await generateUniqueOrderId();
 
-    // Create booking
+    // ---- Create booking ----
     const newBooking = await Bookings.create({
       user_id: userId,
-      block_id: block_id,
-      booking_id: bookingId, // ✅ Add order_id
+      block_id,
+      booking_id: bookingId,
       customer_name: customer_name.trim(),
-      customer_mobile: customer_mobile,
+      interaction_type,
+      customer_mobile,
       customer_email: customer_email.trim().toLowerCase(),
-      selected_date: new Date(selected_date),
-      selected_timeSlot: selected_timeSlot,
-      payment_status: "free", // Free booking is automatically completed
-      status: "confirmed", // Free booking is automatically confirmed
+      selected_date: selectedDateObj,
+      selected_timeSlot,
+      meeting_link: meeting_link || "",       // store if you want
+      venue: venue || "Online",               // store if you want
+      payment_status: "free",
+      status: "confirmed",
+      is_del: false,
       created_at: new Date(),
       updatedAt: new Date(),
     });
 
+    // ---- Email to customer ----
+    const customerEmailOptions = {
+      to: newBooking.customer_email,
+      customer_name: newBooking.customer_name,
+      selected_date: newBooking.selected_date,
+      selected_timeSlot: newBooking.selected_timeSlot,
+      subject: "Booking Confirmation for " + (title || "Consultation"),
+      service_title: title || "Consultation",
+      meeting_link: newBooking.meeting_link || "",
+      manage_url: "https://myhandle.in/booking/details/customer",
+      support_email: "support@myhandle.in",
+      logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
+      brand_name: "MyHandle",
+      brand_url: "https://myhandle.in",
+      venue: newBooking.venue || "Online",
+      timezone: "IST",
+      booking_id: newBooking.booking_id,
+    };
 
-    const options = {
-  to: newBooking.customer_email,
-  customer_name: newBooking.customer_name,
-  selected_date: newBooking.selected_date,       // e.g., "2025-12-15" or ISO
-  selected_timeSlot: newBooking.selected_timeSlot,// e.g., "3:00 PM"
-  subject: "Booking Confirmation for " + title,
-  // Optional but supported:
-  service_title: title,
-  meeting_link: newBooking.meeting_link,          // if any
-  manage_url: "https://myhandle.in/booking/details/customer",
-  support_email: "support@myhandle.in",
-  logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
-  brand_name: "MyHandle",
-  brand_url: "https://myhandle.in",
-  venue: newBooking.venue || "Online",
-  timezone: "IST",
-  booking_id: newBooking.booking_id,
-};
+    // ---- Email to creator (from USER collection) ----
+    const creatorEmailOptions = {
+      to: creatorEmail,                       // <-- from User collection
+      creator_name: creatorName,              // <-- from User collection
+      selected_date: newBooking.selected_date,
+      selected_timeSlot: newBooking.selected_timeSlot,
+      subject: `New Registration for ${title || "Consultation"}`,
+      meeting_link: newBooking.meeting_link || "",
+      service_title: title || "Consultation",
+      manage_url: "https://myhandle.in/professional/booking/sessions",
+      support_email: "support@myhandle.in",
+      logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
+      brand_name: "MyHandle",
+      brand_url: "https://myhandle.in",
+      venue: newBooking.venue || "Online",
+      timezone: "IST",
+      booking_id: newBooking.booking_id,
+    };
 
+    // ---- Send emails in parallel (don’t fail booking if an email fails) ----
+    const [customerMail, creatorMail] = await Promise.allSettled([
+      sendMailForBookings(customerEmailOptions),
+      creatorEmail ? sendEmailToCreator(creatorEmailOptions) : Promise.resolve("skipped"),
+    ]);
 
-    await sendMailForBookings(options);
+    if (customerMail.status === "rejected") {
+      console.error("Failed to email customer:", customerMail.reason);
+    }
+    if (creatorMail.status === "rejected") {
+      console.error("Failed to email creator:", creatorMail.reason);
+    }
 
     return res.status(201).json({
       success: true,
       message: "Booking created successfully",
       booking: {
         id: newBooking._id,
-        booking_id: bookingId,
+        booking_id: newBooking.booking_id,
         customer_name: newBooking.customer_name,
         customer_email: newBooking.customer_email,
         selected_date: newBooking.selected_date,
         selected_timeSlot: newBooking.selected_timeSlot,
+      },
+      email_status: {
+        customer: customerMail.status,
+        creator: creatorEmail ? creatorMail.status : "skipped_no_creator_email",
       },
     });
   } catch (err) {
@@ -2931,48 +2994,43 @@ router.post("/bookings/verify-payment", async (req, res) => {
       orderId, 
       paymentId, 
       signature, 
-      bookingId, // ✅ Get bookingId from frontend
-      booking_id,// ✅ Get booking_id from frontend
-      title
+      bookingId,
+      booking_id,
+      title,
+      interaction_type
     } = req.body;
 
-    // Validate required fields
+    // ✅ Validation
     if (!orderId || !paymentId || !signature || !bookingId) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Verify payment signature
+    // ✅ Verify Razorpay signature
     const body = `${orderId}|${paymentId}`;
     const expectedSignature = crypto
       .createHmac("sha256", RZP_KEY_SECRET)
       .update(body)
       .digest("hex");
 
-    const valid = expectedSignature === signature;
-
-    if (!valid) {
-      // ✅ Payment verification failed - DELETE pending booking
+    if (expectedSignature !== signature) {
+      // ❌ Invalid payment → clean up booking + transaction
       await Bookings.findByIdAndDelete(bookingId);
-      
       await Transaction.findOneAndUpdate(
         { orderId },
-        { 
-          $set: { 
+        {
+          $set: {
             status: "failed",
             paymentId,
             signature,
             rawVerifyPayload: req.body
-          } 
+          }
         }
       );
-      
-      return res.status(400).json({ 
-        ok: false, 
-        error: "Payment signature verification failed" 
-      });
+
+      return res.status(400).json({ ok: false, error: "Payment signature verification failed" });
     }
 
-    // Fetch payment details from Razorpay
+    // ✅ Fetch payment details from Razorpay
     let payment = null;
     try {
       payment = await rz.payments.fetch(paymentId);
@@ -2980,7 +3038,7 @@ router.post("/bookings/verify-payment", async (req, res) => {
       console.warn("Could not fetch payment from Razorpay:", err?.message || err);
     }
 
-    // Build payment method details
+    // ✅ Build method details
     const method = payment?.method || null;
     const methodDetails = {
       type: method || null,
@@ -2993,47 +3051,43 @@ router.post("/bookings/verify-payment", async (req, res) => {
             network: payment.card.network || null,
             issuer: payment.card.issuer || null,
             type: payment.card.type || null,
-            international: payment.card.international || false
+            international: payment.card.international || false,
           }
-        : undefined
+        : undefined,
     };
 
-    // Get canonical customer info
     const canonicalCustomer = {
       name: payment?.email || undefined,
       email: payment?.email || undefined,
-      phone: payment?.contact || undefined
+      phone: payment?.contact || undefined,
     };
 
-    // ✅ Update transaction with payment details
+    // ✅ Update transaction record
     const txUpdate = {
       paymentId,
       signature,
       status: "paid",
       paidAt: new Date(),
-      customerBookingId : booking_id,
+      customBookingId: booking_id,
       paymentMethod: methodDetails,
-      razorpay: {
-        payment: payment || undefined
-      },
-      amount: payment?.amount || undefined,
-      currency: payment?.currency || undefined,
-      rawVerifyPayload: req.body
+      razorpay: { payment },
+      amount: payment?.amount,
+      currency: payment?.currency,
+      rawVerifyPayload: req.body,
     };
 
     const tx = await Transaction.findOneAndUpdate(
-      { orderId }, 
-      { $set: txUpdate }, 
+      { orderId },
+      { $set: txUpdate },
       { new: true }
     );
 
     if (!tx) {
-      // Transaction not found - delete pending booking
       await Bookings.findByIdAndDelete(bookingId);
       return res.status(404).json({ error: "Transaction not found" });
     }
 
-    // ✅ Update PENDING booking to CONFIRMED
+    // ✅ Update booking to confirmed
     const booking = await Bookings.findByIdAndUpdate(
       bookingId,
       {
@@ -3041,51 +3095,86 @@ router.post("/bookings/verify-payment", async (req, res) => {
           payment_status: "paid",
           status: "confirmed",
           booking_id: booking_id,
+          interaction_type,
           payment_id: paymentId,
           customer_mobile: canonicalCustomer.phone || undefined,
           customer_email: canonicalCustomer.email || undefined,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       },
       { new: true }
     );
-
-        const options = {
-  to: booking.customer_email,
-  customer_name: booking.customer_name,
-  selected_date: booking.selected_date,       // e.g., "2025-12-15" or ISO
-  selected_timeSlot: booking.selected_timeSlot,// e.g., "3:00 PM"
-  subject: "Booking Confirmation for " + title,
-  // Optional but supported:
-  service_title: title,
-  meeting_link: '',          // if any
-  manage_url: "https://myhandle.in/booking/details/customer",
-  support_email: "support@myhandle.in",
-  logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
-  brand_name: "MyHandle",
-  brand_url: "https://myhandle.in",
-  venue: booking.venue || "Online",
-  timezone: "IST",
-  booking_id: booking.booking_id,
-};
-
-
-    await sendMailForBookings(options);
 
     if (!booking) {
       return res.status(404).json({ error: "Booking record not found" });
     }
 
-    // TODO: Send confirmation email to customer
-    // TODO: Send notification to service provider (user_id)
+    // ✅ Fetch Creator details from USER collection
+    const creator = await USER.findById(booking.user_id).select("email name").lean();
+    const creatorEmail = (creator?.email || "").trim().toLowerCase();
+    const creatorName = creator?.name || "Creator";
 
-    return res.json({ 
-      ok: true, 
+    // ✅ Send Email to Customer
+    const customerEmailOptions = {
+      to: booking.customer_email,
+      customer_name: booking.customer_name,
+      selected_date: booking.selected_date,
+      selected_timeSlot: booking.selected_timeSlot,
+      subject: "Booking Confirmation for " + (title || "Consultation"),
+      service_title: title || "Consultation",
+      meeting_link: booking.meeting_link || "",
+      manage_url: "https://myhandle.in/booking/details/customer",
+      support_email: "support@myhandle.in",
+      logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
+      brand_name: "MyHandle",
+      brand_url: "https://myhandle.in",
+      venue: booking.venue || "Online",
+      timezone: "IST",
+      booking_id: booking.booking_id,
+    };
+
+    // ✅ Send Email to Creator
+    const creatorEmailOptions = {
+      to: creatorEmail,
+      creator_name: creatorName,
+      selected_date: booking.selected_date,
+      selected_timeSlot: booking.selected_timeSlot,
+      subject: `New Registration for ${title || "Consultation"}`,
+      meeting_link: booking.meeting_link || "",
+      service_title: title || "Consultation",
+      manage_url: "https://myhandle.in/professional/booking/sessions",
+      support_email: "support@myhandle.in",
+      logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
+      brand_name: "MyHandle",
+      brand_url: "https://myhandle.in",
+      venue: booking.venue || "Online",
+      timezone: "IST",
+      booking_id: booking.booking_id,
+    };
+
+    // ✅ Send both emails in parallel
+    const [customerMail, creatorMail] = await Promise.allSettled([
+      sendMailForBookings(customerEmailOptions),
+      creatorEmail ? sendEmailToCreator(creatorEmailOptions) : Promise.resolve("skipped"),
+    ]);
+
+    if (customerMail.status === "rejected") {
+      console.error("❌ Failed to email customer:", customerMail.reason);
+    }
+    if (creatorMail.status === "rejected") {
+      console.error("❌ Failed to email creator:", creatorMail.reason);
+    }
+
+    return res.json({
+      ok: true,
       txId: tx._id,
       bookingId: booking._id,
-      message: "Payment verified and booking confirmed successfully"
+      message: "Payment verified and booking confirmed successfully",
+      email_status: {
+        customer: customerMail.status,
+        creator: creatorEmail ? creatorMail.status : "skipped_no_creator_email",
+      },
     });
-
   } catch (e) {
     console.error("verify-payment error:", e);
     return res.status(500).json({ error: "Payment verification failed" });
@@ -5622,9 +5711,9 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
 // router.get for fetching booked slots
 router.get("/bookings/available-slots", async (req, res) => {
   try {
-    const { block_id, date } = req.query;
+    const { user_id, date } = req.query;
 
-    if (!block_id) {
+    if (!user_id) {
       return res.status(400).json({ error: "block_id is required" });
     }
 
@@ -5642,7 +5731,7 @@ router.get("/bookings/available-slots", async (req, res) => {
 
     // Find all bookings for this block_id on the selected date
     const bookedSlots = await Bookings.find({
-      block_id: block_id,
+      user_id,
       selected_date: {
         $gte: startOfDay,
         $lte: endOfDay,
@@ -5655,7 +5744,6 @@ router.get("/bookings/available-slots", async (req, res) => {
     // Extract just the time slots
     const bookedTimeSlots = bookedSlots.map((booking) => booking.selected_timeSlot);
 
-    console.log('bookedTimeSlots : ', bookedTimeSlots);
     return res.status(200).json({
       success: true,
       date: date,

@@ -904,7 +904,7 @@ const BookingSessionDialog = ({ open, onClose, bookingData, onBookingSuccess }) 
     try {
       const response = await axios.get(`${baseUrl}/bookings/available-slots`, {
         params: {
-          block_id: bookingData.block_id,
+          user_id: bookingData.user_id,
           date: date.format('YYYY-MM-DD'),
         }
       });
@@ -1034,6 +1034,7 @@ const handleBookingSubmit = async (customerData) => {
         `${baseUrl}/bookings/create`,
         {
           block_id: bookingData.block_id,
+          interaction_type: bookingData.interactionType,
           userId: bookingData.user_id,
           title: bookingData.title,
           customer_name: customerData.name,

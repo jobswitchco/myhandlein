@@ -100,7 +100,7 @@ const Bookings_Schema = new Schema({
     interaction_type: {
         type: String,
         enum: ['voice', 'video'],
-        default: 'video'
+        default: 'voice'
     },
 
     // Cancellation info
