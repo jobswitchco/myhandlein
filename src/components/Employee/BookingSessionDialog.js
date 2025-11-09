@@ -14,7 +14,8 @@ import {
   Divider,
   Collapse,
   useTheme,
-  DialogActions
+  DialogActions,
+  InputAdornment
 } from '@mui/material';
 import { 
   Close as CloseIcon, 
@@ -400,13 +401,21 @@ const CustomerDetailsDialog = ({
             error={!!errors.name}
             helperText={errors.name}
             InputProps={{
-              startAdornment: <PersonIcon sx={{ mr: 1, color: '#9CA3AF' }} />,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PersonIcon sx={{ color: '#9CA3AF' }} />
+                </InputAdornment>
+              ),
             }}
             sx={{
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
-                fontSize: '15px'
+                fontSize: '16px'
+              },
+              '& .MuiInputBase-input': {
+                fontSize: '16px',
+                lineHeight: 1.5,
               },
             }}
           />
@@ -433,17 +442,21 @@ const CustomerDetailsDialog = ({
   error={!!errors.mobile}
   helperText={errors.mobile}
   InputProps={{
-    startAdornment: <PhoneIcon sx={{ mr: 1, color: '#9CA3AF' }} />,
+    startAdornment: (
+      <InputAdornment position="start">
+        <PhoneIcon sx={{ color: '#9CA3AF' }} />
+      </InputAdornment>
+    ),
   }}
   sx={{
     '& .MuiOutlinedInput-root': {
       fontFamily: 'Inter',
       borderRadius: 2,
-      fontSize: '15px',
+      fontSize: '16px',
     },
+    '& .MuiInputBase-input': { fontSize: '16px', lineHeight: 1.5 },
   }}
 />
-
 
           {/* Email Field */}
           <TextField
@@ -456,13 +469,21 @@ const CustomerDetailsDialog = ({
             error={!!errors.email}
             helperText={errors.email}
             InputProps={{
-              startAdornment: <EmailIcon sx={{ mr: 1, color: '#9CA3AF' }} />,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailIcon sx={{ color: '#9CA3AF' }} />
+                </InputAdornment>
+              ),
             }}
             sx={{
               '& .MuiOutlinedInput-root': {
                 fontFamily: 'Inter',
                 borderRadius: 2,
-                fontSize: '15px'
+                fontSize: '16px'
+              },
+              '& .MuiInputBase-input': {
+                fontSize: '16px',
+                lineHeight: 1.5,
               },
             }}
           />
