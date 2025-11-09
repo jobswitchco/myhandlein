@@ -201,6 +201,34 @@ async function getClientIp(req) {
 
 const UA ="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36";
 
+async function generateUniqueOrderId() {
+  const maxAttempts = 10;
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Generate date-based prefix (last 6 digits of YYYYMMDD)
+    const now = new Date();
+    const dateStr = now.getFullYear().toString().slice(-2) + 
+                   (now.getMonth() + 1).toString().padStart(2, '0') + 
+                   now.getDate().toString().padStart(2, '0');
+    
+    // Generate 2 random digits
+    const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    
+    // Combine to create 8-digit order ID
+    const orderId = dateStr + randomPart;
+    
+    // Check if this order_id already exists
+    const existingOrder = await Bookings.findOne({ booking_id: orderId });
+    
+    if (!existingOrder) {
+      return orderId;
+    }
+  }
+  
+  // Fallback: Use timestamp-based approach if all attempts fail
+  const timestamp = Date.now().toString();
+  return timestamp.slice(-8);
+}
 
 
 async function getWithRetries(url, { retries = 3, timeout = 5000 } = {}) {
