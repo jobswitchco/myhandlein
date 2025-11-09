@@ -44,6 +44,8 @@ const Bookings_Schema = new Schema({
         required: true
     },
 
+    booking_id: { type: String, unique: true, sparse: true, index: true },
+
     // Payment-related fields
     payment_status: {
         type: String,
@@ -140,7 +142,7 @@ const Bookings_Schema = new Schema({
 // Compound indexes for common query patterns
 Bookings_Schema.index({ user_id: 1, is_del: 1 });
 Bookings_Schema.index({ user_id: 1, block_id: 1 });
-Bookings_Schema.index({ user_id: 1, status: 1, payment_status: 1, session_status: 1 });
+Bookings_Schema.index({ user_id: 1, status: 1, payment_status: 1, session_status: 1, booking_id : 1 });
 
 // Critical index: Prevent double-booking of same slot
 Bookings_Schema.index(

@@ -11,6 +11,7 @@ import {
   Tab,
   Tabs,
   IconButton,
+  Tooltip,
   Button,
   CircularProgress,
   Alert,
@@ -18,11 +19,18 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  MenuItem,
   useTheme,
   useMediaQuery,
   Grid,
+  Divider,
   alpha,
-  Badge
+  Paper,
+  Badge,
+   Menu,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   CalendarMonth,
@@ -30,16 +38,19 @@ import {
   Phone,
   Person,
   AccessTime,
+  AttachMoney,
   CheckCircle,
   Cancel,
   Event,
   MoreVert,
+  FilterList,
+  Refresh,
   ArrowBack,
   ChevronRight,
   CheckCircleOutline,
   CancelOutlined,
 } from '@mui/icons-material';
-import { format, parseISO, addHours, addMinutes } from 'date-fns';
+import { format, parseISO, isPast, isFuture, isToday, addHours, addMinutes } from 'date-fns';
 
 import axios from 'axios';
 
@@ -55,6 +66,8 @@ const CreatorBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('all');
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,

@@ -26,6 +26,7 @@ router.use(cookieParser());
 import authenticateToken from "../middleware/authenticateTokenProfessional.js";
 import authenticateParticipant from "../middleware/authenticateParticipant.js";
 import generateJWTtoken  from "../middleware/generateJWTtoken.js";
+import sendMailForBookings from "../utils/sendEmailBooking.js";
 import fs from "fs";
 import multer from "multer";
 import path from "path";
@@ -2708,6 +2709,9 @@ router.post("/bookings/create-order", async (req, res) => {
     // Generate unique receipt
     const receipt = await makeReceipt(block_id);
 
+    // ✅ Generate unique 8-digit order ID
+    const bookingId = await generateUniqueOrderId();
+
     // ✅ STEP 2: Create Razorpay order
     const order = await rz.orders.create({
       amount: amountInPaise,
@@ -2717,6 +2721,7 @@ router.post("/bookings/create-order", async (req, res) => {
         booking_type: "session_booking",
         block_id: String(block_id),
         user_id: String(user_id),
+        booking_id: String(bookingId), // ✅ Add order_id to Razorpay notes
         title: String(bookingBlock.title || ""),
         customer_name: String(customer_name || ""),
         customer_email: String(customer_email || ""),
@@ -2738,6 +2743,7 @@ router.post("/bookings/create-order", async (req, res) => {
       subdomain: null,
 
       orderId: order.id,
+      customerBookingId: bookingId,
       amount: order.amount,
       currency: order.currency,
       status: "created",
@@ -2764,6 +2770,7 @@ router.post("/bookings/create-order", async (req, res) => {
     const pendingBooking = await Bookings.create({
       block_id,
       user_id,
+      booking_id: bookingId, // ✅ Add custom order_id
       customer_name,
       customer_mobile,
       customer_email,
@@ -2774,14 +2781,15 @@ router.post("/bookings/create-order", async (req, res) => {
       payment_status: "pending",
       status: "pending", // Reserve slot but not confirmed yet
       transaction_id: transaction._id,
-      order_id: order.id,
+      razorpay_order_id: order.id, // Razorpay's order ID
       payment_id: null, // Will be added after payment
       created_at: new Date()
     });
 
     res.json({
       order,
-      bookingId: pendingBooking._id, // Send booking ID to frontend
+      booking_id: bookingId, // ✅ Return custom order_id
+      bookingId: pendingBooking._id,
       customer: { 
         name: customer_name, 
         email: customer_email,
@@ -2796,6 +2804,98 @@ router.post("/bookings/create-order", async (req, res) => {
   }
 });
 
+// POST route to create a booking
+router.post("/bookings/create", async (req, res) => {
+  try {
+    const { block_id, customer_name, customer_mobile, customer_email, selected_date, selected_timeSlot, userId, title} = req.body;
+
+    // Validation
+    if (!block_id) return res.status(400).json({ error: "block_id is required" });
+    if (!customer_name || !customer_name.trim()) return res.status(400).json({ error: "Customer name is required" });
+    if (!customer_mobile) return res.status(400).json({ error: "Customer mobile is required" });
+    if (!customer_email || !customer_email.trim()) return res.status(400).json({ error: "Customer email is required" });
+    if (!selected_date) return res.status(400).json({ error: "Selected date is required" });
+    if (!selected_timeSlot) return res.status(400).json({ error: "Selected time slot is required" });
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(customer_email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    // Check if slot is already booked
+    const existingBooking = await Bookings.findOne({
+      block_id: block_id,
+      selected_date: new Date(selected_date),
+      selected_timeSlot: selected_timeSlot,
+      is_del: false,
+    });
+
+    if (existingBooking) {
+      return res.status(409).json({ error: "This time slot is already booked" });
+    }
+
+    // ✅ Generate unique 8-digit order ID
+    const bookingId = await generateUniqueOrderId();
+
+    // Create booking
+    const newBooking = await Bookings.create({
+      user_id: userId,
+      block_id: block_id,
+      booking_id: bookingId, // ✅ Add order_id
+      customer_name: customer_name.trim(),
+      customer_mobile: customer_mobile,
+      customer_email: customer_email.trim().toLowerCase(),
+      selected_date: new Date(selected_date),
+      selected_timeSlot: selected_timeSlot,
+      payment_status: "free", // Free booking is automatically completed
+      status: "confirmed", // Free booking is automatically confirmed
+      created_at: new Date(),
+      updatedAt: new Date(),
+    });
+
+
+    const options = {
+  to: newBooking.customer_email,
+  customer_name: newBooking.customer_name,
+  selected_date: newBooking.selected_date,       // e.g., "2025-12-15" or ISO
+  selected_timeSlot: newBooking.selected_timeSlot,// e.g., "3:00 PM"
+  subject: "Booking Confirmation for " + title,
+  // Optional but supported:
+  service_title: title,
+  meeting_link: newBooking.meeting_link,          // if any
+  manage_url: "https://myhandle.in/booking/details/customer",
+  support_email: "support@myhandle.in",
+  logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
+  brand_name: "MyHandle",
+  brand_url: "https://myhandle.in",
+  venue: newBooking.venue || "Online",
+  timezone: "IST",
+  booking_id: newBooking.booking_id,
+};
+
+
+    await sendMailForBookings(options);
+
+    return res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      booking: {
+        id: newBooking._id,
+        booking_id: bookingId,
+        customer_name: newBooking.customer_name,
+        customer_email: newBooking.customer_email,
+        selected_date: newBooking.selected_date,
+        selected_timeSlot: newBooking.selected_timeSlot,
+      },
+    });
+  } catch (err) {
+    console.error("POST /bookings/create error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
 // Route 2: Verify payment and confirm booking
 router.post("/bookings/verify-payment", async (req, res) => {
   try {
@@ -2803,7 +2903,9 @@ router.post("/bookings/verify-payment", async (req, res) => {
       orderId, 
       paymentId, 
       signature, 
-      bookingId // ✅ Get bookingId from frontend
+      bookingId, // ✅ Get bookingId from frontend
+      booking_id,// ✅ Get booking_id from frontend
+      title
     } = req.body;
 
     // Validate required fields
@@ -2881,6 +2983,7 @@ router.post("/bookings/verify-payment", async (req, res) => {
       signature,
       status: "paid",
       paidAt: new Date(),
+      customerBookingId : booking_id,
       paymentMethod: methodDetails,
       razorpay: {
         payment: payment || undefined
@@ -2909,6 +3012,7 @@ router.post("/bookings/verify-payment", async (req, res) => {
         $set: {
           payment_status: "paid",
           status: "confirmed",
+          booking_id: booking_id,
           payment_id: paymentId,
           customer_mobile: canonicalCustomer.phone || undefined,
           customer_email: canonicalCustomer.email || undefined,
@@ -2917,6 +3021,28 @@ router.post("/bookings/verify-payment", async (req, res) => {
       },
       { new: true }
     );
+
+        const options = {
+  to: booking.customer_email,
+  customer_name: booking.customer_name,
+  selected_date: booking.selected_date,       // e.g., "2025-12-15" or ISO
+  selected_timeSlot: booking.selected_timeSlot,// e.g., "3:00 PM"
+  subject: "Booking Confirmation for " + title,
+  // Optional but supported:
+  service_title: title,
+  meeting_link: '',          // if any
+  manage_url: "https://myhandle.in/booking/details/customer",
+  support_email: "support@myhandle.in",
+  logo_url: "https://storage.googleapis.com/myhandlebucket/MyHandle%20Hori_logo.png",
+  brand_name: "MyHandle",
+  brand_url: "https://myhandle.in",
+  venue: booking.venue || "Online",
+  timezone: "IST",
+  booking_id: booking.booking_id,
+};
+
+
+    await sendMailForBookings(options);
 
     if (!booking) {
       return res.status(404).json({ error: "Booking record not found" });
@@ -5513,67 +5639,7 @@ router.get("/bookings/available-slots", async (req, res) => {
   }
 });
 
-// POST route to create a booking
-router.post("/bookings/create", async (req, res) => {
-  try {
 
-    const { block_id, customer_name, customer_mobile, customer_email, selected_date, selected_timeSlot, userId } = req.body;
-
-    // Validation
-    if (!block_id) return res.status(400).json({ error: "block_id is required" });
-    if (!customer_name || !customer_name.trim()) return res.status(400).json({ error: "Customer name is required" });
-    if (!customer_mobile) return res.status(400).json({ error: "Customer mobile is required" });
-    if (!customer_email || !customer_email.trim()) return res.status(400).json({ error: "Customer email is required" });
-    if (!selected_date) return res.status(400).json({ error: "Selected date is required" });
-    if (!selected_timeSlot) return res.status(400).json({ error: "Selected time slot is required" });
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(customer_email)) {
-      return res.status(400).json({ error: "Invalid email format" });
-    }
-
-    // Check if slot is already booked
-    const existingBooking = await Bookings.findOne({
-      block_id: block_id,
-      selected_date: new Date(selected_date),
-      selected_timeSlot: selected_timeSlot,
-      is_del: false,
-    });
-
-    if (existingBooking) {
-      return res.status(409).json({ error: "This time slot is already booked" });
-    }
-
-    // Create booking
-    const newBooking = await Bookings.create({
-      user_id: userId,
-      block_id: block_id,
-      customer_name: customer_name.trim(),
-      customer_mobile: customer_mobile,
-      customer_email: customer_email.trim().toLowerCase(),
-      selected_date: new Date(selected_date),
-      selected_timeSlot: selected_timeSlot,
-      created_at: new Date(),
-      updatedAt: new Date(),
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Booking created successfully",
-      booking: {
-        id: newBooking._id,
-        customer_name: newBooking.customer_name,
-        customer_email: newBooking.customer_email,
-        selected_date: newBooking.selected_date,
-        selected_timeSlot: newBooking.selected_timeSlot,
-      },
-    });
-  } catch (err) {
-    console.error("POST /bookings/create error:", err);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
 
 router.delete('/delete-block/:id', authenticateToken, async (req, res) => {
   try {

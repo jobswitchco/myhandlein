@@ -19,6 +19,9 @@ const Transaction_Schema = new Schema(
   phone: String,
 },
 
+customerBookingId: { type: String, unique: true, sparse: true, index: true },
+
+
 
 paymentMethod: {
   type: { type: String },        // 'card' | 'netbanking' | 'upi' | 'wallet' | 'emi' | ...

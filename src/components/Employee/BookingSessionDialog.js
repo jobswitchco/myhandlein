@@ -941,7 +941,7 @@ const BookingSessionDialog = ({ open, onClose, bookingData, onBookingSuccess }) 
   };
 
   // Handle payment with Razorpay
-  const handleRazorpayPayment = async (orderData, customerData, bookingId) => {
+  const handleRazorpayPayment = async (orderData, customerData, bookingId, booking_id) => {
     const options = {
       key: "rzp_live_RbZ0rhbWlR25Cl", // Replace with your actual Razorpay Key ID
       amount: orderData.order.amount,
@@ -966,7 +966,10 @@ const BookingSessionDialog = ({ open, onClose, bookingData, onBookingSuccess }) 
               orderId: response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
               signature: response.razorpay_signature,
-              bookingId: bookingId, // Send bookingId for confirmation
+              bookingId: bookingId,
+              booking_id: booking_id,
+              title: bookingData.title
+
             }
           );
 
@@ -1032,6 +1035,7 @@ const handleBookingSubmit = async (customerData) => {
         {
           block_id: bookingData.block_id,
           userId: bookingData.user_id,
+          title: bookingData.title,
           customer_name: customerData.name,
           customer_mobile: customerData.mobile,
           customer_email: customerData.email,
@@ -1082,7 +1086,7 @@ const handleBookingSubmit = async (customerData) => {
       );
 
       if (orderResponse.data.order && orderResponse.data.bookingId) {
-        handleRazorpayPayment(orderResponse.data, customerData, orderResponse.data.bookingId);
+        handleRazorpayPayment(orderResponse.data, customerData, orderResponse.data.bookingId, orderResponse.data.booking_id);
       }
     }
   } catch (error) {
