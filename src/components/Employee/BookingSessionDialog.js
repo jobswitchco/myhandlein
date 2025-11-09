@@ -12,11 +12,13 @@ import {
   CircularProgress,
   TextField,
   Divider,
-  Collapse
+  Collapse,
+  useTheme,
+  DialogActions
 } from '@mui/material';
 import { 
   Close as CloseIcon, 
-  CalendarToday as CalendarIcon, 
+  CalendarToday as CalendarMonth, 
   Block as BlockIcon,
   Person as PersonIcon,
   Phone as PhoneIcon,
@@ -24,6 +26,10 @@ import {
   KeyboardArrowDown as ArrowDownIcon,
   KeyboardArrowUp as ArrowUpIcon,
 } from '@mui/icons-material';
+import Person from '@mui/icons-material/PersonOutlineOutlined';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutlineOutlined';
+import CheckCircle from '@mui/icons-material/CheckCircleOutlineOutlined';
+import BookingSuccessDialog from './BookingSuccessDialog'; // Add this import
 
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import WatchLaterIcon from '@mui/icons-material/WatchLater';
@@ -820,8 +826,12 @@ const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading, bufferTim
   );
 };
 
+
 // MAIN BOOKING DIALOG
-const BookingSessionDialog = ({ open, onClose, bookingData }) => {
+const BookingSessionDialog = ({ open, onClose, bookingData, onBookingSuccess }) => {
+  
+  
+  
   const [selectedDate, setSelectedDate] = useState(dayjs().add(1, 'day'));
   const [selectedTime, setSelectedTime] = useState(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -830,6 +840,14 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
   const [loading, setLoading] = useState(false);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const [successDialog, setSuccessDialog] = useState({
+  open: false,
+  bookingDetails: null,
+});
+
+
+
 
   const baseUrl = "/api/usersOn";
 
@@ -876,6 +894,12 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
     setCustomerDialogOpen(true);
   };
 
+  // Helper: close success dialog then close parent
+  const handleSuccessClose = () => {
+    setSuccessDialog({ open: false, bookingDetails: null });
+    onClose();
+  };
+
   // Handle payment with Razorpay
   const handleRazorpayPayment = async (orderData, customerData, bookingId) => {
     const options = {
@@ -907,11 +931,17 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
           );
 
           if (verifyResponse.data.ok) {
-            alert(
-              `Payment Successful! Booking Confirmed!\n\nName: ${customerData.name}\nDate: ${selectedDate.format('ddd, DD MMM YYYY')}\nTime: ${selectedTime}\n\nConfirmation email sent to ${customerData.email}`
-            );
+            // close details dialog and show success (keep parent mounted)
             setCustomerDialogOpen(false);
-            onClose();
+            setSuccessDialog({
+              open: true,
+              bookingDetails: {
+                name: customerData.name,
+                date: selectedDate.format('ddd, DD MMM YYYY'),
+                time: selectedTime,
+                email: customerData.email,
+              },
+            });
           } else {
             // Payment verification failed - booking already deleted by backend
             alert('Payment verification failed. Your slot has been released. Please try again.');
@@ -936,7 +966,6 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
           
           try {
             const deleteResponse = await axios.delete(`${baseUrl}/bookings/${bookingId}`);
-            console.log('Pending booking deleted:', deleteResponse.data);
             alert('Payment cancelled. Your slot has been released.');
           } catch (error) {
             console.error('Error deleting cancelled booking:', error);
@@ -951,71 +980,90 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
   };
 
   // Handle booking submission
-  const handleBookingSubmit = async (customerData) => {
-    setSubmitting(true);
+const handleBookingSubmit = async (customerData) => {
+  setSubmitting(true);
 
-    try {
-      // Check if it's a free booking
-      if (bookingData.pricing === 0) {
-        // Free booking - direct creation
-        const response = await axios.post(
-          `${baseUrl}/bookings/create`,
-          {
-            block_id: bookingData.block_id,
-            userId: bookingData.user_id,
-            customer_name: customerData.name,
-            customer_mobile: customerData.mobile,
-            customer_email: customerData.email,
-            selected_date: selectedDate.format('YYYY-MM-DD'),
-            selected_timeSlot: selectedTime,
-          }
-        );
-
-        if (response.data.success) {
-          alert(
-            `Booking Confirmed Successfully!\n\nName: ${customerData.name}\nDate: ${selectedDate.format('ddd, DD MMM YYYY')}\nTime: ${selectedTime}\n\nConfirmation email sent to ${customerData.email}`
-          );
-          setCustomerDialogOpen(false);
-          onClose();
+  try {
+    // Check if it's a free booking
+    if (bookingData.pricing === 0) {
+      // Free booking - direct creation
+      const response = await axios.post(
+        `${baseUrl}/bookings/create`,
+        {
+          block_id: bookingData.block_id,
+          userId: bookingData.user_id,
+          customer_name: customerData.name,
+          customer_mobile: customerData.mobile,
+          customer_email: customerData.email,
+          selected_date: selectedDate.format('YYYY-MM-DD'),
+          selected_timeSlot: selectedTime,
         }
-        setSubmitting(false);
-      } else {
-        // Paid booking - create order and initiate payment
-        const orderResponse = await axios.post(
-          `${baseUrl}/bookings/create-order`,
-          {
-            block_id: bookingData.block_id,
-            user_id: bookingData.user_id,
-            customer_name: customerData.name,
-            customer_mobile: customerData.mobile,
-            customer_email: customerData.email,
-            selected_date: selectedDate.format('YYYY-MM-DD'),
-            selected_timeSlot: selectedTime,
-          }
-        );
+      );
 
-        if (orderResponse.data.order && orderResponse.data.bookingId) {
-          // Open Razorpay payment gateway with bookingId
-          handleRazorpayPayment(orderResponse.data, customerData, orderResponse.data.bookingId);
+      if (response.data.success) {
+        // Close customer dialog
+        setCustomerDialogOpen(false);
+        
+        // Show success dialog (keep parent mounted; do NOT close here)
+        setSuccessDialog({
+          open: true,
+          bookingDetails: {
+            name: customerData.name,
+            date: selectedDate.format('ddd, DD MMM YYYY'),
+            time: selectedTime,
+            email: customerData.email,
+          },
+        });
+
+        // Call onBookingSuccess if provided (optional)
+        if (onBookingSuccess) {
+          onBookingSuccess({
+            name: customerData.name,
+            date: selectedDate.format('ddd, DD MMM YYYY'),
+            time: selectedTime,
+            email: customerData.email,
+          });
         }
       }
-    } catch (error) {
-      console.error('Booking error:', error);
-      const errorMsg = error?.response?.data?.error || 'Failed to create booking. Please try again.';
-      
-      // If order was created but payment modal failed to open, clean up
-      if (error?.response?.data?.bookingId) {
-        try {
-          await axios.delete(`${baseUrl}/bookings/${error.response.data.bookingId}`);
-        } catch (deleteError) {
-          console.error('Error cleaning up failed booking:', deleteError);
-        }
-      }
-      
-      alert(errorMsg);
       setSubmitting(false);
+    } else {
+      // Paid booking logic remains the same
+      const orderResponse = await axios.post(
+        `${baseUrl}/bookings/create-order`,
+        {
+          block_id: bookingData.block_id,
+          user_id: bookingData.user_id,
+          customer_name: customerData.name,
+          customer_mobile: customerData.mobile,
+          customer_email: customerData.email,
+          selected_date: selectedDate.format('YYYY-MM-DD'),
+          selected_timeSlot: selectedTime,
+        }
+      );
+
+      if (orderResponse.data.order && orderResponse.data.bookingId) {
+        handleRazorpayPayment(orderResponse.data, customerData, orderResponse.data.bookingId);
+      }
     }
-  };
+  } catch (error) {
+    console.error('Booking error:', error);
+    const errorMsg = error?.response?.data?.error || 'Failed to create booking. Please try again.';
+    
+    if (error?.response?.data?.bookingId) {
+      try {
+        await axios.delete(`${baseUrl}/bookings/${error.response.data.bookingId}`);
+      } catch (deleteError) {
+        console.error('Error cleaning up failed booking:', deleteError);
+      }
+    }
+    
+    alert(errorMsg);
+    setSubmitting(false);
+  }
+};
+
+
+
 
   const handleCalendarDateSelect = (date) => {
     setSelectedDate(date);
@@ -1047,6 +1095,7 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
         fullWidth 
         maxWidth="sm"
         fullScreen={window.innerWidth < 600}
+        keepMounted
       >
         <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
           <IconButton onClick={onClose} size="small" sx={{ color: '#FFFFFF' }}>
@@ -1238,15 +1287,24 @@ const BookingSessionDialog = ({ open, onClose, bookingData }) => {
         onDateSelect={handleCalendarDateSelect}
       />
 
-      <CustomerDetailsDialog
-        open={customerDialogOpen}
-        onClose={() => setCustomerDialogOpen(false)}
-        selectedDate={selectedDate}
-        selectedTime={selectedTime}
-        onSubmit={handleBookingSubmit}
-        submitting={submitting}
-        bookingData={bookingData}
-      />
+   <CustomerDetailsDialog
+      open={customerDialogOpen}
+      onClose={() => setCustomerDialogOpen(false)}
+      selectedDate={selectedDate}
+      selectedTime={selectedTime}
+      onSubmit={handleBookingSubmit}
+      submitting={submitting}
+      bookingData={bookingData}
+    />
+
+    {/* Add this - Success Dialog */}
+    <BookingSuccessDialog
+      open={successDialog.open}
+      onClose={handleSuccessClose}
+      bookingDetails={successDialog.bookingDetails}
+    />
+
+
     </>
   );
 };

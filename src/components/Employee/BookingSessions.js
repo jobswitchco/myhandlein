@@ -11,7 +11,6 @@ import {
   Tab,
   Tabs,
   IconButton,
-  Tooltip,
   Button,
   CircularProgress,
   Alert,
@@ -19,18 +18,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  MenuItem,
   useTheme,
   useMediaQuery,
   Grid,
-  Divider,
   alpha,
-  Paper,
-  Badge,
-   Menu,
-  ListItemIcon,
-  ListItemText,
+  Badge
 } from '@mui/material';
 import {
   CalendarMonth,
@@ -38,19 +30,16 @@ import {
   Phone,
   Person,
   AccessTime,
-  AttachMoney,
   CheckCircle,
   Cancel,
   Event,
   MoreVert,
-  FilterList,
-  Refresh,
   ArrowBack,
   ChevronRight,
   CheckCircleOutline,
   CancelOutlined,
 } from '@mui/icons-material';
-import { format, parseISO, isPast, isFuture, isToday, addHours, addMinutes } from 'date-fns';
+import { format, parseISO, addHours, addMinutes } from 'date-fns';
 
 import axios from 'axios';
 
@@ -58,7 +47,6 @@ const CreatorBookings = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const baseUrl = "/api/usersOn";
-  const IST_TIMEZONE = 'Asia/Kolkata';
 
   // State
   const [step, setStep] = useState('campaigns'); // 'campaigns' or 'bookings'
@@ -67,8 +55,6 @@ const CreatorBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('all');
-  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
@@ -529,7 +515,7 @@ const tabCounts = getTabCounts();
           {/* Booking Details */}
           <Grid container spacing={2}>
             {/* Date & Time */}
-            <Grid size={{ xs: 12, sm: 3}}>
+            <Grid size={{ xs: 12, sm: 3, md: 6, lg: 6}}>
               <Stack direction="row" spacing={1.5} alignItems="center">
                 <Box
                   sx={{
@@ -558,7 +544,7 @@ const tabCounts = getTabCounts();
             </Grid>
 
             {/* Customer Info */}
-            <Grid size={{ xs: 12, sm: 3}}>
+            <Grid size={{ xs: 12, sm: 3, md: 6, lg: 6}}>
               <Stack direction="row" spacing={1.5} alignItems="center">
                 <Avatar
                   sx={{
@@ -604,7 +590,7 @@ const tabCounts = getTabCounts();
             </Grid>
 
             {/* Duration */}
-            <Grid size={{ xs: 6, sm: 2}}>
+            <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
               <Stack direction="column" spacing={1} alignItems="flex-start">
                 <Stack direction="row" spacing={1}>
                 <AccessTime sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
@@ -629,7 +615,7 @@ const tabCounts = getTabCounts();
             </Grid>
 
             {/* Meeting Type */}
-              <Grid size={{ xs: 6, sm: 2}}>
+              <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
               <Stack direction="column" spacing={1} alignItems="flex-start">
                 <Stack direction="row" spacing={1}>
                 {booking.interaction_type === 'video' ? (
@@ -657,7 +643,7 @@ const tabCounts = getTabCounts();
             </Grid>
 
             {/* Phone */}
-             <Grid size={{ xs: 6, sm: 2}}>
+             <Grid size={{ xs: 6, sm: 2, md: 4, lg: 4}}>
               <Stack direction="column" spacing={1} alignItems="flex-start">
                 <Stack direction="row" spacing={1}>
                 <Phone sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
@@ -680,7 +666,7 @@ const tabCounts = getTabCounts();
               </Stack>
             </Grid>
 
-      
+    
           </Grid>
 
         </CardContent>
@@ -973,15 +959,23 @@ const tabCounts = getTabCounts();
           No bookings found.
         </Alert>
       ) : (
-        <>
-         <Stack spacing={2}>
-          {filteredBookings.map((booking) => (
-            <BookingCard key={booking._id} booking={booking} />
-          ))}
-        </Stack>
+       <Grid container spacing={2}>
+  {filteredBookings.map((booking) => (
+    <Grid 
+      size={{ 
+        xs: 12,    // 1 card per row on mobile
+        sm: 6,     // 2 cards per row on tablets
+        md: 6,     // 3 cards per row on medium screens
+        lg: 6,     // 3 cards per row on large screens
+        xl: 3      // 4 cards per row on extra large screens
+      }} 
+      key={booking._id}
+    >
+      <BookingCard booking={booking} />
+    </Grid>
+  ))}
+</Grid>
 
- 
-        </>
        
         
       )}
