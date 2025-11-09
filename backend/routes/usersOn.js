@@ -27,6 +27,7 @@ import authenticateToken from "../middleware/authenticateTokenProfessional.js";
 import authenticateParticipant from "../middleware/authenticateParticipant.js";
 import generateJWTtoken  from "../middleware/generateJWTtoken.js";
 import sendMailForBookings from "../utils/sendEmailBooking.js";
+import sendEmailToCreator from "../utils/sendEmailToCreator.js";
 import fs from "fs";
 import multer from "multer";
 import path from "path";
