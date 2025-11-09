@@ -323,6 +323,8 @@ const CustomerDetailsDialog = ({
           borderRadius: { xs: '24px 24px 0 0', sm: '16px' },
           position: { xs: 'fixed', sm: 'relative' },
           bottom: { xs: 0, sm: 'auto' },
+          left: { xs: 0, sm: 'auto' },        // ✅ Fix alignment
+          right: { xs: 0, sm: 'auto' },       // ✅ Fix alignment
           width: { xs: '100%', sm: 'auto' },
           margin: { xs: 0, sm: 'auto' },
           maxHeight: { xs: '90vh', sm: 'calc(100% - 64px)' },
@@ -338,7 +340,15 @@ const CustomerDetailsDialog = ({
         },
       }}
     >
-      <DialogContent sx={{ p: 3 }}>
+      <DialogContent 
+        sx={{ 
+          p: 3,
+          overflowY: 'auto',                    // ✅ Enable vertical scroll
+          overflowX: 'hidden',                  // ✅ Prevent horizontal scroll
+          maxHeight: '100%',                    // ✅ Constrain height
+          WebkitOverflowScrolling: 'touch',     // ✅ Smooth iOS scrolling
+        }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography sx={{ fontFamily: 'Inter', fontSize: 20, fontWeight: 700 }}>
             Complete Your Booking
@@ -402,30 +412,38 @@ const CustomerDetailsDialog = ({
           />
 
           {/* Mobile Field */}
-          <TextField
-            fullWidth
-            label="Mobile Number"
-            placeholder="Enter mobile number"
-            value={formData.mobile}
-            onChange={(e) => {
-              const value = e.target.value.replace(/\D/g, '');
-              if (value.length <= 10) {
-                setFormData({ ...formData, mobile: value });
-              }
-            }}
-            error={!!errors.mobile}
-            helperText={errors.mobile}
-            InputProps={{
-              startAdornment: <PhoneIcon sx={{ mr: 1, color: '#9CA3AF' }} />,
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                fontFamily: 'Inter',
-                borderRadius: 2,
-                fontSize: '15px'
-              },
-            }}
-          />
+       <TextField
+  fullWidth
+  label="Mobile Number"
+  placeholder="Enter mobile number"
+  type="tel"                          // ✅ phone keypad on mobile
+  autoComplete="tel"                  // ✅ helps autofill & OS hints
+  inputProps={{
+    inputMode: 'numeric',             // ✅ numeric keypad hint
+    pattern: '[0-9]*',                // ✅ restricts to digits on mobile keyboards
+    maxLength: 10,                    // ✅ hard cap in the input itself
+  }}
+  value={formData.mobile}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 10) {
+      setFormData({ ...formData, mobile: value });
+    }
+  }}
+  error={!!errors.mobile}
+  helperText={errors.mobile}
+  InputProps={{
+    startAdornment: <PhoneIcon sx={{ mr: 1, color: '#9CA3AF' }} />,
+  }}
+  sx={{
+    '& .MuiOutlinedInput-root': {
+      fontFamily: 'Inter',
+      borderRadius: 2,
+      fontSize: '15px',
+    },
+  }}
+/>
+
 
           {/* Email Field */}
           <TextField
@@ -705,6 +723,7 @@ const CustomerDetailsDialog = ({
     </Dialog>
   );
 };
+
 
 // TIME SLOTS COMPONENT
 const TimeSlots = ({ selectedTime, onTimeSelect, bookedSlots, loading, bufferTime, sessionDuration }) => {
