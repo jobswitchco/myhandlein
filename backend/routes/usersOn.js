@@ -6645,63 +6645,88 @@ router.get("/profile", async (req, res) => {
 
 router.post("/submit-form", async (req, res) => {
   try {
-    // extract possible keys (be tolerant of different names)
     const {
-      formId,
-      userId,
       blockId,
       blockName,
       values = {},
       meta = {},
     } = req.body || {};
 
-    // basic validation: values should be an object
-    if (values == null || typeof values !== "object") {
-      return res.status(400).json({ message: "Invalid values payload; expected an object." });
+    // Basic validation
+    if (!blockId) {
+      return res.status(400).json({ 
+        success: false,
+        message: "blockId is required" 
+      });
     }
 
-   (async () => {
-      try {
-        const ip = await getClientIp(req);
-        const ua = req.headers["user-agent"] || "";
-        const ref = req.headers["referer"] || req.headers["referrer"] || "";
+    if (values == null || typeof values !== "object") {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid values payload; expected an object." 
+      });
+    }
 
-        // call ipdata; if null, we'll still create event with ip only
-        const geo = await lookupGeo_ipdata(ip);
+    // Convert blockId to ObjectId if valid
+    let blockIdToStore = blockId;
+    if (mongoose.Types.ObjectId.isValid(blockId)) {
+      blockIdToStore = new mongoose.Types.ObjectId(blockId);
+    }
 
-      const doc = new FormsData({
-      form_id: formId || undefined,
-      user_id: userId || undefined,
-      block_id: blockId || undefined,
-      block_name: blockName || undefined,
+    // Fetch the block to get user_id
+    const block = await Block.findOne({ 
+      _id: blockIdToStore,
+      type: 'form',
+      is_del: false 
+    }).select('user_id name').lean();
+
+    if (!block) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Form block not found or has been deleted" 
+      });
+    }
+
+    // Get user_id from the block
+    const userId = block.user_id;
+
+    // Collect IP and user agent
+    const ip = req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() || req.ip || null;
+    const ua = req.get("User-Agent") || null;
+
+    // Create form submission document
+    const doc = new FormsData({
+      block_id: blockIdToStore, // Store as ObjectId
+      user_id: userId, // Get from Block collection
+      block_name: blockName || block.name || "Form",
       values,
       meta,
-      submitted_at: meta?.submittedAt ? new Date(meta.submittedAt) : undefined,
-        user_agent: ua,
-          referrer: ref,
-          country: geo?.country,
-          ip: geo?.ip,
-          region: geo?.region,
-          city: geo?.city,
-          postal: geo?.postal,
-          latitude: geo?.latitude,
-          longitude: geo?.longitude,
+      ip: ip,
+      user_agent: ua,
+      submitted_at: meta?.submittedAt ? new Date(meta.submittedAt) : new Date(),
     });
 
     await doc.save();
 
-    return res.status(201).json({ message: "Form submitted", id: doc._id });
+    console.log('✅ Saved submission:', {
+      submissionId: doc._id,
+      blockId: blockIdToStore,
+      userId: userId,
+      fieldsCount: Object.keys(values).length
+    });
 
-      } catch (aerr) {
-        console.warn("analytics logging error (profile):", aerr?.message || aerr);
-      }
-    })(); 
-
-
-
+    return res.status(201).json({ 
+      success: true,
+      message: "Form submitted successfully",
+      id: doc._id 
+    });
   } catch (err) {
-    console.error("Error saving form submission:", err);
-    return res.status(500).json({ message: "Failed to save submission" });
+    console.error("❌ Error saving form submission:", err);
+    return res.status(500).json({ 
+      success: false,
+      message: "Failed to save submission",
+      error: err.message
+    });
   }
 });
 
