@@ -461,7 +461,7 @@ export default function SideNavbar({ window }) {
               </ListItem>
 
               {/* My Orders */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
+              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/my_orders")}
                   selected={location.pathname === "/professional/my_orders"}
@@ -497,7 +497,7 @@ export default function SideNavbar({ window }) {
                     }}
                   />
                 </ListItemButton>
-              </ListItem>
+              </ListItem> */}
 
               {/* Analytics (nested) */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>

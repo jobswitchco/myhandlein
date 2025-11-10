@@ -188,7 +188,7 @@ const handleViewDetails = async (submission) => {
               fontWeight: 700,
               fontFamily: 'Inter',
               color: '#1A1A1A',
-              fontSize: { xs: '24px', md: '32px' },
+              fontSize: { xs: '18px', md: '22px' },
               mb: 1
             }}
           >

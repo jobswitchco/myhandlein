@@ -7,16 +7,12 @@ import {
   CardContent,
   Grid,
   Chip,
-  Avatar,
   Stack,
-  CircularProgress,
   Alert,
   IconButton,
   Divider,
   useTheme,
   useMediaQuery,
-  TextField,
-  InputAdornment,
   Button,
   Dialog,
   DialogTitle,
@@ -29,24 +25,15 @@ import {
   TableHead,
   TableRow,
   Skeleton,
-  Tooltip,
   Pagination,
   Menu,
   MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Popover,
 } from '@mui/material';
 import {
-  TrendingUp as TrendingUpIcon,
   AccountBalanceWallet as WalletIcon,
   Receipt as ReceiptIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
-  Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
-  CalendarToday as CalendarIcon,
   Person as PersonIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
@@ -103,6 +90,35 @@ const TransactionsPage = () => {
     { value: 'lifetime', label: 'Lifetime' },
     { value: 'custom', label: 'Custom Date Range' },
   ];
+
+
+  const formatIndianCurrency = (amount, decimals = 2) => {
+  if (!amount || amount === 0) return '0';
+  
+  const absAmount = Math.abs(amount);
+  const isNegative = amount < 0;
+  
+  let formatted = '';
+  
+  // Crores (1,00,00,000 and above)
+  if (absAmount >= 10000000) {
+    formatted = (absAmount / 10000000).toFixed(decimals) + 'Cr';
+  }
+  // Lakhs (1,00,000 to 99,99,999)
+  else if (absAmount >= 100000) {
+    formatted = (absAmount / 100000).toFixed(decimals) + 'L';
+  }
+  // Thousands (1,000 to 99,999)
+  else if (absAmount >= 1000) {
+    formatted = (absAmount / 1000).toFixed(decimals) + 'K';
+  }
+  // Below 1000, show as is with commas
+  else {
+    formatted = absAmount.toLocaleString('en-IN');
+  }
+  
+  return isNegative ? '-' + formatted : formatted;
+};
 
   useEffect(() => {
     fetchTransactions(1);
@@ -376,7 +392,7 @@ const TransactionsPage = () => {
   }
 
   return (
-    <Box sx={{ bgcolor: '#F8F9FA', minHeight: '100vh', py: { xs: 1, md: 3 } }}>
+    <Box sx={{ bgcolor: '#F8F9FA', minHeight: '100vh', py: { xs: 1, md: 1 } }}>
       <Container maxWidth="xl">
         {/* Header with Date Filter */}
         <Box sx={{ mb: 4 }}>
@@ -387,7 +403,7 @@ const TransactionsPage = () => {
                 fontFamily: 'Inter',
                 fontWeight: 600,
                 color: '#1A1A1A',
-                fontSize: { xs: '20px', md: '24px' }
+                fontSize: { xs: '18px', md: '22px' }
               }}
             >
               Payments
@@ -453,7 +469,7 @@ const TransactionsPage = () => {
         </Box>
 
         {/* Summary Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={1} sx={{ mb: 4 }}>
           {/* Total Revenue */}
           <Grid size={{ xs: 6, sm: 6, md: 4}}>
             <Card
@@ -471,8 +487,8 @@ const TransactionsPage = () => {
                     <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, mb: 1 }}>
                       Total Revenue
                     </Typography>
-                    <Typography sx={{ color: '#fff', fontSize: { xs: 28, md: 32 }, fontWeight: 700 }}>
-                      ₹{summary.totalRevenue}
+                    <Typography sx={{ color: '#fff', fontSize: { xs: 24, md: 28 }, fontWeight: 700 }}>
+                       ₹{formatIndianCurrency(summary.totalRevenue)}
                     </Typography>
                   </Box>
                  
@@ -498,8 +514,10 @@ const TransactionsPage = () => {
                     <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, mb: 1 }}>
                       Transactions
                     </Typography>
-                    <Typography sx={{ color: '#fff', fontSize: { xs: 28, md: 32 }, fontWeight: 700 }}>
-                      {summary.totalTransactions}
+                    <Typography sx={{ color: '#fff', fontSize: { xs: 24, md: 28 }, fontWeight: 700 }}>
+                      {/* {summary.totalTransactions} */}
+                       {formatIndianCurrency(summary.totalTransactions)}
+
                     </Typography>
                   </Box>
                  
@@ -571,25 +589,13 @@ const TransactionsPage = () => {
                             {(transaction.amount / 100).toFixed(0)}
                           </Typography>
                         </Box>
-                        <Chip
-                          icon={getPaymentMethodIcon(transaction.paymentMethod)}
-                          label={getPaymentMethodLabel(transaction.paymentMethod)}
-                          size="small"
-                          sx={{
-                            bgcolor: '#F3F4F6',
-                            color: '#374151',
-                            fontSize: 11,
-                            height: 24
-                          }}
-                        />
-                      </Box>
-
-                      {/* Booking ID */}
-                      {transaction.customerBookingId && (
+                        {transaction.customerBookingId && (
                         <Typography sx={{ fontSize: 12, color: '#667eea', fontWeight: 500 }}>
                           ID: #{transaction.customerBookingId}
                         </Typography>
                       )}
+                      </Box>
+
 
                       {/* Footer */}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

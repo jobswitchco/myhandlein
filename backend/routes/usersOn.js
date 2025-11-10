@@ -4781,10 +4781,9 @@ router.post("/newsletter-list-emails", authenticateToken, async (req, res) => {
 
 router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user?.user_id; // set by authenticateToken
+    const userId = req.user?.user_id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    // Parse date range; default to last 28 days (inclusive)
     const { startDate, endDate } = req.body || {};
     const now = new Date();
 
@@ -4796,9 +4795,6 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
     end.setHours(23, 59, 59, 999);
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
-
-    // The authenticated dashboard owner is a "User" actor in Conversation.participants
-    const myActorModel = "User";
 
     // ---------------------------
     // Build parallel promises
@@ -4820,14 +4816,40 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
       { $count: "total" },
     ]);
 
-    const totalSubscribersAggPromise = NewsletterModel.aggregate([
-      { $match: { user_id: userObjectId, is_del: { $ne: true } } },
-      { $unwind: "$emails" },
+    const totalAutomationsPromise = Automation.countDocuments({
+      userId: userObjectId,
+      createdAt: { $gte: start, $lte: end },
+    });
+
+    // OPTIMIZED: Use aggregation with $lookup to count private replies
+    const totalPrivateRepliesAggPromise = Automation.aggregate([
+      // Stage 1: Match user's automations
+      { 
+        $match: { 
+          userId: userObjectId 
+        } 
+      },
+      // Stage 2: Lookup replied comments
       {
-        $match: {
-          "emails.subscribed_at": { $gte: start, $lte: end },
+        $lookup: {
+          from: "replied_comments",
+          let: { automationId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$automationId", "$$automationId"] },
+                channel: "private",
+                status: "sent",
+                repliedAt: { $gte: start, $lte: end },
+              },
+            },
+          ],
+          as: "privateReplies",
         },
       },
+      // Stage 3: Unwind to count each reply
+      { $unwind: "$privateReplies" },
+      // Stage 4: Count total
       { $count: "total" },
     ]);
 
@@ -4859,39 +4881,26 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
       { $limit: 10 },
     ]);
 
-    // ----- Total CONVERSATIONS (DMs) where user is a participant -----
-    // Count distinct conversations created in the date range where the user is a participant
-    const totalDMsPromise = Conversation.countDocuments({
-      is_deleted: { $ne: true },
-      createdAt: { $gte: start, $lte: end },
-      participants: {
-        $elemMatch: {
-          "actor.model": myActorModel,
-          "actor.id": userObjectId,
-        },
-      },
-    });
-
     // Run all in parallel
     const [
       totalViews,
       totalClicksAgg,
-      totalSubscribersAgg,
+      totalAutomations,
+      totalPrivateRepliesAgg,
       topCitiesAgg,
       topRegionsAgg,
-      totalDMs,
     ] = await Promise.all([
       totalViewsPromise,
       totalClicksAggPromise,
-      totalSubscribersAggPromise,
+      totalAutomationsPromise,
+      totalPrivateRepliesAggPromise,
       topCitiesAggPromise,
       topRegionsAggPromise,
-      totalDMsPromise,
     ]);
 
     // Normalize results
     const totalClicks = totalClicksAgg?.[0]?.total || 0;
-    const totalSubscribers = totalSubscribersAgg?.[0]?.total || 0;
+    const totalPrivateReplies = totalPrivateRepliesAgg?.[0]?.total || 0;
 
     const cities = (topCitiesAgg || []).map((c) => ({
       city: c.city || "Unknown",
@@ -4907,8 +4916,8 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
       summary: {
         totalViews,
         totalClicks,
-        totalSubscribers,
-        totalDMs, // total conversations count
+        totalAutomations,
+        totalPrivateReplies,
       },
       cities,
       regions,
