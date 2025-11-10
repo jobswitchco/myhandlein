@@ -447,11 +447,9 @@ async function submitForm() {
   setFormSubmitting(true);
   try {
     // Make sure the URL matches your backend route
-    const res = await axios.post(`${API_BASE}/usersOn/submit-form`, payload, { 
+    const res = await axios.post(`${API_BASE}/submit-form`, payload, { 
       withCredentials: false 
     });
-    
-    console.log('Form submission response:', res.data); // Debug log
     
     if (res.data.success) {
       toast.success(res.data.message || "Form submitted successfully!");
