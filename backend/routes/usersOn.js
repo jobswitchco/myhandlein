@@ -6693,7 +6693,6 @@ router.post("/submit-form", async (req, res) => {
 
     // Create form submission document
 
-      (async () => {
       try {
         const ip = await getClientIp(req);
         const ua = req.headers["user-agent"] || "";
@@ -6701,9 +6700,6 @@ router.post("/submit-form", async (req, res) => {
 
         // call ipdata; if null, we'll still create event with ip only
         const geo = await lookupGeo_ipdata(ip);
-
-      
-
 
     const doc = new FormsData({
       block_id: blockIdToStore, // Store as ObjectId
@@ -6726,16 +6722,16 @@ router.post("/submit-form", async (req, res) => {
 
     await doc.save();
 
-    
- return res.status(201).json({ 
+      } catch (aerr) {
+        console.warn("analytics logging error (profile):", aerr?.message || aerr);
+      }
+
+       return res.status(201).json({ 
       success: true,
       message: "Form submitted successfully",
       id: doc._id 
     });
-
-      } catch (aerr) {
-        console.warn("analytics logging error (profile):", aerr?.message || aerr);
-      }})
+    
 
   } catch (err) {
     console.error("❌ Error saving form submission:", err);
