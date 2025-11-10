@@ -446,9 +446,12 @@ async function submitForm() {
 
   setFormSubmitting(true);
   try {
-    const res = await axios.post(`${API_BASE}/submit-form`, payload, { 
+    // Make sure the URL matches your backend route
+    const res = await axios.post(`${API_BASE}/usersOn/submit-form`, payload, { 
       withCredentials: false 
     });
+    
+    console.log('Form submission response:', res.data); // Debug log
     
     if (res.data.success) {
       toast.success(res.data.message || "Form submitted successfully!");
@@ -461,11 +464,13 @@ async function submitForm() {
     }
   } catch (err) {
     console.error("Form submit error:", err);
+    console.error("Error response:", err.response); // Debug log
     const msg = err?.response?.data?.message || "Failed to submit form";
     toast.error(msg);
     setFormSubmitting(false);
   }
 }
+
 
 const truncate = (str = "", max = 100) => {
   if (!str) return "";

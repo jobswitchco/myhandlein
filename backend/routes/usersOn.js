@@ -6690,48 +6690,58 @@ router.post("/submit-form", async (req, res) => {
     // Get user_id from the block
     const userId = block.user_id;
 
+    // Collect IP, user agent, and geo location
+    let ip = null;
+    let ua = null;
+    let ref = null;
+    let geo = null;
+
+    try {
+      ip = await getClientIp(req);
+      ua = req.headers["user-agent"] || "";
+      ref = req.headers["referer"] || req.headers["referrer"] || "";
+      
+      // Get geo location
+      geo = await lookupGeo_ipdata(ip);
+    } catch (geoErr) {
+      console.warn("Geo lookup error:", geoErr?.message || geoErr);
+    }
 
     // Create form submission document
-
-      try {
-        const ip = await getClientIp(req);
-        const ua = req.headers["user-agent"] || "";
-        const ref = req.headers["referer"] || req.headers["referrer"] || "";
-
-        // call ipdata; if null, we'll still create event with ip only
-        const geo = await lookupGeo_ipdata(ip);
-
     const doc = new FormsData({
-      block_id: blockIdToStore, // Store as ObjectId
-      user_id: userId, // Get from Block collection
+      block_id: blockIdToStore,
+      user_id: userId,
       block_name: blockName || block.name || "Form",
       values,
       meta,
-      ip: ip,
+      ip: ip || geo?.ip || req.ip || null,
       user_agent: ua,
+      referrer: ref,
+      country: geo?.country || null,
+      region: geo?.region || null,
+      city: geo?.city || null,
+      postal: geo?.postal || null,
+      latitude: geo?.latitude || null,
+      longitude: geo?.longitude || null,
       submitted_at: meta?.submittedAt ? new Date(meta.submittedAt) : new Date(),
-        referrer: ref,
-          country: geo?.country,
-          ip: geo?.ip,
-          region: geo?.region,
-          city: geo?.city,
-          postal: geo?.postal,
-          latitude: geo?.latitude,
-          longitude: geo?.longitude,
     });
 
+    // Save the document
     await doc.save();
 
-      } catch (aerr) {
-        console.warn("analytics logging error (profile):", aerr?.message || aerr);
-      }
+    console.log('✅ Form submission saved:', {
+      submissionId: doc._id,
+      blockId: blockIdToStore,
+      userId: userId,
+      city: geo?.city,
+      country: geo?.country
+    });
 
-       return res.status(201).json({ 
+    return res.status(201).json({ 
       success: true,
       message: "Form submitted successfully",
       id: doc._id 
     });
-    
 
   } catch (err) {
     console.error("❌ Error saving form submission:", err);
@@ -6741,9 +6751,8 @@ router.post("/submit-form", async (req, res) => {
       error: err.message
     });
   }
-
-
 });
+
 
 router.post("/link-click-analytics", async (req, res) => {
   try {
