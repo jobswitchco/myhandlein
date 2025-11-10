@@ -243,7 +243,7 @@ const handleViewDetails = async (submission) => {
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Box>
                       <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, mb: 1 }}>
-                        Active Forms
+                        Total Active Forms
                       </Typography>
                       <Typography sx={{ color: '#fff', fontSize: 32, fontWeight: 700 }}>
                         {formBlocks.length}
