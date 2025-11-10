@@ -6690,11 +6690,19 @@ router.post("/submit-form", async (req, res) => {
     // Get user_id from the block
     const userId = block.user_id;
 
-    // Collect IP and user agent
-    const ip = req.headers["x-forwarded-for"]?.split(",")?.[0]?.trim() || req.ip || null;
-    const ua = req.get("User-Agent") || null;
 
     // Create form submission document
+
+      (async () => {
+      try {
+        const ip = await getClientIp(req);
+        const ua = req.headers["user-agent"] || "";
+        const ref = req.headers["referer"] || req.headers["referrer"] || "";
+
+        // call ipdata; if null, we'll still create event with ip only
+        const geo = await lookupGeo_ipdata(ip);
+
+
     const doc = new FormsData({
       block_id: blockIdToStore, // Store as ObjectId
       user_id: userId, // Get from Block collection
@@ -6704,22 +6712,24 @@ router.post("/submit-form", async (req, res) => {
       ip: ip,
       user_agent: ua,
       submitted_at: meta?.submittedAt ? new Date(meta.submittedAt) : new Date(),
+        referrer: ref,
+          country: geo?.country,
+          ip: geo?.ip,
+          region: geo?.region,
+          city: geo?.city,
+          postal: geo?.postal,
+          latitude: geo?.latitude,
+          longitude: geo?.longitude,
     });
 
     await doc.save();
 
-    console.log('✅ Saved submission:', {
-      submissionId: doc._id,
-      blockId: blockIdToStore,
-      userId: userId,
-      fieldsCount: Object.keys(values).length
-    });
+ return res.status(201).json({ message: "Form submitted", id: doc._id });
 
-    return res.status(201).json({ 
-      success: true,
-      message: "Form submitted successfully",
-      id: doc._id 
-    });
+      } catch (aerr) {
+        console.warn("analytics logging error (profile):", aerr?.message || aerr);
+      }})
+
   } catch (err) {
     console.error("❌ Error saving form submission:", err);
     return res.status(500).json({ 
@@ -6728,6 +6738,8 @@ router.post("/submit-form", async (req, res) => {
       error: err.message
     });
   }
+
+
 });
 
 router.post("/link-click-analytics", async (req, res) => {
