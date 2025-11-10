@@ -22,10 +22,10 @@ export default function LandingPage() {
   return (
     <>
   <Helmet>
-  <title>Link in Bio Tool for Indian Creators | MyHandle</title>
+  <title>Link in Bio & Instagram Automation Tool for Indian Creators</title>
   <meta
     name="description"
-    content="Simplify your digital presence with MyHandle, the all-in-one bio link platform for Indian creators and brands."
+    content="Simplify your digital presence with MyHandle, the all-in-one bio link & Instagram Automation platform for Indian creators and brands."
   />
   <link rel="canonical" href="https://myhandle.in/" />
 
