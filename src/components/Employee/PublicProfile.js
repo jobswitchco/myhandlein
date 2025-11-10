@@ -42,12 +42,19 @@ import 'react-toastify/dist/ReactToastify.css';
 import { toast } from "react-toastify";
 import EventIcon from '@mui/icons-material/CalendarMonth';
 import BookingSessionDialog from "./BookingSessionDialog";
-
+import {
+Select,
+  MenuItem,
+  useTheme,
+  useMediaQuery,
+} from "@mui/material";
 
 
 export default function PublicProfile({ handle, initialProfile = null }) {
   
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(!initialProfile);
   const [error, setError] = useState(null);
