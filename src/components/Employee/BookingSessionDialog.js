@@ -31,7 +31,6 @@ import Person from '@mui/icons-material/PersonOutlineOutlined';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutlineOutlined';
 import CheckCircle from '@mui/icons-material/CheckCircleOutlineOutlined';
 import BookingSuccessDialog from './BookingSuccessDialog'; // Add this import
-import CloseIcon from '@mui/icons-material/CloseOutlined';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import WatchLaterIcon from '@mui/icons-material/WatchLater';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
