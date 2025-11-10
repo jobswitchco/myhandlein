@@ -6702,6 +6702,8 @@ router.post("/submit-form", async (req, res) => {
         // call ipdata; if null, we'll still create event with ip only
         const geo = await lookupGeo_ipdata(ip);
 
+      
+
 
     const doc = new FormsData({
       block_id: blockIdToStore, // Store as ObjectId
@@ -6724,7 +6726,12 @@ router.post("/submit-form", async (req, res) => {
 
     await doc.save();
 
- return res.status(201).json({ message: "Form submitted", id: doc._id });
+    
+ return res.status(201).json({ 
+      success: true,
+      message: "Form submitted successfully",
+      id: doc._id 
+    });
 
       } catch (aerr) {
         console.warn("analytics logging error (profile):", aerr?.message || aerr);
