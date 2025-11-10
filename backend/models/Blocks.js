@@ -2,23 +2,15 @@
 import mongoose from "mongoose";
 const { Schema } = mongoose;
 
-/**
- * Field subdocument for form blocks and booking blocks
- * - key: stable key used in form submissions (e.g. "name", "phone")
- * - label: human label shown to users
- * - type: input type (text, email, tel, textarea, number, radio, duration, buffer, maxDays)
- * - placeholder: optional placeholder text
- * - required: boolean
- * - value: for booking fields, stores the configuration value
- * - options: for radio fields, stores the list of options
- *
- * _id: false so Mongoose doesn't create separate ids for each field
- */
 const FieldSchema = new Schema(
   {
     key: { type: String, required: false }, // Optional for booking fields
-    label: { type: String, required: true },
-    type: { type: String, default: "text" },
+    label: { type: String, required: true }, // Supports multiline questions now
+    type: { 
+      type: String, 
+      default: "text",
+      enum: ["text", "email", "tel", "textarea", "number", "radio", "checkbox", "select", "duration", "buffer", "maxDays"]
+    },
     placeholder: { type: String, default: "" },
     required: { type: Boolean, default: false },
     value: { type: String, required: false }, // For booking configuration values
@@ -27,6 +19,9 @@ const FieldSchema = new Schema(
       required: false,
       default: undefined,
     },
+    multiple: { type: Boolean, default: false }, // For checkbox - allow multiple selections
+    minSelections: { type: Number, default: 0 }, // Min selections for checkbox
+    maxSelections: { type: Number, default: undefined }, // Max selections for checkbox
   },
   { _id: false }
 );
@@ -36,7 +31,7 @@ const BlockSchema = new Schema(
     user_id: { type: Schema.Types.ObjectId, required: true, index: true, ref: "users" },
     type: {
       type: String,
-      enum: ["link", "video", "product", "store", "form", "cta", "newsletter", "booking"], // Added "booking"
+      enum: ["link", "video", "product", "store", "form", "cta", "newsletter", "booking"],
       required: true,
       index: true,
     },
@@ -58,10 +53,10 @@ const BlockSchema = new Schema(
       default: undefined,
     },
 
-    // Booking-specific fields (optional, can be stored in action as JSON or here)
-    duration: { type: Number, required: false }, // Duration in minutes
+    // Booking-specific fields
+    duration: { type: Number, required: false },
     description: { type: String, required: false, trim: true },
-    bufferTime: { type: Number, required: false, default: 0 }, // Buffer time in minutes
+    bufferTime: { type: Number, required: false, default: 0 },
     interactionType: { type: String, required: false, default: 'voice' },
     pricing: { type: Number, required: false, default: 0 }, 
 
@@ -88,7 +83,6 @@ const BlockSchema = new Schema(
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },
-
   {
     versionKey: false,
   }

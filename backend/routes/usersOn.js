@@ -3182,6 +3182,238 @@ router.post("/bookings/verify-payment", async (req, res) => {
   }
 });
 
+router.post("/form-submissions", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const { 
+      page = 1, 
+      limit = 20, 
+      blockId,
+      startDate,
+      endDate,
+      searchQuery
+    } = req.body;
+
+    // Build query
+    let query = { 
+      user_id: userId,
+      is_del: false 
+    };
+
+    // Filter by specific form block - convert to ObjectId if valid
+    if (blockId && blockId !== 'all') {
+      // Handle both ObjectId and string formats
+      if (mongoose.Types.ObjectId.isValid(blockId)) {
+        query.block_id = new mongoose.Types.ObjectId(blockId);
+      } else {
+        // If it's stored as string in database
+        query.block_id = blockId;
+      }
+    }
+
+    // Date range filter
+    if (startDate || endDate) {
+      query.submitted_at = {};
+      if (startDate) query.submitted_at.$gte = new Date(startDate);
+      if (endDate) query.submitted_at.$lte = new Date(endDate);
+    }
+
+    // Search in values (partial match)
+    if (searchQuery) {
+      query.$or = [
+        { block_name: { $regex: searchQuery, $options: 'i' } },
+        { 'meta.fromHandle': { $regex: searchQuery, $options: 'i' } },
+      ];
+    }
+
+    console.log('Query:', JSON.stringify(query, null, 2)); // Debug log
+
+    // Get total count
+    const totalCount = await FormsData.countDocuments(query);
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Fetch submissions
+    const submissions = await FormsData.find(query)
+      .sort({ submitted_at: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    console.log('Found submissions:', submissions.length); // Debug log
+
+    // Get all form blocks for this user (include is_del: false filter)
+    const formBlocks = await Block.find({
+      user_id: userId,
+      type: 'form',
+      is_del: false
+    }).select('_id name').lean();
+
+    console.log('Form blocks:', formBlocks); // Debug log
+
+    // Get submission counts per form - need to handle both ObjectId and string
+    const submissionCounts = await FormsData.aggregate([
+      {
+        $match: {
+          user_id: userId,
+          is_del: false
+        }
+      },
+      {
+        $group: {
+          _id: "$block_id",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    console.log('Submission counts:', submissionCounts); // Debug log
+
+    // Build counts map - handle both ObjectId and string
+    const countsMap = {};
+    submissionCounts.forEach(item => {
+      const blockIdStr = item._id ? String(item._id) : null;
+      if (blockIdStr) {
+        countsMap[blockIdStr] = item.count;
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        submissions,
+        formBlocks: formBlocks.map(fb => ({
+          ...fb,
+          submissionCount: countsMap[String(fb._id)] || 0
+        })),
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalRecords: totalCount,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+          limit
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching form submissions:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch form submissions",
+      details: error.message
+    });
+  }
+});
+
+
+router.get("/form-submissions/:submissionId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    const { submissionId } = req.params;
+
+    const submission = await FormsData.findOne({
+      _id: submissionId,
+      user_id: userId,
+      is_del: false
+    }).lean();
+
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        error: "Submission not found"
+      });
+    }
+
+    // Fetch the Block to get field labels
+    let fieldLabels = {};
+    if (submission.block_id) {
+      const block = await Block.findOne({
+        _id: submission.block_id,
+        type: 'form',
+        is_del: false
+      }).select('fields').lean();
+
+      if (block && block.fields && Array.isArray(block.fields)) {
+        // Create a map of key -> label
+        block.fields.forEach(field => {
+          if (field.key && field.label) {
+            fieldLabels[field.key] = field.label;
+          }
+        });
+      }
+    }
+
+    // Transform values to include labels
+    const transformedValues = {};
+    Object.entries(submission.values || {}).forEach(([key, value]) => {
+      const label = fieldLabels[key] || key; // Use label if found, otherwise use key
+      transformedValues[key] = {
+        label,
+        value
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...submission,
+        transformedValues, // Send both original and transformed
+        fieldLabels // Send the mapping
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching submission:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch submission"
+    });
+  }
+});
+
+
+
+router.delete("/form-submissions/:submissionId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    const { submissionId } = req.params;
+
+    const result = await FormsData.findOneAndUpdate(
+      {
+        _id: submissionId,
+        user_id: userId
+      },
+      {
+        is_del: true,
+        updated_at: new Date()
+      },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        error: "Submission not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Submission deleted successfully"
+    });
+  } catch (error) {
+    console.error("Error deleting submission:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete submission"
+    });
+  }
+});
+
 
 // Route 3: Delete pending booking (immediate slot release)
 router.delete("/bookings/:bookingId", async (req, res) => {
@@ -5784,7 +6016,7 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
     const userId = req.user?.user_id;
     if (!userId) return res.status(401).json({ error: "Unauthenticated" });
 
-    const { name, action, type = "link", fields, newsletterText, duration, description, bufferTime, interactionType } = req.body;
+    const { name, action, type = "link", fields, newsletterText, duration, description, bufferTime, interactionType, pricing } = req.body;
 
     // Basic validation: name always required
     if (!name || !name.trim()) return res.status(400).json({ error: "name is required" });
@@ -5798,6 +6030,7 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
     if (type === "form") {
       if (fields !== undefined) {
         if (!Array.isArray(fields)) return res.status(400).json({ error: "fields must be an array" });
+        
         normalizedFields = fields.map((f, i) => {
           const key = (f.key || f.name || `field_${i}`).toString();
           const label = (f.label || "").toString();
@@ -5807,26 +6040,47 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
 
           if (!label || !label.trim()) throw { status: 400, message: `field ${i} missing label` };
 
-          const supportedTypes = ["text", "email", "tel", "textarea", "number", "radio"];
-          if (!supportedTypes.includes(ftype)) throw { status: 400, message: `field ${i} has invalid type` };
+          // Updated supported types to include checkbox and select
+          const supportedTypes = ["text", "email", "tel", "textarea", "number", "radio", "checkbox", "select"];
+          if (!supportedTypes.includes(ftype)) throw { status: 400, message: `field ${i} has invalid type: ${ftype}` };
 
           let options = undefined;
-          if (ftype === "radio") {
+          // Handle options for radio, checkbox, and select
+          if (ftype === "radio" || ftype === "checkbox" || ftype === "select") {
             if (f.options === undefined) {
-              throw { status: 400, message: `field ${i} (radio) missing options` };
+              throw { status: 400, message: `field ${i} (${ftype}) missing options` };
             }
             if (Array.isArray(f.options)) {
               options = f.options.map((o) => String(o).trim()).filter(Boolean);
             } else if (typeof f.options === "string") {
               options = f.options.split(",").map((s) => s.trim()).filter(Boolean);
             } else {
-              throw { status: 400, message: `field ${i} (radio) options must be array or comma string` };
+              throw { status: 400, message: `field ${i} (${ftype}) options must be array or comma string` };
             }
-            if (options.length === 0) throw { status: 400, message: `field ${i} (radio) requires at least one option` };
+            if (options.length === 0) throw { status: 400, message: `field ${i} (${ftype}) requires at least one option` };
           }
 
-          const normalized = { key, label: label.trim(), type: ftype, placeholder, required };
+          const normalized = { 
+            key, 
+            label: label.trim(), // Supports multiline questions now
+            type: ftype, 
+            placeholder, 
+            required 
+          };
+          
           if (options !== undefined) normalized.options = options;
+          
+          // For checkbox type, add multiple selection config
+          if (ftype === "checkbox") {
+            normalized.multiple = true;
+            if (f.minSelections !== undefined) {
+              normalized.minSelections = parseInt(f.minSelections) || 0;
+            }
+            if (f.maxSelections !== undefined) {
+              normalized.maxSelections = parseInt(f.maxSelections) || (options ? options.length : undefined);
+            }
+          }
+          
           return normalized;
         });
       } else {
@@ -5845,6 +6099,7 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
         description: description ? String(description).trim() : "",
         bufferTime: bufferTime ? String(bufferTime) : "0",
         interactionType: interactionType ? String(interactionType) : "voice",
+        pricing: pricing ? Number(pricing) : 0,
       };
 
       // Store as normalized fields
@@ -5898,12 +6153,14 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
       payload.bufferTime = parseInt(bufferTime || "0");
       payload.description = description || "";
       payload.interactionType = interactionType || "voice";
+      payload.pricing = pricing || 0;
       
       payload.action = JSON.stringify({
         duration: duration,
         description: description || "",
         bufferTime: bufferTime || "0",
         interactionType: interactionType || "voice",
+        pricing: pricing || 0,
         fields: normalizedFields,
       });
     }
@@ -5934,9 +6191,11 @@ router.post("/save-blocks", authenticateToken, async (req, res) => {
       action: doc.action,
       type: doc.type,
       order: doc.order,
+      fields: doc.fields, // Include fields in response
       duration: doc.duration,
       bufferTime: doc.bufferTime,
       interactionType: doc.interactionType,
+      pricing: doc.pricing,
       created_at: doc.created_at,
       updated_at: doc.updated_at,
     });

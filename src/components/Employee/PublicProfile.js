@@ -389,38 +389,75 @@ const dmEnabled = profile.dm_enabled ?? profile.dmEnabled ?? profile.dmEnabledFl
     setFormSubmitting(false);
   }
 
-  async function submitForm() {
-    if (!currentFormBlock) return;
-    const fields = currentFormBlock._renderFields || [];
-    const errors = {};
-    fields.forEach((f) => {
-      const key = f._key;
-      if (f.required && !String(formValues[key] ?? "").trim()) {
+async function submitForm() {
+  if (!currentFormBlock) return;
+  
+  const fields = currentFormBlock._renderFields || [];
+  const errors = {};
+
+  // Validate each field
+  fields.forEach((f) => {
+    const key = f._key;
+    const value = formValues[key];
+
+    // Required field validation
+    if (f.required) {
+      if (f.type === 'checkbox') {
+        const selectedCount = Array.isArray(value) ? value.length : 0;
+        const minSel = f.minSelections || 1;
+        if (selectedCount < minSel) {
+          errors[key] = `Please select at least ${minSel} option(s)`;
+        }
+      } else if (!value || String(value).trim() === "") {
         errors[key] = `${f.label || "This field"} is required`;
       }
+    }
+
+    // Checkbox max selections validation
+    if (f.type === 'checkbox' && f.maxSelections) {
+      const selectedCount = Array.isArray(value) ? value.length : 0;
+      if (selectedCount > f.maxSelections) {
+        errors[key] = `Please select at most ${f.maxSelections} option(s)`;
+      }
+    }
+  });
+
+  setFormErrors(errors);
+  if (Object.keys(errors).length > 0) return;
+
+  const payload = {
+    blockId: currentFormBlock._id || currentFormBlock.id,
+    blockName: currentFormBlock.name || currentFormBlock.title || "Form",
+    values: formValues,
+    meta: { 
+      submittedAt: new Date().toISOString(), 
+      fromHandle: handle,
+      userAgent: navigator.userAgent || null,
+    },
+  };
+
+  setFormSubmitting(true);
+  try {
+    const res = await axios.post(`${API_BASE}/usersOn/submit-form`, payload, { 
+      withCredentials: false 
     });
-    setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    const payload = {
-      blockId: currentFormBlock._id || currentFormBlock.id,
-      blockName: currentFormBlock.name || currentFormBlock.title || "form",
-      values: formValues,
-      meta: { submittedAt: new Date().toISOString(), fromHandle: handle },
-    };
-
-    setFormSubmitting(true);
-    try {
-      const res = await axios.post(`${API_BASE}/submit-form`, payload, { withCredentials: false });
-      setSnack({ open: true, message: res?.data?.message || "Submitted" });
+    
+    if (res.data.success) {
+      toast.success(res.data.message || "Form submitted successfully!");
+      setFormValues({}); // Reset form values
+      setFormErrors({}); // Reset errors
       closeFormDialog();
-    } catch (err) {
-      console.error("Form submit error:", err);
-      const msg = err?.response?.data?.message || "Failed to submit";
-      setSnack({ open: true, message: msg });
+    } else {
+      toast.error(res.data.message || "Submission failed");
       setFormSubmitting(false);
     }
+  } catch (err) {
+    console.error("Form submit error:", err);
+    const msg = err?.response?.data?.message || "Failed to submit form";
+    toast.error(msg);
+    setFormSubmitting(false);
   }
+}
 
 const truncate = (str = "", max = 100) => {
   if (!str) return "";
@@ -1147,53 +1184,459 @@ if (type === "newsletter") {
       </Grid>
 
       {/* Form dialog (unchanged) */}
-      <Dialog open={formDialogOpen} onClose={closeFormDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{currentFormBlock?.name || currentFormBlock?.title || "Submit form"}</DialogTitle>
+    <Dialog 
+  open={formDialogOpen} 
+  onClose={closeFormDialog} 
+  fullWidth 
+  maxWidth="sm"
+  fullScreen={isMobile} // Add fullScreen for mobile
+  PaperProps={{
+    sx: { 
+      borderRadius: { xs: 0, sm: 3 },
+      maxHeight: { xs: '100vh', sm: '90vh' }
+    }
+  }}
+>
+  {/* Header */}
+  <DialogTitle 
+    sx={{ 
+      fontFamily: 'Inter', 
+      fontSize: { xs: 20, sm: 22 }, 
+      fontWeight: 700,
+      p: { xs: 2, sm: 3 },
+      pb: 2,
+      borderBottom: '1px solid #E5E7EB',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between'
+    }}
+  >
+    <Box>
+      <Typography sx={{ fontSize: { xs: 18, sm: 20 }, fontWeight: 700, fontFamily: 'Inter' }}>
+        {currentFormBlock?.name || currentFormBlock?.title || "Submit Form"}
+      </Typography>
+      <Typography variant="caption" sx={{ color: '#6B7280', fontFamily: 'Inter', mt: 0.5, display: 'block' }}>
+        Please fill out all required fields
+      </Typography>
+    </Box>
+    <IconButton 
+      onClick={closeFormDialog}
+      sx={{ 
+        display: { xs: 'flex', sm: 'none' },
+        color: '#6B7280'
+      }}
+    >
+      <CloseIcon />
+    </IconButton>
+  </DialogTitle>
 
-        <DialogContent>
-          <Box sx={{ mt: 0.5, display: "grid", gap: 1 }}>
-            {currentFormBlock?._renderFields?.length === 0 && (
-              <Typography variant="body2" color="text.secondary">This form has no fields.</Typography>
-            )}
+  <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
+    <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 3 }}>
+      {currentFormBlock?._renderFields?.length === 0 && (
+        <Box sx={{ 
+          p: 4, 
+          textAlign: 'center', 
+          bgcolor: '#F9FAFB', 
+          borderRadius: 2,
+          border: '1px dashed #E5E7EB'
+        }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Inter' }}>
+            This form has no fields to display.
+          </Typography>
+        </Box>
+      )}
 
-            {currentFormBlock?._renderFields?.map((f) => {
-              const key = f._key;
-              const value = formValues[key] ?? "";
-              const error = formErrors[key];
+      {currentFormBlock?._renderFields?.map((f) => {
+        const key = f._key;
+        const value = formValues[key] ?? "";
+        const error = formErrors[key];
+        const fieldType = f.type || "text";
 
-              if ((f.type || "text") === "textarea") {
-                return (
-                  <TextField key={key} fullWidth multiline rows={4} label={f.label || "Field"} placeholder={f.placeholder || ""} value={value} onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))} error={!!error} helperText={error || (f.required ? "Required" : "")} margin="dense" />
-                );
+        // TEXTAREA
+        if (fieldType === "textarea") {
+          return (
+            <Box key={key}>
+              <Typography 
+                sx={{ 
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#1F2937',
+                  mb: 1
+                }}
+              >
+                {f.label || "Field"} {f.required && <span style={{ color: '#EF4444' }}>*</span>}
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                placeholder={f.placeholder || "Type your answer here..."}
+                value={value}
+                onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                error={!!error}
+                helperText={error || (f.required && !error ? "This field is required" : "")}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    bgcolor: '#F9FAFB',
+                    '&:hover': {
+                      bgcolor: '#F3F4F6',
+                    },
+                    '&.Mui-focused': {
+                      bgcolor: '#fff',
+                    }
+                  }
+                }}
+              />
+            </Box>
+          );
+        }
+
+        // RADIO (Single Choice)
+        if (fieldType === "radio") {
+          const opts = Array.isArray(f.options) 
+            ? f.options 
+            : (typeof f.options === "string" ? f.options.split(',').map(s => s.trim()).filter(Boolean) : []);
+          
+          return (
+            <Box key={key}>
+              <Typography 
+                sx={{ 
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#1F2937',
+                  mb: 1.5
+                }}
+              >
+                {f.label} {f.required && <span style={{ color: '#EF4444' }}>*</span>}
+              </Typography>
+              <RadioGroup 
+                value={formValues[key] ?? ""} 
+                onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+              >
+                <Stack spacing={0.5}>
+                  {opts.map((opt, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{
+                        border: '1px solid #E5E7EB',
+                        borderRadius: 2,
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          bgcolor: '#F9FAFB',
+                          borderColor: '#667eea'
+                        }
+                      }}
+                    >
+                      <FormControlLabel 
+                        value={opt} 
+                        control={
+                          <Radio 
+                            sx={{
+                              color: '#9CA3AF',
+                              '&.Mui-checked': {
+                                color: '#667eea',
+                              }
+                            }}
+                          />
+                        } 
+                        label={
+                          <Typography sx={{ fontFamily: 'Inter', fontSize: 14, color: '#374151' }}>
+                            {opt}
+                          </Typography>
+                        }
+                        sx={{ 
+                          m: 0,
+                          p: 1.5,
+                          width: '100%'
+                        }}
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              </RadioGroup>
+              {error && (
+                <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block', fontFamily: 'Inter' }}>
+                  {error}
+                </Typography>
+              )}
+            </Box>
+          );
+        }
+
+        // CHECKBOX (Multiple Choice)
+        if (fieldType === "checkbox") {
+          const opts = Array.isArray(f.options) 
+            ? f.options 
+            : (typeof f.options === "string" ? f.options.split(',').map(s => s.trim()).filter(Boolean) : []);
+          
+          const selectedValues = Array.isArray(formValues[key]) ? formValues[key] : [];
+
+          const handleCheckboxChange = (optValue) => {
+            setFormValues((s) => {
+              const current = Array.isArray(s[key]) ? s[key] : [];
+              const updated = current.includes(optValue)
+                ? current.filter(v => v !== optValue)
+                : [...current, optValue];
+              return { ...s, [key]: updated };
+            });
+          };
+
+          return (
+            <Box key={key}>
+              <Typography 
+                sx={{ 
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#1F2937',
+                  mb: 1.5
+                }}
+              >
+                {f.label} {f.required && <span style={{ color: '#EF4444' }}>*</span>}
+              </Typography>
+              
+              {/* Selection hint */}
+              {(f.minSelections > 0 || f.maxSelections > 0) && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: '#6B7280',
+                    fontFamily: 'Inter',
+                    display: 'block',
+                    mb: 1
+                  }}
+                >
+                  {f.minSelections > 0 && f.maxSelections > 0
+                    ? `Select ${f.minSelections} to ${f.maxSelections} options`
+                    : f.minSelections > 0
+                    ? `Select at least ${f.minSelections} option(s)`
+                    : `Select up to ${f.maxSelections} option(s)`}
+                </Typography>
+              )}
+
+              <Stack spacing={0.5}>
+                {opts.map((opt, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      border: '1px solid #E5E7EB',
+                      borderRadius: 2,
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        bgcolor: '#F9FAFB',
+                        borderColor: '#667eea'
+                      }
+                    }}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={selectedValues.includes(opt)}
+                          onChange={() => handleCheckboxChange(opt)}
+                          sx={{
+                            color: '#9CA3AF',
+                            '&.Mui-checked': {
+                              color: '#667eea',
+                            }
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography sx={{ fontFamily: 'Inter', fontSize: 14, color: '#374151' }}>
+                          {opt}
+                        </Typography>
+                      }
+                      sx={{ 
+                        m: 0,
+                        p: 1.5,
+                        width: '100%'
+                      }}
+                    />
+                  </Box>
+                ))}
+              </Stack>
+              
+              {error && (
+                <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block', fontFamily: 'Inter' }}>
+                  {error}
+                </Typography>
+              )}
+            </Box>
+          );
+        }
+
+        // SELECT (Dropdown)
+        if (fieldType === "select") {
+          const opts = Array.isArray(f.options) 
+            ? f.options 
+            : (typeof f.options === "string" ? f.options.split(',').map(s => s.trim()).filter(Boolean) : []);
+          
+          return (
+            <Box key={key}>
+              <Typography 
+                sx={{ 
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#1F2937',
+                  mb: 1
+                }}
+              >
+                {f.label} {f.required && <span style={{ color: '#EF4444' }}>*</span>}
+              </Typography>
+              <FormControl fullWidth error={!!error}>
+                <Select
+                  value={formValues[key] ?? ""}
+                  onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+                  displayEmpty
+                  sx={{ 
+                    borderRadius: 2,
+                    bgcolor: '#F9FAFB',
+                    fontFamily: 'Inter',
+                    '&:hover': {
+                      bgcolor: '#F3F4F6',
+                    },
+                    '&.Mui-focused': {
+                      bgcolor: '#fff',
+                    }
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    <em style={{ color: '#9CA3AF' }}>-- Select an option --</em>
+                  </MenuItem>
+                  {opts.map((opt, idx) => (
+                    <MenuItem key={idx} value={opt} sx={{ fontFamily: 'Inter' }}>
+                      {opt}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {error && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, fontFamily: 'Inter' }}>
+                    {error}
+                  </Typography>
+                )}
+                {!error && f.required && (
+                  <Typography variant="caption" sx={{ mt: 0.5, color: '#6B7280', fontFamily: 'Inter' }}>
+                    This field is required
+                  </Typography>
+                )}
+              </FormControl>
+            </Box>
+          );
+        }
+
+        // DEFAULT: TEXT, EMAIL, TEL, NUMBER
+        return (
+          <Box key={key}>
+            <Typography 
+              sx={{ 
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#1F2937',
+                mb: 1
+              }}
+            >
+              {f.label || "Field"} {f.required && <span style={{ color: '#EF4444' }}>*</span>}
+            </Typography>
+            <TextField
+              fullWidth
+              placeholder={f.placeholder || "Type your answer here..."}
+              type={
+                fieldType === "tel" ? "tel" :
+                fieldType === "email" ? "email" :
+                fieldType === "number" ? "number" :
+                "text"
               }
-
-              if (f.type === "radio") {
-                const opts = Array.isArray(f.options) ? f.options : (typeof f.options === "string" ? f.options.split(',').map(s => s.trim()).filter(Boolean) : []);
-                return (
-                  <FormControl key={key} component="fieldset" margin="dense" error={!!error}>
-                    <FormLabel component="legend">{f.label}</FormLabel>
-                    <RadioGroup value={formValues[key] ?? ""} onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}>
-                      {opts.map((opt, idx) => (<FormControlLabel key={idx} value={opt} control={<Radio />} label={opt} />))}
-                    </RadioGroup>
-                    {error && <Typography variant="caption" color="error">{error}</Typography>}
-                  </FormControl>
-                );
-              }
-
-              return (
-                <TextField key={key} fullWidth label={f.label || "Field"} placeholder={f.placeholder || ""} type={f.type === "tel" ? "tel" : f.type === "email" ? "email" : "text"} value={value} onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))} error={!!error} helperText={error || (f.required ? "Required" : "")} margin="dense" />
-              );
-            })}
+              value={value}
+              onChange={(e) => setFormValues((s) => ({ ...s, [key]: e.target.value }))}
+              error={!!error}
+              helperText={error || (f.required && !error ? "This field is required" : "")}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  bgcolor: '#F9FAFB',
+                  '&:hover': {
+                    bgcolor: '#F3F4F6',
+                  },
+                  '&.Mui-focused': {
+                    bgcolor: '#fff',
+                  }
+                }
+              }}
+            />
           </Box>
-        </DialogContent>
+        );
+      })}
+    </Box>
+  </DialogContent>
 
-        <DialogActions sx={{ gap: 1, p: 2 }}>
-          <Button onClick={closeFormDialog} variant="text">Cancel</Button>
-          <Button onClick={submitForm} variant="contained" disabled={formSubmitting}>
-            {formSubmitting ? <CircularProgress size={18} /> : "Submit"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+  <DialogActions 
+    sx={{ 
+      gap: 1.5, 
+      p: { xs: 2, sm: 3 },
+      borderTop: '1px solid #E5E7EB',
+      flexDirection: { xs: 'column', sm: 'row' }
+    }}
+  >
+    <Button 
+      onClick={closeFormDialog} 
+      variant="outlined"
+      fullWidth={isMobile}
+      sx={{ 
+        textTransform: 'none', 
+        fontWeight: 600,
+        fontFamily: 'Inter',
+        borderRadius: 2,
+        borderColor: '#E5E7EB',
+        color: '#374151',
+        py: 1.25,
+        '&:hover': {
+          borderColor: '#9CA3AF',
+          bgcolor: '#F9FAFB'
+        }
+      }}
+    >
+      Cancel
+    </Button>
+    <Button 
+      onClick={submitForm} 
+      variant="contained" 
+      disabled={formSubmitting}
+      fullWidth={isMobile}
+      sx={{
+        textTransform: 'none',
+        fontWeight: 600,
+        fontFamily: 'Inter',
+        borderRadius: 2,
+        py: 1.25,
+        px: 4,
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+        '&:hover': {
+          background: 'linear-gradient(135deg, #5568d3 0%, #6941a5 100%)',
+          boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+        },
+        '&:disabled': {
+          background: '#E5E7EB',
+          color: '#9CA3AF'
+        }
+      }}
+    >
+      {formSubmitting ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <CircularProgress size={18} sx={{ color: '#fff' }} />
+          <span>Submitting...</span>
+        </Box>
+      ) : (
+        "Submit Form"
+      )}
+    </Button>
+  </DialogActions>
+</Dialog>
 
 
    <Dialog open={newsletterDialogOpen} onClose={() => { if (!newsletterSubmitting) closeNewsletterDialog(); }} fullWidth maxWidth="sm">

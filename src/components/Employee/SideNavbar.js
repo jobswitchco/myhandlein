@@ -43,6 +43,8 @@ import CurrencyRupeeOutlinedIcon from "@mui/icons-material/CurrencyRupeeOutlined
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import { logout } from "../../store/professionalSlice";
 import { useDispatch } from "react-redux";
+import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
+
 
 
 const theme = createTheme({
@@ -339,7 +341,7 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-                {/* Inbox */}
+                {/* 1:1 Sessions */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/booking/sessions")}
@@ -371,6 +373,45 @@ export default function SideNavbar({ window }) {
                       sx: {
                         color: location.pathname === "/professional/booking/sessions" ? "#FFFFFF" : "#6B7280",
                         fontWeight: location.pathname === "/professional/booking/sessions" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+
+                {/* Form Submissions */}
+              <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/my/formsubmissions")}
+                  selected={location.pathname === "/professional/my/formsubmissions"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/my/formsubmissions" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <FeedOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/my/formsubmissions" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Form Submissions"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/my/formsubmissions" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/my/formsubmissions" ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}
