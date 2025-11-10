@@ -4,7 +4,7 @@ import axios from "axios";
 
 export default function Hero({
   logos = {},
-  heroImage = "https://storage.googleapis.com/myhandlebucket/hero_img.webp"
+  heroImage = "https://storage.googleapis.com/myhandlebucket/hero_img_main.webp"
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
