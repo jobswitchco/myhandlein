@@ -28,12 +28,11 @@ const FieldSchema = new Schema(
 
 const BlockSchema = new Schema(
   {
-    user_id: { type: Schema.Types.ObjectId, required: true, index: true, ref: "users" },
+    user_id: { type: Schema.Types.ObjectId, required: true, ref: "users" },
     type: {
       type: String,
       enum: ["link", "video", "product", "store", "form", "cta", "newsletter", "booking"],
       required: true,
-      index: true,
     },
 
     name: { type: String, required: true, trim: true },
@@ -60,18 +59,18 @@ const BlockSchema = new Schema(
     interactionType: { type: String, required: false, default: 'voice' },
     pricing: { type: Number, required: false, default: 0 }, 
 
-    order: { type: Number, required: true, default: 1000, index: true },
+    order: { type: Number, required: true, default: 1000},
     published: { type: Boolean, default: true },
     archived: { type: Boolean, default: false },
 
     is_del: { type: Boolean, default: false },
     clicks: { type: Number, default: 0 },
     link_click_analytics: [{
-      ip: { type: String, index: true },
+      ip: { type: String },
       user_agent: { type: String },
       referrer: { type: String },
-      country: { type: String, index: true },
-      country_code: { type: String, index: true },
+      country: { type: String },
+      country_code: { type: String },
       region: { type: String },
       city: { type: String },
       postal: { type: String },
@@ -100,8 +99,11 @@ BlockSchema.pre("findOneAndUpdate", function (next) {
 });
 
 // Indexes
+BlockSchema.index({ user_id: 1 });
 BlockSchema.index({ user_id: 1, order: 1 });
 BlockSchema.index({ user_id: 1, type: 1 });
+BlockSchema.index({ user_id: 1, type: 1, is_del: 1 });
+BlockSchema.index({ user_id: 1, is_del: 1 });
 
 const BlockModel = mongoose.model("blocks", BlockSchema);
 export default BlockModel;

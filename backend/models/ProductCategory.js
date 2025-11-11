@@ -21,6 +21,8 @@ const ProductCategory_Schema = new Schema({
     }
 });
 
+ProductCategory_Schema.index({ user_id: 1, is_del: 1, name: 1});
+
 
 const ProductCategory_Schema_Model = mongoose.model('product_categories', ProductCategory_Schema);
 export default ProductCategory_Schema_Model;

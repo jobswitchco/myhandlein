@@ -19,9 +19,6 @@ const Transaction_Schema = new Schema(
   phone: String,
 },
 
-customerBookingId: { type: String, unique: true, sparse: true, index: true },
-
-
 
 paymentMethod: {
   type: { type: String },        // 'card' | 'netbanking' | 'upi' | 'wallet' | 'emi' | ...
@@ -46,6 +43,10 @@ cancellationReason: {
   default: null
 },
 
+
+customerBookingId: { type: String, unique: true, sparse: true, index: true },
+
+
 razorpay: {
   order: Object,                 // full order object (rawOrder already stored)
   payment: Object                // store full payment object for audit
@@ -67,6 +68,9 @@ razorpay: {
   paidAt: { type: Date }
   },
 );
+
+Transaction_Schema.index({ userId: 1, subdomain: 1, status: 1  });
+
 
 const TransactionsModel = mongoose.models.transactions || mongoose.model("transactions", Transaction_Schema);
 export default TransactionsModel;

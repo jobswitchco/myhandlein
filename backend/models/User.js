@@ -59,6 +59,10 @@ const User_Schema = new Schema({
   updated_at: { type: Date },
 });
 
+User_Schema.index({ email: 1, handleUserName: 1 }, { unique: true });
+
+
+
 // Register model as "User" but use existing collection "users"
 const User = mongoose.models.User || mongoose.model("User", User_Schema, "users");
 export default User;

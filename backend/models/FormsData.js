@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 const { Schema } = mongoose;
 
 const FormsData_Schema = new Schema({
-  block_id: { type: Schema.Types.ObjectId, ref: "blocks", index: true, required: false },
-  user_id: { type: Schema.Types.ObjectId, ref: "users", index: true, required: false },
+  block_id: { type: Schema.Types.ObjectId, ref: "blocks", required: false },
+  user_id: { type: Schema.Types.ObjectId, ref: "users", required: false },
   block_name: { type: String, required: false },
   
   // Store form field values (supports text, checkbox arrays, etc.)
@@ -24,7 +24,7 @@ const FormsData_Schema = new Schema({
   latitude: { type: String, required: false },
   longitude: { type: String, required: false },
   
-  submitted_at: { type: Date, default: Date.now, index: true },
+  submitted_at: { type: Date, default: Date.now },
   is_del: { type: Boolean, default: false },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
@@ -42,8 +42,7 @@ FormsData_Schema.pre("findOneAndUpdate", function (next) {
 });
 
 // Indexes for performance
-FormsData_Schema.index({ user_id: 1, submitted_at: -1 });
-FormsData_Schema.index({ block_id: 1, submitted_at: -1 });
+FormsData_Schema.index({ user_id: 1, is_del: 1 });
 
 const FormsData_Schema_Model = mongoose.model("forms_data", FormsData_Schema);
 export default FormsData_Schema_Model;

@@ -55,11 +55,7 @@ const Newsletter_Schema = new Schema(
   }
 );
 
-// Optional index to speed lookups by user+block
-Newsletter_Schema.index({ user_id: 1, blockId: 1 });
-
-// you could also index email if you want to find a particular email fast across docs
-// Newsletter_Schema.index({ "emails.email": 1 });
+Newsletter_Schema.index({ user_id: 1, blockId: 1, is_del: 1});
 
 const Newsletter_Schema_Model = mongoose.model("newsletters", Newsletter_Schema);
 export default Newsletter_Schema_Model;

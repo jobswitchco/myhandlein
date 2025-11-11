@@ -4,14 +4,14 @@ const { Schema } = mongoose;
 const LanguageSchema = new Schema({
   name: { type: String },
   native: { type: String },
-  code: { type: String, index: true }, // e.g. "hi", "en"
+  code: { type: String }, // e.g. "hi", "en"
 }, { _id: false });
 
 
 
 const PageAnalytics_Schema = new Schema({
 
-    user_id: { type: Schema.Types.ObjectId, ref: "users", index: true, required: false },
+    user_id: { type: Schema.Types.ObjectId, ref: "users", required: false },
     user_agent: { type: String, required: false },
     referrer: { type: String, required: false },
     ip: { type: String, required: false },
@@ -35,6 +35,9 @@ const PageAnalytics_Schema = new Schema({
     type: Date,
   }
 });
+
+PageAnalytics_Schema.index({ user_id: 1, created_at: 1, is_del: 1});
+
 
 const PageAnalytics_Schema_Model = mongoose.model("page_analytics", PageAnalytics_Schema);
 export default PageAnalytics_Schema_Model;

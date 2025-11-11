@@ -12,7 +12,7 @@ const ButtonSchema = new Schema(
 
 const DMSchema = new Schema(
   {
-    enabled: { type: Boolean, default: false, index: true },
+    enabled: { type: Boolean, default: false },
     message: { type: String, trim: true },
     button: { type: ButtonSchema, default: undefined },
   },
@@ -38,12 +38,12 @@ const RunStatsSchema = new Schema(
 
 const AutomationSchema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "users", required: true, index: true },
-    platform: { type: String, enum: ["instagram"], default: "instagram", index: true },
-    postId: { type: String, required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "users", required: true },
+    platform: { type: String, enum: ["instagram"], default: "instagram" },
+    postId: { type: String, required: true },
     repliedCount: { type: Number, default: 0 },
     thumbnail: { type: String },
-    postLive: { type: Boolean, default: true, index: true }, // NEW FIELD
+    postLive: { type: Boolean, default: true }, // NEW FIELD
     lastCheckedAt: { type: Date, default: Date.now }, // NEW FIELD - tracks last verification
     keywords: {
       type: [String],
@@ -73,7 +73,8 @@ const AutomationSchema = new Schema(
 );
 
 AutomationSchema.index({ userId: 1, postId: 1 }, { unique: true });
-AutomationSchema.index({ status: 1, platform: 1, postId: 1 });
+AutomationSchema.index({ userId: 1}, { unique: true });
+AutomationSchema.index({ platform: 1, postId: 1, status: 1 });
 AutomationSchema.index({ "runStats.lastRunAt": 1 });
 AutomationSchema.index({ postLive: 1, userId: 1 }); // NEW INDEX
 
