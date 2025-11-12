@@ -870,7 +870,7 @@ const handleBlockTypeSelect = (blockType) => {
 
   async function saveProfileField(payload) {
     try {
-      const res = await api.post("/update-profile", payload, { headers: { "Content-Type": "application/json" } });
+      const res = await api.post("/update-profile", payload, { withCredentials : true });
       if (res.data.success) {
         setUserDetails((prev) => ({ ...prev, ...payload }));
         if (payload.name !== undefined) setName(payload.name);

@@ -5148,6 +5148,13 @@ router.post("/analytics/blocks", authenticateToken, async (req, res) => {
 });
 
 
+// Index sync For all models
+// const models = [User, Bookings, Block, FormsData, ActionLock];
+// for (const model of models) {
+//   await model.syncIndexes();
+//   console.log(`✓ Synced indexes for ${model.collection.name}`);
+// }
+
 router.post("/product-analytics/table", authenticateToken, async (req, res) => {
   try {
     const userId =
@@ -6545,6 +6552,30 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   
     })
   });
+
+  router.post('/update-profile', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const { name, intro } = req.body;
+    if (name === undefined && intro === undefined) return res.status(400).json({ success: false, message: 'Nothing to update' });
+
+    const update = {};
+    if (name !== undefined) update.name = String(name).trim();
+    if (intro !== undefined) update.intro = String(intro).trim();
+    update.updated_at = new Date();
+
+    const user = await USER.findByIdAndUpdate(userId, update, { new: true, upsert: false }).lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    return res.json({ success: true, user });
+  } catch (err) {
+    console.error('update-profile error', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
   router.post('/update-block-order', authenticateToken, async (req, res) => {
   try {
