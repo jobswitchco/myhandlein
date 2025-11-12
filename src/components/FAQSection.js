@@ -17,7 +17,7 @@ const faqs = [
   {
     question: "What exactly is myHandle?",
     answer: `
-myHandle is a **link-in-bio mini site**: one fast page with your links, actions (WhatsApp, Call, Maps), payments, and analytics — all on a **custom subdomain** like <strong>yourname.myhandle.in</strong>.
+MyHandle is a **link-in-bio mini site**: one fast page with your links, actions (WhatsApp, Call, Maps), payments, and analytics — all on a **custom subdomain** like <strong>yourname.myhandle.in</strong>.
 
 - Built to be **mobile-first** and super quick to launch.
 - Great for Instagram, YouTube, LinkedIn bios, QR codes, and business cards.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import metaIcon from "../images/meta.png"
 
 export default function Hero({
   logos = {},
@@ -251,6 +252,102 @@ const inputWrapStyle = {
     fontSize: "clamp(0.95rem, 1.8vw, 1.2rem)",
     color: "#543A14"
   };
+
+  // Add this new component after your existing icon components (CheckIcon, CrossIcon, etc.)
+const MetaVerifiedBlock = () => {
+  const metaBlockStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: isMobile ? "12px" : "16px",
+    padding: isMobile ? "14px 16px" : "16px 20px",
+    // background: "linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%)",
+    // border: "1px solid #C8E6C9",
+    // borderRadius: "12px",
+    marginTop: "12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+    maxWidth: isMobile ? "100%" : "580px"
+  };
+
+  const metaIconStyle = {
+    width: isMobile ? "42px" : "60px",
+    height: isMobile ? "42px" : "60px",
+    objectFit: "contain",
+    flexShrink: 0
+  };
+
+  const leftSectionStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flexShrink: 0,
+    textAlign: "left"
+  };
+
+  const textColumnStyle = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px"
+  };
+
+  const metaTextStyle = {
+    fontSize: isMobile ? "20px" : "48px",
+    fontWeight: 600,
+    color: "#000000",
+    lineHeight: 1.2
+  };
+
+  const techProviderStyle = {
+    fontSize: isMobile ? "14px" : "18px",
+    fontWeight: 500,
+    color: "#44444E",
+    lineHeight: 1.2
+  };
+
+  const dividerStyle = {
+    width: "1px",
+    height: isMobile ? "36px" : "40px",
+    background: "linear-gradient(to bottom, transparent, #C8E6C9 20%, #C8E6C9 80%, transparent)",
+    flexShrink: 0
+  };
+
+  const descriptionStyle = {
+    fontSize: isMobile ? "14px" : "15px",
+    fontWeight: 500,
+    color: "#44444E",
+    lineHeight: 1.4,
+    flex: 1,
+    marginTop: '12px',
+    textAlign: "left"
+
+  };
+
+  return (
+    <div style={metaBlockStyle}>
+      {/* Left: Icon + Meta Text */}
+      <div style={leftSectionStyle}>
+        <img 
+          src={metaIcon}
+          alt="Meta" 
+          style={metaIconStyle}
+        />
+        <div style={textColumnStyle}>
+          <span style={metaTextStyle}>Meta</span>
+          <span style={techProviderStyle}>Tech Provider</span>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={dividerStyle}></div>
+
+      {/* Right: Description */}
+      <p style={descriptionStyle}>
+        MyHandle has been certified by Meta as a Verified Tech Provider.
+      </p>
+    </div>
+  );
+};
+
+
 
     const highlightText = {
     color: "#B82132",
@@ -540,9 +637,13 @@ const inputWrapStyle = {
           </div>
 
 
-     <div style={captionStyle}>
-  Trusted by <span style={{ display : 'inline', fontWeight : 500}}>65,000+</span> Indian Influencers.</div>
+   <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start' }}>
+
+  <MetaVerifiedBlock />
 </div>
+</div>
+
+
 
 
         {/* RIGHT: Image */}
@@ -552,7 +653,6 @@ const inputWrapStyle = {
               src={heroImage}
               alt="Showcase of MyHandle link-in-bio on mobile and desktop"
               style={heroImgStyle}
-              loading="lazy"
             />
           ) : null}
         </div>
