@@ -65,7 +65,7 @@ const leftColStyle = {
   textAlign: isMobile ? "center" : "left",
   minWidth: 0,
   width: "100%", // ✅ ADD THIS - ensures full width control
-  padding: isMobile ? "0 12px" : "0", // ✅ ADD THIS - applies padding to entire left column
+  padding: isMobile ? "0 4px" : "0", // ✅ ADD THIS - applies padding to entire left column
 };
 
 
