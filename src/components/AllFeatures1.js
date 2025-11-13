@@ -83,14 +83,14 @@ const FullWidthCard = styled(Card)(({ theme }) => ({
   },
 }));
 
-const AllFeatures1 = () => {
+const FeatureCards = () => {
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
 
   const topCards = [
     {
       image:
-        "https://storage.googleapis.com/myhandlebucket/Screenshot%202025-11-10%20235514-min.png",
+        "https://storage.googleapis.com/myhandlebucket/landingPageImg/Bio_page_img_main.webp",
       heading: "Bio Page",
       description:
         "Turn profile visitors into customers with a high-converting bio page that brings together your links, offers, products, and CTAs — all in one place.",
@@ -98,7 +98,7 @@ const AllFeatures1 = () => {
     },
     {
       image:
-        "https://storage.cloud.google.com/myhandlebucket/AutoDMFeature.png?authuser=1",
+        "https://storage.googleapis.com/myhandlebucket/landingPageImg/AutoDM_Img_Main-min.png",
       heading: "Auto DM",
       description:
         "Automate replies, private message, and convert conversations into customers with Instagram DM Automation. Unlimited Contacts.",
@@ -106,7 +106,7 @@ const AllFeatures1 = () => {
     },
     {
       image:
-        "https://storage.googleapis.com/myhandlebucket/11session.png",
+        "https://storage.googleapis.com/myhandlebucket/landingPageImg/Book_consultation_img_main-min.png",
       heading: "1:1 Consultation",
       description:
         "Schedule paid consultations, connect with clients directly, and deliver personalized value through seamless 1:1 bookings. Automate Bookings.",
@@ -116,7 +116,7 @@ const AllFeatures1 = () => {
 
   const bottomCard = {
     image:
-      "https://storage.googleapis.com/myhandlebucket/sellDigital.png",
+      "https://storage.googleapis.com/myhandlebucket/landingPageImg/Digital_store_img_main-min.png",
     heading: "Sell Digital Products",
     description:
       "Sell ebooks, courses, templates, and digital downloads with a simple one-page checkout — no drop-offs, no website needed.",
@@ -231,4 +231,4 @@ const AllFeatures1 = () => {
   );
 };
 
-export default AllFeatures1;
+export default FeatureCards;

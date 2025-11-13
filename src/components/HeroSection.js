@@ -4,16 +4,11 @@ import axios from "axios";
 import metaIcon from "../images/meta.png"
 
 export default function Hero({
-  logos = {},
   heroImage = "https://storage.googleapis.com/myhandlebucket/hero_img_main.webp"
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
   const navigate = useNavigate();
-
-  // NEW: availability state
-  // idle = nothing yet, checking = debounce in progress or request in flight
-  // available / taken / invalid / error
   const [availability, setAvailability] = useState("idle");
   const [message, setMessage] = useState("");
   const abortRef = useRef(null);
@@ -38,12 +33,6 @@ export default function Hero({
     };
   }, []);
 
-  // === Highlight tokens
-  const padX = "clamp(0.05em, 1.4vw, 0.05em)";
-  const highlightHeight = "clamp(0.42em, 1.8vw, 0.42em)";
-  const highlightRadius = "0px";
-  const highlightColor = "linear-gradient(120deg, #FFFFFF 0%, #DC143C 80%, #DC143C 100%)";
-  const barOffset = "65%";
 
   // === Inline styles
   const containerStyle = {
@@ -74,8 +63,11 @@ const leftColStyle = {
   flexDirection: "column",
   alignItems: isMobile ? "center" : "flex-start",
   textAlign: isMobile ? "center" : "left",
-  minWidth: 0,              // ✅ allow children to shrink inside flex
+  minWidth: 0,
+  width: "100%", // ✅ ADD THIS - ensures full width control
+  padding: isMobile ? "0 12px" : "0", // ✅ ADD THIS - applies padding to entire left column
 };
+
 
 const rightColStyle = {
   flex: isMobile ? "0 1 auto" : "1 1 30%",
@@ -95,14 +87,6 @@ const rightColStyle = {
     objectFit: "cover"
   };
 
-  const flagImgStyle = {
-  width: "32px",
-  height: "22px",
-  objectFit: "cover",
-  borderRadius: "2px",
-  verticalAlign: "middle",
-  marginLeft: "6px"
-};
 
 
 const subStyle = {
@@ -112,7 +96,6 @@ const subStyle = {
   margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
   marginTop: "1rem",
   textAlign: "left",
-  padding: isMobile ? "0px 12px 0px 12px" : "0"
 
 };
 
@@ -138,17 +121,16 @@ const subStyleDataBlock = {
 
 
   const headlineStyle = {
-    fontSize: "clamp(2.4rem, 5vw, 3rem)",
+    fontSize: "clamp(2rem, 4vw, 2.5rem)",
     fontWeight: 800,
     margin: "0 0 clamp(12px, 2vw, 16px) 0",
     fontFamily: "-apple-system, BlinkMacSystemFont, Inter, 'Helvetica Neue', Arial",
     textAlign: 'left',
-    padding: isMobile ? "0px 12px 0px 12px" : "0"
   };
 
   const mobileHeadlineStyle = {
     ...headlineStyle,
-    fontSize: "clamp(2.2rem, 5vw, 4rem)",
+    fontSize: "clamp(2rem, 4vw, 3.5rem)",
 
   };
 
@@ -161,7 +143,6 @@ const subStyleDataBlock = {
     justifyContent: isMobile ? "center" : "flex-start",
     alignItems: "stretch",
     marginTop: "clamp(8px, 2vw, 16px)",
-    padding: isMobile ? "0px 12px 0px 12px" : "0"
 
   };
 
@@ -226,32 +207,9 @@ const inputWrapStyle = {
     ? { transform: "translateY(-1px)", boxShadow: "0 10px 18px rgba(0,0,0,0.16)" }
     : {};
 
-  const socialRowStyle = {
-    display: "flex",
-    gap: "clamp(10px, 2vw, 18px)",
-    justifyContent: isMobile ? "center" : "flex-start",
-    alignItems: "center",
-    marginTop: "clamp(16px, 3vw, 24px)"
-  };
-
-  const iconWrapStyle = {
-    width: "clamp(22px, 5vw, 32px)",
-    height: "clamp(22px, 5vw, 32px)",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 6,
-    background: "transparent",
-    overflow: "hidden"
-  };
 
   const logoImgStyle = { width: "75%", height: "75%", objectFit: "contain", display: "block" };
 
-  const captionStyle = {
-    marginTop: "clamp(12px, 2.5vw, 18px)",
-    fontSize: "clamp(0.95rem, 1.8vw, 1.2rem)",
-    color: "#543A14"
-  };
 
   // Add this new component after your existing icon components (CheckIcon, CrossIcon, etc.)
 const MetaVerifiedBlock = () => {
@@ -352,7 +310,7 @@ const MetaVerifiedBlock = () => {
     const highlightText = {
     color: "#B82132",
     display: "inline-flex",
-     fontSize: "clamp(2.4rem, 5vw, 3rem)",
+     fontSize: "clamp(2rem, 4vw, 2.5rem)",
     fontWeight: 800,
     fontFamily: "-apple-system, BlinkMacSystemFont, Inter, 'Helvetica Neue', Arial",
  
@@ -362,7 +320,7 @@ const MetaVerifiedBlock = () => {
      const highlightTextMobile = {
     color: "#B82132",
     display: "inline-flex",
-     fontSize: "clamp(2.2rem, 5vw, 4rem)",
+     fontSize: "clamp(2rem, 4vw, 3.5rem)",
     fontWeight: 800,
     fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
  
@@ -393,13 +351,6 @@ const MetaVerifiedBlock = () => {
       : availability === "error"
       ? "#7c3aed" // violet-700
       : "#4C763B"; // gray-500
-
-  const renderLogo = (src, alt) => {
-    const fallback = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
-    const imageSrc = src || fallback;
-    return <img src={imageSrc} alt={alt} style={logoImgStyle} />;
-  };
-
 
 
   // Sanitize input to allowed subdomain chars
@@ -464,7 +415,7 @@ const MetaVerifiedBlock = () => {
           return;
         }
         setAvailability("error");
-        setMessage("Couldn’t check right now. Please try again.");
+        setMessage("Couldn't check right now. Please try again.");
       }
     }, 400); // 400ms debounce
 
@@ -653,6 +604,7 @@ const MetaVerifiedBlock = () => {
               src={heroImage}
               alt="Showcase of MyHandle link-in-bio on mobile and desktop"
               style={heroImgStyle}
+              fetchpriority="high"
             />
           ) : null}
         </div>

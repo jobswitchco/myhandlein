@@ -25,7 +25,7 @@ const OPTIONS = [
       "Build beautiful, high-converting forms to capture emails, phone numbers, and audience insights — all in one place.",
     cta: "Try it Free",
     image:
-      "https://framerusercontent.com/images/sNaEJSR8r2hUVXT6OAOQxTPAWg.png?scale-down-to=1024&width=3309&height=2133",
+      "https://storage.googleapis.com/myhandlebucket/landingPageImg/LeadMagnet_img_main-min.png",
     bg: "#2F7D60",
   },
   {
@@ -36,7 +36,7 @@ const OPTIONS = [
       "Build, publish and sell video courses with student management, payments and instant access.",
     cta: "Create Course",
     image:
-      "https://framerusercontent.com/images/sNaEJSR8r2hUVXT6OAOQxTPAWg.png?scale-down-to=1024&width=3309&height=2133",
+      "https://storage.googleapis.com/myhandlebucket/landingPageImg/Digital_courses_img_main-min.png",
     bg: "#4A70A9",
   },
   {
@@ -47,7 +47,7 @@ const OPTIONS = [
       "Sell tickets, handle registrations, and keep attendees updated — all in one simple dashboard.",
     cta: "Create Event",
     image:
-      "https://framerusercontent.com/images/sNaEJSR8r2hUVXT6OAOQxTPAWg.png?scale-down-to=1024&width=3309&height=2133",
+      "https://storage.googleapis.com/myhandlebucket/landingPageImg/Tickets_image_main-min.png",
     bg: "#D76C82",
   },
 ];
@@ -176,7 +176,7 @@ export default function AllFeatures2() {
             lineHeight: 1.05,
           }}
         >
-          Drive more revenue
+          Grow your earnings faster
         </Typography>
         <Typography
           component="p"
@@ -188,7 +188,7 @@ export default function AllFeatures2() {
             color: theme.palette.text.primary,
           }}
         >
-          with tools for monetization
+          with powerful tools built for monetization
         </Typography>
       </Box>
 
@@ -220,8 +220,7 @@ export default function AllFeatures2() {
                 color: "#fff",
                 fontWeight: 800,
                 fontSize: { md: "34px" },
-                mb: 2,
-              }}
+                mb: 2              }}
             >
               {selectedItem.heading}
             </Typography>
@@ -273,10 +272,8 @@ export default function AllFeatures2() {
                 key={opt.id}
                 data-id={opt.id}
                 sx={{
-                  border:
-                    opt.id === selected
-                      ? `2px solid ${theme.palette.primary.main}`
-                      : "none",
+                  border: "none",
+                  height: '500px',
                 }}
                 onClick={() => setSelected(opt.id)}
               >
@@ -284,35 +281,35 @@ export default function AllFeatures2() {
                 <Box
                   sx={{
                     width: "100%",
-                    height: 180,
+                    height: 260,
                     backgroundImage: `url(${opt.image})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                   }}
                 />
-                <CardContent sx={{ flexGrow: 1 }}>
+                <CardContent sx={{ flexGrow: 1, py: 2 }}>
                   <Typography
                     variant="h6"
                     component="h3"
-                    sx={{ fontWeight: 800, mb: 1 }}
+                    sx={{ fontWeight: 700, mb: 1, mt: 2, fontFamily : 'Inter', fontSize : '20px' }}
                   >
                     {opt.heading}
                   </Typography>
                   <Typography
                     variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
+                    color="text.primary"
+                    sx={{ mb: 2, fontFamily : 'Inter', fontWeight : 400, fontSize : '15px' }}
                   >
                     {opt.description}
                   </Typography>
                   <Button
-                    size="small"
-                    variant={opt.id === selected ? "contained" : "outlined"}
+                    size="medium"
+                    variant="contained"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCta();
                     }}
-                    sx={{ textTransform: "none" }}
+                    sx={{ textTransform: "none", fontFamily : 'Inter', fontWeight : 500, fontSize : '14px', background : '#1D546C'}}
                   >
                     {opt.cta}
                   </Button>
