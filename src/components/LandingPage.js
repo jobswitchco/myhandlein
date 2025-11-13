@@ -13,6 +13,8 @@ import WhatsAppProblemSolveCard from "./WhatsAppFeature";
 import ThreeBlockPage from "./ThreeBlockPage.js";
 import ContentShowcase from "./ContentShowCase.js";
 import InstagramAutomationBlock from "./InstagramAutomationBlocks.js";
+import AllFeatures1 from "./AllFeatures1.js";
+import AllFeatures2 from "./AllFeatures2.js";
 
 // Lazy-loaded components
 const Footer = lazy(() => import("../components/Footer"));
@@ -37,11 +39,14 @@ export default function LandingPage() {
 <HeroSection logos={{ reddit: redditLogo, linkedin: linkedinLogo, twitter: twitterLogo, facebook: facebookLogo }} />
 
 
+
       {/* Lazy-loaded below pages */}
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
+      <AllFeatures1 />
+      <AllFeatures2 />
       <ThreeBlockPage />
-      <WhatsAppProblemSolveCard />
-      <InstagramAutomationBlock />
+      {/* <WhatsAppProblemSolveCard /> */}
+      {/* <InstagramAutomationBlock /> */}
       {/* <ContentShowcase /> */}
       <FAQSection />
 

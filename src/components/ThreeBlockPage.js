@@ -570,7 +570,6 @@ export default function ThreeBlockPage() {
 
   return (
     <div style={{ width: "100%" }}>
-      <Section1 />
       <Section2 />
       <Section3 />
     </div>
