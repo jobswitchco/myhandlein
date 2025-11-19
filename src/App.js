@@ -52,6 +52,7 @@ import AutomationList from './components/Employee/AutomationList.js';
 import AutomationDetails from './components/Employee/AutomationDetails.js';
 import CreatorBookings from './components/Employee/BookingSessions.js';
 import FormSubmissions from './components/Employee/FormSubmissions.js';
+import RepliedContacts from './components/Employee/RepliedContacts.js';
 
 
 // very critial yes
@@ -151,6 +152,7 @@ if (initialSubdomain) {
                 <Route path="automation/details/:postId" element={<AutomationDetails />} />
                 <Route path="booking/sessions" element={<CreatorBookings />} />
                 <Route path="my/formsubmissions" element={<FormSubmissions />} />
+                <Route path="contacts/replied" element={<RepliedContacts />} />
 
 
 

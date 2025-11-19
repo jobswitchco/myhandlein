@@ -1699,32 +1699,52 @@ router.get("/instagram/media", authenticateToken, async (req, res) => {
       });
     }
 
-    const fields ="id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
-    const limit = 25;
+    const fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
+    const limit = 10; // <<-- MODIFIED TO 10
     const after = req.query.after
       ? `&after=${encodeURIComponent(req.query.after)}`
       : "";
 
-    const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+    // 1. --- Fetch Posts, Reels, Videos (/media edge) ---
+    const mediaUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
       ig_user_id
     )}/media?fields=${encodeURIComponent(fields)}&limit=${limit}${after}&access_token=${encodeURIComponent(
       access_token
     )}`;
 
-    const data = await getWithRetries(url, { retries: 3, timeout: 5000 });
-    const media = Array.isArray(data?.data) ? data.data : [];
+    // 2. --- Fetch Stories (/stories edge) ---
+    const storiesUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+      ig_user_id
+    )}/stories?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(
+      access_token
+    )}`;
 
-    const igPostIds = media.map((m) => m.id);
+    // Run both requests concurrently
+    const [mediaResponse, storiesResponse] = await Promise.all([
+      getWithRetries(mediaUrl, { retries: 3, timeout: 5000 }),
+      getWithRetries(storiesUrl, { retries: 3, timeout: 5000 }).catch(err => {
+        console.warn("Story fetch failed (API may lack permission):", err.message);
+        return { data: [] }; // Return empty data on failure
+      }),
+    ]);
+
+    const media = Array.isArray(mediaResponse?.data) ? mediaResponse.data : [];
+    const stories = Array.isArray(storiesResponse?.data) ? storiesResponse.data : [];
+
+    // Combine all media types. Stories don't use the standard cursor pagination, 
+    // so we append them here and prioritize the cursor from the /media endpoint.
+    let combinedMedia = [...media, ...stories];
+    
+    const igPostIds = combinedMedia.map((m) => m.id);
     if (igPostIds.length === 0) {
       return res.json({
         data: [],
-        paging: data?.paging
-          ? { next: Boolean(data.paging.next), cursors: data.paging.cursors || {} }
-          : null,
+        paging: mediaResponse?.paging ? { next: Boolean(mediaResponse.paging.next), cursors: mediaResponse.paging.cursors || {} } : null,
+        meta: { totalFetched: 0, excludedForAutomation: 0 },
       });
     }
 
-    // Find automations for these posts for THIS user
+    // 3. --- Filter Out Already Automated Posts ---
     const automations = await Automation.find({
       userId,
       postId: { $in: igPostIds },
@@ -1734,25 +1754,27 @@ router.get("/instagram/media", authenticateToken, async (req, res) => {
 
     const automatedPostIdSet = new Set(automations.map((a) => String(a.postId)));
 
-    // EXCLUDE any posts that have an automation
-    const filteredMedia = media.filter((m) => !automatedPostIdSet.has(String(m.id)));
-const normalizedMedia = filteredMedia.map((m) => ({
-  ...m,
-  thumbnail_url:
-    m.media_type === "VIDEO"
-      ? (m.thumbnail_url || m.media_url)
-      : m.media_url,
-}));
-   return res.json({
-  data: normalizedMedia,
-  paging: data?.paging
-    ? { next: Boolean(data.paging.next), cursors: data.paging.cursors || {} }
-    : null,
-  meta: {
-    totalFetched: media.length,
-    excludedForAutomation: media.length - filteredMedia.length,
-  },
-});
+    const filteredMedia = combinedMedia.filter((m) => !automatedPostIdSet.has(String(m.id)));
+    
+    // 4. --- Normalize and Respond ---
+    const normalizedMedia = filteredMedia.map((m) => ({
+      ...m,
+      // Use thumbnail_url if available (for Videos/Reels/Stories)
+      thumbnail_url: m.media_type === "VIDEO" || m.media_type === "CAROUSEL_ALBUM" || m.media_type === "STORY"
+          ? (m.thumbnail_url || m.media_url)
+          : m.media_url,
+    }));
+
+    return res.json({
+      data: normalizedMedia,
+      paging: mediaResponse?.paging
+        ? { next: Boolean(mediaResponse.paging.next), cursors: mediaResponse.paging.cursors || {} }
+        : null,
+      meta: {
+        totalFetched: combinedMedia.length,
+        excludedForAutomation: combinedMedia.length - filteredMedia.length,
+      },
+    });
 
   } catch (err) {
     return res.status(500).json({
@@ -1823,184 +1845,147 @@ async function subscribePageToInstagramWebhooks(fbPageId, fbLongLivedToken, user
 }
 
 
+router.post("/automation/upload-asset", authenticateToken, upload.single("file"), async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    
+    // 1. Validation
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    
+    const allowedMimes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+    if (!allowedMimes.includes(req.file.mimetype)) {
+      return res.status(400).json({ message: "Invalid file type. Only PDF, PNG, JPG allowed." });
+    }
+
+    // 2. Get igUserId for folder name
+    const user = await USER.findById(userId).select("igUserId").lean();
+    
+    // Fallback: if no igUserId yet, use the database _id or a 'temp' folder
+    const folderName = user?.igUserId || String(userId);
+
+    // 3. Upload to GCS with folder structure
+    const { publicUrl } = await uploadBufferToGCSFolder(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      folderName // Pass folder name
+    );
+
+    return res.json({ success: true, publicUrl });
+
+
+
+  } catch (err) {
+    console.error("Upload asset error:", err);
+    return res.status(500).json({ message: "Upload failed" });
+  }
+});
+
+async function uploadBufferToGCSFolder(buffer, originalName, mimeType, folderName) {
+
+  const ext = path.extname(originalName) || "";
+  const cleanFileName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9]/g, "_"); // Sanitize filename
+  
+  // Logic: GCS doesn't have real "folders", just paths with slashes
+  const objectName = `${folderName}/${Date.now()}-${cleanFileName}${ext}`;
+
+  const file = bucket.file(objectName);
+
+
+
+  return new Promise((resolve, reject) => {
+    const stream = file.createWriteStream({
+      metadata: { contentType: mimeType },
+      resumable: false,
+    });
+
+    stream.on("error", (err) => reject(err));
+    
+    stream.on("finish", async () => {
+      try {
+        // Make public (ensure your bucket allows this or use signed URLs)
+        // Note: 'makePublic' might fail if Uniform Bucket Level Access is on. 
+        // If so, you just rely on the bucket being public read.
+        try { await file.makePublic(); } catch(e) { console.warn("Make public skipped/failed"); }
+        
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${objectName}`;
+
+        resolve({ publicUrl, objectName });
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    stream.end(buffer);
+  });
+}
 
 router.post("/automation/config", authenticateToken, async (req, res) => {
-  // --- Utility helpers ---
-  const sendError = (res, status, code, message, details = null) => {
-    return res.status(status).json({
-      success: false,
-      code, // machine-readable
-      message, // user-friendly
-      ...(details ? { details } : {}), // optional debugging info
-    });
-  };
-
-  const isValidUrl = (value) => {
-    try {
-      const u = new URL(String(value));
-      return u.protocol === "http:" || u.protocol === "https:";
-    } catch {
-      return false;
-    }
-  };
-
-  const uniqTrimmed = (arr = []) =>
-    [...new Set(arr.map((k) => String(k || "").trim()).filter(Boolean))];
-
   try {
     const userId = req.user?.user_id || req.user?._id;
     if (!userId) {
-      return sendError(res, 401, "UNAUTHORIZED", "Unauthorized");
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const {
       postId,
-      keywords,
-      commentReply, // optional
-      dmEnabled,
+      dmMessage,
+      buttonText,
       caption,
       thumbnail,
-      dm, // optional when dmEnabled=false
-      media, // optional { thumbnail, caption }
-      status, // optional override
+      status,
+      flowNodes,
+      keywords,
+      hasReply,
+      replyComment
     } = req.body || {};
 
-    // --- Validation ---
+    // ===== BASIC VALIDATION =====
     if (!postId || !String(postId).trim()) {
-      return sendError(res, 400, "INVALID_POST_ID", "postId is required");
-    }
-    if (!Array.isArray(keywords) || keywords.length === 0) {
-      return sendError(res, 400, "INVALID_KEYWORDS", "At least one keyword is required");
+      return res.status(400).json({ success: false, message: "postId is required" });
     }
 
-    const normalizedKeywords = uniqTrimmed(keywords);
-    const normalizedReply = commentReply ? String(commentReply).trim() : null;
-    const hasPublicReply = !!(normalizedReply && normalizedReply.length > 0);
-
-    // --- DM Validation / Shape ---
-    let dmPayload = { enabled: !!dmEnabled };
-    if (dmEnabled === true) {
-      if (!dm || typeof dm !== "object") {
-        return sendError(res, 400, "DM_OBJECT_REQUIRED", "dm object is required when dmEnabled is true");
-      }
-      const message = String(dm.message || "").trim();
-      if (!message) {
-        return sendError(res, 400, "DM_MESSAGE_REQUIRED", "dm.message is required");
-      }
-
-      let button;
-      if (dm.button) {
-        const text = String(dm.button.text || "").trim();
-        const url = String(dm.button.url || "").trim();
-        if (!text) {
-          return sendError(res, 400, "DM_BUTTON_TEXT_REQUIRED", "dm.button.text is required when button is provided");
-        }
-        if (!isValidUrl(url)) {
-          return sendError(res, 400, "DM_BUTTON_URL_INVALID", "Valid dm.button.url is required");
-        }
-        button = { text, url };
-      }
-      dmPayload = { enabled: true, message, ...(button ? { button } : {}) };
-    }
-
-    // --- Media Payload (Optional) ---
-    const mediaPayload = media
-      ? {
-          ...(media.thumbnail ? { thumbnail: String(media.thumbnail).trim() } : {}),
-          ...(media.caption ? { caption: String(media.caption).trim() } : {}),
-        }
-      : undefined;
-
-    // --- Prepare Upsert Payload ---
+    // ===== PREPARE DOCUMENT FOR UPSERT =====
     const update = {
       platform: "instagram",
-      keywords: normalizedKeywords,
-      publicReply: normalizedReply || null,
-      hasPublicReply,
-      dm: dmPayload,
-      caption: caption ?? null,
-      thumbnail: thumbnail ?? null,
-      ...(mediaPayload ? { media: mediaPayload } : {}),
+      caption,
+      thumbnail,
+      dmMessage,
+      buttonText,
+      flowNodes,
+      keywords,
+      hasReply,
+      replyComment,
       ...(status ? { status } : {}),
-      updated_at: new Date(),
     };
 
-    const query = { userId, postId: String(postId) };
-    const existing = await Automation.findOne(query).select("_id").lean();
-
+    // ===== UPSERT AUTOMATION =====
     const doc = await Automation.findOneAndUpdate(
-      query,
-      {
-        $set: update,
-        $setOnInsert: {
-          userId,
-          postId: String(postId),
-          created_at: new Date(),
-        },
-      },
+      { userId, postId: String(postId) },
+      { $set: update, $setOnInsert: { userId, postId: String(postId) } },
       { upsert: true, new: true }
-    ).lean();
+    );
 
-    const created = !existing;
-
-    // --- Fetch User & Handle Webhook Subscription ---
-    const user = await USER.findById(userId)
-      .select("fbPageId fbLongLivedToken automationFeedSubscribed")
-      .lean();
-
-    if (!user) {
-      return sendError(res, 500, "USER_NOT_FOUND", "User not found");
-    }
-
-    let subscription = { attempted: false, success: false, reason: null };
-
-    if (!user.automationFeedSubscribed) {
-      subscription.attempted = true;
-
-      if (!user.fbPageId || !user.fbLongLivedToken) {
-        subscription.reason = "Missing fbPageId or fbLongLivedToken";
-      } else {
-        try {
-          await subscribePageToInstagramWebhooks(user.fbPageId, user.fbLongLivedToken, userId);
-          await USER.findByIdAndUpdate(
-            userId,
-            { automationFeedSubscribed: true, updated_at: new Date() },
-            { new: false }
-          );
-          subscription.success = true;
-        } catch (e) {
-          subscription.reason = e?.message || "Subscription failed";
-        }
-      }
-    } else {
-      subscription = { attempted: false, success: true, reason: null };
-    }
-
-    // --- Success Response ---
-    return res.status(created ? 201 : 200).json({
+    return res.json({
       success: true,
-      code: "AUTOMATION_SAVED",
-      message: created ? "Automation created" : "Automation updated",
-      data: doc,
-      meta: {
-        created,
-        subscription,
-      },
+      message: "Automation configuration saved",
+      data: doc
     });
   } catch (err) {
     console.error("POST /automation/config error:", err);
+    
+    // Handle unique index race condition
     if (err?.code === 11000) {
       return res.status(409).json({
         success: false,
-        code: "DUPLICATE_AUTOMATION",
         message: "An automation for this post already exists for this user",
       });
     }
+    
     return res.status(500).json({
       success: false,
-      code: "SERVER_ERROR",
       message: "Failed to save automation config",
-      details: err?.message || String(err),
+      error: err?.message || String(err),
     });
   }
 });
@@ -2161,29 +2146,33 @@ router.post("/automation/details", authenticateToken, async (req, res) => {
       return res.status(400).json({ message: "postId is required" });
     }
 
-    // 1) Load the Automation first
+    // 1) Load the Automation
     const doc = await Automation.findOne({ userId, postId }).lean();
     if (!doc) {
       return res.status(404).json({ message: "Automation not found" });
     }
 
+    // --- Extracted Data for Payload ---
+    const sharedPayload = {
+      postId: doc.postId,
+      caption: doc.caption || "",
+      thumbnail: doc.thumbnail || "",
+      keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
+      replyComment: doc.replyComment || "",
+      hasReply: !!doc.hasReply,
+      dmMessage: doc.dmMessage || "", 
+      buttonText: doc.buttonText || "",
+      // 🔥 CRITICAL: Include the flow nodes array
+      flowNodes: Array.isArray(doc.flowNodes) ? doc.flowNodes : [],
+    };
+    // ----------------------------------
+
     // 🔥 If post is not live, return immediately with limited data
-    // User shouldn't be able to edit or change status
     if (doc.postLive === false) {
       const payload = {
-        postId: doc.postId,
-        caption: doc.caption || "",
-        thumbnail: doc.thumbnail || "",
-        keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
-        publicReply: doc.publicReply || "",
+        ...sharedPayload,
         status: "inactive", // Force inactive
-        postLive: false, // 🔥 NEW: Include postLive status
-        hasPublicReply: !!(doc.publicReply && doc.publicReply.trim() !== ""),
-        dm: {
-          enabled: !!doc?.dm?.enabled,
-          message: doc?.dm?.message || "",
-          button: doc?.dm?.button || null,
-        },
+        postLive: false,
       };
       return res.json(payload);
     }
@@ -2193,8 +2182,12 @@ router.post("/automation/details", authenticateToken, async (req, res) => {
       .select("fbLongLivedToken")
       .lean();
     if (!user?.fbLongLivedToken) {
-      return res.status(400).json({
-        message: "Instagram not connected for this user (missing access token)",
+      // Return with DB/cached data if token is missing
+      return res.json({
+         ...sharedPayload,
+         status: doc.status || "inactive",
+         postLive: doc.postLive !== false,
+         message: "Warning: Instagram token missing. Using cached media data.",
       });
     }
 
@@ -2216,100 +2209,194 @@ router.post("/automation/details", authenticateToken, async (req, res) => {
       fetchedCaption = typeof ig?.caption === "string" ? ig.caption : null;
       fetchedMediaType = ig?.media_type || null;
 
-      // Normalize thumbnail:
-      // VIDEO -> thumbnail_url || media_url
-      // non-VIDEO -> media_url
       if (ig) {
-        if (ig.media_type === "VIDEO") {
-          fetchedThumbnail = ig.thumbnail_url || ig.media_url || null;
-        } else {
-          fetchedThumbnail = ig.media_url || null;
-        }
+        fetchedThumbnail = (ig.media_type === "VIDEO") 
+          ? ig.thumbnail_url || ig.media_url || null
+          : ig.media_url || null;
       }
     } catch (graphErr) {
-      // 🔥 Check if post was deleted (404, 403, or specific error codes)
       const errorCode = graphErr?.response?.data?.error?.code;
       const errorMessage = graphErr?.response?.data?.error?.message || "";
       
       if (
-        graphErr?.response?.status === 404 ||
-        errorCode === 100 || // Invalid ID
-        errorCode === 10 ||  // Permission error
-        errorMessage.includes("does not exist") ||
-        errorMessage.includes("not found")
+        graphErr?.response?.status === 404 || errorCode === 100 || errorCode === 10 || 
+        errorMessage.includes("does not exist") || errorMessage.includes("not found")
       ) {
         postStillExists = false;
         
-        // Mark post as deleted in DB
         await Automation.updateOne(
           { _id: doc._id },
-          { 
-            $set: { 
-              postLive: false, 
-              status: "inactive",
-              lastCheckedAt: new Date()
-            } 
-          }
+          { $set: { postLive: false, status: "inactive", lastCheckedAt: new Date() } }
         );
         
         // Return response indicating post is deleted
-        const payload = {
-          postId: doc.postId,
-          caption: doc.caption || "",
-          thumbnail: doc.thumbnail || "",
-          keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
-          publicReply: doc.publicReply || "",
+        return res.json({
+          ...sharedPayload,
           status: "inactive",
-          postLive: false, // 🔥 Mark as deleted
-          hasPublicReply: !!(doc.publicReply && doc.publicReply.trim() !== ""),
-          dm: {
-            enabled: !!doc?.dm?.enabled,
-            message: doc?.dm?.message || "",
-            button: doc?.dm?.button || null,
-          },
-        };
-        return res.json(payload);
+          postLive: false, // Mark as deleted
+        });
       }
       
-      // For other errors, log and continue with cached data
       console.warn("Graph fetch failed for post", postId, graphErr?.message);
     }
 
-    // 4) Persist the fetched fields back to Automation (only if we got them)
-    const updateSet = { lastCheckedAt: new Date() };
+    // 4) Persist the fetched fields back to Automation (only if fetched)
+    const updateSet = { lastCheckedAt: new Date(), postLive: postStillExists };
     if (fetchedCaption !== null) updateSet.caption = fetchedCaption;
     if (fetchedThumbnail !== null) updateSet.thumbnail = fetchedThumbnail;
 
-    if (Object.keys(updateSet).length > 0) {
+    if (Object.keys(updateSet).length > 1) { // > 1 because lastCheckedAt is always there
       await Automation.updateOne({ _id: doc._id }, { $set: updateSet });
     }
 
-    // 5) Build payload using freshest values (Graph > DB > fallback)
-    const captionForPayload = (fetchedCaption ?? doc.caption ?? "").trim();
-    const thumbnailForPayload = fetchedThumbnail ?? (doc.thumbnail && doc.thumbnail.trim());
-
-    // normalize shape for frontend (same 3-step UI fields)
+    // 5) Build final payload using freshest values (Graph > DB > fallback)
     const payload = {
-      postId: doc.postId,
-      mediaType: fetchedMediaType || doc.mediaType || "",
-      caption: captionForPayload,
-      thumbnail: thumbnailForPayload,
-      keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
-      publicReply: doc.publicReply || "",
+      ...sharedPayload,
+      caption: (fetchedCaption ?? doc.caption ?? "").trim(),
+      thumbnail: fetchedThumbnail ?? (doc.thumbnail && doc.thumbnail.trim()),
       status: doc.status || "inactive",
-      postLive: doc.postLive !== false, // 🔥 Include postLive status (default true)
-      hasPublicReply: !!(doc.publicReply && doc.publicReply.trim() !== ""),
-      dm: {
-        enabled: !!doc?.dm?.enabled,
-        message: doc?.dm?.message || "",
-        button: doc?.dm?.button || null,
-      },
+      postLive: postStillExists,
+      mediaType: fetchedMediaType || doc.mediaType || "",
     };
 
     return res.json(payload);
   } catch (err) {
     console.error("POST /automation/details error:", err);
     return res.status(500).json({ message: "Failed to load automation" });
+  }
+});
+
+
+router.post("/automation/delete", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    const { postId } = req.body || {};
+
+    if (!postId) {
+      return res.status(400).json({ message: "postId is required" });
+    }
+
+    // Attempt to delete the automation record
+    const result = await Automation.findOneAndDelete({
+      userId: userId,
+      postId: postId,
+    });
+
+    if (!result) {
+      // If result is null, no document matched the criteria
+      return res.status(404).json({ message: "Automation not found for this post." });
+    }
+
+    // Success response
+    res.status(200).json({ 
+      message: `Automation deleted successfully for Post ID: ${postId}.`,
+      deletedCount: 1 
+    });
+
+  } catch (err) {
+    console.error("POST /automation/delete error:", err);
+    res.status(500).json({ message: "Failed to delete automation." });
+  }
+});
+
+router.post("/automation/replied-users", authenticateToken, async (req, res) => {
+  try {
+    const ownerUserId = req.user?.user_id || req.user?._id;
+    const { startDate, endDate, page = 1, limit = 10 } = req.body || {};
+
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    const skip = (pageInt - 1) * limitInt;
+
+    const ownerObjectId = new mongoose.Types.ObjectId(ownerUserId);
+
+    // --- 1. COUNT ALL-TIME UNIQUE USERS (No date filter) ---
+    const allTimeCountPipeline = [
+      { $match: { userId: ownerObjectId } },
+      { $group: { _id: "$username" } }, // Group to get unique users
+      { $count: "totalAllTimeCount" }
+    ];
+    
+    const allTimeResult = await RepliedComment.aggregate(allTimeCountPipeline);
+    const totalAllTimeCount = allTimeResult[0]?.totalAllTimeCount || 0;
+
+    // --- 2. Build Filtered Match Criteria ---
+    const matchCriteria = {
+      userId: ownerObjectId,
+    };
+
+    const dateQuery = {};
+    if (startDate) {
+        dateQuery.$gte = new Date(startDate);
+    }
+    if (endDate) {
+        // We use the adjusted end date from the frontend's calculation for consistency
+        dateQuery.$lt = new Date(endDate); 
+    }
+
+    if (Object.keys(dateQuery).length > 0) {
+        matchCriteria.createdAt = dateQuery;
+    }
+
+    // --- 3. Pipeline Construction (Filtered Data) ---
+    const dataPipeline = [
+      { $match: matchCriteria },
+      { $sort: { createdAt: -1 } },
+
+      // Group by username to get unique contacts in the filtered range
+      {
+        $group: {
+          _id: "$username",
+          profilePic: { $first: "$profilePic" },
+          followsBusiness: { $first: "$followsBusiness" },
+          text: { $first: "$text" }, 
+          lastInteracted: { $max: "$createdAt" }, 
+          interactionCount: { $sum: 1 }, 
+        },
+      },
+      
+      // Sort the unique results by lastInteracted (newest users first)
+      { $sort: { lastInteracted: -1 } },
+      
+      // --- $facet for Count and Paging ---
+      {
+          $facet: {
+              metadata: [
+                  { $count: "totalCount" } // Count of unique users in the FILTERED range
+              ],
+              data: [
+                  { $skip: skip },
+                  { $limit: limitInt },
+                  { $project: {
+                      _id: 0, 
+                      username: "$_id", 
+                      profilePic: 1,
+                      followsBusiness: 1,
+                      interactionCount: 1,
+                      lastInteracted: 1, 
+                      text: 1, 
+                  }}
+              ]
+          }
+      }
+    ];
+
+    const result = await RepliedComment.aggregate(dataPipeline);
+    const aggregatedData = result[0];
+    const totalFilteredCount = aggregatedData.metadata[0]?.totalCount || 0;
+    
+    // Return paginated data
+    res.json({
+        users: aggregatedData.data,
+        totalCount: totalFilteredCount, // Count within filter range
+        totalAllTimeCount: totalAllTimeCount, // Count across all time
+        page: pageInt,
+        limit: limitInt
+    });
+
+  } catch (err) {
+    console.error("POST /automation/replied-users error:", err);
+    res.status(500).json({ message: "Failed to fetch user interaction data." });
   }
 });
 

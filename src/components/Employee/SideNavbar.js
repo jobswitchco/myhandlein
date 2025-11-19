@@ -13,7 +13,6 @@ import {
   Box,
   useMediaQuery,
   CircularProgress,
-  Typography,
   Divider,
   Collapse,
   IconButton,
@@ -39,11 +38,12 @@ import InstagramIcon from "@mui/icons-material/Instagram";
 import PolylineOutlinedIcon from "@mui/icons-material/PolylineOutlined";
 import "react-toastify/dist/ReactToastify.css";
 import UpiMandateModern from "./UpiMandate";
-import CurrencyRupeeOutlinedIcon from "@mui/icons-material/CurrencyRupeeOutlined";
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import { logout } from "../../store/professionalSlice";
 import { useDispatch } from "react-redux";
 import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
+import PermContactCalendarOutlinedIcon from '@mui/icons-material/PermContactCalendarOutlined';
+
 
 
 
@@ -57,13 +57,8 @@ const theme = createTheme({
 export default function SideNavbar({ window }) {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [anchorEl, setAnchorEl] = React.useState(null);
   const location = useLocation();
-  const [greeting, setGreeting] = useState("");
-  const [userName, setUserName] = useState("");
   const [hasAccess, setHasAccess] = useState(false);
-  const [freeTrialDaysLeft, setFreeTrialLeftDays] = useState("");
-  const [profilePicture, setProfilePicture] = useState("");
   const baseUrl = "/api/usersOn";
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(false);
@@ -101,6 +96,7 @@ export default function SideNavbar({ window }) {
   const instagramRoutes = [
     "/professional/fb_insta_redirect",
     "/professional/automations",
+    "/professional/contacts/replied",
     "/professional/instagram/mentions",
     "/professional/instagram/mentions/comments",
     "/professional/instagram/mentions/messages",
@@ -758,6 +754,46 @@ export default function SideNavbar({ window }) {
                       sx: {
                         color: location.pathname === "/professional/automations" ? "#1F2937" : "#6B7280",
                         fontWeight: location.pathname === "/professional/automations" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+
+               {/* Contacts */}
+
+                <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/contacts/replied")}
+                  selected={location.pathname === "/professional/contacts/replied"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/contacts/replied" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <PermContactCalendarOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/contacts/replied" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Contacts"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/contacts/replied" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/contacts/replied" ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}

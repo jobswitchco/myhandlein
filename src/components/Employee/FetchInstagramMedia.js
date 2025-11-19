@@ -11,14 +11,51 @@ import {
   Alert,
   Stack,
   IconButton,
-  Tooltip,
   Divider,
   Dialog,
+  Tabs, // Use standard MUI Tabs
+  Tab, // Use standard MUI Tab
 } from "@mui/material";
-import RefreshIcon from "@mui/icons-material/Refresh";
+// Note: Removed @mui/lab imports
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import { useNavigate } from "react-router-dom";
 import WestOutlinedIcon from '@mui/icons-material/WestOutlined';
+import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
+import SearchOffIcon from '@mui/icons-material/SearchOff';
+import InstagramIcon from '@mui/icons-material/Instagram';
+
+// Define media type categories for filtering
+const MEDIA_TYPES = {
+    PHOTO: ['IMAGE', 'CAROUSEL_ALBUM'],
+    VIDEO: ['VIDEO'],
+    STORY: ['STORY'],
+};
+
+// --- Custom Empty States ---
+const NoMediaYet = () => (
+    <Box sx={{ py: 6, px: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2.5, border: "2px dashed", borderColor: "grey.300", borderRadius: 3, bgcolor: "grey.50", textAlign: "center", mt: 3 }}>
+        <Box sx={{ width: 64, height: 64, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "primary.main", color: 'white' }}>
+            <InstagramIcon fontSize="large" />
+        </Box>
+        <Typography variant="h6" fontWeight={700}>No Media Found</Typography>
+        <Typography variant="body1" color="text.secondary" maxWidth={400}>
+            We could not retrieve any posts or stories from your Instagram account. Ensure your account is connected and has recent media.
+        </Typography>
+    </Box>
+);
+
+const NoMediaInFilter = ({ filterName }) => (
+    <Box sx={{ py: 6, px: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2.5, border: "1px solid", borderColor: "warning.main", borderRadius: 3, bgcolor: "warning.lighter", textAlign: "center", mt: 3 }}>
+        <Box sx={{ width: 64, height: 64, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "warning.main", color: 'white' }}>
+            <SearchOffIcon fontSize="large" />
+        </Box>
+        <Typography variant="h6" fontWeight={700}>No {filterName} Available</Typography>
+        <Typography variant="body1" color="text.secondary" maxWidth={400}>
+            Your media feed contains posts, but no items matching the "{filterName}" filter.
+        </Typography>
+    </Box>
+);
+
 
 export default function FetchInstagramMedia() {
   const [items, setItems] = useState([]);
@@ -26,6 +63,9 @@ export default function FetchInstagramMedia() {
   const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Tabs State
+  const [mediaTypeFilter, setMediaTypeFilter] = useState('all');
 
   // Video player state
   const [playerOpen, setPlayerOpen] = useState(false);
@@ -35,34 +75,39 @@ export default function FetchInstagramMedia() {
   const [selectedItem, setSelectedItem] = useState(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  const { automationType, followUpType } = location.state || {};
 
   const baseUrl = "/api/usersOn";
-
-  const fields = useMemo(
-    () => "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp",
-    []
-  );
 
   async function fetchPage(opts = { reset: false }) {
     const { reset } = opts;
     try {
       setLoading(true);
       setError("");
+      
       const url = `${baseUrl}/instagram/media${
         reset || !after ? "" : `?after=${encodeURIComponent(after)}`
       }`;
+      
       const res = await axios.get(url, { withCredentials: true });
       const payload = res?.data || {};
       const pageData = Array.isArray(payload.data) ? payload.data : [];
+      
       setItems((prev) => (reset ? pageData : [...prev, ...pageData]));
+      
       const nextCursor = payload?.paging?.cursors?.after || null;
       setAfter(nextCursor);
       setHasNext(Boolean(payload?.paging?.next));
+      
       if (reset) setSelectedItem(null);
+      
     } catch (err) {
       const apiMsg =
         err?.response?.data?.message || err?.message || "Failed to load media";
       setError(apiMsg);
+      toast.error(apiMsg);
     } finally {
       setLoading(false);
     }
@@ -73,6 +118,21 @@ export default function FetchInstagramMedia() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --- Media Filtering ---
+  const filteredItems = useMemo(() => {
+    return items.filter(m => {
+        const type = m.media_type;
+        switch (mediaTypeFilter) {
+            case 'all': return true;
+            case 'photos': return MEDIA_TYPES.PHOTO.includes(type);
+            case 'videos': return MEDIA_TYPES.VIDEO.includes(type) || type === 'REEL'; 
+            case 'stories': return m.media_type === 'STORY'; 
+            default: return true;
+        }
+    });
+  }, [items, mediaTypeFilter]);
+
+  // --- Handlers ---
   const openPlayer = (item) => {
     if (!item?.media_url) return;
     setCurrentItem(item);
@@ -90,13 +150,20 @@ export default function FetchInstagramMedia() {
 
   const handleSetupAutomation = () => {
     if (!selectedItem) return;
+    
+    const stateData = {
+      ...selectedItem,
+      automationType,
+      followUpType,
+    };
+
     navigate(`/professional/automation/setup/${selectedItem.id}`, {
-      state: { ...selectedItem },
+      state: stateData,
       replace: false,
     });
   };
 
-  const gridContent = (
+  const renderMediaGrid = (mediaList) => (
     <Box
       sx={{
         display: "grid",
@@ -108,11 +175,13 @@ export default function FetchInstagramMedia() {
           lg: "repeat(4, 1fr)",
         },
         alignItems: "stretch",
+        mt: 3,
       }}
     >
-      {items.map((m) => {
+      {mediaList.map((m) => {
         const isVideo = m.media_type === "VIDEO";
         const isCarousel = m.media_type === "CAROUSEL_ALBUM";
+        const isStory = m.media_type === "STORY";
         const thumb = m.thumbnail_url || m.media_url;
         const isSelected = selectedItem?.id === m.id;
 
@@ -149,7 +218,7 @@ export default function FetchInstagramMedia() {
                 }}
               />
 
-              {(isVideo || isCarousel) && (
+              {(isVideo || isCarousel || isStory) && (
                 <Box
                   sx={{
                     position: "absolute",
@@ -164,7 +233,7 @@ export default function FetchInstagramMedia() {
                     textTransform: "uppercase",
                   }}
                 >
-                  {isVideo ? "Video" : "Carousel"}
+                  {isStory ? "Story" : isVideo ? "Video" : "Photo Set"}
                 </Box>
               )}
 
@@ -217,27 +286,58 @@ export default function FetchInstagramMedia() {
     </Box>
   );
 
+  // Determine what content to show inside the panel
+  const renderTabContent = (filterValue, filterName) => {
+    if (loading && items.length === 0) {
+      return <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>;
+    }
+
+    if (items.length === 0) {
+      // Case 1: NO MEDIA EVER FETCHED
+      return <NoMediaYet />;
+    }
+
+    if (filteredItems.length === 0) {
+      // Case 2: MEDIA EXISTS, BUT NONE MATCHES FILTER
+      return <NoMediaInFilter filterName={filterName} />;
+    }
+
+    // Case 3: Display filtered media
+    return renderMediaGrid(filteredItems);
+  };
+
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
       <Stack
-        sx={{ mb: 4, display: 'flex', flexDirection : 'row', alignItems : 'center', justifyContent : 'space-between' }}
+        sx={{ mb: 4, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
-
-        <Stack sx={{ display : 'flex', flexDirection : 'row', gap: 3, alignItems : 'center'}}>
-
-                 <WestOutlinedIcon sx={{ cursor : 'pointer'}}onClick={() => navigate("/professional/automations")}/>
-                  <Typography sx={{fontFamily : 'Inter', fontSize : {xs: '15px', sm: '15px', md: '20px'}, fontWeight: 600, letterSpacing: 0.2 }}>
-                   Instagram Posts
-                 </Typography>
-
+        <Stack sx={{ display: 'flex', flexDirection: 'row', gap: 3, alignItems: 'center'}}>
+          <WestOutlinedIcon 
+            sx={{ cursor: 'pointer'}} 
+            onClick={() => navigate("/professional/automations")}
+          />
+          <Typography sx={{
+            fontFamily: 'Inter', 
+            fontSize: {xs: '15px', sm: '15px', md: '20px'}, 
+            fontWeight: 600, 
+            letterSpacing: 0.2 
+          }}>
+            Instagram Media Selection
+          </Typography>
         </Stack>
 
-                    {selectedItem ? (
+        {selectedItem ? (
           <Button
             variant="contained"
             onClick={handleSetupAutomation}
             disabled={!selectedItem}
-            sx={{ borderRadius: 999, textTransform : 'none', fontFamily : 'Inter', fontSize : {xs: '12px', sm: '12px', md: '14px'} }}
+            sx={{ 
+              borderRadius: 999, 
+              textTransform: 'none', 
+              fontFamily: 'Inter', 
+              fontSize: {xs: '12px', sm: '12px', md: '14px'} 
+            }}
           >
             Setup Automation
           </Button>
@@ -247,38 +347,44 @@ export default function FetchInstagramMedia() {
             color="text.secondary"
             sx={{ textAlign: "right" }}
           >
-            Select a post to set-up automation.
+            Select a piece of media to set-up automation.
           </Typography>
         )}
-
-               </Stack>
-     
+      </Stack>
+      
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {items.length === 0 && loading ? (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-            gap: 16,
-          }}
-        >
-          {[...Array(6)].map((_, i) => (
-            <Box key={i} sx={{ height: 260, bgcolor: "action.hover", borderRadius: 3 }} />
-          ))}
+      {/* --- Tabs UI using MUI/material Tabs and conditional rendering --- */}
+      <Box sx={{ width: '100%' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={mediaTypeFilter} onChange={(e, newValue) => setMediaTypeFilter(newValue)} aria-label="media type filters" variant="scrollable">
+            <Tab label={<Stack direction="row" spacing={1} alignItems="center" sx={{ textTransform : 'none'}}> All ({items.length})</Stack>} value="all" />
+            <Tab label={<Stack direction="row" spacing={1} alignItems="center" sx={{ textTransform : 'none'}}> Photos ({items.filter(m => MEDIA_TYPES.PHOTO.includes(m.media_type)).length})</Stack>} value="photos" />
+            <Tab label={<Stack direction="row" spacing={1} alignItems="center" sx={{ textTransform : 'none'}}> Videos ({items.filter(m => MEDIA_TYPES.VIDEO.includes(m.media_type)).length})</Stack>} value="videos" />
+            <Tab label={<Stack direction="row" spacing={1} alignItems="center" sx={{ textTransform : 'none'}}> Stories ({items.filter(m => m.media_type === 'STORY').length})</Stack>} value="stories" />
+          </Tabs>
         </Box>
-      ) : (
-        gridContent
-      )}
+
+        <Box sx={{ minHeight: 400 }}>
+          {/* Conditional rendering based on the active tab */}
+          {mediaTypeFilter === 'all' && renderTabContent('all', 'All Media')}
+          {mediaTypeFilter === 'photos' && renderTabContent('photos', 'Photos')}
+          {mediaTypeFilter === 'videos' && renderTabContent('videos', 'Videos')}
+          {mediaTypeFilter === 'stories' && renderTabContent('stories', 'Stories')}
+        </Box>
+      </Box>
+      {/* --- End Tabs UI --- */}
+
 
       <Divider sx={{ my: 2 }} />
 
       <Stack direction="row" justifyContent="center" sx={{ mt: 1 }}>
-        {hasNext ? (
+        {/* Load More Button appears only when 'All' is selected and there's a next page cursor */}
+        {mediaTypeFilter === 'all' && hasNext ? (
           <Button
             onClick={() => fetchPage({ reset: false })}
             disabled={loading}
@@ -294,7 +400,7 @@ export default function FetchInstagramMedia() {
           </Button>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            {items.length > 0 ? "No more results" : ""}
+            {items.length > 0 ? "End of media feed." : "No media found to automate."}
           </Typography>
         )}
       </Stack>
