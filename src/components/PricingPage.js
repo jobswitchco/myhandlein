@@ -1,5 +1,4 @@
 // PricingPage.js
-import React from 'react';
 import {
   Box,
   Grid,
@@ -37,7 +36,6 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import WebStoriesOutlinedIcon from '@mui/icons-material/WebStoriesOutlined';
 import PolylineOutlinedIcon from '@mui/icons-material/PolylineOutlined';
 import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined';
-import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import LoyaltyOutlinedIcon from '@mui/icons-material/LoyaltyOutlined';
@@ -50,7 +48,7 @@ import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import AdUnitsOutlinedIcon from '@mui/icons-material/AdUnitsOutlined';
 import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
 import OutdoorGrillOutlinedIcon from '@mui/icons-material/OutdoorGrillOutlined';
-
+import DownloadingOutlinedIcon from '@mui/icons-material/DownloadingOutlined';
 const PLAN = {
   price: 399,
   label: 'Monthly',
@@ -68,16 +66,15 @@ const featureCategories = [
     features: [
       { text: 'Unlimited Links', icon: LinkRoundedIcon },
       { 
-        text: 'username.myhandle.in NOT myhandle.in/username', 
+        text: 'Username.myhandle.in NOT myhandle.in/username', 
         icon: LanguageRoundedIcon,
         strikethrough: 'myhandle.in/username' // Mark text to strikethrough
       },
+      { text: 'Digital Store (Sell digital items)', icon: StorefrontOutlinedIcon },
       { text: 'Collect & Manage Subscribers', icon: GroupAddRoundedIcon },
       { text: 'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State', icon: InsightsRoundedIcon },
-      { text: 'Private & Secured Chat Feature', icon: ChatOutlinedIcon },
-      { text: 'Digital Store (Sell digital items)', icon: StorefrontOutlinedIcon },
       { text: 'Simple Editor • drag & reorder links', icon: DragIndicatorRoundedIcon },
-      { text: 'Social Icons, videos & embeds', icon: ShareRoundedIcon },
+      { text: 'Social Profiles, Videos & Embeds', icon: ShareRoundedIcon },
       { text: 'English + Hindi support', icon: TranslateRoundedIcon },
     ]
   },
@@ -90,6 +87,7 @@ const featureCategories = [
       { text: 'Unlimited Automations', icon: PolylineOutlinedIcon },
       { text: 'Unlimited Automated Replies', icon: QuickreplyRoundedIcon },
       { text: 'Unlimited Automated DMs', icon: SendRoundedIcon },
+      { text: 'Unlimited File Upload/Downloads', icon: DownloadingOutlinedIcon },
     ]
   },
   {
