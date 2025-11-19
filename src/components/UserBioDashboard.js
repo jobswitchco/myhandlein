@@ -1293,8 +1293,6 @@ const handleBlockTypeSelect = (blockType) => {
   return (
     <>
       <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1, minHeight: '100dvh', overflowY: 'auto', mb: 2 }}>
-        <ToastContainer />
-        
         {/* Your complete existing header with profile images */}
         <Paper
           sx={{
