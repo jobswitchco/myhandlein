@@ -4909,36 +4909,28 @@ router.post("/dashboard-analytics", authenticateToken, async (req, res) => {
     });
 
     // OPTIMIZED: Use aggregation with $lookup to count private replies
-    const totalPrivateRepliesAggPromise = Automation.aggregate([
-      // Stage 1: Match user's automations
-      { 
-        $match: { 
-          userId: userObjectId 
-        } 
-      },
-      // Stage 2: Lookup replied comments
-      {
-        $lookup: {
-          from: "replied_comments",
-          let: { automationId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$automationId", "$$automationId"] },
-                channel: "private",
-                status: "sent",
-                repliedAt: { $gte: start, $lte: end },
-              },
-            },
-          ],
-          as: "privateReplies",
+// --- MODIFIED totalPrivateRepliesAggPromise ---
+const totalPrivateRepliesAggPromise = RepliedComment.aggregate([
+    // Stage 1: Filter comments by time range, channel, status, and your userId
+    {
+        $match: {
+            // Match the current user's ID
+            userId: userObjectId,
+           
         },
-      },
-      // Stage 3: Unwind to count each reply
-      { $unwind: "$privateReplies" },
-      // Stage 4: Count total
-      { $count: "total" },
-    ]);
+    },
+    // Stage 2: Group by the unique Instagram User ID (igUserId)
+    {
+        $group: {
+            _id: "$igUserId", // Group by the unique commenter ID
+            // We don't need to count anything here, just establish the unique group
+        },
+    },
+    // Stage 3: Count the number of unique groups found in Stage 2
+    {
+        $count: "total"
+    },
+]);
 
     const topCitiesAggPromise = PageAnalytics.aggregate([
       {

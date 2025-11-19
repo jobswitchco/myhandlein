@@ -855,10 +855,6 @@ function openEditDialog(product) {
     );
   }
 
-  function CategoryField({ value, onChange }) {
-    return renderCategoryAutocomplete(value, onChange);
-  }
-
   /* ---------- Render ---------- */
 
   return (
@@ -1180,7 +1176,7 @@ function openEditDialog(product) {
         index={0}
       >
         <Stack spacing={2.5}>
-          <CategoryField value={affCategory} onChange={setAffCategory} />
+          {renderCategoryAutocomplete(affCategory, setAffCategory)}
           <TextField
             label="Product URL"
             placeholder="https://example.com/product"
@@ -1263,7 +1259,7 @@ function openEditDialog(product) {
         index={1}
       >
         <Stack spacing={2.5}>
-          <CategoryField value={digCategory} onChange={setDigCategory} />
+        {renderCategoryAutocomplete(digCategory, setDigCategory)}
           <TextField
             label="Product Name"
             placeholder="e.g., E-book Title"
