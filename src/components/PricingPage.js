@@ -83,10 +83,10 @@ const featureCategories = [
     icon: InstagramIcon,
     color: '#e4405f',
     features: [
+      { text: '25 Lakh Automated Replies per Month', icon: QuickreplyRoundedIcon },
+      { text: '25 Lakh Automated DMs per Month', icon: SendRoundedIcon },
       { text: 'Unlimited Contacts', icon: ContactsRoundedIcon },
       { text: 'Unlimited Automations', icon: PolylineOutlinedIcon },
-      { text: 'Unlimited Automated Replies', icon: QuickreplyRoundedIcon },
-      { text: 'Unlimited Automated DMs', icon: SendRoundedIcon },
       { text: 'Unlimited File Upload/Downloads', icon: DownloadingOutlinedIcon },
     ]
   },
