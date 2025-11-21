@@ -1464,6 +1464,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const pages = pagesResp.data?.data || [];
     if (!pages.length) throw new Error("No Facebook Pages found for this user.");
 
+    console.log('pages::::::::::', pages);
+
     let pageWithIG = null;
     let fbPageAccessToken = null;
     let igUserId = null;
@@ -1484,6 +1486,9 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
                     access_token: page.access_token 
                 }
             });
+
+            console.log('linkedResp : ', linkedResp);
+            console.log('linkedResp Data : ', linkedResp.data);
 
             const igData = linkedResp.data?.instagram_business_account;
             
