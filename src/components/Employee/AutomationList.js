@@ -305,9 +305,10 @@ const checkIgConnection = useCallback(async () => {
     const {
       instagramConnected = false,
       duplicateInfo = null,
+      duplicateExists = false
     } = res.data || {};
 
-    if (duplicateInfo) {
+    if (!duplicateExists) {
       const { igUsername, maskedEmail } = duplicateInfo;
 
       setDuplicateMessage(
