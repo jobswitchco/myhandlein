@@ -453,6 +453,8 @@ export default function AutomationList() {
       // --- NEW: Listen for PostMessage (Duplicate Error) ---
       const onMessage = (event) => {
         const msg = event.data || {};
+
+        console.log('message : ', event.data);
         // Filter for messages from our meta-auth flow
         if (msg.type !== "meta-auth") return;
         
