@@ -1720,6 +1720,7 @@ router.get('/instagram-status', authenticateToken, async function (req, res) {
     const igUsername = user.igUsername || null;
     const followersCount = user.igFollowersCount ?? 0;
     const duplicateExists = !!user.duplicateExists;
+    const duplicateInfo = user.duplicateInfo;
 
     return res.status(200).json({
       instagramConnected,
