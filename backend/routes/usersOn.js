@@ -1503,13 +1503,17 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     // ============================================================
 // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
 const existingUser = await USER.findOne({ 
-  igUserId: igUserId,
+  igUserId: igUserId, duplicateExists: false,
   _id: { $ne: userId } 
 });
 
 
+// Import mongoose at the top if you haven't already
+// import mongoose from 'mongoose'; 
+
 if (existingUser) {
-  console.log('User exists:::::::::::::::::::');
+  console.log('User exists::::::::::::::::::: FOUND:', existingUser._id);
+
   const email = existingUser.email || "unknown@user.com";
   const [localPart, domain] = email.split("@");
   let maskedEmail;
@@ -1521,25 +1525,35 @@ if (existingUser) {
     maskedEmail = "******";
   }
 
-  // 🔴 important: DO NOT set instagramConnected: true here
-  await USER.findByIdAndUpdate(
-    userId,
+  console.log("Attempting to update User:", userId); // Debug Log 1
+
+  // 🔴 FIXED: Capture the result to debug & Force ObjectId
+  const updateResult = await USER.findByIdAndUpdate(
+    new mongoose.Types.ObjectId(userId), // 1. Force cast string ID to ObjectId
     {
-      igUserId: igUserId,
-      duplicateExists: true,
-      duplicateInfo: {
-        igUsername,
-        maskedEmail,
-      },
-      updated_at: new Date(),
+      $set: { // 2. Use explicit $set (good practice for partial updates)
+        igUserId: igUserId,
+        duplicateExists: true,
+        duplicateInfo: {
+          igUsername: igUsername || "Unknown", // Ensure this isn't undefined
+          maskedEmail: maskedEmail,
+        },
+        updated_at: new Date(),
+      }
     },
-    { new: false }
+    { new: true, runValidators: true } // 3. Enable validator to catch schema errors
   );
 
-  // Reuse your normal "reload opener" HTML
-    res
-      .type("html")
-      .send(`<!doctype html>
+  if (!updateResult) {
+    console.error("❌ FATAL: Update failed. User not found or not updated:", userId);
+  } else {
+    console.log("✅ SUCCESS: Duplicate flag set. duplicateExists:", updateResult.duplicateExists);
+  }
+
+  // ... rest of your HTML response ...
+  res
+    .type("html")
+    .send(`<!doctype html>
 <html><head><meta charset="utf-8"><title>Connected</title></head>
 <body>
 <script>
@@ -1548,7 +1562,6 @@ if (existingUser) {
       window.opener.location.replace(${JSON.stringify(OPENER_URL)});
     }
   } catch (e) {}
-  // Fallback close
   try { window.close(); } catch (e) {}
   document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
 </script>
