@@ -188,6 +188,8 @@ export default function AutomationList() {
 
   const baseUrl = "/api/usersOn";
 
+
+
   /* ---- Backend endpoints ---- */
   const STATUS_URL = baseUrl + "/instagram-status";
   const META_STATE_URL = baseUrl + "/meta-state";
@@ -245,6 +247,35 @@ export default function AutomationList() {
     const trimmed = fixed.replace(/\.0+$|(\.\d*[1-9])0+$/g, "$1");
     return sign + trimmed + units[u];
   }
+
+    const handleMetaAuthMessage = useCallback((event) => {
+  const msg = event.data || {};
+
+  // (Optional) security check
+  // if (event.origin !== window.location.origin) return;
+
+  if (msg.type !== "meta-auth") return;
+
+  console.log("meta-auth message:", msg);
+
+  // Duplicate IG connection
+  if (msg.errorCode === "DUPLICATE_CONNECTION") {
+    setDuplicateMessage(
+      msg.error || "This Instagram account is already connected to another user."
+    );
+    setDuplicateDialogOpen(true);
+    setConnectLoading(false);
+    return;
+  }
+
+  // Other error from backend (generic OAuth error)
+  if (msg.success === false && msg.error && !msg.errorCode) {
+    // You *may* want to surface this too
+    setConnectError(msg.error);
+    setConnectLoading(false);
+  }
+}, [setDuplicateDialogOpen, setDuplicateMessage, setConnectLoading, setConnectError]);
+
 
   const openCenteredPopup = (url) => {
     const w = 680,
@@ -428,94 +459,83 @@ export default function AutomationList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, isDesktop]);
 
+  useEffect(() => {
+  window.addEventListener("message", handleMetaAuthMessage);
+  return () => {
+    window.removeEventListener("message", handleMetaAuthMessage);
+  };
+}, [handleMetaAuthMessage]);
+
+
   /* ---- Business Login handler ---- */
-  const handleConnectInstagram = useCallback(async () => {
-    setConnectError("");
-    setConnectLoading(true);
+const handleConnectInstagram = useCallback(async () => {
+  setConnectError("");
+  setConnectLoading(true);
 
-    try {
-      const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
-      const state = stateResp?.state;
-      if (!state) throw new Error("Unable to start Meta login");
+  try {
+    const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
+    const state = stateResp?.state;
+    if (!state) throw new Error("Unable to start Meta login");
 
-      const q = new URLSearchParams({
-        client_id: FB_APP_ID,
-        redirect_uri: REDIRECT_URI,
-        state,
-        response_type: "code",
-        config_id: FB_LOGIN_CONFIG_ID,
-      });
-      const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
+    const q = new URLSearchParams({
+      client_id: FB_APP_ID,
+      redirect_uri: REDIRECT_URI,
+      state,
+      response_type: "code",
+      config_id: FB_LOGIN_CONFIG_ID,
+    });
+    const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
 
-      const popup = openCenteredPopup(authUrl);
-      if (!popup) return;
-
-      // --- NEW: Listen for PostMessage (Duplicate Error) ---
-      const onMessage = (event) => {
-        const msg = event.data || {};
-
-        console.log('message : ', event.data);
-        // Filter for messages from our meta-auth flow
-        if (msg.type !== "meta-auth") return;
-        
-        // If we get the specific duplicate error code
-        if (msg.errorCode === "DUPLICATE_CONNECTION") {
-           setDuplicateMessage(msg.error);
-           setDuplicateDialogOpen(true);
-           // Cleanup listener since popup will close
-           window.removeEventListener("message", onMessage);
-           setConnectLoading(false);
-        }
-      };
-
-      window.addEventListener("message", onMessage);
-
-      const poll = setInterval(async () => {
-        if (popup.closed) {
-          clearInterval(poll);
-          // Cleanup listener if closed manually
-          setTimeout(() => window.removeEventListener("message", onMessage), 500);
-
-          try {
-            // Only re-check success if we didn't just catch an error
-            const ok = await checkIgConnection();
-            if (ok) {
-              // toast.success("Instagram connected!"); // Toast removed to avoid build err
-              console.log("Instagram connected!");
-              if (isDesktop) {
-                await fetchPage(0, pageSize);
-              } else {
-                mobileInitialLoadedRef.current = false;
-                setMobilePage(0);
-                await fetchMobile(0);
-              }
-            }
-          } finally {
-            setConnectLoading(false);
-          }
-        }
-      }, 500);
-
-      setTimeout(() => {
-        try {
-          if (!popup.closed) popup.close();
-        } catch {}
-      }, 5 * 60 * 1000);
-    } catch (e) {
-      setConnectError(e.message || "Failed to start Meta login");
-      setConnectLoading(false);
+    const popup = openCenteredPopup(authUrl);
+    if (!popup) {
+      // fallback: we navigated current window, so message path won’t work
+      // you could optionally show a banner on the /meta-callback page instead
+      return;
     }
-  }, [
-    META_STATE_URL,
-    checkIgConnection,
-    fetchPage,
-    fetchMobile,
-    pageSize,
-    isDesktop,
-    FB_APP_ID,
-    FB_LOGIN_CONFIG_ID,
-    REDIRECT_URI,
-  ]);
+
+    const poll = setInterval(async () => {
+      if (popup.closed) {
+        clearInterval(poll);
+
+        try {
+          const ok = await checkIgConnection();
+          if (ok) {
+            console.log("Instagram connected!");
+            if (isDesktop) {
+              await fetchPage(0, pageSize);
+            } else {
+              mobileInitialLoadedRef.current = false;
+              setMobilePage(0);
+              await fetchMobile(0);
+            }
+          }
+        } finally {
+          setConnectLoading(false);
+        }
+      }
+    }, 500);
+
+    setTimeout(() => {
+      try {
+        if (!popup.closed) popup.close();
+      } catch {}
+    }, 5 * 60 * 1000);
+  } catch (e) {
+    setConnectError(e.message || "Failed to start Meta login");
+    setConnectLoading(false);
+  }
+}, [
+  META_STATE_URL,
+  checkIgConnection,
+  fetchPage,
+  fetchMobile,
+  pageSize,
+  isDesktop,
+  FB_APP_ID,
+  FB_LOGIN_CONFIG_ID,
+  REDIRECT_URI,
+]);
+
 
   /* ---- Columns (desktop) ---- */
   const columns = useMemo(() => {

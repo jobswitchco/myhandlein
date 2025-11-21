@@ -43,7 +43,6 @@ import NewsletterEmailsTable from './components/Employee/NewsletterEmailTable.js
 import SideNavbar from './components/Employee/SideNavbar.js';
 import DashboardAnalytics from './components/Employee/DashboardAnalytics.js';
 import UpiMandateModern from './components/Employee/UpiMandate.js';
-import InstagramConnect from './components/Employee/InstagramConnect.js';
 import DemoLogin from './components/Employee/DemoLogin.js';
 import DigitalTransactions from './components/Employee/DigitalTransactions.js';
 import FetchInstagramMedia from './components/Employee/FetchInstagramMedia.js';
@@ -144,7 +143,6 @@ if (initialSubdomain) {
                 <Route path="my/block/analytics" element={<BlocksAnalytics />} />
                 <Route path="newsletter/emails" element={<NewsletterEmailsTable />} />
                 <Route path="dashboard/analytics" element={<DashboardAnalytics />} />
-                <Route path="fb_insta_redirect" element={<InstagramConnect />} />
                 <Route path="my_orders" element={<DigitalTransactions />} />
                 <Route path="fetch_media" element={<FetchInstagramMedia />} />
                 <Route path="automations" element={<AutomationList />} />

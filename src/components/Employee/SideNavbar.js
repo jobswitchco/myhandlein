@@ -94,7 +94,6 @@ export default function SideNavbar({ window }) {
 
   // Routes for Instagram section
   const instagramRoutes = [
-    "/professional/fb_insta_redirect",
     "/professional/automations",
     "/professional/contacts/replied",
     "/professional/instagram/mentions",
