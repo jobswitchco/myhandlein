@@ -1448,10 +1448,15 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       { new: false }
     );
 
-    // 4️⃣ Fetch user pages (with linked IG)
+    // ============================================================
+    // 4️⃣ & 5️⃣ MODIFIED WORKAROUND START
+    // ============================================================
+
+    // A. Fetch user pages (ONLY ID, Name, and Access Token).
+    // We do NOT ask for instagram_business_account here to avoid permission error.
     const pagesResp = await axios.get("https://graph.facebook.com/v24.0/me/accounts", {
       params: {
-        fields: "id,name,instagram_business_account{id,username,profile_picture_url}",
+        fields: "id,name,access_token", 
         access_token: fbLongLivedToken,
       },
     });
@@ -1459,26 +1464,50 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const pages = pagesResp.data?.data || [];
     if (!pages.length) throw new Error("No Facebook Pages found for this user.");
 
-    // Pick first Page that has linked IG account
-    const pageWithIG = pages.find((p) => p?.instagram_business_account?.id);
-    if (!pageWithIG) throw new Error("No Page with a linked Instagram Business/Creator account found.");
+    let pageWithIG = null;
+    let fbPageAccessToken = null;
+    let igUserId = null;
+    let fbPageId = null;
 
-    const fbPageId = pageWithIG.id;
-    const igUserId = pageWithIG.instagram_business_account.id;
+    // B. Iterate through pages and check for IG link using the PAGE TOKEN
+    console.log(`Checking ${pages.length} pages for Instagram connection...`);
 
-    // 5️⃣ Fetch Page access token explicitly
-    const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${fbPageId}`, {
-      params: {
-        fields: "access_token",
-        access_token: fbLongLivedToken, // user token must have pages_* scopes
-      },
-    });
+    for (const page of pages) {
+        if (!page.access_token) continue;
 
-    const fbPageAccessToken = pageTokResp.data?.access_token;
+        try {
+            // We use the PAGE'S token to check its own connection.
+            // This bypasses the User 'pages_read_engagement' requirement.
+            const linkedResp = await axios.get(`https://graph.facebook.com/v24.0/${page.id}`, {
+                params: {
+                    fields: "instagram_business_account",
+                    access_token: page.access_token 
+                }
+            });
 
-    if (!fbPageAccessToken) {
-      throw new Error("Unable to fetch Page access token. Check your pages_* permissions.");
+            const igData = linkedResp.data?.instagram_business_account;
+            
+            if (igData && igData.id) {
+                pageWithIG = page;
+                fbPageId = page.id;
+                fbPageAccessToken = page.access_token;
+                igUserId = igData.id;
+                console.log(`✅ Found IG Connected Page: ${page.name} (IG ID: ${igUserId})`);
+                break; // Stop loop once found
+            }
+        } catch (innerErr) {
+            // If a specific page fails checks, just log and continue to next
+            console.warn(`Skipping page ${page.name} due to check error:`, innerErr.message);
+        }
     }
+
+    if (!pageWithIG || !igUserId) {
+        throw new Error("No Page with a linked Instagram Business/Creator account found.");
+    }
+
+    // ============================================================
+    // WORKAROUND END - Resume Standard Logic
+    // ============================================================
 
     // 6️⃣ Fetch Instagram details using Page token
     const igResp = await axios.get(`https://graph.facebook.com/v24.0/${igUserId}`, {
@@ -1501,127 +1530,111 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     // ============================================================
     // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
     // ============================================================
-// [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
-const existingUser = await USER.findOne({ 
-  igUserId: igUserId, duplicateExists: false,
-  _id: { $ne: userId } 
-});
+    const existingUser = await USER.findOne({ 
+      igUserId: igUserId, duplicateExists: false,
+      _id: { $ne: userId } 
+    });
 
+    if (existingUser) {
+      console.log('User exists::::::::::::::::::: FOUND:', existingUser._id);
 
-// Import mongoose at the top if you haven't already
-// import mongoose from 'mongoose'; 
-
-if (existingUser) {
-  console.log('User exists::::::::::::::::::: FOUND:', existingUser._id);
-
-  const email = existingUser.email || "unknown@user.com";
-  const [localPart, domain] = email.split("@");
-  let maskedEmail;
-  if (localPart && localPart.length <= 4) {
-    maskedEmail = `${localPart}****@${domain}`;
-  } else if (localPart) {
-    maskedEmail = `${localPart.slice(0, 4)}****${localPart.slice(-1)}@${domain}`;
-  } else {
-    maskedEmail = "******";
-  }
-
-  console.log("Attempting to update User:", userId); // Debug Log 1
-
-  // 🔴 FIXED: Capture the result to debug & Force ObjectId
-  const updateResult = await USER.findByIdAndUpdate(
-    new mongoose.Types.ObjectId(userId), // 1. Force cast string ID to ObjectId
-    {
-      $set: { // 2. Use explicit $set (good practice for partial updates)
-        igUserId: igUserId,
-        duplicateExists: true,
-        duplicateInfo: {
-          igUsername: igUsername || "Unknown", // Ensure this isn't undefined
-          maskedEmail: maskedEmail,
-        },
-        updated_at: new Date(),
+      const email = existingUser.email || "unknown@user.com";
+      const [localPart, domain] = email.split("@");
+      let maskedEmail;
+      if (localPart && localPart.length <= 4) {
+        maskedEmail = `${localPart}****@${domain}`;
+      } else if (localPart) {
+        maskedEmail = `${localPart.slice(0, 4)}****${localPart.slice(-1)}@${domain}`;
+      } else {
+        maskedEmail = "******";
       }
-    },
-    { new: true, runValidators: true } // 3. Enable validator to catch schema errors
-  );
 
-  if (!updateResult) {
-    console.error("❌ FATAL: Update failed. User not found or not updated:", userId);
-  } else {
-    console.log("✅ SUCCESS: Duplicate flag set. duplicateExists:", updateResult.duplicateExists);
-  }
+      console.log("Attempting to update User:", userId); 
 
-  // ... rest of your HTML response ...
-  res
-    .type("html")
-    .send(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Connected</title></head>
-<body>
-<script>
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.location.replace(${JSON.stringify(OPENER_URL)});
+      const updateResult = await USER.findByIdAndUpdate(
+        userId, // Mongoose automatically casts string ID to ObjectId
+        {
+          $set: { 
+            igUserId: igUserId,
+            duplicateExists: true,
+            duplicateInfo: {
+              igUsername: igUsername || "Unknown",
+              maskedEmail: maskedEmail,
+            },
+            updated_at: new Date(),
+          }
+        },
+        { new: true, runValidators: true } 
+      );
+
+      if (!updateResult) {
+        console.error("❌ FATAL: Update failed. User not found or not updated:", userId);
+      } else {
+        console.log("✅ SUCCESS: Duplicate flag set. duplicateExists:", updateResult.duplicateExists);
+      }
+
+      res
+        .type("html")
+        .send(`<!doctype html>
+      <html><head><meta charset="utf-8"><title>Connected</title></head>
+      <body>
+      <script>
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.location.replace(${JSON.stringify(OPENER_URL)});
+          }
+        } catch (e) {}
+        try { window.close(); } catch (e) {}
+        document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
+      </script>
+      </body></html>`);
     }
-  } catch (e) {}
-  try { window.close(); } catch (e) {}
-  document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
-</script>
-</body></html>`);
-}
+    else {
+      // 7️⃣ Save all data to USER (Normal Flow)
+      await USER.findByIdAndUpdate(
+        userId,
+        {
+          instagramConnected: true,
+          fbPageId,
+          igUserId: ig.id,
+          igId: ig.id,
+          igName: pageWithIG.name || igUsername || null,
+          igUsername,
+          igProfilePic,
+          igFollowersCount,
+          igFollowsCount,
+          igMediaCount,
+          igBiography,
+          fbPageAccessToken,
+          has_profile_pic_ig,
+          duplicateExists: false,
+          duplicateInfo: null,
+          updated_at: new Date(),
+        },
+        { new: true }
+      );
 
-else{
-
-  // 7️⃣ Save all data to USER
-await USER.findByIdAndUpdate(
-  userId,
-  {
-    instagramConnected: true,
-    fbPageId,
-    igUserId: ig.id,
-    igId: ig.id,
-    igName: pageWithIG.name || igUsername || null,
-    igUsername,
-    igProfilePic,
-    igFollowersCount,
-    igFollowsCount,
-    igMediaCount,
-    igBiography,
-    fbPageAccessToken,
-    has_profile_pic_ig,
-    duplicateExists: false,
-    duplicateInfo: null,
-    updated_at: new Date(),
-  },
-  { new: true }
-);
-
-
-
-    res
-      .type("html")
-      .send(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Connected</title></head>
-<body>
-<script>
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.location.replace(${JSON.stringify(OPENER_URL)});
+      res
+        .type("html")
+        .send(`<!doctype html>
+      <html><head><meta charset="utf-8"><title>Connected</title></head>
+      <body>
+      <script>
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.location.replace(${JSON.stringify(OPENER_URL)});
+          }
+        } catch (e) {}
+        // Fallback close
+        try { window.close(); } catch (e) {}
+        document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
+      </script>
+      </body></html>`);
     }
-  } catch (e) {}
-  // Fallback close
-  try { window.close(); } catch (e) {}
-  document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
-</script>
-</body></html>`);
-
-
-}
-
-
 
   } catch (err) {
     console.error("Meta OAuth error:", err?.response?.data || err?.message || err);
     res.set("Content-Type", "text/html");
-    // Use "*" for error reporting to ensure it shows up
     res.send(`<!doctype html><script>
       (function () {
         var payload = { type: "meta-auth", success: false, error: ${JSON.stringify(
