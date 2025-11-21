@@ -303,12 +303,12 @@ const checkIgConnection = useCallback(async () => {
     const res = await axios.get(STATUS_URL, { withCredentials: true });
 
     const {
-      instagramConnected = false,
-      duplicateInfo = null,
-      duplicateExists = false
+      instagramConnected,
+      duplicateInfo,
+      duplicateExists
     } = res.data || {};
 
-    if (!duplicateExists) {
+    if (duplicateExists) {
       const { igUsername, maskedEmail } = duplicateInfo;
 
       setDuplicateMessage(
@@ -317,8 +317,8 @@ const checkIgConnection = useCallback(async () => {
       setDuplicateDialogOpen(true);
     }
 
-    setIgConnected(!!instagramConnected);
-    return !!instagramConnected;
+    setIgConnected(instagramConnected);
+    return instagramConnected;
   } catch (e) {
     setIgCheckErr(
       e?.response?.data?.message || e.message || "Failed to verify Instagram link"
@@ -506,7 +506,6 @@ const handleConnectInstagram = useCallback(async () => {
         try {
           const ok = await checkIgConnection();
           if (ok) {
-            console.log("Instagram connected!");
             if (isDesktop) {
               await fetchPage(0, pageSize);
             } else {

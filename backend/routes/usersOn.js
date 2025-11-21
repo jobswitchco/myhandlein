@@ -1715,11 +1715,11 @@ router.get('/instagram-status', authenticateToken, async function (req, res) {
       return res.status(200).json({ success: false, data: null });
     }
 
-    const instagramConnected = !!user.instagramConnected;
+     const instagramConnected = user.instagramConnected;
     const igProfilePic = user.igProfilePic || null;
     const igUsername = user.igUsername || null;
     const followersCount = user.igFollowersCount ?? 0;
-    const duplicateExists = !!user.duplicateExists;
+    const duplicateExists = user.duplicateExists;
     const duplicateInfo = user.duplicateInfo;
 
     return res.status(200).json({
