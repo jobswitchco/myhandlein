@@ -30,8 +30,12 @@ const User_Schema = new Schema({
   fbPageAccessToken: {type : String},
   has_profile_pic_ig: { type: Boolean, default: false },
   fbNeedsReconnect: { type: Boolean },
-
   automationFeedSubscribed : {type : Boolean, default : false },
+  duplicateExists: { type: Boolean, default: false },
+  duplicateInfo: {
+    igUsername: { type: String },
+    maskedEmail: { type: String },
+  },
 
 
   demo_logged_in: { type: Boolean },

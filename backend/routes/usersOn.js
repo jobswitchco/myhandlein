@@ -1503,77 +1503,83 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     // ============================================================
     // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
     // ============================================================
-    const existingUser = await USER.findOne({ 
-        igUserId: ig.id,
-        _id: { $ne: userId } 
-    });
+// [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
+const existingUser = await USER.findOne({ 
+  igUserId: ig.id,
+  _id: { $ne: userId } 
+});
 
-    if (existingUser) {
-      // 1. Get email
-      const email = existingUser.email || "unknown@user.com";
+if (existingUser) {
+  const email = existingUser.email || "unknown@user.com";
+  const [localPart, domain] = email.split("@");
+  let maskedEmail;
+  if (localPart && localPart.length <= 4) {
+    maskedEmail = `${localPart}****@${domain}`;
+  } else if (localPart) {
+    maskedEmail = `${localPart.slice(0, 4)}****${localPart.slice(-1)}@${domain}`;
+  } else {
+    maskedEmail = "******";
+  }
 
-      // 2. Mask the email
-      const [localPart, domain] = email.split("@");
-      let maskedEmail;
-      if (localPart && localPart.length <= 4) {
-        maskedEmail = `${localPart}****@${domain}`;
-      } else if (localPart) {
-        maskedEmail = `${localPart.slice(0, 4)}****${localPart.slice(-1)}@${domain}`;
-      } else {
-         maskedEmail = "******";
-      }
-
-      // 3. SEND ERROR HTML IMMEDIATELY VIA POSTMESSAGE
-      // This posts the message to frontend and THEN closes the popup
-      res.set("Content-Type", "text/html");
-      return res.send(`<!doctype html><script>
-        (function () {
-          var payload = {
-            type: "meta-auth",
-            success: false,
-            errorCode: "DUPLICATE_CONNECTION",
-            error: "This Instagram account (@${igUsername}) is already connected to " + "${maskedEmail}",
-            maskedEmail: "${maskedEmail}",
-            igUsername: "${igUsername}"
-          };
-          if (window.opener) {
-            // We use "*" here to guarantee the message reaches localhost or prod
-            window.opener.postMessage(payload, "*"); 
-          }
-          // Small delay to ensure message dispatch before closing
-          setTimeout(function() {
-            window.close();
-          }, 300);
-        })();
-      </script>`);
-    }
-    // ============================================================
-
-
-    // 7️⃣ Save all data to USER
-   await USER.findByIdAndUpdate(
-      userId,
-      {
-        instagramConnected: true,
-        fbPageId,
-        igUserId: ig.id,
-        igId: ig.id,
-        igName: pageWithIG.name || igUsername || null,
+  // 🔴 important: DO NOT set instagramConnected: true here
+  await USER.findByIdAndUpdate(
+    userId,
+    {
+      igUserId: ig.id,
+      duplicateExists: true,
+      duplicateInfo: {
         igUsername,
-        igProfilePic,
-        igFollowersCount,
-        igFollowsCount,
-        igMediaCount,
-        igBiography,
-        fbPageAccessToken,
-        has_profile_pic_ig,
-        updated_at: new Date(),
+        maskedEmail,
       },
-      { new: true }
-    );
+      updated_at: new Date(),
+    },
+    { new: false }
+  );
 
-    // 8️⃣ Return to opener (Only happens on Success)
-    // This redirects the main window (Refresh)
+  // Reuse your normal "reload opener" HTML
+    res
+      .type("html")
+      .send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Connected</title></head>
+<body>
+<script>
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.location.replace(${JSON.stringify(OPENER_URL)});
+    }
+  } catch (e) {}
+  // Fallback close
+  try { window.close(); } catch (e) {}
+  document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
+</script>
+</body></html>`);
+}
+
+// 7️⃣ Save all data to USER
+await USER.findByIdAndUpdate(
+  userId,
+  {
+    instagramConnected: true,
+    fbPageId,
+    igUserId: ig.id,
+    igId: ig.id,
+    igName: pageWithIG.name || igUsername || null,
+    igUsername,
+    igProfilePic,
+    igFollowersCount,
+    igFollowsCount,
+    igMediaCount,
+    igBiography,
+    fbPageAccessToken,
+    has_profile_pic_ig,
+    duplicateExists: false,
+    duplicateInfo: null,
+    updated_at: new Date(),
+  },
+  { new: true }
+);
+
+
     res
       .type("html")
       .send(`<!doctype html>
@@ -1674,22 +1680,53 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
 
 
 /** (Optional) status route your FE already calls */
-router.get("/instagram-status", authenticateToken, async (req, res) => {
+router.get('/instagram-status', authenticateToken, async function (req, res) {
   try {
     const userId = req.user?.user_id;
-    
-    const u = await USER.findById(userId).lean();
-    if (!u) return res.json({ instagramConnected: false });
-    res.json({
-      instagramConnected: !!u.instagramConnected,
-      igUsername: u.igUsername || null,
-      igProfilePic: u.igProfilePic || null,
-      followersCount: u.igFollowersCount ?? null,
+
+    if (!userId) {
+      return res.status(400).json({ message: "Username is invalid." });
+    }
+
+    const user = await USER.findById(userId).lean();
+
+    if (!user) {
+      return res.status(200).json({ success: false, data: null });
+    }
+
+    const instagramConnected = !!user.instagramConnected;
+    const igProfilePic = user.igProfilePic || null;
+    const igUsername = user.igUsername || null;
+    const followersCount = user.igFollowersCount ?? 0;
+
+    const duplicateExists = !!user.duplicateExists;
+    let duplicateInfo = null;
+
+    if (duplicateExists && user.duplicateInfo) {
+      duplicateInfo = {
+        igUsername: user.duplicateInfo.igUsername || igUsername,
+        maskedEmail: user.duplicateInfo.maskedEmail || null,
+      };
+
+      // OPTIONAL: auto-clear the flag so dialog only shows once
+      await USER.findByIdAndUpdate(userId, { duplicateExists: false });
+    }
+
+    return res.status(200).json({
+      instagramConnected,
+      igProfilePic,
+      igUsername,
+      followersCount,
+      duplicateExists,
+      duplicateInfo,
     });
-  } catch {
-    res.json({ instagramConnected: false });
+
+  } catch (e2) {
+    console.error("❌ Error fetching instagram status:", e2);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 
 

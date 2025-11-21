@@ -248,33 +248,6 @@ export default function AutomationList() {
     return sign + trimmed + units[u];
   }
 
-    const handleMetaAuthMessage = useCallback((event) => {
-  const msg = event.data || {};
-
-  // (Optional) security check
-  // if (event.origin !== window.location.origin) return;
-
-  if (msg.type !== "meta-auth") return;
-
-  console.log("meta-auth message:", msg);
-
-  // Duplicate IG connection
-  if (msg.errorCode === "DUPLICATE_CONNECTION") {
-    setDuplicateMessage(
-      msg.error || "This Instagram account is already connected to another user."
-    );
-    setDuplicateDialogOpen(true);
-    setConnectLoading(false);
-    return;
-  }
-
-  // Other error from backend (generic OAuth error)
-  if (msg.success === false && msg.error && !msg.errorCode) {
-    // You *may* want to surface this too
-    setConnectError(msg.error);
-    setConnectLoading(false);
-  }
-}, [setDuplicateDialogOpen, setDuplicateMessage, setConnectLoading, setConnectError]);
 
 
   const openCenteredPopup = (url) => {
@@ -302,20 +275,38 @@ export default function AutomationList() {
   };
 
   /* ---- IG connection check ---- */
-  const checkIgConnection = useCallback(async () => {
-    setIgCheckErr("");
-    setIgConnected(null);
-    try {
-      const res = await axios.get(STATUS_URL, { withCredentials: true });
-      const { instagramConnected = false } = res.data || {};
-      setIgConnected(!!instagramConnected);
-      return !!instagramConnected;
-    } catch (e) {
-      setIgCheckErr(e?.response?.data?.message || e.message || "Failed to verify Instagram link");
-      setIgConnected(false);
-      return false;
+const checkIgConnection = useCallback(async () => {
+  setIgCheckErr("");
+  setIgConnected(null);
+
+  try {
+    const res = await axios.get(STATUS_URL, { withCredentials: true });
+
+    const {
+      instagramConnected = false,
+      duplicateInfo = null,
+    } = res.data || {};
+
+    if (duplicateInfo) {
+      const { igUsername, maskedEmail } = duplicateInfo;
+
+      setDuplicateMessage(
+        `This Instagram account (@${igUsername}) is already connected to ${maskedEmail}.`
+      );
+      setDuplicateDialogOpen(true);
     }
-  }, [STATUS_URL]);
+
+    setIgConnected(!!instagramConnected);
+    return !!instagramConnected;
+  } catch (e) {
+    setIgCheckErr(
+      e?.response?.data?.message || e.message || "Failed to verify Instagram link"
+    );
+    setIgConnected(false);
+    return false;
+  }
+}, [STATUS_URL]);
+
 
   /* ---- Desktop fetcher ---- */
   const fetchPage = useCallback(
@@ -459,12 +450,6 @@ export default function AutomationList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, isDesktop]);
 
-  useEffect(() => {
-  window.addEventListener("message", handleMetaAuthMessage);
-  return () => {
-    window.removeEventListener("message", handleMetaAuthMessage);
-  };
-}, [handleMetaAuthMessage]);
 
 
   /* ---- Business Login handler ---- */
