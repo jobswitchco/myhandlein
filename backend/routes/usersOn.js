@@ -1719,19 +1719,7 @@ router.get('/instagram-status', authenticateToken, async function (req, res) {
     const igProfilePic = user.igProfilePic || null;
     const igUsername = user.igUsername || null;
     const followersCount = user.igFollowersCount ?? 0;
-
     const duplicateExists = !!user.duplicateExists;
-    let duplicateInfo = null;
-
-    if (duplicateExists && user.duplicateInfo) {
-      duplicateInfo = {
-        igUsername: user.duplicateInfo.igUsername || igUsername,
-        maskedEmail: user.duplicateInfo.maskedEmail || null,
-      };
-
-      // OPTIONAL: auto-clear the flag so dialog only shows once
-      await USER.findByIdAndUpdate(userId, { duplicateExists: false });
-    }
 
     return res.status(200).json({
       instagramConnected,
