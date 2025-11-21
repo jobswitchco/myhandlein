@@ -1395,6 +1395,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     }
 
     const userId = payload.uid;
+    console.log('userId : ', userId);
     if (!userId) throw new Error("Invalid user state");
 
     // 2️⃣ Exchange code → short-lived token
@@ -1419,8 +1420,6 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
         fb_exchange_token: shortUserToken,
       },
     });
-
-    console.log("long token response:", llResp.data);
 
     const fbLongLivedToken = llResp.data?.access_token;
     if (!fbLongLivedToken) throw new Error("Failed to obtain long-lived token");
@@ -1477,7 +1476,6 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
 
     const fbPageAccessToken = pageTokResp.data?.access_token;
 
-    console.log('fbPageAccessToken :', pageTokResp.data);
     if (!fbPageAccessToken) {
       throw new Error("Unable to fetch Page access token. Check your pages_* permissions.");
     }
@@ -1505,11 +1503,13 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     // ============================================================
 // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
 const existingUser = await USER.findOne({ 
-  igUserId: ig.id,
+  igUserId: igUserId,
   _id: { $ne: userId } 
 });
 
+
 if (existingUser) {
+  console.log('User exists:::::::::::::::::::');
   const email = existingUser.email || "unknown@user.com";
   const [localPart, domain] = email.split("@");
   let maskedEmail;
@@ -1525,7 +1525,7 @@ if (existingUser) {
   await USER.findByIdAndUpdate(
     userId,
     {
-      igUserId: ig.id,
+      igUserId: igUserId,
       duplicateExists: true,
       duplicateInfo: {
         igUsername,
