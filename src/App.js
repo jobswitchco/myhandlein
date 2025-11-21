@@ -21,7 +21,7 @@ import TrustCenter from './components/TrustCenter.js';
 import AboutUs from './components/AboutUs.js';
 import YouTubeDisclosure from './components/YoutubeApiDisclosure.js';
 import Security from './components/Security.js';
-import LinkedInUserLogin from './components/Employee/LinkedInUserLogin.js';
+import CreatorInUserLogin from './components/Employee/CreatorUserLogin.js';
 import ProfileBasedDiscovery from './components/ProfileDiscovery.js';
 import EndToEndScheduling from './components/EndToEndScheduling.js';
 import SaveTimePage from './components/SaveTimePage.js';
@@ -107,7 +107,7 @@ if (initialSubdomain) {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/creator/onboarding" element={<CreatorOnboarding />} />
-              <Route path="/professional/login" element={<LinkedInUserLogin />} />
+              <Route path="/professional/login" element={<CreatorInUserLogin />} />
               <Route path="/professional/login/d" element={<DemoLogin />} />
               <Route path="/influencer/participant/login" element={<UserParticipant />} />
               <Route path="/pricing" element={<PricingPage />} />

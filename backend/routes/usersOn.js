@@ -1382,6 +1382,70 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
 
 
 
+// router.post("/save-instagram-account", authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user?.user_id;
+//     const { pageId, igUserId } = req.body;
+
+//     console.log('body : ', req.body);
+//     console.log('userId : ', userId);
+
+//     if (!pageId || !igUserId) return res.status(400).json({ success: false, error: "pageId and igUserId are required" });
+
+//     const user = await USER.findById(userId).lean();
+//     if (!user) return res.status(404).json({ success: false, error: "User not found" });
+//     if (!user.fbLongLivedToken) return res.status(401).json({ success: false, error: "Meta session missing. Please connect again." });
+
+//     // Page access token (from long-lived *user* token)
+//     const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${pageId}`, {
+//       params: { fields: "access_token", access_token: user.fbLongLivedToken },
+//     });
+//     const fbPageAccessToken = pageTokResp.data?.access_token;
+//     if (!fbPageAccessToken) return res.status(400).json({ success: false, error: "Unable to fetch Page access token" });
+
+//     // Fetch IG details with page token
+//     const igResp = await axios.get(`https://graph.facebook.com/v24.0/${igUserId}`, {
+//       params: {
+//         fields: "id,username,profile_picture_url,biography,followers_count,follows_count,media_count",
+//         access_token: fbPageAccessToken,
+//       },
+//     });
+//     const ig = igResp.data;
+
+//     const update = {
+//       instagramConnected: true,
+//       fbPageId: pageId,
+//       igUserId: ig.id,
+//       igId: ig.id,
+//       igName: ig.username || null,                // IG doesn't expose separate 'name' for biz
+//       igUsername: ig.username || null,
+//       igProfilePic: ig.profile_picture_url || null,
+//       igFollowersCount: ig.followers_count ?? null,
+//       igFollowsCount: ig.follows_count ?? null,
+//       igMediaCount: ig.media_count ?? null,
+//       igBiography: ig.biography || null,
+//       fbPageAccessToken,
+//       has_profile_pic_ig: Boolean(ig.profile_picture_url),
+//       updated_at: new Date(),
+//     };
+
+//     const saved = await USER.findByIdAndUpdate(userId, update, { new: true });
+//     return res.json({
+//       success: true,
+//       user: {
+//         instagramConnected: saved.instagramConnected,
+//         igUsername: saved.igUsername,
+//         igProfilePic: saved.igProfilePic,
+//         igFollowersCount: saved.igFollowersCount,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("save-instagram-account error:", err?.response?.data || err?.message || err);
+//     return res.status(500).json({ success: false, error: "Failed to save Instagram account" });
+//   }
+// });
+
+
 router.post("/save-instagram-account", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
@@ -1395,6 +1459,40 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
     const user = await USER.findById(userId).lean();
     if (!user) return res.status(404).json({ success: false, error: "User not found" });
     if (!user.fbLongLivedToken) return res.status(401).json({ success: false, error: "Meta session missing. Please connect again." });
+
+    // ============================================================
+    // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION BEFORE SAVING
+    // ============================================================
+    const existingUser = await USER.findOne({
+      igUserId: igUserId,
+      _id: { $ne: userId } // Exclude the current user
+    });
+
+    if (existingUser) {
+      // 1. Get email
+      const email = existingUser.email || "unknown@user.com";
+
+      // 2. Mask the email (e.g., techiexxxx7@gmail.com)
+      const [localPart, domain] = email.split("@");
+      let maskedEmail;
+      if (localPart && localPart.length <= 4) {
+        maskedEmail = `${localPart}****@${domain}`;
+      } else if (localPart) {
+        maskedEmail = `${localPart.slice(0, 4)}****${localPart.slice(-1)}@${domain}`;
+      } else {
+        maskedEmail = "******";
+      }
+
+      // 3. Return Conflict (409)
+      return res.status(409).json({
+        success: false,
+        error: "DUPLICATE_CONNECTION",
+        message: `This Instagram account is already connected to ${maskedEmail}`,
+        maskedEmail: maskedEmail
+      });
+    }
+    // ============================================================
+
 
     // Page access token (from long-lived *user* token)
     const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${pageId}`, {
@@ -1444,7 +1542,6 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
     return res.status(500).json({ success: false, error: "Failed to save Instagram account" });
   }
 });
-
 
 /** (Optional) status route your FE already calls */
 router.get("/instagram-status", authenticateToken, async (req, res) => {
@@ -4046,13 +4143,9 @@ router.post("/create-subscription", authenticateToken, async (req, res) => {
     const { plan_id } = req.body;
       const userId = req.user?.user_id;
 
-    const startAt = Math.floor((Date.now() + 7 * 24 * 60 * 60 * 1000) / 1000);
-
-    // total_count is required; pick a big number or store your own end/cancel logic.
     const sub = await rz.subscriptions.create({
       plan_id,
       total_count: 48,             // ~83 years if monthly
-      start_at: startAt,            // first charge after 7 days
       customer_notify: 1,           // Razorpay can send emails/SMS if configured
       notes: { userId: userId || "anonymous" },
     });
@@ -4085,17 +4178,12 @@ router.post("/subscription/verify", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid signature" });
     }
 
-    // Signature is valid — save/update the subscription
-    // Decide subscription_starts_at: if you offer a 7-day trial, set now+7 days
-    const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
     const update = {
       user_id: userId,
       razorpay_payment_id: payment_id,
       razorpay_subscription_id: subscription_id,
       razorpay_signature: signature,
-      subscription_starts_at: startsAt,
-      status: "pending_activation", // you can flip to 'active' on webhook
+      status: "active",
       updatedAt: new Date(),
     };
 
@@ -4116,27 +4204,46 @@ router.get('/fetch-payment-details', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
 
-    // If user_id is not available, return hasAccess: false (no 401)
     if (!userId) {
       return res.json({ hasAccess: false });
     }
 
-    const user = await Subscriptions.findOne({ user_id : userId}).lean();
-
+    // 1. Fetch user
+    const user = await USER.findById(userId);
 
     if (!user) {
-
-      return res.status(201).json({ error: 'User not found', hasAccess: false });
+      return res.json({ hasAccess: false });
     }
 
-    // Check subscription status
-    const sub = await Subscriptions.findOne({ user_id: userId }).select('status').lean();
+    const freeTrialStart = user.free_trial_started_date;
+    const now = new Date();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
-    const hasAccess = !!(sub && ['pending_activation', 'active'].includes(sub.status));
+    let hasAccess = false;
 
-    return res.json({
-      hasAccess,
-    });
+    // ✅ Condition 1: within 7 days of free trial
+    if (freeTrialStart) {
+      const diffMs = now.getTime() - new Date(freeTrialStart).getTime();
+
+      if (diffMs < sevenDaysMs) {
+        hasAccess = true;
+        return res.json({ hasAccess });
+      }
+    }
+
+    // 2. Free trial over → check subscription
+    const subscription = await Subscriptions
+      .findOne({ user_id: userId, is_del: false })
+      .sort({ created_at: -1 }); // in case multiple subscriptions
+
+    // ✅ Condition 2: trial over AND active subscription
+    if (subscription && subscription.status === 'active') {
+      hasAccess = true;
+    } else {
+      hasAccess = false;
+    }
+
+    return res.json({ hasAccess });
   } catch (err) {
     console.error('GET /fetch-payment-details error:', err);
     return res.status(500).json({ error: 'Server error' });

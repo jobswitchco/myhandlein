@@ -4,7 +4,7 @@ const { Schema } = mongoose;
 const Subscriptions_Schema = new Schema({
     user_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "users"    },
+        ref: "User"    },
 
     razorpay_payment_id: String,
     razorpay_subscription_id: {

@@ -49,7 +49,8 @@ export default function UpiMandateModern() {
   const [prefillLoading, setPrefillLoading] = useState(true);
   const [snack, setSnack] = useState({ open: false, message: "", severity: "info" });
 
-  const PLAN_ID = "plan_RbbqqMpteltFu2";
+  const PLAN_ID = "plan_RiFtJIer0s57AN";
+  // const PLAN_ID = "plan_RiFwt9UcnSnpkM";
   const baseUrl = "/api/usersOn";
 
     const handleLogout = async () => {
@@ -164,7 +165,7 @@ export default function UpiMandateModern() {
     const rzp = new window.Razorpay({
       key: RZP_KEY_ID,
       name: "MyHandle",
-      description: "₹399 Monthly — starts after 7 days",
+      description: "₹399 Monthly Subscription",
       subscription_id,
       recurring: 1,
       method: { upi: true },
@@ -237,7 +238,7 @@ export default function UpiMandateModern() {
                       color: "text.primary",
                     }}
                   >
-                    7-Day Free Trial
+                    Please Activate Subscription
                   </Typography>
                   <Typography
                     sx={{
@@ -247,7 +248,7 @@ export default function UpiMandateModern() {
                       lineHeight: 1.5,
                     }}
                   >
-                    Approve a one-time UPI mandate. No charge today. Cancel anytime.
+                    Your subscription or free-trial has been ended.
                   </Typography>
                 </Stack>
               }
@@ -261,14 +262,14 @@ export default function UpiMandateModern() {
             <CardContent
               sx={{
                 px: { xs: 3, md: 4 },
-                py: { xs: 1, md: 0 },
+                py: { xs: 1, md: 2 },
                 display: "flex",
                 flexDirection: "column",
                 gap: 3,
               }}
             >
               {/* Security badges */}
-              {isMobile ? ('') : (
+              {/* {isMobile ? ('') : (
  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
                 <Tooltip title="Processed by Razorpay" placement="top" arrow>
                   <Chip
@@ -303,7 +304,7 @@ export default function UpiMandateModern() {
                   />
                 </Tooltip>
               </Stack>
-              )}
+              )} */}
              
 
               {/* Form fields */}
@@ -486,12 +487,12 @@ export default function UpiMandateModern() {
                     <span>Processing…</span>
                   </Stack>
                 ) : (
-                  "Continue"
+                  "Subscribe"
                 )}
               </Button>
 
               {/* Info section */}
-              <Paper
+              {/* <Paper
                 elevation={0}
                 sx={{
                   p: 2.5,
@@ -595,7 +596,7 @@ export default function UpiMandateModern() {
                     </Typography>
                   </Stack>
                 </Stack>
-              </Paper>
+              </Paper> */}
 
     <Button
                 onClick={handleLogout}

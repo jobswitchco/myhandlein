@@ -31,7 +31,7 @@ import logo from "../../images/myhandle_logo.svg"
  * - Single prominent Google button
  * - Preserves your original login flow and redirects
  */
-export default function WaitlistSignup() {
+export default function CreatorUserLogin() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
