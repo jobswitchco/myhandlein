@@ -1193,6 +1193,191 @@ router.post("/meta-state", authenticateToken, async (req, res) => {
 });
 
 
+// router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
+//   const { code, state } = req.query;
+
+//   try {
+//     if (!code) throw new Error("Missing OAuth code");
+//     if (!state) throw new Error("Missing state");
+
+//     // 1️⃣ Verify state → userId
+//     let payload;
+//     try {
+//       payload = jwt.verify(state, META_STATE_SECRET);
+//     } catch {
+//       throw new Error("Invalid or expired state");
+//     }
+
+//     const userId = payload.uid;
+//     if (!userId) throw new Error("Invalid user state");
+
+//     // 2️⃣ Exchange code → short-lived token
+//     const tokenResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
+//       params: {
+//         client_id: META_APP_ID,
+//         client_secret: META_APP_SECRET,
+//         redirect_uri: META_REDIRECT_URI,
+//         code,
+//       },
+//     });
+
+//     const shortUserToken = tokenResp.data?.access_token;
+//     if (!shortUserToken) throw new Error("Token exchange failed");
+
+//     // 3️⃣ Exchange short-lived token → long-lived token
+//     const llResp = await axios.get("https://graph.facebook.com/v24.0/oauth/access_token", {
+//       params: {
+//         grant_type: "fb_exchange_token",
+//         client_id: META_APP_ID,
+//         client_secret: META_APP_SECRET,
+//         fb_exchange_token: shortUserToken,
+//       },
+//     });
+
+//     console.log("long token response:", llResp.data);
+
+//     const fbLongLivedToken = llResp.data?.access_token;
+//     if (!fbLongLivedToken) throw new Error("Failed to obtain long-lived token");
+
+//     // ✅ Compute expiry: use API expires_in if present, else fallback to 58 days.
+//     const expiresInSecRaw = llResp.data?.expires_in;
+//     const expiresInSec = Number.isFinite(Number(expiresInSecRaw)) ? Number(expiresInSecRaw) : null;
+
+//     const nowMs = Date.now();
+//     let fbLongLivedTokenExpiry;
+
+//     if (expiresInSec && expiresInSec > 0) {
+//       fbLongLivedTokenExpiry = new Date(nowMs + expiresInSec * 1000);
+      
+//     } else {
+//       // ~60 days typical validity; set conservative 58 days
+//       const FIFTY_EIGHT_DAYS_MS = 58 * 24 * 60 * 60 * 1000;
+//       fbLongLivedTokenExpiry = new Date(nowMs + FIFTY_EIGHT_DAYS_MS);
+     
+//     }
+
+//     // Save early so we always persist tokens even if next step fails
+//     await USER.findByIdAndUpdate(
+//       userId,
+//       {
+//         fbLongLivedToken,
+//         fbLongLivedTokenExpiry,
+      
+//         updated_at: new Date(),
+//       },
+//       { new: false }
+//     );
+
+//     // 4️⃣ Fetch user pages (with linked IG)
+//     const pagesResp = await axios.get("https://graph.facebook.com/v24.0/me/accounts", {
+//       params: {
+//         fields: "id,name,instagram_business_account{id,username,profile_picture_url}",
+//         access_token: fbLongLivedToken,
+//       },
+//     });
+
+//     const pages = pagesResp.data?.data || [];
+//     if (!pages.length) throw new Error("No Facebook Pages found for this user.");
+
+//     // Pick first Page that has linked IG account
+//     const pageWithIG = pages.find((p) => p?.instagram_business_account?.id);
+//     if (!pageWithIG) throw new Error("No Page with a linked Instagram Business/Creator account found.");
+
+//     const fbPageId = pageWithIG.id;
+//     const igUserId = pageWithIG.instagram_business_account.id;
+
+//     // 5️⃣ Fetch Page access token explicitly
+//     const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${fbPageId}`, {
+//       params: {
+//         fields: "access_token",
+//         access_token: fbLongLivedToken, // user token must have pages_* scopes
+//       },
+//     });
+
+//     const fbPageAccessToken = pageTokResp.data?.access_token;
+
+//     console.log('fbPageAccessToken :', pageTokResp.data);
+//     if (!fbPageAccessToken) {
+//       throw new Error("Unable to fetch Page access token. Check your pages_* permissions.");
+//     }
+
+//     // 6️⃣ Fetch Instagram details using Page token
+//     const igResp = await axios.get(`https://graph.facebook.com/v24.0/${igUserId}`, {
+//       params: {
+//         fields: "id,username,profile_picture_url,biography,followers_count,follows_count,media_count",
+//         access_token: fbPageAccessToken,
+//       },
+//     });
+
+//     const ig = igResp.data || {};
+//     const igUsername = ig.username || null;
+//     const igProfilePic = ig.profile_picture_url || null;
+//     const igFollowersCount = ig.followers_count ?? 0;
+//     const igFollowsCount = ig.follows_count ?? 0;
+//     const igMediaCount = ig.media_count ?? 0;
+//     const igBiography = ig.biography || null;
+//     const has_profile_pic_ig = Boolean(igProfilePic);
+
+//     // 7️⃣ Save all data to USER
+//    await USER.findByIdAndUpdate(
+//       userId,
+//       {
+//         instagramConnected: true,
+//         fbPageId,
+//         igUserId: ig.id,
+//         igId: ig.id,
+//         igName: pageWithIG.name || igUsername || null,
+//         igUsername,
+//         igProfilePic,
+//         igFollowersCount,
+//         igFollowsCount,
+//         igMediaCount,
+//         igBiography,
+//         fbPageAccessToken,
+//         has_profile_pic_ig,
+//         updated_at: new Date(),
+//       },
+//       { new: true }
+//     );
+
+//     // 8️⃣ Return to opener
+//     const preview = {
+//       igUsername,
+//       igProfilePic,
+//       followersCount: igFollowersCount,
+//     };
+
+//     res
+//       .type("html")
+//       .send(`<!doctype html>
+// <html><head><meta charset="utf-8"><title>Connected</title></head>
+// <body>
+// <script>
+//   try {
+//     if (window.opener && !window.opener.closed) {
+//       window.opener.location.replace(${JSON.stringify(OPENER_URL)});
+//     }
+//   } catch (e) {}
+//   try { window.close(); } catch (e) {}
+//   document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
+// </script>
+// </body></html>`);
+
+//   } catch (err) {
+//     console.error("Meta OAuth error:", err?.response?.data || err?.message || err);
+//     res.set("Content-Type", "text/html");
+//     res.send(`<!doctype html><script>
+//       (function () {
+//         var payload = { type: "meta-auth", success: false, error: ${JSON.stringify(
+//           err?.message || "Meta OAuth error"
+//         )} };
+//         if (window.opener) window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
+//         window.close();
+//       })();
+//     </script>`);
+//   }
+// });
+
 router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
   const { code, state } = req.query;
 
@@ -1253,7 +1438,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       // ~60 days typical validity; set conservative 58 days
       const FIFTY_EIGHT_DAYS_MS = 58 * 24 * 60 * 60 * 1000;
       fbLongLivedTokenExpiry = new Date(nowMs + FIFTY_EIGHT_DAYS_MS);
-     
+      
     }
 
     // Save early so we always persist tokens even if next step fails
@@ -1318,6 +1503,53 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const igBiography = ig.biography || null;
     const has_profile_pic_ig = Boolean(igProfilePic);
 
+
+    // ============================================================
+    // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
+    // ============================================================
+    // Check if this IG ID is already connected to ANY user except current one
+    const existingUser = await USER.findOne({ 
+        igUserId: ig.id,
+        _id: { $ne: userId } 
+    });
+
+    if (existingUser) {
+      // 1. Get email
+      const email = existingUser.email || "unknown@user.com";
+
+      // 2. Mask the email
+      const [localPart, domain] = email.split("@");
+      let maskedEmail;
+      if (localPart && localPart.length <= 4) {
+        maskedEmail = `${localPart}****@${domain}`;
+      } else if (localPart) {
+        maskedEmail = `${localPart.slice(0, 4)}****${localPart.slice(-1)}@${domain}`;
+      } else {
+         maskedEmail = "******";
+      }
+
+      // 3. SEND ERROR HTML IMMEDIATELY VIA POSTMESSAGE
+      res.set("Content-Type", "text/html");
+      return res.send(`<!doctype html><script>
+        (function () {
+          var payload = {
+            type: "meta-auth",
+            success: false,
+            errorCode: "DUPLICATE_CONNECTION",
+            error: "This Instagram account (@${igUsername}) is already connected to " + "${maskedEmail}",
+            maskedEmail: "${maskedEmail}",
+            igUsername: "${igUsername}"
+          };
+          if (window.opener) {
+            window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
+          }
+          window.close();
+        })();
+      </script>`);
+    }
+    // ============================================================
+
+
     // 7️⃣ Save all data to USER
    await USER.findByIdAndUpdate(
       userId,
@@ -1341,12 +1573,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     );
 
     // 8️⃣ Return to opener
-    const preview = {
-      igUsername,
-      igProfilePic,
-      followersCount: igFollowersCount,
-    };
-
+    // Success -> Redirect opener
     res
       .type("html")
       .send(`<!doctype html>
@@ -1380,72 +1607,6 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
 
 
 
-
-
-// router.post("/save-instagram-account", authenticateToken, async (req, res) => {
-//   try {
-//     const userId = req.user?.user_id;
-//     const { pageId, igUserId } = req.body;
-
-//     console.log('body : ', req.body);
-//     console.log('userId : ', userId);
-
-//     if (!pageId || !igUserId) return res.status(400).json({ success: false, error: "pageId and igUserId are required" });
-
-//     const user = await USER.findById(userId).lean();
-//     if (!user) return res.status(404).json({ success: false, error: "User not found" });
-//     if (!user.fbLongLivedToken) return res.status(401).json({ success: false, error: "Meta session missing. Please connect again." });
-
-//     // Page access token (from long-lived *user* token)
-//     const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${pageId}`, {
-//       params: { fields: "access_token", access_token: user.fbLongLivedToken },
-//     });
-//     const fbPageAccessToken = pageTokResp.data?.access_token;
-//     if (!fbPageAccessToken) return res.status(400).json({ success: false, error: "Unable to fetch Page access token" });
-
-//     // Fetch IG details with page token
-//     const igResp = await axios.get(`https://graph.facebook.com/v24.0/${igUserId}`, {
-//       params: {
-//         fields: "id,username,profile_picture_url,biography,followers_count,follows_count,media_count",
-//         access_token: fbPageAccessToken,
-//       },
-//     });
-//     const ig = igResp.data;
-
-//     const update = {
-//       instagramConnected: true,
-//       fbPageId: pageId,
-//       igUserId: ig.id,
-//       igId: ig.id,
-//       igName: ig.username || null,                // IG doesn't expose separate 'name' for biz
-//       igUsername: ig.username || null,
-//       igProfilePic: ig.profile_picture_url || null,
-//       igFollowersCount: ig.followers_count ?? null,
-//       igFollowsCount: ig.follows_count ?? null,
-//       igMediaCount: ig.media_count ?? null,
-//       igBiography: ig.biography || null,
-//       fbPageAccessToken,
-//       has_profile_pic_ig: Boolean(ig.profile_picture_url),
-//       updated_at: new Date(),
-//     };
-
-//     const saved = await USER.findByIdAndUpdate(userId, update, { new: true });
-//     return res.json({
-//       success: true,
-//       user: {
-//         instagramConnected: saved.instagramConnected,
-//         igUsername: saved.igUsername,
-//         igProfilePic: saved.igProfilePic,
-//         igFollowersCount: saved.igFollowersCount,
-//       },
-//     });
-//   } catch (err) {
-//     console.error("save-instagram-account error:", err?.response?.data || err?.message || err);
-//     return res.status(500).json({ success: false, error: "Failed to save Instagram account" });
-//   }
-// });
-
-
 router.post("/save-instagram-account", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
@@ -1459,40 +1620,6 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
     const user = await USER.findById(userId).lean();
     if (!user) return res.status(404).json({ success: false, error: "User not found" });
     if (!user.fbLongLivedToken) return res.status(401).json({ success: false, error: "Meta session missing. Please connect again." });
-
-    // ============================================================
-    // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION BEFORE SAVING
-    // ============================================================
-    const existingUser = await USER.findOne({
-      igUserId: igUserId,
-      _id: { $ne: userId } // Exclude the current user
-    });
-
-    if (existingUser) {
-      // 1. Get email
-      const email = existingUser.email || "unknown@user.com";
-
-      // 2. Mask the email (e.g., techiexxxx7@gmail.com)
-      const [localPart, domain] = email.split("@");
-      let maskedEmail;
-      if (localPart && localPart.length <= 4) {
-        maskedEmail = `${localPart}****@${domain}`;
-      } else if (localPart) {
-        maskedEmail = `${localPart.slice(0, 4)}****${localPart.slice(-1)}@${domain}`;
-      } else {
-        maskedEmail = "******";
-      }
-
-      // 3. Return Conflict (409)
-      return res.status(409).json({
-        success: false,
-        error: "DUPLICATE_CONNECTION",
-        message: `This Instagram account is already connected to ${maskedEmail}`,
-        maskedEmail: maskedEmail
-      });
-    }
-    // ============================================================
-
 
     // Page access token (from long-lived *user* token)
     const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${pageId}`, {
@@ -1542,6 +1669,7 @@ router.post("/save-instagram-account", authenticateToken, async (req, res) => {
     return res.status(500).json({ success: false, error: "Failed to save Instagram account" });
   }
 });
+
 
 /** (Optional) status route your FE already calls */
 router.get("/instagram-status", authenticateToken, async (req, res) => {

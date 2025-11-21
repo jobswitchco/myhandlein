@@ -108,13 +108,24 @@ const openBusinessLogin = useCallback(async () => {
     const onMessage = async (event) => {
       const msg = event.data || {};
       if (msg.type !== "meta-auth") return;
+      
+      // IMPORTANT: Don't remove listener immediately if multiple messages might arrive, 
+      // but here we expect one final result. 
+      // Removing it here is fine as long as we handle the payload.
       window.removeEventListener("message", onMessage);
 
       try {
         if (!msg.success) {
-          setError(msg.error || "Facebook Business Login failed.");
-          return;
+           // --- NEW: Check for DUPLICATE_CONNECTION from the popup ---
+           if (msg.errorCode === "DUPLICATE_CONNECTION") {
+             setDuplicateMessage(msg.error);
+             setDuplicateDialogOpen(true);
+           } else {
+             setError(msg.error || "Facebook Business Login failed.");
+           }
+           return;
         }
+        // If success logic existed here for candidate selection, it would be:
         const arr = msg.candidates || [];
         console.log('heheheheehe : ', arr);
         console.log('candidates : ', msg.candidates);
@@ -124,7 +135,9 @@ const openBusinessLogin = useCallback(async () => {
           setCandidates(arr);
           setSelectOpen(true);
         } else {
-          setError("No Instagram business accounts found.");
+          // In the auto-redirect flow (location.replace), we might not even reach here for success
+          // because the opener navigates away. But if we do:
+          // setError("No Instagram business accounts found.");
         }
       } catch (err) {
         setError(err?.response?.data?.error || err.message || "Failed after login.");
@@ -235,7 +248,7 @@ const handleSelect = useCallback((acc) => {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', height: '100vh' }}>
         {/* ... your existing Connected card ... */}
-         <Card elevation={0} sx={{ maxWidth: 860, mx: "auto", borderRadius: 4, color: "white",
+          <Card elevation={0} sx={{ maxWidth: 860, mx: "auto", borderRadius: 4, color: "white",
         position: "relative", overflow: "hidden",
         background: "linear-gradient(135deg, #C9CDCF 0%, #67C090 45%, #08CB00 100%)",
         boxShadow: "0 20px 60px rgba(29, 17, 86, 0.35)" }}>
