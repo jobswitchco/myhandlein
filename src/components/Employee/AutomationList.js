@@ -13,13 +13,12 @@ import {
   CardActionArea,
   Skeleton,
   Tooltip,
-  // New imports for Dialog
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
-  // New imports for Table replacement
+  ClickAwayListener,
   Table,
   TableBody,
   TableCell,
@@ -36,7 +35,9 @@ import InstagramIcon from "@mui/icons-material/Instagram";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
-// import { DataGrid } from "@mui/x-data-grid"; // Removed to fix build error
+import { logout } from "../../store/professionalSlice";
+import { useDispatch } from "react-redux";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 // import { toast } from "react-toastify"; // Commented out to prevent build errors in this env
@@ -172,6 +173,7 @@ function AutomationCard({ row, onDetails }) {
 export default function AutomationList() {
   const navigate = useNavigate();
   const theme = useTheme();
+    const dispatch = useDispatch();
 
   // Desktop detection state
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -188,6 +190,24 @@ export default function AutomationList() {
 
   const baseUrl = "/api/usersOn";
 
+    const handleClickAway = () => {
+    //this function keeps the dialogue open, even when user clicks outside the dialogue. dont delete this function
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await axios.post(baseUrl + "/logout", {}, { withCredentials: true });
+      dispatch(logout()); // Clear Redux state
+      window.location.href = "/professional/login"; // Ensures full logout
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  
+  const handleDuplicateDialogClose = () => {
+    setDuplicateDialogOpen(false);
+  };
 
 
   /* ---- Backend endpoints ---- */
@@ -716,12 +736,18 @@ const handleConnectInstagram = useCallback(async () => {
         </Card>
 
         {/* Duplicate Account Conflict Dialog */}
+         <ClickAwayListener onClickAway={handleClickAway}>
         <Dialog
           open={duplicateDialogOpen}
-          onClose={() => setDuplicateDialogOpen(false)}
+          onClose={handleDuplicateDialogClose}
+           disableEscapeKeyDown
+            keepMounted
           aria-labelledby="alert-dialog-title"
           aria-describedby="alert-dialog-description"
+          
         >
+
+          
           <DialogTitle id="alert-dialog-title" sx={{ color: "error.main", display: "flex", alignItems: "center", gap: 1 }}>
             <InfoOutlinedIcon /> Account Conflict
           </DialogTitle>
@@ -731,15 +757,30 @@ const handleConnectInstagram = useCallback(async () => {
             </DialogContentText>
           </DialogContent>
           <DialogActions>
+            <Stack sx={{ display : 'flex', flexDirection : 'row', gap: 2, pb: 2}}>
+
             <Button
+              startIcon={<LogoutIcon />}
+              onClick={handleSignOut}
+              autoFocus
+              variant="contained"
+              sx={{ textTransform : 'none', background : '#70B2B2'}}
+            >
+              Logout
+            </Button>
+             <Button
               onClick={() => setDuplicateDialogOpen(false)}
               autoFocus
               variant="contained"
+              sx={{ backrgound : '#8C00FF', textTransform : 'none'}}
             >
               Okay
             </Button>
+            </Stack>
+
           </DialogActions>
         </Dialog>
+        </ClickAwayListener>
       </Box>
     );
   }

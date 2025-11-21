@@ -133,7 +133,35 @@ export default function SideNavbar({ window }) {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
+      const verifyToken = async () => {
+        setLoading(true);
+  
+        try {
+          const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
+  
+          if (res.data.valid) {
+            fetchPaymentDetails(); // also load IG info once token is valid
+          } else {
+            handleSessionExpired();
+          }
+        } catch (error) {
+          if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            handleSessionExpired();
+          } else {
+            toast.error("Network error, please try again later.");
+            handleSessionExpired();
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+  
+      verifyToken();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+
     const fetchPaymentDetails = async () => {
       try {
         setLoading(true);
@@ -153,8 +181,6 @@ export default function SideNavbar({ window }) {
       }
     };
 
-    fetchPaymentDetails();
-  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
