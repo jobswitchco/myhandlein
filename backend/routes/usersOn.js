@@ -1555,7 +1555,9 @@ if (existingUser) {
 </body></html>`);
 }
 
-// 7️⃣ Save all data to USER
+else{
+
+  // 7️⃣ Save all data to USER
 await USER.findByIdAndUpdate(
   userId,
   {
@@ -1580,6 +1582,7 @@ await USER.findByIdAndUpdate(
 );
 
 
+
     res
       .type("html")
       .send(`<!doctype html>
@@ -1596,6 +1599,11 @@ await USER.findByIdAndUpdate(
   document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
 </script>
 </body></html>`);
+
+
+}
+
+
 
   } catch (err) {
     console.error("Meta OAuth error:", err?.response?.data || err?.message || err);
