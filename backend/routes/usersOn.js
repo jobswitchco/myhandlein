@@ -1378,6 +1378,7 @@ router.post("/meta-state", authenticateToken, async (req, res) => {
 //   }
 // });
 
+
 router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
   const { code, state } = req.query;
 
@@ -1424,30 +1425,25 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const fbLongLivedToken = llResp.data?.access_token;
     if (!fbLongLivedToken) throw new Error("Failed to obtain long-lived token");
 
-    // ✅ Compute expiry: use API expires_in if present, else fallback to 58 days.
+    // ✅ Compute expiry
     const expiresInSecRaw = llResp.data?.expires_in;
     const expiresInSec = Number.isFinite(Number(expiresInSecRaw)) ? Number(expiresInSecRaw) : null;
-
     const nowMs = Date.now();
     let fbLongLivedTokenExpiry;
 
     if (expiresInSec && expiresInSec > 0) {
       fbLongLivedTokenExpiry = new Date(nowMs + expiresInSec * 1000);
-      
     } else {
-      // ~60 days typical validity; set conservative 58 days
       const FIFTY_EIGHT_DAYS_MS = 58 * 24 * 60 * 60 * 1000;
       fbLongLivedTokenExpiry = new Date(nowMs + FIFTY_EIGHT_DAYS_MS);
-      
     }
 
-    // Save early so we always persist tokens even if next step fails
+    // Save early
     await USER.findByIdAndUpdate(
       userId,
       {
         fbLongLivedToken,
         fbLongLivedTokenExpiry,
-      
         updated_at: new Date(),
       },
       { new: false }
@@ -1507,7 +1503,6 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     // ============================================================
     // [NEW LOGIC] CHECK FOR DUPLICATE CONNECTION
     // ============================================================
-    // Check if this IG ID is already connected to ANY user except current one
     const existingUser = await USER.findOne({ 
         igUserId: ig.id,
         _id: { $ne: userId } 
@@ -1529,6 +1524,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       }
 
       // 3. SEND ERROR HTML IMMEDIATELY VIA POSTMESSAGE
+      // This posts the message to frontend and THEN closes the popup
       res.set("Content-Type", "text/html");
       return res.send(`<!doctype html><script>
         (function () {
@@ -1541,9 +1537,13 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
             igUsername: "${igUsername}"
           };
           if (window.opener) {
-            window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
+            // We use "*" here to guarantee the message reaches localhost or prod
+            window.opener.postMessage(payload, "*"); 
           }
-          window.close();
+          // Small delay to ensure message dispatch before closing
+          setTimeout(function() {
+            window.close();
+          }, 300);
         })();
       </script>`);
     }
@@ -1572,8 +1572,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       { new: true }
     );
 
-    // 8️⃣ Return to opener
-    // Success -> Redirect opener
+    // 8️⃣ Return to opener (Only happens on Success)
+    // This redirects the main window (Refresh)
     res
       .type("html")
       .send(`<!doctype html>
@@ -1585,6 +1585,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       window.opener.location.replace(${JSON.stringify(OPENER_URL)});
     }
   } catch (e) {}
+  // Fallback close
   try { window.close(); } catch (e) {}
   document.write('<p>Connected. <a href=${JSON.stringify(OPENER_URL)}>Return to the app</a></p>');
 </script>
@@ -1593,13 +1594,14 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
   } catch (err) {
     console.error("Meta OAuth error:", err?.response?.data || err?.message || err);
     res.set("Content-Type", "text/html");
+    // Use "*" for error reporting to ensure it shows up
     res.send(`<!doctype html><script>
       (function () {
         var payload = { type: "meta-auth", success: false, error: ${JSON.stringify(
           err?.message || "Meta OAuth error"
         )} };
-        if (window.opener) window.opener.postMessage(payload, "${FRONTEND_ORIGIN}");
-        window.close();
+        if (window.opener) window.opener.postMessage(payload, "*");
+        setTimeout(function() { window.close(); }, 300);
       })();
     </script>`);
   }

@@ -109,39 +109,36 @@ const openBusinessLogin = useCallback(async () => {
       const msg = event.data || {};
       if (msg.type !== "meta-auth") return;
       
-      // IMPORTANT: Don't remove listener immediately if multiple messages might arrive, 
-      // but here we expect one final result. 
-      // Removing it here is fine as long as we handle the payload.
+      // IMPORTANT: Don't remove listener immediately. 
+      // We handle the message then stop listening.
       window.removeEventListener("message", onMessage);
 
       try {
         if (!msg.success) {
            // --- NEW: Check for DUPLICATE_CONNECTION from the popup ---
            if (msg.errorCode === "DUPLICATE_CONNECTION") {
+             // Set the error message and open the dialog
              setDuplicateMessage(msg.error);
              setDuplicateDialogOpen(true);
+             // The popup is closing itself via backend script, 
+             // but this Dialog remains in the main window state.
            } else {
              setError(msg.error || "Facebook Business Login failed.");
            }
            return;
         }
-        // If success logic existed here for candidate selection, it would be:
+        
         const arr = msg.candidates || [];
-        console.log('heheheheehe : ', arr);
-        console.log('candidates : ', msg.candidates);
         if (arr.length === 1) {
           handleSelect(arr[0]);
         } else if (arr.length > 1) {
           setCandidates(arr);
           setSelectOpen(true);
-        } else {
-          // In the auto-redirect flow (location.replace), we might not even reach here for success
-          // because the opener navigates away. But if we do:
-          // setError("No Instagram business accounts found.");
         }
       } catch (err) {
         setError(err?.response?.data?.error || err.message || "Failed after login.");
       } finally {
+        // Ensure loading spinner stops
         setLoading(false);
       }
     };
@@ -151,8 +148,11 @@ const openBusinessLogin = useCallback(async () => {
     const poll = setInterval(() => {
       if (popup.closed) {
         clearInterval(poll);
-        window.removeEventListener("message", onMessage);
-        setLoading(false);
+        // If window closed manually or via script, ensure we clean up
+        setTimeout(() => {
+            window.removeEventListener("message", onMessage);
+            setLoading(false);
+        }, 1000);
       }
     }, 500);
   } catch (e) {
