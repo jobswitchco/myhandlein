@@ -1451,7 +1451,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     // 4️⃣ Fetch user pages (with linked IG)
     const pagesResp = await axios.get("https://graph.facebook.com/v24.0/me/accounts", {
       params: {
-        fields: "id,name,instagram_business_account{id,username,profile_picture_url}",
+        fields: "id,name,access_token,instagram_business_account{id,username,profile_picture_url}",
         access_token: fbLongLivedToken,
       },
     });
