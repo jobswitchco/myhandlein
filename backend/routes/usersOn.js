@@ -1456,7 +1456,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       },
     });
 
-    console.log('pageResp : ', pagesResp.data.data);
+    console.log('pageResp : ', pagesResp.data);
+    console.log('pageResp Data : ', pagesResp.data.data);
 
     const pages = pagesResp.data?.data || [];
     if (!pages.length) throw new Error("No Facebook Pages found for this user.");
@@ -1468,8 +1469,11 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const fbPageId = pageWithIG.id;
     const igUserId = pageWithIG.instagram_business_account.id;
 
+  const fbPageAccessTokenTest = pageWithIG.access_token;
+
     console.log('fbPageId : ', fbPageId);
     console.log('igUserId : ', igUserId);
+    console.log('fbPageAccessToken found:', !!fbPageAccessTokenTest);
 
 
     // 5️⃣ Fetch Page access token explicitly
