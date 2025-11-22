@@ -2103,7 +2103,7 @@ async function subscribePageToInstagramWebhooks(fbPageId, fbPageAccessToken, use
       null, 
       {
         params: {
-            subscribed_fields: "feed,mentions,messages", 
+            // subscribed_fields: "feed,mentions,messages", 
             access_token: fbPageAccessToken, 
         },
       }
