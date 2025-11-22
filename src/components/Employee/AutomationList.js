@@ -218,7 +218,6 @@ export default function AutomationList() {
   /* ---- Meta app constants ---- */
   const FB_APP_ID = "1360956302356492";
   const FB_LOGIN_CONFIG_ID = "2452082071860610";
-  const FB_BUSINESS_APP_ID = "1360956302356492";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
   /* ---- IG connect state ---- */
@@ -447,7 +446,6 @@ const checkIgConnection = useCallback(async () => {
   useEffect(() => {
     (async () => {
       const ok = await checkIgConnection();
-      console.log('ok? : ', ok);
       if (!ok) {
         setHasFetchedOnce(true);
         setInitializing(false);
@@ -481,43 +479,23 @@ const handleConnectInstagram = useCallback(async () => {
   setConnectLoading(true);
 
   try {
-    // 1. Ask backend for signed state (JWT)
-    const { data: stateResp } = await axios.post(
-      META_STATE_URL,
-      {},
-      { withCredentials: true }
-    );
+    const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
     const state = stateResp?.state;
     if (!state) throw new Error("Unable to start Meta login");
 
-    // 2. Build the INNER OAuth URL (same as before)
-    const innerParams = new URLSearchParams({
+    const q = new URLSearchParams({
       client_id: FB_APP_ID,
       redirect_uri: REDIRECT_URI,
       state,
       response_type: "code",
       config_id: FB_LOGIN_CONFIG_ID,
     });
+    const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
 
-    const innerOAuthUrl = `https://business.facebook.com/dialog/oauth?${innerParams.toString()}`;
-
-    // 3. Wrap it with the Business Login shell (ManyChat-style)
-    const outerParams = new URLSearchParams({
-      next: innerOAuthUrl,
-      "login_options[0]": "IG",
-      app: FB_BUSINESS_APP_ID,
-      is_ig_oidc_with_redirect: "1",
-      display: "popup",
-      full_page_redirect_experimental: "1",
-      show_back_button: "0",
-    });
-
-    const authUrl = `https://business.facebook.com/business/loginpage/?${outerParams.toString()}`;
-
-    // 4. Open centered popup and poll until closed (same as before)
     const popup = openCenteredPopup(authUrl);
     if (!popup) {
-      // we navigated current window, status will be checked on page load
+      // fallback: we navigated current window, so message path won’t work
+      // you could optionally show a banner on the /meta-callback page instead
       return;
     }
 
@@ -528,7 +506,6 @@ const handleConnectInstagram = useCallback(async () => {
         try {
           const ok = await checkIgConnection();
           if (ok) {
-            console.log("Instagram connected!");
             if (isDesktop) {
               await fetchPage(0, pageSize);
             } else {
@@ -543,7 +520,6 @@ const handleConnectInstagram = useCallback(async () => {
       }
     }, 500);
 
-    // safety-close popup after 5 minutes
     setTimeout(() => {
       try {
         if (!popup.closed) popup.close();
@@ -561,11 +537,9 @@ const handleConnectInstagram = useCallback(async () => {
   pageSize,
   isDesktop,
   FB_APP_ID,
-  FB_BUSINESS_APP_ID,
   FB_LOGIN_CONFIG_ID,
   REDIRECT_URI,
 ]);
-
 
 
   /* ---- Columns (desktop) ---- */
