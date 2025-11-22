@@ -1469,24 +1469,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const fbPageId = pageWithIG.id;
     const igUserId = pageWithIG.instagram_business_account.id;
 
-  const fbPageAccessTokenTest = pageWithIG.access_token;
+  const fbPageAccessToken = pageWithIG.access_token;
 
-    console.log('fbPageId : ', fbPageId);
-    console.log('igUserId : ', igUserId);
-    console.log('fbPageAccessToken found:', !!fbPageAccessTokenTest);
-
-
-    // 5️⃣ Fetch Page access token explicitly
-    const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${fbPageId}`, {
-      params: {
-        fields: "access_token",
-        access_token: fbLongLivedToken, // user token must have pages_* scopes
-      },
-    });
-
-    console.log('pageTokResp : ', pageTokResp.data);
-
-    const fbPageAccessToken = pageTokResp.data?.access_token;
 
     if (!fbPageAccessToken) {
       throw new Error("Unable to fetch Page access token. Check your pages_* permissions.");
