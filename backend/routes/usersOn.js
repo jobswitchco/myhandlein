@@ -1456,7 +1456,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       },
     });
 
-    console.log('pageResp : ', pagesResp.data);
+    console.log('pageResp : ', pagesResp.data.data);
 
     const pages = pagesResp.data?.data || [];
     if (!pages.length) throw new Error("No Facebook Pages found for this user.");
@@ -1468,6 +1468,10 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
     const fbPageId = pageWithIG.id;
     const igUserId = pageWithIG.instagram_business_account.id;
 
+    console.log('fbPageId : ', fbPageId);
+    console.log('igUserId : ', igUserId);
+
+
     // 5️⃣ Fetch Page access token explicitly
     const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${fbPageId}`, {
       params: {
@@ -1475,6 +1479,8 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
         access_token: fbLongLivedToken, // user token must have pages_* scopes
       },
     });
+
+    console.log('pageTokResp : ', pageTokResp.data);
 
     const fbPageAccessToken = pageTokResp.data?.access_token;
 
