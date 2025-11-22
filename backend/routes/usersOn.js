@@ -1456,7 +1456,7 @@ router.get(["/meta-callback", "/meta-callback/"], async (req, res) => {
       },
     });
 
-    console.log('pageResp : ', pagesResp);
+    console.log('pageResp : ', pagesResp.data);
 
     const pages = pagesResp.data?.data || [];
     if (!pages.length) throw new Error("No Facebook Pages found for this user.");
