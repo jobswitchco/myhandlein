@@ -24,10 +24,10 @@ export default function LandingPage() {
   return (
     <>
   <Helmet>
-  <title>Link in Bio & Instagram Automation Tool for Indian Creators</title>
+  <title>Instagram Auto DM and Bio Tool for Creators under 50k Followers</title>
   <meta
     name="description"
-    content="Simplify your digital presence with MyHandle, the all-in-one bio link & Instagram Automation platform for Indian creators and brands."
+    content="Monthly 25,00,000 AutoDMs quota, Unlimited Contacts, Unlimited Bio Links & more for just ₹399."
   />
   <link rel="canonical" href="https://myhandle.in/" />
 

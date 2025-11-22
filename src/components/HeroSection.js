@@ -95,7 +95,9 @@ const subStyle = {
   color: "#222831",
   margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
   marginTop: "1rem",
+  marginBottom: "2.5rem",
   textAlign: "left",
+  fontWeight: 500
 
 };
 
@@ -104,7 +106,7 @@ const subStyleDataInline = {
   display: "block",
   fontSize: "clamp(1rem, 1.6vw, 1.25rem)",
   fontWeight: 500,
-  color: "#000000",
+  color: "#001BB7",
   marginTop: '8px'
 };
 
@@ -112,7 +114,7 @@ const subStyleDataInline = {
 const subStyleDataBlock = {
   fontSize: "clamp(0.9rem, 1.6vw, 1.12rem)",
   lineHeight: 1.6,
-  color: "#000000",
+  color: "#001BB7",
   maxWidth: 760,
   margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
   fontWeight: 500
@@ -121,11 +123,13 @@ const subStyleDataBlock = {
 
 
   const headlineStyle = {
-    fontSize: "clamp(2rem, 4vw, 2.5rem)",
-    fontWeight: 800,
+    fontSize: "clamp(2rem, 4vw, 3rem)",
+    fontWeight: 700,
     margin: "0 0 clamp(12px, 2vw, 16px) 0",
     fontFamily: "-apple-system, BlinkMacSystemFont, Inter, 'Helvetica Neue', Arial",
     textAlign: 'left',
+    lineHeight: 1.35,
+    color:'#44444E'
   };
 
   const mobileHeadlineStyle = {
@@ -308,20 +312,20 @@ const MetaVerifiedBlock = () => {
 
 
     const highlightText = {
-    color: "#B82132",
+    color: "#001BB7",
     display: "inline-flex",
-     fontSize: "clamp(2rem, 4vw, 2.5rem)",
-    fontWeight: 800,
+     fontSize: "clamp(2rem, 4vw, 3rem)",
+    fontWeight: 700,
     fontFamily: "-apple-system, BlinkMacSystemFont, Inter, 'Helvetica Neue', Arial",
  
 
   };
 
      const highlightTextMobile = {
-    color: "#B82132",
+    color: "#001BB7",
     display: "inline-flex",
      fontSize: "clamp(2rem, 4vw, 3.5rem)",
-    fontWeight: 800,
+    fontWeight: 700,
     fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
  
 
@@ -510,9 +514,9 @@ const MetaVerifiedBlock = () => {
             style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}
             aria-hidden={isMobile}
           >
-            {"Why Pay "}
-                 <div style={highlightText}>10x More</div>
-            {" for Foreign Link-in-bio & Automation Tools?"}
+            {"Instagram "}
+                 <div style={highlightText}>AutoDM and Bio</div>
+            {" Tool for Creators under 50k Followers."}
           </h1>
 
           {/* Mobile headline */}
@@ -521,25 +525,25 @@ const MetaVerifiedBlock = () => {
             aria-hidden={!isMobile}
           >
             <span style={{ display: "block", lineHeight: 1.25 }}>
-              Why Pay <div style={highlightTextMobile}>10x More</div> for Foreign Bio & Automation Tools?
+              Instagram <div style={highlightTextMobile}>AutoDM and Bio</div> Tool for Creators under 50k Followers.
             </span>
           </h1>
 
          <p style={subStyle}>
-  India's affordable link-in-bio platform with Instagram Automation built for Indian Creators and Businesses. Unlimited links, Unlimited DMs, UPI integration, Analytics & more...
+  Monthly 25,00,000 AutoDMs quota, Unlimited Contacts, Unlimited Bio Links & more —all for just ₹399.
   {isMobile ? (
     <>
       {" "}
-      <span style={subStyleDataInline}>Built in India, your data stays in India.</span>
+      {/* <span style={subStyleDataInline}>Built in India, your data stays in India.</span> */}
     </>
   ) : null}
 </p>
 
-{!isMobile && (
+{/* {!isMobile && (
   <p style={subStyleDataBlock}>
     Built in India, your data stays in India.
   </p>
-)}
+)} */}
 
 
           {/* Subdomain input + CTA */}

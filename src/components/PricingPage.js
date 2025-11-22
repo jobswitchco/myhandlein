@@ -59,26 +59,7 @@ const PLAN = {
 
 // Organized features by category
 const featureCategories = [
-  {
-    title: 'Link-in-Bio Features',
-    icon: WebStoriesOutlinedIcon,
-    color: '#7c3aed',
-    features: [
-      { text: 'Unlimited Links', icon: LinkRoundedIcon },
-      { 
-        text: 'Username.myhandle.in NOT myhandle.in/username', 
-        icon: LanguageRoundedIcon,
-        strikethrough: 'myhandle.in/username' // Mark text to strikethrough
-      },
-      { text: 'Digital Store (Sell digital items)', icon: StorefrontOutlinedIcon },
-      { text: 'Collect & Manage Subscribers', icon: GroupAddRoundedIcon },
-      { text: 'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State', icon: InsightsRoundedIcon },
-      { text: 'Simple Editor • drag & reorder links', icon: DragIndicatorRoundedIcon },
-      { text: 'Social Profiles, Videos & Embeds', icon: ShareRoundedIcon },
-      { text: 'English + Hindi support', icon: TranslateRoundedIcon },
-    ]
-  },
-  {
+    {
     title: 'Instagram Automation',
     icon: InstagramIcon,
     color: '#e4405f',
@@ -91,6 +72,26 @@ const featureCategories = [
     ]
   },
   {
+    title: 'Link-in-Bio Features',
+    icon: WebStoriesOutlinedIcon,
+    color: '#7c3aed',
+    features: [
+      { text: 'Unlimited Links', icon: LinkRoundedIcon },
+      { 
+        text: 'Username.myhandle.in NOT myhandle.in/username', 
+        icon: LanguageRoundedIcon,
+        strikethrough: 'myhandle.in/username' // Mark text to strikethrough
+      },
+      { text: 'Digital Store', icon: StorefrontOutlinedIcon },
+      { text: 'Collect & Manage Subscribers', icon: GroupAddRoundedIcon },
+      { text: 'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State', icon: InsightsRoundedIcon },
+      { text: 'Simple Editor • drag & reorder links', icon: DragIndicatorRoundedIcon },
+      { text: 'Social Profiles, Videos & Embeds', icon: ShareRoundedIcon },
+      { text: 'English + Hindi support', icon: TranslateRoundedIcon },
+    ]
+  },
+
+  {
     title: 'Support & Security',
     icon: ShieldRoundedIcon,
     color: '#10b981',
@@ -101,25 +102,25 @@ const featureCategories = [
     ]
   },
 
-   {
-    title: 'Payments & Transactions',
-    icon: PaymentsRoundedIcon,
-    color: '#F87B1B',
-    features: [
-      { text: 'Razorpay Payment Gateway', icon: AccountBalanceOutlinedIcon },
-       { 
-        text: '4% on Digital Sale NOT ', 
-        icon: LoyaltyOutlinedIcon,
-        strikethrough: '10%'
-      },
-       { 
-        text: 'Weekly Settlements NOT ', 
-        icon: MoveDownOutlinedIcon,
-        strikethrough: 'Monthly'
-      },
-      { text: 'Supports All Payment Methods', icon: CurrencyRupeeOutlinedIcon },
-    ]
-  },
+  //  {
+  //   title: 'Payments & Transactions',
+  //   icon: PaymentsRoundedIcon,
+  //   color: '#F87B1B',
+  //   features: [
+  //     { text: 'Razorpay Payment Gateway', icon: AccountBalanceOutlinedIcon },
+  //      { 
+  //       text: '4% on Digital Sale NOT ', 
+  //       icon: LoyaltyOutlinedIcon,
+  //       strikethrough: '10%'
+  //     },
+  //      { 
+  //       text: 'Weekly Settlements NOT ', 
+  //       icon: MoveDownOutlinedIcon,
+  //       strikethrough: 'Monthly'
+  //     },
+  //     { text: 'Supports All Payment Methods', icon: CurrencyRupeeOutlinedIcon },
+  //   ]
+  // },
 
    {
     title: 'Coming Very Soon',
