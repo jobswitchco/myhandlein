@@ -1565,7 +1565,6 @@ if (existingUser) {
 }
 
 else{
-
   // 7️⃣ Save all data to USER
 await USER.findByIdAndUpdate(
   userId,
@@ -2093,61 +2092,36 @@ router.get("/instagram/photos", authenticateToken, async (req, res) => {
 });
 
 
-async function subscribePageToInstagramWebhooks(fbPageId, fbLongLivedToken, userId ) {
+async function subscribePageToInstagramWebhooks(fbPageId, fbPageAccessToken, userId) {
   if (!fbPageId) throw new Error("fbPageId is required");
-  if (!fbLongLivedToken) throw new Error("fbLongLivedToken is required");
-  if (!userId) throw new Error("userId is required");
+  if (!fbPageAccessToken) throw new Error("fbPageAccessToken is required");
 
   try {
-    // 1) Fetch PAGE access token using the user long-lived token
-    const pageTokResp = await axios.get(`https://graph.facebook.com/v24.0/${fbPageId}`, {
-      params: {
-        fields: "access_token",
-        access_token: fbLongLivedToken,
-      },
-    });
-
-    const fbPageAccessToken = pageTokResp?.data?.access_token;
-    if (!fbPageAccessToken) {
-      throw new Error("Unable to fetch Page access token (check pages_* permissions on the user token).");
-    }
-
-    // 2) Persist PAGE token on USER (so future jobs/webhooks can use it)
-    await USER.findByIdAndUpdate(
-      userId,
-      { fbPageAccessToken, updated_at: new Date() },
-      { new: false }
-    );
-
-    // 3) Subscribe the PAGE to your app for 'feed' changes
+    
     const subResp = await axios.post(
       `https://graph.facebook.com/v24.0/${fbPageId}/subscribed_apps`,
-      null,
+      null, 
       {
         params: {
-          subscribed_fields: "feed",
-          access_token: fbPageAccessToken, // MUST be PAGE token (not user token)
+            subscribed_fields: "feed,mentions,messages", 
+            access_token: fbPageAccessToken, 
         },
       }
     );
 
-    const subscribed = !!subResp?.data?.success;
-    if (subscribed) {
-      console.log("✅ Subscribed Page to FEED updates");
+    const success = subResp?.data?.success;
+    if (success) {
+      console.log(`✅ Page ${fbPageId} subscribed to Webhooks!`);
     } else {
-      console.warn("⚠️ Page subscription response did not indicate success:", subResp?.data);
+      console.warn("⚠️ Subscription response unclear:", subResp?.data);
     }
 
-    return { fbPageAccessToken, subscribed, raw: subResp?.data };
+    return { success, raw: subResp?.data };
+
   } catch (error) {
-    console.error("❌ subscribePageFeedWithLongLivedToken failed");
-    if (error.response) {
-      console.error("Status:", error.response.status);
-      console.error("Error:", error.response.data);
-    } else {
-      console.error("Error:", error.message);
-    }
-    throw error;
+    console.error("❌ subscribePageToInstagramWebhooks failed", error?.response?.data || error.message);
+    // Don't crash the whole auth flow if this fails, just log it
+    return { success: false, error: error.message }; 
   }
 }
 
@@ -2252,6 +2226,14 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: "postId is required" });
     }
 
+    // 1️⃣ FETCH USER CONTEXT (New Step)
+    // We need the tokens and the flag to decide if we should subscribe
+    const user = await USER.findById(userId).select("fbPageId fbPageAccessToken automationFeedSubscribed");
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User profile not found." });
+    }
+
     // ===== PREPARE DOCUMENT FOR UPSERT =====
     const update = {
       platform: "instagram",
@@ -2273,11 +2255,43 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       { upsert: true, new: true }
     );
 
+    // 2️⃣ CHECK & SUBSCRIBE (The Logic You Requested)
+    let webhookStatus = "already_active";
+
+    // If the user has a token BUT has not been marked as subscribed yet
+    if (user.fbPageId && user.fbPageAccessToken && !user.automationFeedSubscribed) {
+        console.log(`🔌 Initializing Webhooks for User ${userId}...`);
+        
+        try {
+            // Run the helper function
+            const subResult = await subscribePageToInstagramWebhooks(
+                user.fbPageId, 
+                user.fbPageAccessToken, 
+                userId
+            );
+
+            if (subResult.success) {
+                // Update the flag so we don't run this every time
+                await USER.findByIdAndUpdate(userId, { automationFeedSubscribed: true });
+                webhookStatus = "activated_now";
+                console.log("✅ Webhook initialized successfully.");
+            } else {
+                webhookStatus = "activation_failed";
+            }
+        } catch (subErr) {
+            console.error("⚠️ Webhook auto-subscription failed:", subErr.message);
+            webhookStatus = "error";
+            // We do NOT crash the request here. The automation is saved, which is the primary goal.
+        }
+    }
+
     return res.json({
       success: true,
       message: "Automation configuration saved",
+      webhook_status: webhookStatus, // Useful for frontend debugging
       data: doc
     });
+
   } catch (err) {
     console.error("POST /automation/config error:", err);
     
