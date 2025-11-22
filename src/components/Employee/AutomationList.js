@@ -217,7 +217,7 @@ export default function AutomationList() {
 
   /* ---- Meta app constants ---- */
   const FB_APP_ID = "1360956302356492";
-  const FB_LOGIN_CONFIG_ID = "2452082071860610";
+  const FB_LOGIN_CONFIG_ID = "1309356804298214";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
   /* ---- IG connect state ---- */
