@@ -4,7 +4,7 @@ import axios from "axios";
 import metaIcon from "../images/meta.png"
 
 export default function Hero({
-  heroImage = "https://storage.googleapis.com/myhandlebucket/hero_img_main.webp"
+  heroImage = "https://storage.googleapis.com/myhandlebucket/Hero_IMG_MyHandle.mp4"
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
@@ -81,10 +81,10 @@ const rightColStyle = {
   const heroImgStyle = {
     width: isMobile ? "100%" : "100%",
     // maxWidth: '100%',
-    height: "auto",
-    borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-    objectFit: "cover"
+    height: "100%",
+    // borderRadius: "16px",
+    // boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+    objectFit: "contain"
   };
 
 
@@ -602,16 +602,19 @@ const MetaVerifiedBlock = () => {
 
 
         {/* RIGHT: Image */}
-        <div style={rightColStyle}>
-          {heroImage ? (
-            <img
-              src={heroImage}
-              alt="Showcase of MyHandle link-in-bio on mobile and desktop"
-              style={heroImgStyle}
-              fetchpriority="high"
-            />
-          ) : null}
-        </div>
+       <div style={rightColStyle}>
+  {heroImage ? (
+    <video
+      src={heroImage}
+      style={heroImgStyle}
+      autoPlay
+      loop
+      muted
+      playsInline
+    />
+  ) : null}
+</div>
+
       </div>
     </section>
   )
