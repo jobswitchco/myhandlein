@@ -75,17 +75,27 @@ const rightColStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: isMobile ? "center" : "flex-end",
-  minWidth: 0,              // ✅
+  minWidth: 0,
+  // optional but safe:
+  backgroundColor: "#f5f7f8",
 };
 
-  const heroImgStyle = {
-    width: isMobile ? "100%" : "100%",
-    // maxWidth: '100%',
-    height: "100%",
-    // borderRadius: "16px",
-    // boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-    objectFit: "contain"
-  };
+const videoWrapperStyle = {
+  width: "100%",
+  maxWidth: isMobile ? "360px" : "420px", // tweak as you like
+  borderRadius: "16px",
+  overflow: "hidden", // 🚀 clips that 1px edge
+};
+
+const heroImgStyle = {
+  width: "100%",
+  height: "auto",
+  display: "block",
+  objectFit: "cover",
+  transform: "scale(1.01)", // tiny zoom to kill any baked-in border
+};
+
+
 
 
 
@@ -601,19 +611,22 @@ const MetaVerifiedBlock = () => {
 
 
 
-        {/* RIGHT: Image */}
-       <div style={rightColStyle}>
+     {/* RIGHT: Video */}
+<div style={rightColStyle}>
   {heroImage ? (
-    <video
-      src={heroImage}
-      style={heroImgStyle}
-      autoPlay
-      loop
-      muted
-      playsInline
-    />
+    <div style={videoWrapperStyle}>
+      <video
+        src={heroImage}
+        style={heroImgStyle}
+        autoPlay
+        loop
+        muted
+        playsInline
+      />
+    </div>
   ) : null}
 </div>
+
 
       </div>
     </section>
