@@ -549,6 +549,37 @@ const AccountDetailsPage1 = () => {
                 )}
               </Box>
 
+               <Box sx={{ display: "flex", flexDirection: "column", gap: "4px", py: "4px" }}>
+                <Typography sx={{ fontSize: "14px", fontWeight: "500" }}>Subscription</Typography>
+
+                {loading ? (
+                  <Skeleton variant="rectangular" height={20} />
+                ) : (
+                  <Typography sx={{ fontSize: "14px", fontWeight: "400" }}>
+                    {subscriptionDet.status === 'active' ? 'Active' : 'Free Trial'}
+                  </Typography>
+
+
+                )}
+              </Box>
+
+              {subscriptionDet?.freeTrial && (
+
+               <Box sx={{ display: "flex", flexDirection: "column", gap: "4px", py: "4px" }}>
+                <Typography sx={{ fontSize: "14px", fontWeight: "500" }}>Subscription</Typography>
+
+                {loading ? (
+                  <Skeleton variant="rectangular" height={20} />
+                ) : (
+                  <Typography sx={{ fontSize: "14px", fontWeight: "400" }}>
+                    {subscriptionDet.status === 'active' ? 'Active' : 'Free Trial'}
+                  </Typography>
+
+
+                )}
+              </Box>
+              )}
+
                    <Box sx={{ display: "flex", flexDirection: "column", gap: "4px", py: "4px" }}>
                 <Typography sx={{ fontSize: "14px", fontWeight: "500" }}>
                   Instagram
@@ -575,6 +606,8 @@ const AccountDetailsPage1 = () => {
 
             
             </Stack>
+
+          
           </>
         ) : (
           <>
