@@ -658,12 +658,12 @@ const CreatorBookings = () => {
             label="Campaigns" 
             value="campaigns"
           />
-          <Tab 
+          {/* <Tab 
             icon={<PaymentsIcon />} 
             iconPosition="start" 
             label="Payments" 
             value="payments"
-          />
+          /> */}
         </Tabs>
       </Box>
 
