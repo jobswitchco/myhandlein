@@ -64,6 +64,8 @@ export default function SideNavbar({ window }) {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [isTrialActive, setIsTrialActive] = useState(false);
+  const [trialDays, setTrialDays] = useState(0);
 
 
   // Main menu states
@@ -162,18 +164,22 @@ export default function SideNavbar({ window }) {
     }, []);
 
 
-    const fetchPaymentDetails = async () => {
+      const fetchPaymentDetails = async () => {
       try {
         setLoading(true);
         const response = await axios.get(`${baseUrl}/fetch-payment-details`, {
           withCredentials: true,
         });
-        setHasAccess(response.data.hasAccess);
+       setHasAccess(response.data.hasAccess);
+    
+    // Set new states
+    setIsTrialActive(response.data.free_trial_active);
+    setTrialDays(response.data.free_trial_ends_in);
       } catch (error) {
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
           handleSessionExpired();
         } else {
-          console.log("error : ", error);
+          console.log('error : ', error);
           handleSessionExpired();
         }
       } finally {
@@ -956,6 +962,72 @@ export default function SideNavbar({ window }) {
           </Collapse>
         </List>
       </Box>
+
+      {isTrialActive && (
+         <Box sx={{ p: 2, borderTop: "1px solid #E5E7EB" }}>
+        <Box
+          sx={{
+            borderRadius: "16px",
+            // Subtle gradient to make it stand out
+            background: "linear-gradient(135deg, #FFF0F0 0%, #FFFAFA 100%)", 
+            border: "1px solid #FECACA",
+            p: 2,
+            textAlign: "center",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
+          }}
+        >
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: "#6B7280", 
+              fontWeight: 600, 
+              display: "block",
+              mb: 0.5,
+              fontSize: "0.75rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px"
+            }}
+          >
+            Free Trial Ends in
+          </Typography>
+          
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              color: "#DC2626", // Red shade
+              fontWeight: 800, 
+              mb: 1.5,
+              fontSize: isSmallScreen ? "1rem" : "1.25rem",
+              fontFamily : 'Inter'
+
+            }}
+          >
+          {String(trialDays).padStart(2, '0')} days
+          </Typography>
+          
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={() => goTo("/professional/upgrade/plan")} // Add your upgrade route here
+            sx={{
+              fontFamily : 'Inter',
+              bgcolor: "#DC2626",
+              textTransform: "none",
+              borderRadius: "10px",
+              fontWeight: 700,
+              fontSize: isSmallScreen ? "0.75rem" : "0.9rem",
+              boxShadow: "0 4px 6px rgba(220, 38, 38, 0.2)",
+              '&:hover': { 
+                bgcolor: "#B91C1C",
+                boxShadow: "0 6px 10px rgba(220, 38, 38, 0.3)",
+              }
+            }}
+          >
+            Upgrade Now
+          </Button>
+        </Box>
+      </Box>
+)}
     </Box>
   );
 

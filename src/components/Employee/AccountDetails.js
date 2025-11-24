@@ -2,9 +2,7 @@ import { useState } from "react";
 import { Box, Tab, Tabs } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-
 import AccountDetailsPage1 from "./AccountDetailsPage1.js";
-import BankDetails from "./BankDetails.js";
 
 // Main Component
 const AccountDetails = () => {
@@ -53,7 +51,6 @@ const AccountDetails = () => {
       {/* Content Area */}
       <Box mt={2}>
         {activeTab === 0 && <AccountDetailsPage1 />}
-        {activeTab === 1 && <BankDetails />}
       </Box>
     </Box>
   );

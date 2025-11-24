@@ -6,7 +6,6 @@ import { ToastContainer } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
 import LandingPage from './components/LandingPage.js';
 import Support from './components/Employee/Support.js';
-import Profile from './components/Employee/Profile.js';
 import PricingPage from './components/PricingPage.js';
 import Terms from './components/Terms.js';
 import PrivacyPolicy from './components/PrivacyPolicy.js';
@@ -19,12 +18,8 @@ import GoogleApiDisclosure from './components/GoogleApiDisclosure.js';
 import DisclosurePolicy from './components/DisclosurePolicy.js';
 import TrustCenter from './components/TrustCenter.js';
 import AboutUs from './components/AboutUs.js';
-import YouTubeDisclosure from './components/YoutubeApiDisclosure.js';
 import Security from './components/Security.js';
 import CreatorInUserLogin from './components/Employee/CreatorUserLogin.js';
-import ProfileBasedDiscovery from './components/ProfileDiscovery.js';
-import EndToEndScheduling from './components/EndToEndScheduling.js';
-import SaveTimePage from './components/SaveTimePage.js';
 import GoogleAnalytics from './components/GoogleAnalytics.js';
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import CreatorOnboarding from './components/CreatorOnboarding.js';
@@ -32,10 +27,6 @@ import UserBioDashboard from './components/UserBioDashboard.js';
 import PublicProfile from './components/Employee/PublicProfile.js';
 import ProductCatalogue from './components/Employee/ProductCatalogue.js'
 import ProductGallery from './components/Employee/ProductGallery.js';
-import UserParticipant from './components/Employee/UserParticipant.js';
-import ChatWindow from './components/Employee/ChatWindow.js';
-import MyInbox from './components/Employee/MyInbox.js';
-import MyChatWindow from './components/Employee/MyChatWindow.js';
 import PageAnalytics from './components/Employee/PageAnalytics.js';
 import BlocksAnalytics from './components/Employee/BlockAnalytics.js';
 import StoreAnalytics from './components/Employee/StoreAnalytics.js';
@@ -52,6 +43,7 @@ import AutomationDetails from './components/Employee/AutomationDetails.js';
 import CreatorBookings from './components/Employee/BookingSessions.js';
 import FormSubmissions from './components/Employee/FormSubmissions.js';
 import RepliedContacts from './components/Employee/RepliedContacts.js';
+import UpgradePlan from './components/Employee/UpgradePlan.js';
 
 
 // very critial yes
@@ -108,10 +100,8 @@ if (initialSubdomain) {
               <Route path="/creator/onboarding" element={<CreatorOnboarding />} />
               <Route path="/professional/login" element={<CreatorInUserLogin />} />
               <Route path="/professional/login/d" element={<DemoLogin />} />
-              <Route path="/influencer/participant/login" element={<UserParticipant />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/subscribe/plan" element={<UpiMandateModern />} />
-              <Route path="/chat-window" element={<ChatWindow />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/refund-cancellation-policy" element={<CancellationRefund />} />
@@ -122,11 +112,7 @@ if (initialSubdomain) {
               <Route path="/disclosure-policy" element={<DisclosurePolicy />} />
               <Route path="/trust-center" element={<TrustCenter />} />
               <Route path="/about-us" element={<AboutUs />} />
-              <Route path="/youtube_api_disclosure" element={<YouTubeDisclosure />} />
               <Route path="/security" element={<Security />} />
-              <Route path="/personalised-user-tone" element={<ProfileBasedDiscovery />} />
-              <Route path="/schedule-publish" element={<EndToEndScheduling />} />
-              <Route path="/save-time" element={<SaveTimePage />} />
               <Route path="/products-affiliate" element={<ProductGallery />} />
 
            
@@ -136,8 +122,6 @@ if (initialSubdomain) {
                 <Route path="support" element={<Support />} />
                 <Route path="profile" element={<AccountDetails />} />
                 <Route path="store/products" element={<ProductCatalogue />} />
-                <Route path="my/inbox" element={<MyInbox />} />
-                <Route path="my/chatwindow/:conversationId" element={<MyChatWindow />} />
                 <Route path="my/page/analytics" element={<PageAnalytics />} />
                 <Route path="my/store/analytics" element={<StoreAnalytics />} />
                 <Route path="my/block/analytics" element={<BlocksAnalytics />} />
@@ -151,6 +135,7 @@ if (initialSubdomain) {
                 <Route path="booking/sessions" element={<CreatorBookings />} />
                 <Route path="my/formsubmissions" element={<FormSubmissions />} />
                 <Route path="contacts/replied" element={<RepliedContacts />} />
+                <Route path="upgrade/plan" element={<UpgradePlan />} />
 
 
 

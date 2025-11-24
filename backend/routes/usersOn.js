@@ -4434,50 +4434,74 @@ router.post("/subscription/verify", authenticateToken, async (req, res) => {
   }
 });
 
+
 router.get('/fetch-payment-details', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
 
     if (!userId) {
-      return res.json({ hasAccess: false });
+      return res.json({ 
+        hasAccess: false, 
+        free_trial_active: false, 
+        free_trial_ends_in: 0 
+      });
     }
 
     // 1. Fetch user
     const user = await USER.findById(userId);
 
     if (!user) {
-      return res.json({ hasAccess: false });
+      return res.json({ 
+        hasAccess: false, 
+        free_trial_active: false, 
+        free_trial_ends_in: 0 
+      });
     }
 
-    const freeTrialStart = user.free_trial_started_date;
+    const freeTrialStart = user.free_trial_started_date ? new Date(user.free_trial_started_date) : null;
     const now = new Date();
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
     let hasAccess = false;
+    let free_trial_active = false;
+    let free_trial_ends_in = 0;
 
-    // ✅ Condition 1: within 7 days of free trial
+    // --- STEP 1: Check Free Trial Status ---
     if (freeTrialStart) {
-      const diffMs = now.getTime() - new Date(freeTrialStart).getTime();
+      const diffMs = now.getTime() - freeTrialStart.getTime();
 
+      // Check if within 7 days
       if (diffMs < sevenDaysMs) {
         hasAccess = true;
-        return res.json({ hasAccess });
+        free_trial_active = true;
+        
+        // Calculate remaining time
+        const remainingMs = sevenDaysMs - diffMs;
+        // Convert to days (Math.ceil ensures that 4.1 days shows as "5 days left")
+        free_trial_ends_in = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
       }
     }
 
-    // 2. Free trial over → check subscription
+    // --- STEP 2: Check Subscription Status ---
     const subscription = await Subscriptions
       .findOne({ user_id: userId, is_del: false })
-      .sort({ created_at: -1 }); // in case multiple subscriptions
+      .sort({ created_at: -1 });
 
-    // ✅ Condition 2: trial over AND active subscription
+    // If user has an active paid subscription, they have access, 
+    // and we should effectively "hide" the free trial banner logic
     if (subscription && subscription.status === 'active') {
       hasAccess = true;
-    } else {
-      hasAccess = false;
+      free_trial_active = false; // Override: User is paid, so trial UI shouldn't show
+      free_trial_ends_in = 0;
     }
 
-    return res.json({ hasAccess });
+
+    return res.json({ 
+      hasAccess, 
+      free_trial_active, 
+      free_trial_ends_in 
+    });
+
   } catch (err) {
     console.error('GET /fetch-payment-details error:', err);
     return res.status(500).json({ error: 'Server error' });

@@ -53,6 +53,7 @@ export default function UpiMandateModern() {
   // const PLAN_ID = "plan_RiFwt9UcnSnpkM";
   const baseUrl = "/api/usersOn";
 
+
     const handleLogout = async () => {
     try {
       await axios.post(baseUrl + "/logout", {}, { withCredentials: true });
@@ -205,11 +206,7 @@ export default function UpiMandateModern() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        py: { xs: 1, sm: 3, md: 4 },
-        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(
-          theme.palette.secondary.main,
-          0.08
-        )} 100%)`,
+        py: { xs: 1, sm: 3, md: 4 }
       }}
     >
       <Container maxWidth="sm">
@@ -224,6 +221,10 @@ export default function UpiMandateModern() {
               overflow: "hidden",
               opacity: prefillLoading ? 0.6 : 1,
               transition: "opacity 0.3s ease",
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(
+          theme.palette.secondary.main,
+          0.08
+        )} 100%)`,
             }}
           >
             {/* Header */}
