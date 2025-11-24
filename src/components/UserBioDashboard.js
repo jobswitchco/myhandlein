@@ -1,14 +1,8 @@
 // ProfileBlocksEditor.js (UserBioDashboard)
-import React, { useRef, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Avatar,
   Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
   IconButton,
   Paper,
   Stack,
@@ -16,26 +10,12 @@ import {
   Typography,
   useTheme,
   Snackbar,
-  Tabs,
   Grid,
-  Tab,
   CircularProgress,
   Tooltip,
-  FormControl,
-  FormLabel,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
   Menu,
   MenuItem,
-  Button,
-  ClickAwayListener,
-  Switch,
-  Checkbox,
-  useMediaQuery,
-  Slide
 } from "@mui/material";
-import { forwardRef } from 'react';
 import { alpha } from "@mui/material/styles";
 import { styled } from "@mui/material/styles";
 import EditIcon from "@mui/icons-material/Edit";
@@ -60,15 +40,9 @@ import EmailIcon from '@mui/icons-material/EmailOutlined';
 import DescriptionIcon from '@mui/icons-material/DescriptionOutlined';
 import axios from "axios";
 import { toast } from "react-toastify";
-import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import newsletterBg from "../images/newsLetterBg.jpg";
 import MailOutlinedIcon from '@mui/icons-material/MailOutlined';
 import EventIcon from '@mui/icons-material/CalendarMonth';
-import { CurrencyRupee } from '@mui/icons-material';
-import { InputAdornment } from '@mui/material';
-
-// Import new child components
 import LinkBlockCreator from "./Blocks/LinkBlockCreator";
 import VideoBlockCreator from "./Blocks/VideoBlockCreator";
 import FormBlockCreator from "./Blocks/FormBlockCreator";
@@ -97,26 +71,6 @@ const PrimaryBtn = styled("button")(({ theme }) => ({
   },
 }));
 
-const MeetingButton = styled("button")(({ theme }) => ({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  border: "none",
-  cursor: "pointer",
-  padding: "10px 16px",
-  borderRadius: 6,
-  color: "#fff",
-  fontWeight: 700,
-  background: "#EFEFF0",
-  transition: "transform .12s ease, box-shadow .12s ease",
-  fontSize: 14,
-  textTransform: "none",
-  [theme.breakpoints.down("sm")]: {
-    width: "100%",
-    justifyContent: "center",
-    padding: "12px 14px",
-  },
-}));
 
 const ShareUrlBtn = styled("button")(({ theme }) => ({
   display: "inline-flex",
@@ -141,26 +95,7 @@ const ShareUrlBtn = styled("button")(({ theme }) => ({
   },
 }));
 
-const GhostBtn = styled("button")(({ theme }) => ({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  border: "1px solid rgba(99,102,241,0.14)",
-  cursor: "pointer",
-  padding: "8px 14px",
-  borderRadius: 999,
-  color: "#374151",
-  background: "#FFF",
-  fontFamily: "Inter",
-  fontWeight: 600,
-  fontSize: 12,
-  textTransform: "none",
-  [theme.breakpoints.down("sm")]: {
-    width: "100%",
-    justifyContent: "center",
-    padding: "10px 12px",
-  },
-}));
+
 
 const HandleBtn = styled("button")(({ theme }) => ({
   display: "inline-flex",
@@ -199,9 +134,6 @@ const AddPill = styled("button")(({ theme }) => ({
   },
 }));
 
-const SlideTransition = forwardRef(function Transition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
 
 const truncate = (str = "", max = 100) => {
   if (!str) return "";
@@ -217,21 +149,17 @@ const MAX_DESC = 90;
 
 export default function ProfileBlocksEditor() {
   const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingIntro, setIsEditingIntro] = useState(false);
-  const fileInputRef = useRef(null);
-  const [avatarHover, setAvatarHover] = useState(false);
-  const [customizeOpen, setCustomizeOpen] = useState(false);
-  const [tempLink, setTempLink] = useState("");
   const [name, setName] = useState("");
   const [userIntro, setUserIntro] = useState("");
   const [link, setLink] = useState("");
   const [copySnackOpen, setCopySnackOpen] = useState(false);
   const baseUrl = "/api/usersOn";
+  // const baseUrl = "http://localhost:8001/usersOn";
+
   const [userDetails, setUserDetails] = useState({});
-  const addCloseTimer = useRef(null);
 
   // **NEW: Child dialog states**
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -239,18 +167,6 @@ export default function ProfileBlocksEditor() {
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [newsletterDialogOpen, setNewsletterDialogOpen] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
-
-  // Keep all your existing states
-  const [currentFormBlock, setCurrentFormBlock] = useState(null);
-  const [formValues, setFormValues] = useState({});
-  const [formSubmitting, setFormSubmitting] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-  const [dmEnabled, setDmEnabled] = useState(false);
-  const [toggling, setToggling] = useState(false);
-  const [newsletterText, setNewsletterText] = useState("Subscribe to Newsletter");
-  const [newsletterDialogText, setNewsletterDialogText] = useState("");
-  const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [newsletterAccept, setNewsletterAccept] = useState(true);
 
   // Social state
   const [socials, setSocials] = useState([]);
@@ -279,12 +195,6 @@ export default function ProfileBlocksEditor() {
   const [blocks, setBlocks] = useState([]);
   const [draggingId, setDraggingId] = useState(null);
 
-  // **MODIFIED**: Keep old dialog for backward compatibility but add new logic
-  const [addOpen, setAddOpen] = useState(false);
-  const [newBlockName, setNewBlockName] = useState("");
-  const [newBlockAction, setNewBlockAction] = useState("");
-  const [tab, setTab] = useState("link");
-
   // Header image uploading
   const [uploadingHeader, setUploadingHeader] = useState({
     headerImage1: false,
@@ -292,17 +202,10 @@ export default function ProfileBlocksEditor() {
     headerImage3: false,
   });
 
-  // Form fields (keep for backward compatibility)
-  const [formFields, setFormFields] = useState([]);
-  const [addAnchor, setAddAnchor] = useState(null);
-
-  const uid = (prefix = "f") =>
-    `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   // API/loading states
   const [loadingBlocks, setLoadingBlocks] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [savingBlock, setSavingBlock] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [apiSnack, setApiSnack] = useState({ open: false, message: "" });
 
@@ -342,39 +245,8 @@ export default function ProfileBlocksEditor() {
     }
   }
 
-  async function fetchStoreStatus() {
-    try {
-      const res = await axios.get(`${baseUrl}/dm-inbox-status`, { withCredentials: true });
-      if (res?.data?.enabled !== undefined) setDmEnabled(Boolean(res.data.enabled));
-    } catch (err) {
-      console.warn("Could not fetch store status.", err);
-    }
-  }
 
-  async function toggleStoreEnabled(nextValue) {
-    const previous = dmEnabled;
-    setDmEnabled(nextValue);
-    setToggling(true);
-    try {
-      await axios.post(
-        `${baseUrl}/enable-dm-inbox`,
-        { enabled: nextValue },
-        { withCredentials: true }
-      );
-      if(nextValue) {
-        toast.success('DM Feature is Enabled');
-      } else {
-        toast.warning('DM Feature is Disabled');
-      }
-      await fetchData();
-    } catch (err) {
-      console.error("Error toggling store enable:", err);
-      setDmEnabled(previous);
-      alert("Failed to update store status. Please try again.");
-    } finally {
-      setToggling(false);
-    }
-  }
+
 
   async function handleHeaderImageChange(e, key) {
     const file = e?.target?.files?.[0];
@@ -430,7 +302,6 @@ export default function ProfileBlocksEditor() {
   // Keep all your fetch functions
   useEffect(() => {
     fetchSocials();
-    fetchStoreStatus();
   }, []);
 
   async function fetchSocials() {
@@ -670,74 +541,6 @@ const handleBlockTypeSelect = (blockType) => {
 };
 
 
-  async function saveAdd() {
-    if (tab === "form") {
-      if (!newBlockName.trim() && formFields.length === 0) return;
-    } else if (tab === "newsletter") {
-      if (!newsletterText || !newsletterText.trim()) return;
-    } else {
-      if (!newBlockName.trim()) return;
-    }
-
-    setSavingBlock(true);
-
-    const type = tab === "video" ? "video" : tab === "form" ? "form" : tab === "newsletter" ? "newsletter" : "link";
-
-    const payload = {
-      name: newBlockName.trim() || (type === "form" ? "Contact form" : type === "newsletter" ? "Newsletter" : "Untitled"),
-      action: newBlockAction?.trim() || "",
-      type,
-    };
-
-    if (type === "newsletter") {
-      payload.newsletterText = (newsletterText || "").trim();
-      payload.action = payload.newsletterText;
-    }
-
-    if (type === "form") {
-      payload.fields = formFields.map(({ id, ...rest }) => {
-        let opts = rest.options;
-        if (typeof opts === "string") {
-          opts = opts.split(",").map((s) => s.trim()).filter(Boolean);
-        }
-        if (!Array.isArray(opts)) opts = opts === undefined ? [] : [String(opts)];
-        return { ...rest, options: opts };
-      });
-      payload.action = JSON.stringify({ fields: payload.fields });
-    }
-
-    try {
-      const res = await axios.post(baseUrl + "/save-blocks", payload, {
-        withCredentials: true,
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const saved = res.data;
-
-      const normalized = {
-        id: saved._id || saved.id || `temp-${Date.now()}`,
-        title: saved.name || payload.name,
-        action: saved.action || payload.action,
-        type: saved.type || payload.type,
-        image: saved.image,
-        raw: saved,
-      };
-
-      setBlocks((s) => [...s, normalized]);
-      setAddOpen(false);
-      setApiSnack({ open: true, message: "Block added" });
-    } catch (err) {
-      console.error("saveAdd error:", err);
-      const msg =
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "Could not save block";
-      setApiSnack({ open: true, message: msg });
-    } finally {
-      setSavingBlock(false);
-    }
-  }
 
   async function deleteBlock(id) {
     setDeletingId(id);
@@ -897,32 +700,7 @@ const handleBlockTypeSelect = (blockType) => {
     await saveProfileField({ intro: userIntro });
   };
 
-  // **NEW: Handle opening child dialogs based on tab selection**
-  const handleTabChange = (event, newTab) => {
-    setTab(newTab);
-    // Close old dialog and open new child dialog
-    setAddOpen(false);
-    
-    switch(newTab) {
-      case 'link':
-        setLinkDialogOpen(true);
-        break;
-      case 'video':
-        setVideoDialogOpen(true);
-        break;
-      case 'form':
-        setFormDialogOpen(true);
-        break;
-      case 'newsletter':
-        setNewsletterDialogOpen(true);
-        break;
-      case 'booking':
-        setBookingDialogOpen(true);
-        break;
-      default:
-        setAddOpen(true);
-    }
-  };
+
 
   // Keep ALL your existing render functions (renderPreviewBlock, etc.)
   function renderPreviewBlock(b) {
@@ -1576,7 +1354,7 @@ const handleBlockTypeSelect = (blockType) => {
                 <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
                 <AddPill onClick={handleAddBlockClick}>
   <AddIcon />
-  Add New Blocks
+  Add New Block
 </AddPill>
 
 {/* Add Block Type Selection Menu */}

@@ -389,7 +389,7 @@ export default function SideNavbar({ window }) {
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary="1:1 Sessions"
+                    primary="1:1 Bookings"
                     primaryTypographyProps={{
                       sx: {
                         color: location.pathname === "/professional/booking/sessions" ? "#FFFFFF" : "#6B7280",

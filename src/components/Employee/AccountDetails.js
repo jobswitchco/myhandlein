@@ -38,7 +38,7 @@ const AccountDetails = () => {
               color: activeTab === 0 ? "primary.main" : "text.secondary",
             }}
           />
-          <Tab
+          {/* <Tab
             label="Bank Details"
             sx={{
               fontSize: "16px",
@@ -46,7 +46,7 @@ const AccountDetails = () => {
               textTransform: "none",
               color: activeTab === 1 ? "primary.main" : "text.secondary",
             }}
-          />
+          /> */}
         </Tabs>
       </Box>
 

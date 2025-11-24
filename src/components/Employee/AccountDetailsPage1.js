@@ -19,7 +19,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { logout } from "../../store/professionalSlice";
 import { useDispatch } from "react-redux";
@@ -47,17 +46,34 @@ const AccountDetailsPage1 = () => {
   const [igLoading, setIgLoading] = useState(false);
   const [igUnlinkLoading, setIgUnlinkLoading] = useState(false);
   const [igDialogOpen, setIgDialogOpen] = useState(false);
+  const [subscriptionDet, setSubscriptionDet] = useState({});
   const [instagram, setInstagram] = useState({
     connected: false,
     username: "",
     imageUrl: "",
   });
 
-  const baseUrl = "/api/usersOn";
-  // const baseUrl="/api/usersOn";
+  // const baseUrl = "http://localhost:8001/usersOn";
+  const baseUrl="/api/usersOn";
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const formatISTDate = (isoString) => {
+  if (!isoString) return "";
+
+  const date = new Date(isoString);
+
+  // Convert to IST manually (UTC + 5:30)
+  const istDate = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+
+  const dd = String(istDate.getDate()).padStart(2, "0");
+  const mm = String(istDate.getMonth() + 1).padStart(2, "0");
+  const yyyy = istDate.getFullYear();
+
+  return `${dd}-${mm}-${yyyy}`;
+};
+
 
   const handleClickAway = () => {
     //this function keeps the dialogue open, even when user clicks outside the dialogue. dont delete this function
@@ -163,34 +179,7 @@ const AccountDetailsPage1 = () => {
     }, 2000);
   };
 
-  useEffect(() => {
-    const verifyToken = async () => {
-      setLoading(true);
 
-      try {
-        const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
-
-        if (res.data.valid) {
-          fetchData();
-          fetchInstagramDetails(); // also load IG info once token is valid
-        } else {
-          handleSessionExpired();
-        }
-      } catch (error) {
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-          handleSessionExpired();
-        } else {
-          toast.error("Network error, please try again later.");
-          handleSessionExpired();
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    verifyToken();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const fetchData = async () => {
     try {
@@ -217,6 +206,37 @@ const AccountDetailsPage1 = () => {
     }
   };
 
+      const fetchSubscriptionDetails = async () => {
+    setIgLoading(true);
+    try {
+      // Backend should respond with: { success: true, data: { connected: boolean, username: string, imageUrl: string } }
+      const res = await axios.get(
+        `${baseUrl}/subscription/details`,
+        { withCredentials: true }
+      );
+
+      if (res.data?.success) {
+        const data = res.data.response || {};
+        setSubscriptionDet(data);
+      } else {
+            setLoading(false);
+            toast.error("Session expired. Please log in again.");
+            setTimeout(() => {
+              navigate("/professional/login");
+            }, 2000);
+          }
+    } catch (e) {
+      // If it fails, assume disconnected (don't block page)
+     setLoading(false);
+      toast.error("Network error. Please log in again.");
+      setTimeout(() => {
+        navigate("/professional/login");
+      }, 2000);
+    } finally {
+      setIgLoading(false);
+    }
+  };
+
   // ============== Instagram: get details (username, imageUrl, status) ==============
   const fetchInstagramDetails = async () => {
     setIgLoading(true);
@@ -235,6 +255,7 @@ const AccountDetailsPage1 = () => {
           username: data.username || "",
           imageUrl: data.imageUrl || "",
         });
+          await fetchSubscriptionDetails();
       } else {
         setInstagram((prev) => ({ ...prev, connected: false }));
       }
@@ -245,6 +266,37 @@ const AccountDetailsPage1 = () => {
       setIgLoading(false);
     }
   };
+
+
+
+    useEffect(() => {
+    const verifyToken = async () => {
+      setLoading(true);
+
+      try {
+        const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
+
+        if (res.data.valid) {
+          fetchData();
+          fetchInstagramDetails();
+        } else {
+          handleSessionExpired();
+        }
+      } catch (error) {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          handleSessionExpired();
+        } else {
+          toast.error("Network error, please try again later.");
+          handleSessionExpired();
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============== Instagram: unlink ==============
   const handleOpenUnlinkDialog = () => setIgDialogOpen(true);
@@ -525,6 +577,7 @@ const AccountDetailsPage1 = () => {
             </Stack>
           </>
         ) : (
+          <>
           <Grid container mt={5}>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <Typography sx={{ fontSize: "18px", fontWeight: "500" }}>
@@ -604,7 +657,80 @@ const AccountDetailsPage1 = () => {
                 </Button>
               </div>
             </Grid>
+
           </Grid>
+
+           <Grid container mt={5}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Typography sx={{ fontSize: "18px", fontWeight: "500" }}>
+                Subscriptions
+              </Typography>
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6, md: 8 }}>
+
+              <Grid
+                container
+                fullWidth
+                sx={{
+                  borderStyle: "solid",
+                  borderWidth: "1px",
+                  borderColor: "#BCCCDC",
+                  marginBottom: "22px",
+                  paddingY: "12px",
+                  paddingX: "12px",
+                }}
+              >
+                <Grid size={{ md: 4 }}>
+                  <Typography sx={{ fontSize: "14px", fontWeight: "500" }}>Status</Typography>
+                </Grid>
+
+                <Grid size={{ md: 8 }}>
+                  {loading ? (
+                    <Skeleton variant="rectangular" width={300} height={20} />
+                  ) : (
+                    <Typography sx={{ fontSize: "14px", fontWeight: "400" }}>
+                      {subscriptionDet.status === 'active' ? 'Active' : 'Free Trial'}
+                    </Typography>
+                  )}
+                </Grid>
+              </Grid>
+{subscriptionDet?.freeTrial && (
+              <Grid
+                container
+                fullWidth
+                sx={{
+                  borderStyle: "solid",
+                  borderWidth: "1px",
+                  borderColor: "#BCCCDC",
+                  marginBottom: "22px",
+                  paddingY: "12px",
+                  paddingX: "12px",
+                }}
+              >
+                <Grid size={{ md: 4 }}>
+                  <Typography sx={{ fontSize: "14px", fontWeight: "500" }}>Paid starts At</Typography>
+                </Grid>
+
+                <Grid size={{ md: 8 }}>
+                  {loading ? (
+                    <Skeleton variant="rectangular" width={300} height={20} />
+                  ) : (
+                    <Typography sx={{ fontSize: "14px", fontWeight: "400" }}>
+                      {formatISTDate(subscriptionDet.subscription_starts_at)}
+
+                    </Typography>
+                  )}
+                </Grid>
+              </Grid>
+)}
+
+            
+            </Grid>
+
+            
+          </Grid>
+          </>
         )}
       </>
 
@@ -785,7 +911,6 @@ const AccountDetailsPage1 = () => {
         </ClickAwayListener>
       )}
 
-      <ToastContainer autoClose={2000} />
     </>
   );
 };

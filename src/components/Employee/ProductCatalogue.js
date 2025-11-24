@@ -247,7 +247,7 @@ export default function Store() {
   const [digCategory, setDigCategory] = useState(null);
   const [digName, setDigName] = useState("");
   const [digDesc, setDigDesc] = useState("");
-  const [digPrice, setDigPrice] = useState("");
+  const [digPrice, setDigPrice] = useState(0);
   const [digFile, setDigFile] = useState(null);
   const [digPreview, setDigPreview] = useState(null);
 
@@ -883,7 +883,7 @@ function openEditDialog(product) {
               <Typography variant="h5" sx={{ fontWeight: 800 }}>
                 Store
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ fontFamily : 'Inter'}}>
                 Manage affiliate & digital products
               </Typography>
             </Stack>
@@ -944,50 +944,10 @@ function openEditDialog(product) {
               onChange={(e) => {
                 const val = e.target.value;
                 clearTimeout(qDebounce.current);
-                qDebounce.current = setTimeout(() => setQ(val), 200);
+                qDebounce.current = setTimeout(() => setQ(val), 0);
               }}
             />
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              alignItems={{ xs: "stretch", sm: "center" }}
-            >
-              <TextField
-                select
-                size="small"
-                label="Type"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                sx={{ flex: { xs: 1, sm: "auto" }, minWidth: 120 }}
-              >
-                <MenuItem value="all">All Products</MenuItem>
-                <MenuItem value="affiliate">Affiliate Links</MenuItem>
-                <MenuItem value="digital">Digital Products</MenuItem>
-              </TextField>
-
-              <TextField
-                select
-                size="small"
-                label="Sort by"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                sx={{ flex: { xs: 1, sm: "auto" }, minWidth: 150 }}
-              >
-                <MenuItem value="createdAt_desc">Newest First</MenuItem>
-                <MenuItem value="createdAt_asc">Oldest First</MenuItem>
-                <MenuItem value="title_asc">Title: A–Z</MenuItem>
-                <MenuItem value="title_desc">Title: Z–A</MenuItem>
-              </TextField>
-
-              <Box sx={{ flex: 1 }} />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ whiteSpace: "nowrap" }}
-              >
-                {refined.length} of {total} products
-              </Typography>
-            </Stack>
+          
           </Stack>
         </StyledControlsBar>
 
@@ -1125,7 +1085,6 @@ function openEditDialog(product) {
           )}
         </Paper>
 
-        {/* Add / Edit Dialog */}
      {/* Add / Edit Dialog */}
 <Dialog
   open={dialogOpen}
@@ -1280,7 +1239,7 @@ function openEditDialog(product) {
           />
           <Stack spacing={1.5}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Product Image
+              Upload
             </Typography>
             <Stack direction="row" spacing={1.5} alignItems="flex-end">
               <Button
@@ -1293,7 +1252,7 @@ function openEditDialog(product) {
                   borderRadius: 1,
                 }}
               >
-                Change Image
+                Upload File
                 <input
                   hidden
                   accept="image/*"
@@ -1311,7 +1270,7 @@ function openEditDialog(product) {
               )}
             </Stack>
           </Stack>
-          <TextField
+          {/* <TextField
             label="Price"
             placeholder="₹ 99.00"
             type="number"
@@ -1325,7 +1284,7 @@ function openEditDialog(product) {
                 <InputAdornment position="start">₹</InputAdornment>
               ),
             }}
-          />
+          /> */}
         </Stack>
       </TabPanel>
     )}

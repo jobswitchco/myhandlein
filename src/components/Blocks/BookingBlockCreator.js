@@ -187,11 +187,8 @@ const BookingBlockCreator = ({ open, onClose, onSave }) => {
                 ))}
               </Select>
             </FormControl>
-          </Stack>
 
-          {/* Interaction Type and Pricing */}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <FormControl fullWidth>
+             <FormControl fullWidth>
               <InputLabel>Session Type</InputLabel>
               <Select
                 value={interactionType}
@@ -213,7 +210,34 @@ const BookingBlockCreator = ({ open, onClose, onSave }) => {
               </Select>
             </FormControl>
 
-            <TextField
+
+          </Stack>
+
+          {/* Interaction Type and Pricing */}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            {/* <FormControl fullWidth>
+              <InputLabel>Session Type</InputLabel>
+              <Select
+                value={interactionType}
+                onChange={(e) => setInteractionType(e.target.value)}
+                label="Session Type"
+              >
+                <MenuItem value="voice">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PhoneIcon fontSize="small" />
+                    <span>Voice Call</span>
+                  </Box>
+                </MenuItem>
+                <MenuItem value="video">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <VideoIcon fontSize="small" />
+                    <span>Video Call</span>
+                  </Box>
+                </MenuItem>
+              </Select>
+            </FormControl> */}
+
+            {/* <TextField
               fullWidth
               type="number"
               label="Pricing"
@@ -227,7 +251,7 @@ const BookingBlockCreator = ({ open, onClose, onSave }) => {
                   </InputAdornment>
                 ),
               }}
-            />
+            /> */}
           </Stack>
 
           {/* Preview - MATCHING renderPreviewBlock style */}

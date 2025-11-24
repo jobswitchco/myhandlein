@@ -2125,6 +2125,53 @@ async function subscribePageToInstagramWebhooks(fbPageId, fbPageAccessToken, use
   }
 }
 
+router.get("/subscription/details", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    // Get subscription + user details
+    const subscription = await Subscriptions.findOne({ user_id: userId })
+      .populate({ path: "user_id", strictPopulate: false });
+
+    if (!subscription || !subscription.user_id) {
+      return res.status(404).json({
+        message: "Subscription or user not found",
+      });
+    }
+
+    const user = subscription.user_id;
+
+    // --- Free trial check (7 days from free_trial_started_date) ---
+    const now = new Date();
+    const freeTrialStart = new Date(user.free_trial_started_date);
+    const freeTrialEnd = new Date(freeTrialStart);
+    freeTrialEnd.setDate(freeTrialEnd.getDate() + 7);
+
+    let response;
+
+    if (now <= freeTrialEnd) {
+      // Still in free trial
+      response = {
+        freeTrial: true,
+        subscription_starts_at: subscription.subscription_starts_at,
+      };
+    } else {
+      // Free trial over
+      response = {
+        freeTrial: false,
+        status: subscription.status,
+      };
+    }
+
+    return res.json({ success: true, response });
+  } catch (err) {
+    console.error("Error in /subscription/details:", err);
+    const e = err?.response?.data?.error || { message: "Something went wrong" };
+    const status = err?.response?.status || 500;
+    return res.status(status).json(e);
+  }
+});
+
 
 router.post("/automation/upload-asset", authenticateToken, upload.single("file"), async (req, res) => {
   try {
