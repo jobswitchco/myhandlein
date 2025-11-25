@@ -1862,91 +1862,7 @@ async function saveBankDetails(req, res) {
   }
 }
 
-router.post("/automation/config-duplicate", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user?.user_id; // or req.user._id depending on your auth middleware
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
-    const { postId, keywords, action } = req.body || {};
-
-    // Basic validation
-    if (!postId || !String(postId).trim()) {
-      return res.status(400).json({ success: false, message: "postId is required" });
-    }
-    if (!Array.isArray(keywords) || keywords.length === 0) {
-      return res.status(400).json({ success: false, message: "At least one keyword is required" });
-    }
-    if (!action || typeof action !== "object") {
-      return res.status(400).json({ success: false, message: "action object is required" });
-    }
-
-    const type = action.type;
-    const title = action.title?.trim();
-    const url = action.url?.trim();
-    const fileName = action.fileName?.trim();
-
-    if (!["Affiliate Link", "Download Link"].includes(type)) {
-      return res.status(400).json({ success: false, message: "Invalid action.type" });
-    }
-    if (!title) {
-      return res.status(400).json({ success: false, message: "action.title is required" });
-    }
-    if (!url || !isValidUrl(url)) {
-      return res.status(400).json({ success: false, message: "Valid action.url is required" });
-    }
-    if (type === "Download Link" && !fileName) {
-      // Optional, but nice to have for logs/UX
-      console.warn("Download Link provided without fileName");
-    }
-
-    // Normalize keywords: trim + dedupe + remove empties
-    const normalizedKeywords = [...new Set(
-      keywords.map(k => String(k || "").trim()).filter(Boolean)
-    )];
-
-    // LOGGING (condition-based)
-    console.log("=== Automation Config ===");
-    console.log("User ID:", userId);
-    console.log("Post ID:", postId);
-    console.log("Keywords:", normalizedKeywords);
-
-    if (type === "Download Link") {
-      console.log("[Download Link]");
-      console.log("Title:", title);
-      console.log("Public URL (GCS):", url);
-      if (fileName) console.log("File Name:", fileName);
-    } else {
-      console.log("[Affiliate Link]");
-      console.log("Title:", title);
-      console.log("Affiliate URL:", url);
-    }
-
-    // Persist to DB (create new; or upsert if you want one per postId)
-    // const doc = await AutomationConfig.create({
-    //   userId,
-    //   postId: String(postId),
-    //   keywords: normalizedKeywords,
-    //   action: { type, title, url, fileName },
-    //   status: "active",
-    // });
-
-    return res.json({
-      success: true,
-      // automationId: doc._id,
-      message: "Automation configuration saved",
-      // data: doc,
-    });
-  } catch (err) {
-    console.error("POST /automation/config error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to save automation config",
-      error: err?.message || String(err),
-    });
-  }
-});
 
 
 
@@ -2358,6 +2274,153 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
   }
 });
 
+router.post("/autodm/automation/config", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const {
+      postType,
+      dmMessage,
+      buttonText,
+      // caption,
+      // thumbnail,
+      status,
+      flowNodes,
+      keywords,
+      // hasReply,
+      // replyComment
+    } = req.body || {};
+
+  
+
+    // ===== PREPARE DOCUMENT FOR UPSERT =====
+    const update = {
+      postType,
+      platform: "instagram",
+      dmMessage,
+      buttonText,
+      flowNodes,
+      keywords,
+      ...(status ? { status } : {}),
+    };
+
+
+    const doc = await Automation.create({
+      userId,
+      postType,
+      platform: "instagram",
+      dmMessage,
+      buttonText,
+      flowNodes,
+      keywords,
+      ...(status ? { status } : {}),
+
+    })
+
+    return res.json({
+      success: true,
+      message: "Automation configuration saved",
+      data: doc
+    });
+  } catch (err) {
+    console.error("POST /automation/config error:", err);
+    
+    // Handle unique index race condition
+    if (err?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "An automation for this post already exists for this user",
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save automation config",
+      error: err?.message || String(err),
+    });
+  }
+});
+
+// GET: Check if automation exists and return config
+router.get('/autodm/automation/config', authenticateToken, async (req, res) => {
+  
+    const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+  try {
+    const automation = await Automation.findOne({ 
+      userId, 
+      postType: 'autodm' 
+    });
+
+    if (!automation) {
+      return res.status(200).json({ exists: false });
+    }
+
+    return res.status(200).json({ 
+      exists: true, 
+      data: automation 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// PUT: Update existing automation (Edit Mode)
+router.put('/autodm/automation/update', authenticateToken, async (req, res) => {
+  try {
+
+      const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+
+    const { keywords, dmMessage, buttonText, flowNodes } = req.body;
+    
+    const automation = await Automation.findOneAndUpdate(
+      { userId, postType: 'autodm' },
+      { keywords, dmMessage, buttonText, flowNodes },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, data: automation });
+  } catch (error) {
+    res.status(500).json({ message: "Update failed" });
+  }
+});
+
+// PATCH: Toggle Status (Stop/Resume)
+router.patch('/autodm/automation/status', authenticateToken, async (req, res) => {
+  try {
+
+      const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { isActive } = req.body; // Expect boolean
+
+    console.log('isActive : ', isActive);
+    
+    const automation = await Automation.findOneAndUpdate(
+      { userId, postType: 'autodm' },
+      { status: isActive ? 'active' : 'inactive' },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, isActive: automation.isActive });
+  } catch (error) {
+    res.status(500).json({ message: "Status change failed" });
+  }
+});
+
 
 
 router.get("/automations", authenticateToken, async (req, res) => {
@@ -2390,7 +2453,10 @@ router.get("/automations", authenticateToken, async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
-    const query = { userId };
+    const query = { 
+  userId, 
+  postType: { $ne: "autodm" } // <--- Filter out "autodm" types
+};
     const projection = "postId status createdAt caption thumbnail postLive lastCheckedAt";
     const sort = { createdAt: -1 };
 

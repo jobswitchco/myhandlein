@@ -13,42 +13,38 @@ import {
   Box,
   useMediaQuery,
   CircularProgress,
+  Typography,
   Divider,
   Collapse,
   IconButton,
-  Button,
-  Typography
+  Button
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
-import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
+import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import { deepOrange, green } from "@mui/material/colors";
 import MenuIcon from "@mui/icons-material/Menu";
 import logo from "../../images/myhandle_logo.svg";
 import axios from "axios";
 import { toast } from "react-toastify";
-import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
-import AccountBoxOutlinedIcon from "@mui/icons-material/AccountBoxOutlined";
-import SupportAgentOutlinedIcon from "@mui/icons-material/SupportAgentOutlined";
-import MailOutlineOutlinedIcon from "@mui/icons-material/MailOutlineOutlined";
-import ContactPageOutlinedIcon from "@mui/icons-material/ContactPageOutlined";
-import LinkIcon from "@mui/icons-material/Link";
-import InstagramIcon from "@mui/icons-material/Instagram";
-import PolylineOutlinedIcon from "@mui/icons-material/PolylineOutlined";
-import "react-toastify/dist/ReactToastify.css";
+import AccountBoxOutlinedIcon from '@mui/icons-material/AccountBoxOutlined';
+import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
+import MailOutlineOutlinedIcon from '@mui/icons-material/MailOutlineOutlined';
+import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
+import LinkIcon from '@mui/icons-material/Link';
+import InstagramIcon from '@mui/icons-material/Instagram';
 import UpiMandateModern from "./UpiMandate";
+import "react-toastify/dist/ReactToastify.css";
+import PolylineOutlinedIcon from "@mui/icons-material/PolylineOutlined";
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
-import { logout } from "../../store/professionalSlice";
-import { useDispatch } from "react-redux";
 import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
 import PermContactCalendarOutlinedIcon from '@mui/icons-material/PermContactCalendarOutlined';
-
-
-
-
+import { logout } from "../../store/professionalSlice";
+import { useDispatch } from "react-redux";
 const theme = createTheme({
   palette: {
     primary: { main: deepOrange[500] },
@@ -67,16 +63,17 @@ export default function SideNavbar({ window }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [isTrialActive, setIsTrialActive] = useState(false);
-  const [trialDays, setTrialDays] = useState(0);
-
+const [trialDays, setTrialDays] = useState(0);
 
   // Main menu states
   const [linkInBioOpen, setLinkInBioOpen] = useState(true);
   const [instagramOpen, setInstagramOpen] = useState(true);
-  const [accountsOpen, setAccountsOpen] = useState(true);
+  const [accountsOpen, setAccountsOpen] = useState(true); // NEW
 
   // Sub-menu states
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [automationOpen, setAutomationOpen] = useState(false);
+  const [mentionsOpen, setMentionsOpen] = useState(false);
 
   // Routes for Analytics (nested under Link In Bio)
   const analyticsRoutes = [
@@ -85,11 +82,23 @@ export default function SideNavbar({ window }) {
     "/professional/my/block/analytics",
   ];
 
-  // Routes for Link In Bio section (Profile / Support removed)
+    // Routes for Analytics (nested under Link In Bio)
+  const automationRoutes = [
+    "/professional/automations",
+    "/professional/autodm/automation",
+  ];
+
+  // Routes for Mentions (nested under Instagram)
+  const mentionsRoutes = [
+    "/professional/instagram/mentions/comments",
+    "/professional/instagram/mentions/messages",
+  ];
+
+  // Routes for Link In Bio section (Profile/Support REMOVED)
   const linkInBioRoutes = [
     "/professional/dashboard/analytics",
     "/professional/user/bio",
-    "/professional/my/inbox",
+    "/professional/booking/sessions",
     "/professional/store/products",
     ...analyticsRoutes,
     "/professional/newsletter/emails",
@@ -98,11 +107,10 @@ export default function SideNavbar({ window }) {
 
   // Routes for Instagram section
   const instagramRoutes = [
-    "/professional/automations",
-    "/professional/contacts/replied",
+    "/professional/fb_insta_redirect",
+    // "/professional/automations",
     "/professional/instagram/mentions",
-    "/professional/instagram/mentions/comments",
-    "/professional/instagram/mentions/messages",
+    ...automationRoutes,
     "/professional/instagram/create-post",
   ];
 
@@ -110,9 +118,11 @@ export default function SideNavbar({ window }) {
   const accountsRoutes = ["/professional/profile", "/professional/support"];
 
   const isAnalyticsRoute = analyticsRoutes.includes(location.pathname);
+  const isAutomationRoute = automationRoutes.includes(location.pathname);
+  const isMentionsRoute = mentionsRoutes.includes(location.pathname);
   const isLinkInBioSection = linkInBioRoutes.includes(location.pathname);
   const isInstagramSection = instagramRoutes.includes(location.pathname);
-  const isAccountsSection = accountsRoutes.includes(location.pathname);
+  const isAccountsSection = accountsRoutes.includes(location.pathname); // NEW
 
   const goTo = (path) => {
     navigate(path);
@@ -128,16 +138,7 @@ export default function SideNavbar({ window }) {
     }, 1500);
   };
 
-
-
-
-
-  useEffect(() => {
-    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-   useEffect(() => {
+    useEffect(() => {
       const verifyToken = async () => {
         setLoading(true);
   
@@ -165,8 +166,12 @@ export default function SideNavbar({ window }) {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-      const fetchPaymentDetails = async () => {
+    const fetchPaymentDetails = async () => {
       try {
         setLoading(true);
         const response = await axios.get(`${baseUrl}/fetch-payment-details`, {
@@ -203,28 +208,26 @@ export default function SideNavbar({ window }) {
         flexDirection: "column",
         height: "100%",
         backgroundColor: "#FAFBFC",
-        pt: 0,
+        pt: 0, // AppBar now handled by outer container padding on mobile
       }}
     >
       {/* Top section (logo + nav links) */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          overflowY: "auto",
-          overflowX: "hidden",
-          "&::-webkit-scrollbar": { width: "6px" },
-          "&::-webkit-scrollbar-track": { backgroundColor: "#F3F4F6", borderRadius: "10px" },
-          "&::-webkit-scrollbar-thumb": {
-            backgroundColor: "#CBD5E1",
-            borderRadius: "10px",
-            "&:hover": { backgroundColor: "#94A3B8" },
-          },
-          scrollbarWidth: "none",
-          scrollbarColor: "#CBD5E1 #F3F4F6",
-        }}
-      >
-    
-        <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 0 }}>
+      <Box sx={{ 
+        flexGrow: 1, 
+        overflowY: "auto", 
+        overflowX: "hidden",
+        '&::-webkit-scrollbar': { width: '6px' },
+        '&::-webkit-scrollbar-track': { backgroundColor: '#F3F4F6', borderRadius: '10px' },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: '#CBD5E1',
+          borderRadius: '10px',
+          '&:hover': { backgroundColor: '#94A3B8' },
+        },
+        scrollbarWidth: 'none',
+        scrollbarColor: '#CBD5E1 #F3F4F6',
+      }}>
+
+           <Toolbar sx={{ justifyContent: "space-between", px: 2.5, py: 0 }}>
 
       {!isSmallScreen && (
 
@@ -243,7 +246,6 @@ export default function SideNavbar({ window }) {
 
         )}
         </Toolbar>
-       
 
         <List sx={{ px: 2, pt: 1 }}>
           {/* ===== LINK IN BIO MAIN MENU ===== */}
@@ -276,7 +278,7 @@ export default function SideNavbar({ window }) {
                     color: isLinkInBioSection ? "#FFFFFF" : "#374151",
                     fontWeight: 600,
                     fontSize: "0.9rem",
-                    fontFamily: "Inter",
+                    fontFamily: "Inter"
                   },
                 }}
               />
@@ -300,11 +302,10 @@ export default function SideNavbar({ window }) {
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor:
-                      location.pathname === "/professional/dashboard/analytics" ? "#6E8CFB" : "transparent",
-                    "&:hover": {
+                    backgroundColor: location.pathname === "/professional/dashboard/analytics" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -341,9 +342,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: location.pathname === "/professional/user/bio" ? "#6E8CFB" : "transparent",
-                    "&:hover": {
+                    "&:hover": { 
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -370,7 +371,9 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-                {/* 1:1 Sessions */}
+            
+
+              {/* 1:1 Sessions */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/booking/sessions")}
@@ -409,7 +412,7 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-                {/* Form Submissions */}
+               {/* Form Submissions */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/my/formsubmissions")}
@@ -448,7 +451,6 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-
               {/* Store */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
@@ -458,11 +460,10 @@ export default function SideNavbar({ window }) {
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor:
-                      location.pathname === "/professional/store/products" ? "#6E8CFB" : "transparent",
-                    "&:hover": {
+                    backgroundColor: location.pathname === "/professional/store/products" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -489,44 +490,6 @@ export default function SideNavbar({ window }) {
                 </ListItemButton>
               </ListItem>
 
-              {/* My Orders */}
-              {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/my_orders")}
-                  selected={location.pathname === "/professional/my_orders"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/my_orders" ? "#6E8CFB" : "transparent",
-                    "&:hover": {
-                      backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
-                    },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <CurrencyRupeeOutlinedIcon
-                      sx={{
-                        color: location.pathname === "/professional/my_orders" ? "#FFFFFF" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="My Orders"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/my_orders" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/my_orders" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem> */}
 
               {/* Analytics (nested) */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
@@ -538,9 +501,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: isAnalyticsRoute ? "#6E8CFB" : "transparent",
-                    "&:hover": {
+                    "&:hover": { 
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -582,11 +545,10 @@ export default function SideNavbar({ window }) {
                       sx={{
                         borderRadius: "8px",
                         py: 0.6,
-                        backgroundColor:
-                          location.pathname === "/professional/my/page/analytics" ? "#6E8CFB" : "transparent",
-                        "&:hover": {
+                        backgroundColor: location.pathname === "/professional/my/page/analytics" ? "#6E8CFB" : "transparent",
+                        "&:hover": { 
                           backgroundColor: "#6E8CFB",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" },
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
                         },
                         "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                         transition: "all 0.2s ease",
@@ -596,8 +558,7 @@ export default function SideNavbar({ window }) {
                         primary="Page Analytics"
                         primaryTypographyProps={{
                           sx: {
-                            color:
-                              location.pathname === "/professional/my/page/analytics" ? "#FFFFFF" : "#9CA3AF",
+                            color: location.pathname === "/professional/my/page/analytics" ? "#FFFFFF" : "#9CA3AF",
                             fontWeight: 400,
                             fontSize: "0.82rem",
                           },
@@ -613,11 +574,10 @@ export default function SideNavbar({ window }) {
                       sx={{
                         borderRadius: "8px",
                         py: 0.6,
-                        backgroundColor:
-                          location.pathname === "/professional/my/store/analytics" ? "#6E8CFB" : "transparent",
-                        "&:hover": {
+                        backgroundColor: location.pathname === "/professional/my/store/analytics" ? "#6E8CFB" : "transparent",
+                        "&:hover": { 
                           backgroundColor: "#6E8CFB",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" },
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
                         },
                         "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                         transition: "all 0.2s ease",
@@ -627,8 +587,7 @@ export default function SideNavbar({ window }) {
                         primary="Store Analytics"
                         primaryTypographyProps={{
                           sx: {
-                            color:
-                              location.pathname === "/professional/my/store/analytics" ? "#FFFFFF" : "#9CA3AF",
+                            color: location.pathname === "/professional/my/store/analytics" ? "#FFFFFF" : "#9CA3AF",
                             fontWeight: 400,
                             fontSize: "0.82rem",
                           },
@@ -644,11 +603,10 @@ export default function SideNavbar({ window }) {
                       sx={{
                         borderRadius: "8px",
                         py: 0.6,
-                        backgroundColor:
-                          location.pathname === "/professional/my/block/analytics" ? "#6E8CFB" : "transparent",
-                        "&:hover": {
+                        backgroundColor: location.pathname === "/professional/my/block/analytics" ? "#6E8CFB" : "transparent",
+                        "&:hover": { 
                           backgroundColor: "#6E8CFB",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" },
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
                         },
                         "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                         transition: "all 0.2s ease",
@@ -658,8 +616,7 @@ export default function SideNavbar({ window }) {
                         primary="Block Analytics"
                         primaryTypographyProps={{
                           sx: {
-                            color:
-                              location.pathname === "/professional/my/block/analytics" ? "#FFFFFF" : "#9CA3AF",
+                            color: location.pathname === "/professional/my/block/analytics" ? "#FFFFFF" : "#9CA3AF",
                             fontWeight: 400,
                             fontSize: "0.82rem",
                           },
@@ -679,11 +636,10 @@ export default function SideNavbar({ window }) {
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor:
-                      location.pathname === "/professional/newsletter/emails" ? "#6E8CFB" : "transparent",
-                    "&:hover": {
+                    backgroundColor: location.pathname === "/professional/newsletter/emails" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
                       backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
                     "&.Mui-selected": { backgroundColor: "#6E8CFB" },
                     transition: "all 0.2s ease",
@@ -723,7 +679,7 @@ export default function SideNavbar({ window }) {
                 borderRadius: "10px",
                 py: 1,
                 px: 1.5,
-                backgroundColor: isInstagramSection ? "rgba(225, 48, 108, 0.08)" : "transparent",
+                backgroundColor: isInstagramSection ? "#FF3F7F" : "transparent",
                 "&:hover": {
                   backgroundColor: isInstagramSection ? "rgba(225, 48, 108, 0.12)" : "rgba(0,0,0,0.03)",
                 },
@@ -733,7 +689,7 @@ export default function SideNavbar({ window }) {
               <ListItemIcon sx={{ minWidth: 36 }}>
                 <InstagramIcon
                   sx={{
-                    color: isInstagramSection ? "#E1306C" : "#6B7280",
+                    color: isInstagramSection ? "#FFFFFF" : "#6B7280",
                     fontSize: "1.3rem",
                   }}
                 />
@@ -742,16 +698,16 @@ export default function SideNavbar({ window }) {
                 primary="Instagram"
                 primaryTypographyProps={{
                   sx: {
-                    color: isInstagramSection ? "#E1306C" : "#374151",
+                    color: isInstagramSection ? "#FFFFFF" : "#374151",
                     fontWeight: 600,
                     fontSize: "0.9rem",
                   },
                 }}
               />
               {instagramOpen ? (
-                <ExpandLessIcon sx={{ color: isInstagramSection ? "#E1306C" : "#9CA3AF", fontSize: "1.2rem" }} />
+                <ExpandLessIcon sx={{ color: isInstagramSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
               ) : (
-                <ExpandMoreIcon sx={{ color: isInstagramSection ? "#E1306C" : "#9CA3AF", fontSize: "1.2rem" }} />
+                <ExpandMoreIcon sx={{ color: isInstagramSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
               )}
             </ListItemButton>
           </ListItem>
@@ -759,42 +715,120 @@ export default function SideNavbar({ window }) {
           {/* Instagram Submenu */}
           <Collapse in={instagramOpen} timeout="auto" unmountOnExit>
             <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
-              {/* Automation */}
+             
+
+                 {/* Automation (nested) */}
               <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
-                  onClick={() => goTo("/professional/automations")}
-                  selected={location.pathname === "/professional/automations"}
+                  onClick={() => setAutomationOpen((p) => !p)}
+                  selected={isAutomationRoute}
                   sx={{
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/automations" ? "#F3F4F6" : "transparent",
-                    "&:hover": { backgroundColor: "#F3F4F6" },
+                    backgroundColor: isAutomationRoute ? "#F6B1CE" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#F6B1CE",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#533B4D" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#F6B1CE" },
                     transition: "all 0.2s ease",
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <PolylineOutlinedIcon
                       sx={{
-                        color: location.pathname === "/professional/automations" ? "#E1306C" : "#9CA3AF",
+                        color: isAutomationRoute ? "#533B4D" : "#9CA3AF",
                         fontSize: "1.2rem",
                       }}
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Automation"
+                    primary="Automations"
                     primaryTypographyProps={{
                       sx: {
-                        color: location.pathname === "/professional/automations" ? "#1F2937" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/automations" ? 500 : 400,
+                        color: isAutomationRoute ? "#533B4D" : "#6B7280",
+                        fontWeight: isAutomationRoute ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}
                   />
+                  {automationOpen ? (
+                    <ExpandLessIcon sx={{ color: isAutomationRoute ? "#533B4D" : "#9CA3AF", fontSize: "1rem" }} />
+                  ) : (
+                    <ExpandMoreIcon sx={{ color: isAutomationRoute ? "#533B4D" : "#9CA3AF", fontSize: "1rem" }} />
+                  )}
                 </ListItemButton>
               </ListItem>
 
-               {/* Contacts */}
+              {/* Automation submenu */}
+              <Collapse in={automationOpen} timeout="auto" unmountOnExit>
+            
+                <List component="div" disablePadding>
+
+                  <ListItem disablePadding sx={{ mb: 0.5, pl: 4 }}>
+                    <ListItemButton
+                      onClick={() => goTo("/professional/automations")}
+                      selected={location.pathname === "/professional/automations"}
+                      sx={{
+                        borderRadius: "8px",
+                        py: 0.6,
+                        backgroundColor: location.pathname === "/professional/automations" ? "#533B4D" : "transparent",
+                        "&:hover": { 
+                          backgroundColor: "#533B4D",
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
+                        },
+                        "&.Mui-selected": { backgroundColor: "#533B4D" },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <ListItemText
+                        primary="Post Automation"
+                        primaryTypographyProps={{
+                          sx: {
+                            color: location.pathname === "/professional/automations" ? "#FFFFFF" : "#9CA3AF",
+                            fontWeight: 400,
+                            fontSize: "0.82rem",
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+
+                  <ListItem disablePadding sx={{ mb: 0.5, pl: 4 }}>
+                    <ListItemButton
+                      onClick={() => goTo("/professional/autodm/automation")}
+                      selected={location.pathname === "/professional/autodm/automation"}
+                      sx={{
+                        borderRadius: "8px",
+                        py: 0.6,
+                        backgroundColor: location.pathname === "/professional/autodm/automation" ? "#533B4D" : "transparent",
+                        "&:hover": { 
+                          backgroundColor: "#533B4D",
+                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
+                        },
+                        "&.Mui-selected": { backgroundColor: "#533B4D" },
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <ListItemText
+                        primary="Auto DM"
+                        primaryTypographyProps={{
+                          sx: {
+                            color: location.pathname === "/professional/autodm/automation" ? "#FFFFFF" : "#9CA3AF",
+                            fontWeight: 400,
+                            fontSize: "0.82rem",
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+
+               
+                </List>
+              </Collapse>
+
+                {/* Contacts */}
 
                 <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
@@ -833,6 +867,8 @@ export default function SideNavbar({ window }) {
                   />
                 </ListItemButton>
               </ListItem>
+
+      
             </List>
           </Collapse>
 
@@ -893,9 +929,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: location.pathname === "/professional/profile" ? "#EDF2FF" : "transparent",
-                    "&:hover": {
+                    "&:hover": { 
                       backgroundColor: "#EDF2FF",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#1F2937" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#1F2937" }
                     },
                     "&.Mui-selected": { backgroundColor: "#EDF2FF" },
                     transition: "all 0.2s ease",
@@ -932,9 +968,9 @@ export default function SideNavbar({ window }) {
                     borderRadius: "8px",
                     py: 0.75,
                     backgroundColor: location.pathname === "/professional/support" ? "#EDF2FF" : "transparent",
-                    "&:hover": {
+                    "&:hover": { 
                       backgroundColor: "#EDF2FF",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#1F2937" },
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#1F2937" }
                     },
                     "&.Mui-selected": { backgroundColor: "#EDF2FF" },
                     transition: "all 0.2s ease",
@@ -962,10 +998,48 @@ export default function SideNavbar({ window }) {
               </ListItem>
             </List>
           </Collapse>
+
+          {/* Profile (only on mobile) — keeping as-is */}
+          {isSmallScreen && (
+            <ListItem disablePadding sx={{ mt: 2 }}>
+              <ListItemButton
+                onClick={() => goTo("/professional/profile")}
+                selected={location.pathname === "/professional/profile"}
+                sx={{
+                  borderRadius: "8px",
+                  py: 0.75,
+                  pl: 2,
+                  backgroundColor: location.pathname === "/professional/profile" ? "#F3F4F6" : "transparent",
+                  "&:hover": { backgroundColor: "#F3F4F6" },
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <AccountCircleOutlinedIcon
+                    sx={{
+                      color: location.pathname === "/professional/profile" ? "#667eea" : "#9CA3AF",
+                      fontSize: "1.2rem",
+                    }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Profile"
+                  primaryTypographyProps={{
+                    sx: {
+                      color: location.pathname === "/professional/profile" ? "#1F2937" : "#6B7280",
+                      fontWeight: location.pathname === "/professional/profile" ? 500 : 400,
+                      fontSize: "0.875rem",
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          )}
         </List>
+
       </Box>
 
-      {isTrialActive && (
+{isTrialActive && (
          <Box sx={{ p: 2, borderTop: "1px solid #E5E7EB" }}>
         <Box
           sx={{
@@ -1030,47 +1104,51 @@ export default function SideNavbar({ window }) {
         </Box>
       </Box>
 )}
+
+   
     </Box>
   );
 
   return (
     <ThemeProvider theme={theme}>
       {/* Mobile AppBar with hamburger */}
-   
-      <AppBar
-        position="fixed"
-        color="inherit"
-        elevation={0}
-        sx={{
-          display: { xs: "flex", sm: "none" },
-          borderBottom: "1px solid #E5E7EB",
-          bgcolor: "#FAFBFC",
-          zIndex: (t) => t.zIndex.drawer + 1,
-        }}
+    
+  <AppBar
+    position="fixed"
+    color="inherit"
+    elevation={0}
+    sx={{
+      display: { xs: "flex", sm: "none" },
+      borderBottom: "1px solid #E5E7EB",
+      bgcolor: "#FAFBFC",
+      zIndex: (t) => t.zIndex.drawer + 1,
+    }}
+  >
+    <Toolbar sx={{ px: 2 }}>
+      <IconButton
+        edge="start"
+        aria-label="open drawer"
+        onClick={handleDrawerToggle}
+        sx={{ mr: 1, display: { xs: "inline-flex", sm: "none" } }}
       >
-        <Toolbar sx={{ px: 2 }}>
-          <IconButton
-            edge="start"
-            aria-label="open drawer"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 1, display: { xs: "inline-flex", sm: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
+        <MenuIcon />
+      </IconButton>
 
-          {/* Brand (optional) */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <img src={logo} alt="MyHandle Logo" width="140" height="60" style={{ display: "block" }} />
-           
-          </Box>
-        </Toolbar>
-      </AppBar>
+      {/* Brand (optional) */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <img src={logo} alt="MyHandle Logo" width="110" height="50" style={{ display: "block" }} />
+      </Box>
+    </Toolbar>
+  </AppBar>
+    
+
+      {/* NOTE: removed the extra spacer <Toolbar /> to avoid double stacking height */}
 
       <Box
         sx={{
           display: "flex",
-          minHeight: "100dvh",
-          pt: { xs: 7, sm: 0 },
+          minHeight: "100dvh",       // better on mobile than 100vh
+          pt: { xs: 7, sm: 0 },      // 56px = default toolbar height on xs
           bgcolor: "#FAFBFC",
         }}
       >
@@ -1094,10 +1172,10 @@ export default function SideNavbar({ window }) {
             variant="permanent"
             sx={{
               display: { xs: "none", sm: "block" },
-              "& .MuiDrawer-paper": {
-                width: drawerWidth,
+              "& .MuiDrawer-paper": { 
+                width: drawerWidth, 
                 borderRight: "1px solid #E5E7EB",
-                boxShadow: "0 0 40px rgba(0,0,0,0.02)",
+                boxShadow: "0 0 40px rgba(0,0,0,0.02)"
               },
             }}
             open
@@ -1113,7 +1191,7 @@ export default function SideNavbar({ window }) {
             flexGrow: 1,
             width: "100%",
             maxWidth: { sm: `calc(100% - ${drawerWidth}px)` },
-            overflow: "auto",
+            overflow: 'auto',
             backgroundColor: "#FAFBFC",
             py: 1,
           }}
@@ -1123,7 +1201,9 @@ export default function SideNavbar({ window }) {
               <CircularProgress sx={{ color: "#667eea" }} />
             </Box>
           ) : (
-            <Box sx={{ px: 2, py: 0 }}>{hasAccess ? <Outlet /> : <UpiMandateModern />}</Box>
+            <Box sx={{ px: 2, py: 0 }}>
+              {hasAccess ? <Outlet /> : <UpiMandateModern />}
+            </Box>
           )}
         </Box>
       </Box>

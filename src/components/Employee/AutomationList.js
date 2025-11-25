@@ -882,17 +882,18 @@ const handleConnectInstagram = useCallback(async () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25, 50]}
+               <TablePagination
+                rowsPerPageOptions={[]}         // <-- hide the select
                 component="div"
                 count={rowCount}
                 rowsPerPage={pageSize}
                 page={page}
                 onPageChange={(e, newPage) => setPage(newPage)}
-                onRowsPerPageChange={(e) => {
+                onRowsPerPageChange={(e) => {    // this can remain (safe to keep)
                   setPageSize(parseInt(e.target.value, 10));
                   setPage(0);
                 }}
+                labelRowsPerPage=""             // <-- hide the "Rows per page" label
               />
             </Paper>
           )}

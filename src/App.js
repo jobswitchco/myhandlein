@@ -44,6 +44,7 @@ import CreatorBookings from './components/Employee/BookingSessions.js';
 import FormSubmissions from './components/Employee/FormSubmissions.js';
 import RepliedContacts from './components/Employee/RepliedContacts.js';
 import UpgradePlan from './components/Employee/UpgradePlan.js';
+import SetupAutoDmAutomation from './components/Employee/SetupAutoDmAutomation.js';
 
 
 // very critial yes
@@ -132,6 +133,7 @@ if (initialSubdomain) {
                 <Route path="automations" element={<AutomationList />} />
                 <Route path="automation/setup/:post_id" element={<SetupAutomation />} />
                 <Route path="automation/details/:postId" element={<AutomationDetails />} />
+                <Route path="autodm/automation" element={<SetupAutoDmAutomation />} />
                 <Route path="booking/sessions" element={<CreatorBookings />} />
                 <Route path="my/formsubmissions" element={<FormSubmissions />} />
                 <Route path="contacts/replied" element={<RepliedContacts />} />
