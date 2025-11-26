@@ -17,7 +17,7 @@ const faqs = [
   {
     question: "What exactly is myHandle?",
     answer: `
-MyHandle is a **link-in-bio mini site**: one fast page with your links, actions (WhatsApp, Call, Maps), payments, and analytics — all on a **custom subdomain** like <strong>yourname.myhandle.in</strong>.
+Instagram AutoDM and Bio Tool for Creators under 50k Followers with Monthly 25,00,000 AutoDMs quota, Unlimited Contacts, Unlimited Bio Links & more —all for just ₹399.
 
 - Built to be **mobile-first** and super quick to launch.
 - Great for Instagram, YouTube, LinkedIn bios, QR codes, and business cards.
