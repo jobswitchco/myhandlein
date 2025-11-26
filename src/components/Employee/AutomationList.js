@@ -569,7 +569,7 @@ const handleConnectInstagram = useCallback(async () => {
         width: 300,
         renderCell: ({ value, row }) => {
           const full = (value || "").trim();
-          const text = full.length > 100 ? `${full.slice(0, 100)}…` : full;
+          const text = full.length > 60 ? `${full.slice(0, 60)}…` : full;
           return (
             <Box sx={{ display: "flex", alignItems: "center", height: "100%", width: "100%" }}>
               <Typography 
