@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 
 const username = 'myhandlein_db_user';
-const password = 'daxmQ6t4HTL39Eo1';
+const password = process.env.MONGODB_PASSWORD;
+
 
 var dbUrl = 'mongodb+srv://'+username+':'+password+'@cluster0.itfkrwb.mongodb.net/?appName=Cluster0';
 
