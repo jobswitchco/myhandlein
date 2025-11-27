@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
 
-const username = 'jobswitchco';
-const password = process.env.MONGODB_PASSWORD;
+const username = 'myhandlein_db_user';
+const password = 'daxmQ6t4HTL39Eo1';
+
+var dbUrl = 'mongodb+srv://'+username+':'+password+'@cluster0.itfkrwb.mongodb.net/?appName=Cluster0';
 
 
-var dbUrl = 'mongodb+srv://'+username+':'+password+'@clusterjob.5grzhlw.mongodb.net/?retryWrites=true&w=majority&appName=ClusterJob';
 const connectToMongo = ()=>{
     mongoose.connect(dbUrl).then()
     .catch((err) => { console.error(err); });

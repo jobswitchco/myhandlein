@@ -5096,40 +5096,7 @@ const handleLaunchAutomation = async () => {
 
     return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#F8FAFC" }}>
-      {/* Header */}
-      <Box
-        sx={{
-          borderBottom: "1px solid",
-          borderColor: "grey.200",
-          position: "sticky",
-          top: 0,
-          zIndex: 1000,
-          px: { xs: 2, sm: 3, md: 4 },
-          py: { xs: 1.5, md: 2 },
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={{ xs: 1.5, md: 2 }}
-          maxWidth="900px"
-          mx="auto"
-        >
-        
-          <Box flex={1}>
-            <Typography
-              sx={{
-                fontFamily: "Inter",
-                fontSize: { xs: "16px", sm: "16px", md: "20px" },
-                fontWeight: 600,
-                color: "#0F172A",
-              }}
-            >
-              Auto DM Flow
-            </Typography>
-          </Box>
-        </Stack>
-      </Box>
+     
 
       {/* ============ ZOOM/PAN WRAPPER STARTS ============ */}
 <Box sx={{
