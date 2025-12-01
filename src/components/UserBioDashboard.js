@@ -1,5 +1,5 @@
 // ProfileBlocksEditor.js (UserBioDashboard)
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -15,6 +15,13 @@ import {
   Tooltip,
   Menu,
   MenuItem,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Slide,
+  Card,
+  CardActionArea,
+  useMediaQuery,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { styled } from "@mui/material/styles";
@@ -48,6 +55,9 @@ import VideoBlockCreator from "./Blocks/VideoBlockCreator";
 import FormBlockCreator from "./Blocks/FormBlockCreator";
 import NewsletterBlockCreator from "./Blocks/NewsletterBlockCreator";
 import BookingBlockCreator from "./Blocks/BookingBlockCreator";
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import LanguageOutlinedIcon from '@mui/icons-material/LanguageOutlined';
+import CloseIcon from "@mui/icons-material/Close";
 
 // Styled buttons (keep all your existing styled components)
 const PrimaryBtn = styled("button")(({ theme }) => ({
@@ -103,7 +113,7 @@ const HandleBtn = styled("button")(({ theme }) => ({
   gap: 8,
   border: "1px solid rgba(99,102,241,0.14)",
   padding: "8px 14px",
-  borderRadius: 999,
+  borderRadius: 4,
   color: "#374151",
   background: "#FFF",
   textTransform: "none",
@@ -147,6 +157,10 @@ const truncate = (str = "", max = 100) => {
 const MAX_TITLE = 40;
 const MAX_DESC = 90;
 
+const Transition = React.forwardRef(function Transition(props, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
+
 export default function ProfileBlocksEditor() {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -175,6 +189,16 @@ export default function ProfileBlocksEditor() {
   const [selectedPlatform, setSelectedPlatform] = useState(null);
   const [socialUrl, setSocialUrl] = useState("");
   const [socialApiMsg, setSocialApiMsg] = useState(null);
+
+  const [isAddBlockOpen, setIsAddBlockOpen] = useState(false);
+const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+const handleAddBlockClick = () => {
+  setIsAddBlockOpen(true);
+};
+
+const handleAddBlockClose = () => {
+  setIsAddBlockOpen(false);
+};
 
   const PLATFORMS = [
     { key: "youtube", label: "YouTube", Icon: YouTubeIcon },
@@ -509,18 +533,15 @@ const blockTypes = [
   { type: 'booking', label: 'Booking', icon: <EventIcon />, color: '#a8edea' },
 ];
 
-// Handle add block menu
-const handleAddBlockClick = (event) => {
-  setAddBlockMenuAnchor(event.currentTarget);
-};
 
 const handleAddBlockMenuClose = () => {
   setAddBlockMenuAnchor(null);
 };
 
 const handleBlockTypeSelect = (blockType) => {
-  handleAddBlockMenuClose();
+  handleAddBlockClose(); // Close the selection dialog
   
+  // existing switch case logic...
   switch(blockType) {
     case 'link':
       setLinkDialogOpen(true);
@@ -536,6 +557,8 @@ const handleBlockTypeSelect = (blockType) => {
       break;
     case 'booking':
       setBookingDialogOpen(true);
+      break;
+    default:
       break;
   }
 };
@@ -605,7 +628,7 @@ const handleBlockTypeSelect = (blockType) => {
   }
 
   async function copyToClipboard() {
-    const text = userDetails.handleUserName + ".myhandle.in" || "";
+    const text = "https://"+userDetails.handleUserName + ".myhandle.in" || "";
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
@@ -1071,14 +1094,19 @@ const handleBlockTypeSelect = (blockType) => {
   return (
     <>
       <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1, minHeight: '100dvh', overflowY: 'auto', mb: 2 }}>
-        {/* Your complete existing header with profile images */}
+      
+        {/* Your complete existing layout with left editor and right preview */}
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 8}}>
+
+              {/* Your complete existing header with profile images */}
         <Paper
           sx={{
             p: { xs: 2, sm: 3 },
             background: "#FFFFFF",
           }}
         >
-          <Grid container spacing={1}>
+          <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 2}}>
               <Box
                 sx={{
@@ -1126,7 +1154,7 @@ const handleBlockTypeSelect = (blockType) => {
               </Box>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6}}>
+            <Grid size={{ xs: 12, md: 10}}>
               <Box sx={{ display: "flex", flexDirection: "column" }}>
                 <Box sx={{ flex: 1, width: "100%" }}>
                   {!isEditingName ? (
@@ -1165,6 +1193,7 @@ const handleBlockTypeSelect = (blockType) => {
 
                 <Box>
                   {!isEditingIntro ? (
+                    <Stack sx={{ display : 'flex', flexDirection : 'column', justifyContent : 'space-between'}}>
                     <Box sx={{ display: "flex", gap: 1, flexDirection: "row" }}>
                       <Typography
                         sx={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 500, cursor: "pointer", wordBreak: "break-word", color: "grey" }}
@@ -1176,7 +1205,50 @@ const handleBlockTypeSelect = (blockType) => {
                         <EditIcon sx={{ fontSize: "16px" }} />
                       </IconButton>
                     </Box>
+
+                      <Box
+                  sx={{
+                    display: "flex",
+                    gap: 1,
+                    alignItems: "center",
+                    mt: 1,
+                    flexDirection: { xs: "column", sm: "row" },
+                  }}
+                >
+                  <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+
+                    <HandleBtn title="Customize Link" onClick={copyToClipboard}>
+                    <Stack sx={{ display : 'flex', flexDirection : 'row', gap: 3, alignItems : 'center'}}>
+                     
+                     <Box sx={{ display : 'flex', flexDirection : 'row', gap: 1, alignItems : 'center'}}>
+                      <LanguageOutlinedIcon style={{ fontSize: 18, cursor: "pointer" }} />
+
+                      <Typography sx={{ fontFamily: "Inter", fontSize: 14, fontWeight: 500, wordBreak: "break-all", color: "#000000" }}>
+                        {userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : "yourhandle.myhandle.in"}
+                      </Typography>
+
+                      </Box>
+                      <ContentCopyOutlinedIcon style={{ fontSize: 18, cursor: "pointer" }} />
+
+                    </Stack>
+
+                    </HandleBtn>
+
+
+
+
+                  </Box>
+
+                  <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                    <ShareUrlBtn onClick={copyToClipboard} aria-label="copy-link">
+                      <ShareIcon style={{ fontSize: 16 }} />
+                      Share
+                    </ShareUrlBtn>
+                  </Box>
+                </Box>
+                    </Stack>
                   ) : (
+                  
                     <Box sx={{ display: "flex", gap: 1, flexDirection: 'row' }}>
                       <TextField
                         size="small"
@@ -1193,53 +1265,16 @@ const handleBlockTypeSelect = (blockType) => {
                         <SaveIcon />
                       </IconButton>
                     </Box>
+
                   )}
                 </Box>
               </Box>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 4}}>
-              <Box
-                sx={{
-                  minWidth: { xs: "100%", sm: 320 },
-                  textAlign: "right",
-                  mt: { xs: 1.5, sm: 0 },
-                }}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    gap: 1,
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    mt: 1,
-                    flexDirection: { xs: "column", sm: "row" },
-                  }}
-                >
-                  <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                    <HandleBtn title="Customize Link" onClick={() => window.open(`https://${userDetails.handleUserName}.myhandle.in`, "_blank", "noopener, noreferrer")}>
-                      <LinkIcon style={{ fontSize: 18, cursor: "pointer" }} />
-                      <Typography sx={{ fontFamily: "Inter", fontSize: 14, fontWeight: 500, wordBreak: "break-all", color: "#000000" }}>
-                        {userDetails.handleUserName ? userDetails.handleUserName + ".myhandle.in" : "yourhandle.myhandle.in"}
-                      </Typography>
-                    </HandleBtn>
-                  </Box>
-
-                  <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                    <ShareUrlBtn onClick={copyToClipboard} aria-label="copy-link">
-                      <ShareIcon style={{ fontSize: 16 }} />
-                      Share
-                    </ShareUrlBtn>
-                  </Box>
-                </Box>
-              </Box>
-            </Grid>
+        
           </Grid>
         </Paper>
 
-        {/* Your complete existing layout with left editor and right preview */}
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 8}}>
             {/* Your complete socials section */}
             <Paper sx={{ p: { xs: 1, sm: 3, md: 3 }, mt: 1.5 }}>
               <Box sx={{ mb: 2 }}>
@@ -1352,53 +1387,110 @@ const handleBlockTypeSelect = (blockType) => {
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexDirection: { xs: "column", sm: "row" }, gap: { xs: 1, sm: 0 } }}>
                 <Typography variant="subtitle1">Block List</Typography>
                 <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                <AddPill onClick={handleAddBlockClick}>
+               {/* Add Button */}
+<AddPill onClick={handleAddBlockClick}>
   <AddIcon />
   Add New Block
 </AddPill>
 
-{/* Add Block Type Selection Menu */}
-<Menu
-  anchorEl={addBlockMenuAnchor}
-  open={Boolean(addBlockMenuAnchor)}
-  onClose={handleAddBlockMenuClose}
+{/* NEW: Responsive Dialog for Block Selection */}
+<Dialog
+  open={isAddBlockOpen}
+  TransitionComponent={isMobile ? Transition : undefined} // Only slide up on mobile
+  keepMounted
+  onClose={handleAddBlockClose}
+  scroll="paper"
+  // Specific styling for the "Bottom Sheet" look on mobile
   PaperProps={{
-    sx: {
-      borderRadius: 2,
-      mt: 1,
-      minWidth: 240,
-      boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-    },
+    sx: isMobile
+      ? {
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          m: 0,
+          width: "100%",
+          maxHeight: "85vh", // Don't take full height
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          borderRadius: "24px 24px 0 0", // Explicitly square off bottom
+        }
+      : {
+          borderRadius: 3,
+          width: "100%",
+          maxWidth: 500,
+        },
   }}
 >
-  <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #E5E7EB' }}>
-    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>
-      SELECT BLOCK TYPE
+  <DialogTitle sx={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      pb: 1
+    }}>
+    <Typography sx={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 18 }}>
+      What would you like to add?
     </Typography>
-  </Box>
-  {blockTypes.map((blockType) => (
-    <MenuItem
-      key={blockType.type}
-      onClick={() => handleBlockTypeSelect(blockType.type)}
-      sx={{
-        py: 1.5,
-        px: 2,
-        '&:hover': {
-          bgcolor: alpha(blockType.color, 0.08),
-        },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-        <Box sx={{ color: blockType.color }}>
-          {blockType.icon}
-        </Box>
-        <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-          {blockType.label}
-        </Typography>
-      </Box>
-    </MenuItem>
-  ))}
-</Menu>
+    <IconButton onClick={handleAddBlockClose} size="small">
+      <CloseIcon fontSize="small" />
+    </IconButton>
+  </DialogTitle>
+
+  <DialogContent sx={{ p: 2 }}>
+    <Grid container spacing={2}>
+      {blockTypes.map((block) => (
+        <Grid item xs={12} sm={6} key={block.type}>
+          <Card
+            elevation={0}
+            sx={{
+              border: "1px solid #E5E7EB",
+              borderRadius: 3,
+              overflow: "hidden",
+              transition: "all 0.2s ease",
+              "&:hover": {
+                borderColor: block.color,
+                bgcolor: alpha(block.color, 0.04),
+                transform: "translateY(-2px)",
+                boxShadow: `0 4px 12px ${alpha(block.color, 0.15)}`,
+              },
+            }}
+          >
+            <CardActionArea 
+              onClick={() => handleBlockTypeSelect(block.type)}
+              sx={{ p: 2, display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 2,
+                  bgcolor: alpha(block.color, 0.1),
+                  color: block.color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0
+                }}
+              >
+                {/* Clone element to increase icon size if needed */}
+                {React.cloneElement(block.icon, { sx: { fontSize: 26 } })}
+              </Box>
+              
+              <Box>
+                <Typography sx={{ fontFamily: 'Inter', fontWeight: 600, fontSize: 16 }}>
+                  {block.label}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Add a {block.label.toLowerCase()} block
+                </Typography>
+              </Box>
+            </CardActionArea>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
+  </DialogContent>
+</Dialog>
 
                 </Box>
               </Box>
@@ -1464,7 +1556,7 @@ const handleBlockTypeSelect = (blockType) => {
           </Grid>
 
           {/* Your complete preview pane */}
-          <Grid size={{ xs: 12, md: 4}} mt={1.5} sx={{minHeight: '100dvh', overflowY: 'auto'}}>
+          <Grid size={{ xs: 12, md: 4}} sx={{minHeight: '100dvh', overflowY: 'auto'}}>
             <Box
               sx={{
                 margin: "0 auto",

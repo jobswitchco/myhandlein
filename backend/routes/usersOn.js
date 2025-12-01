@@ -7000,6 +7000,20 @@ router.post("/save-username", authenticateToken, async (req, res) => {
   }
 });
 
+router.get("/user/insta-details", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!userId) return res.status(401).json({ error: "Unauthenticated" });
+
+    const user = await USER.findById(userId).select("igName igProfilePic").lean();
+    return res.json({ igName: user?.igName || [], igProfilePic: user?.igProfilePic || [] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/user/socials", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
+  Avatar,
   Box,
   Card,
   CardContent,
@@ -19,7 +20,10 @@ import {
   Alert,
   Tooltip,
   InputAdornment,
+  Switch,
+  Slide
 } from "@mui/material";
+
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'; // Add Icon
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'; // Add Icon
 import SaveIcon from '@mui/icons-material/Save'; // Add Icon
@@ -48,10 +52,384 @@ import ZoomOutIcon from "@mui/icons-material/ZoomOut";
 import CenterFocusStrongIcon from "@mui/icons-material/CenterFocusStrong";
 import FitScreenIcon from "@mui/icons-material/FitScreen";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import axios from "axios";
+import RotateLeftOutlinedIcon from '@mui/icons-material/RotateLeftOutlined';
+import LinearProgress from '@mui/material/LinearProgress';
+import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
+import PublicIcon from '@mui/icons-material/Public';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
+
+// --- FINAL UPDATED PHONE SIMULATOR ---
+const PhoneSimulator = ({ 
+  dmMessage, 
+  buttonText, 
+  flowNodes, 
+  theme 
+}) => {
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [history, setHistory] = useState([]);
+  // We no longer need currentStep to hide/show the main button, as it's now part of the history
+  const [showRestart, setShowRestart] = useState(false);
+
+  // Simulation States
+  const [browserUrl, setBrowserUrl] = useState(null); 
+  const [downloadState, setDownloadState] = useState(null); 
+  const [igName, setIgName] = useState(''); 
+  const [igProfilePic, setIgProfilePic] = useState(''); 
+
+  // Container Ref for Slide Animation
+  const [containerNode, setContainerNode] = useState(null);
+  const baseUrl = "/api/usersOn";
+  const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
+  
+
+    async function fetchIgDetails() {
+    // setLoadingSocials(true);
+    try {
+      const res = await api.get("/user/insta-details");
+      setIgName(res.data.igName || []);
+      setIgProfilePic(res.data.igProfilePic || []);
+    } catch (err) {
+      console.error("fetIgDetails", err);
+    } finally {
+    }
+  }
+
+  useEffect(() => {
+    resetSimulation();
+    fetchIgDetails();
+  }, [dmMessage, buttonText]);
+
+  const resetSimulation = () => {
+    // CHANGE 1: Initialize history WITH the button inside the message object
+    setHistory([{ 
+      type: 'system', 
+      text: dmMessage,
+      buttons: [{ 
+        id: 'init-btn', 
+        text: buttonText, 
+        specialAction: 'start_flow' // Special marker to trigger the main flow
+      }]
+    }]);
+    setShowRestart(false);
+    setBrowserUrl(null);
+    setDownloadState(null);
+  };
+
+  // --- 1. SHARED ACTION EXECUTOR ---
+  const executeAction = (action) => {
+    const newMessages = [];
+
+    // REDIRECT
+    if (action.type === 'redirectLink') {
+      newMessages.push({ type: 'system', text: `🔗 Opening Link...` });
+      setTimeout(() => {
+          let url = action.config.redirectUrl || "";
+          if (!url.startsWith('http')) url = `https://${url}`;
+          setBrowserUrl(url);
+      }, 1000);
+    } 
+    // DOWNLOAD (CHANGE 2: Show Button instead of auto-download)
+    else if (action.type === 'downloadFile') {
+      const fileName = action.config.downloadFile?.name || 'file.pdf';
+      newMessages.push({ 
+        type: 'system', 
+        text: "Click below to download:", // Requested text
+        buttons: [{
+          id: `dl-${Date.now()}`,
+          text: "Download Now",
+          specialAction: 'manual_download',
+          fileName: fileName
+        }]
+      });
+    }
+    // FOLLOW CHECK
+    else if (action.type === 'followCheck') {
+      if (isFollowing) {
+         // ALREADY FOLLOWING: Show Success Branch
+         newMessages.push({ 
+           type: 'system', 
+           text: action.config.followCheckYesMessage || "Thanks for following!",
+           buttons: action.followingButtons 
+         });
+      } else {
+         // NOT FOLLOWING
+         const verifyButtons = action.notFollowingButtons.map(btn => ({
+             ...btn,
+             specialAction: 'verify_follow', 
+             failureMessage: action.config.followCheckNoMessage, 
+             successData: { 
+                 message: action.config.followCheckYesMessage,
+                 buttons: action.followingButtons 
+             }
+         }));
+
+         newMessages.push({ 
+           type: 'system', 
+           text: action.config.followCheckNoMessage || "Please follow to continue.",
+           buttons: verifyButtons 
+         });
+      }
+    }
+    // QUICK REPLY
+    else if (action.type === 'quickReply') {
+      newMessages.push({ 
+          type: 'system', 
+          text: action.config.quickReplyQuestion,
+          buttons: action.replyOptions 
+      });
+    }
+    // ASK FOLLOW
+    else if (action.type === 'askToFollow') {
+      newMessages.push({ type: 'system', text: `👤 Please follow @${action.config.instagramPage}` });
+    }
+
+    return newMessages;
+  };
+
+  // --- 2. HANDLE ROOT FLOW ---
+  // Modified to accept the text of the button clicked
+  const handleMainButtonClick = (clickedBtnText) => {
+    setHistory(prev => [...prev, { type: 'user', text: clickedBtnText }]);
+    
+    let upcomingMessages = [];
+    if (flowNodes.length === 0) {
+        upcomingMessages.push({ type: 'system', text: "✅ End of automation" });
+    } else {
+        flowNodes.forEach(node => {
+            const result = executeAction(node);
+            upcomingMessages = [...upcomingMessages, ...result];
+        });
+    }
+
+    setTimeout(() => {
+        setHistory(prev => [...prev, ...upcomingMessages]);
+        setShowRestart(true);
+    }, 500);
+  };
+
+  // --- 3. HANDLE NESTED BUTTON CLICKS ---
+  const handleSimulatedOptionClick = (btnData) => {
+    
+    // CHECK: Is this the Start Button?
+    if (btnData.specialAction === 'start_flow') {
+      handleMainButtonClick(btnData.text);
+      return;
+    }
+
+    // CHECK: Is this the Download Button?
+    if (btnData.specialAction === 'manual_download') {
+      // Show user clicked "Download Now"
+      setHistory(prev => [...prev, { type: 'user', text: btnData.text }]);
+      setTimeout(() => simulateDownload(btnData.fileName), 500);
+      return;
+    }
+
+    // 1. Add User Click to History
+    setHistory(prev => [...prev, { type: 'user', text: btnData.text }]);
+
+    // 2. CHECK: Is this a Verification Button?
+    if (btnData.specialAction === 'verify_follow') {
+        setTimeout(() => {
+            if (!isFollowing) {
+                // CASE A: User clicked "Following" but Toggle is OFF -> LOOP
+                setHistory(prev => [...prev, { 
+                    type: 'system', 
+                    text: btnData.failureMessage || "❌ Check failed. Please follow to continue.",
+                    buttons: [btnData] // Show the same verification button again
+                }]);
+            } else {
+                // CASE B: User clicked "Following" and Toggle is ON -> SUCCESS
+                setHistory(prev => [...prev, { 
+                    type: 'system', 
+                    text: btnData.successData.message || "Thanks for following!",
+                    buttons: btnData.successData.buttons
+                }]);
+            }
+        }, 600);
+        return; // Stop standard processing
+    }
+
+    // 3. Standard Action Processing
+    if (btnData.actions && btnData.actions.length > 0) {
+        let upcomingMessages = [];
+        btnData.actions.forEach(action => {
+            const result = executeAction(action);
+            upcomingMessages = [...upcomingMessages, ...result];
+        });
+
+        setTimeout(() => {
+            setHistory(prev => [...prev, ...upcomingMessages]);
+        }, 600);
+    } 
+    else {
+        setTimeout(() => {
+            // setHistory(prev => [...prev, { type: 'system', text: "✅ Done" }]);
+        }, 600);
+    }
+  };
+
+  const simulateDownload = (fileName) => {
+      setDownloadState({ name: fileName, progress: 0, complete: false });
+      let progress = 0;
+      const interval = setInterval(() => {
+          progress += 10;
+          if (progress >= 100) {
+              clearInterval(interval);
+              setDownloadState({ name: fileName, progress: 100, complete: true });
+              setTimeout(() => setDownloadState(null), 3000);
+          } else {
+              setDownloadState({ name: fileName, progress: progress, complete: false });
+          }
+      }, 100);
+  };
+
+  return (
+    <Box
+      ref={setContainerNode}
+      sx={{
+        position: "absolute",
+        right: 40,
+        top: "45vh",
+        transform: "translateY(-50%)",
+        width: '40vh',
+        height: '80vh',
+        bgcolor: "#57595B",
+        borderRadius: "40px",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+        border: "6px solid #57595B",
+        zIndex: 1100,
+        overflow: "hidden", 
+        display: { xs: "none", lg: "flex" },
+        flexDirection: "column",
+        position: "absolute" 
+      }}
+    >
+      {/* iPhone Notch */}
+      <Box sx={{ height: 30, bgcolor: "#fff", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1200 }}>
+        <Box sx={{ width: 80, height: 18, bgcolor: "#000", borderRadius: "10px 10px 10px 10px" }} />
+      </Box>
+
+      {/* Header */}
+      <Box sx={{ bgcolor: "#fff", p: 1.5, borderBottom: "1px solid #eee", display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+             <Avatar
+        alt="Profile Pic"
+        src={igProfilePic || 'M'}
+        sx={{ width: 30, height: 30 }}
+      />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{igName || 'MyHandle.in' }</Typography>
+        </Stack>
+        {/* Toggle Check Logic Visual */}
+        {flowNodes.some(n => n.type === 'followCheck') && (
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ bgcolor: '#F3F4F6', px: 1, py:0.5, borderRadius: 2 }}>
+                <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 600, color: isFollowing ? '#10B981' : '#6B7280' }}>
+                    {isFollowing ? "Following" : "Not Following"}
+                </Typography>
+                <Switch size="small" checked={isFollowing} onChange={(e) => setIsFollowing(e.target.checked)} sx={{ transform: "scale(0.7)" }} />
+            </Stack>
+        )}
+      </Box>
+
+      {/* Chat Area */}
+      <Box sx={{ flex: 1, bgcolor: "#fff", p: 2, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1.5 }}>
+        {history.map((msg, index) => (
+          <Box key={index} sx={{ alignSelf: msg.type === 'user' ? "flex-end" : "flex-start", maxWidth: "85%" }}>
+            
+            {/* CHANGE 3: Combined Box logic. If System, render buttons INSIDE. */}
+            <Box sx={{ 
+                p: 1.5, 
+                bgcolor: msg.type === 'user' ? "#3B82F6" : "#F5F5F5", // Lighter gray for system messages
+                color: msg.type === 'user' ? "#fff" : "#000", 
+                borderRadius: msg.type === 'user' ? "18px 18px 0 18px" : "18px 18px 18px 0", 
+                fontSize: "14px", 
+                lineHeight: 1.4, 
+                mb: 0.5 
+            }}>
+              {/* Message Text */}
+              <Box sx={{ mb: (msg.buttons && msg.buttons.length > 0) ? 1.5 : 0 }}>
+                {msg.text}
+              </Box>
+           
+              {/* Render Buttons INSIDE the bubble if they exist */}
+              {msg.buttons && (
+                <Stack spacing={1}>
+                    {msg.buttons.map(btn => (
+                        <Button 
+                            key={btn.id || btn.text}
+                            fullWidth 
+                            variant="contained" // Solid button
+                            size="small"
+                            onClick={() => handleSimulatedOptionClick(btn)}
+                            sx={{ 
+                                textTransform: 'none', 
+                                borderRadius: 2, 
+                                bgcolor: 'white', // White button inside gray bubble
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                color: '#000',
+                                fontWeight: 600,
+                                border: '1px solid transparent',
+                                '&:hover': { bgcolor: '#f9f9f9', borderColor: '#ddd', boxShadow: 'none' }
+                            }}
+                        >
+                            {btn.text}
+                        </Button>
+                    ))}
+                </Stack>
+              )}
+            </Box>
+
+          </Box>
+        ))}
+      </Box>
+
+      {/* Footer */}
+      <Box sx={{ p: 2, borderTop: "1px solid #eee", bgcolor: "#fff" }}>
+         {showRestart ? (
+             <Button sx={{ fontFamily : 'Inter', fontSize : '14px', textTransform : 'none'}}fullWidth variant="text" size="medium" onClick={resetSimulation} startIcon={<RotateLeftOutlinedIcon />}>Restart Preview</Button>
+         ) : (
+            <Box sx={{ width: "100%", height: 36, borderRadius: 18, border: "1px solid #ddd", display: 'flex', alignItems: 'center', px: 2 }}>
+                <Typography variant="caption" color="#aaa">Message...</Typography>
+            </Box>
+         )}
+      </Box>
+      <Box sx={{ height: 20, bgcolor: "#fff", display: "flex", justifyContent: "center", pt: 1 }}><Box sx={{ width: 100, height: 4, bgcolor: "#000", borderRadius: 2 }} /></Box>
+
+      {/* --- OVERLAYS --- */}
+      <Slide direction="up" in={Boolean(browserUrl)} container={containerNode}>
+        <Box sx={{ position: 'absolute', top: 30, bottom: 0, left: 0, right: 0, bgcolor: 'white', zIndex: 1300, display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: 1, bgcolor: '#f0f0f0', borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ flex: 1, bgcolor: '#fff', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center', fontSize: '10px', color: '#333', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}><PublicIcon sx={{ fontSize: 10, mr: 0.5, verticalAlign: 'middle' }} />{browserUrl}</Typography>
+                <Typography variant="caption" onClick={() => setBrowserUrl(null)} sx={{ color: '#007AFF', fontWeight: 600, cursor: 'pointer' }}>Done</Typography>
+            </Box>
+            <Box sx={{ flex: 1, bgcolor: '#fff', position: 'relative' }}>
+                <iframe src={browserUrl} title="Preview" style={{ width: '100%', height: '100%', border: 'none', position: 'relative', zIndex: 2 }} sandbox="allow-scripts allow-same-origin" />
+                <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 1 }}><Typography variant="caption" color="text.secondary">Loading...<br/>(If blank, site blocks embeds)</Typography></Box>
+            </Box>
+        </Box>
+      </Slide>
+
+      <Slide direction="up" in={Boolean(downloadState)} container={containerNode}>
+          <Box sx={{ position: 'absolute', bottom: 40, left: 16, right: 16, bgcolor: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', borderRadius: 3, p: 2, zIndex: 1400, color: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                  <Box sx={{ width: 40, height: 40, bgcolor: downloadState?.complete ? '#10B981' : '#3B82F6', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {downloadState?.complete ? <CheckCircleOutlineIcon sx={{ color: 'white' }} /> : <FileDownloadIcon sx={{ color: 'white' }} />}
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: 0.5 }}>{downloadState?.complete ? 'Download Complete' : 'Downloading File...'}</Typography>
+                      <Typography variant="caption" sx={{ display: 'block', color: '#aaa', fontSize: '10px', mb: 0.5 }}>{downloadState?.name}</Typography>
+                      {!downloadState?.complete && (
+                          <LinearProgress variant="determinate" value={downloadState?.progress || 0} sx={{ height: 4, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', '& .MuiLinearProgress-bar': { bgcolor: '#3B82F6' } }} />
+                      )}
+                  </Box>
+              </Stack>
+          </Box>
+      </Slide>
+    </Box>
+  );
+};
 // Zoom Controls Component
 const ZoomControls = () => {
   const { zoomIn, zoomOut, resetTransform, centerView } = useControls();
@@ -64,7 +442,7 @@ const ZoomControls = () => {
         right: 24,
         zIndex: 1001,
         display: "flex",
-        flexDirection: "column",
+        flexDirection: "row",
         gap: 1,
         bgcolor: "white",
         borderRadius: 2,
@@ -5096,7 +5474,7 @@ const handleLaunchAutomation = async () => {
 
     return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#F8FAFC" }}>
-     
+   
 
       {/* ============ ZOOM/PAN WRAPPER STARTS ============ */}
 <Box sx={{
@@ -5107,6 +5485,12 @@ const handleLaunchAutomation = async () => {
   alignItems: "center",
   justifyContent: "center"
 }}>
+  <PhoneSimulator 
+         dmMessage={dmMessage}
+         buttonText={buttonText}
+         flowNodes={flowNodes}
+         theme={theme}
+      />
    <TransformWrapper
   initialScale={1}
   minScale={0.3}
