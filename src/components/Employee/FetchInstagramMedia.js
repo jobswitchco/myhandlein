@@ -137,7 +137,7 @@ export default function FetchInstagramMedia() {
               position: 'relative',
               cursor: "pointer",
               outline: isSelected ? "3px solid" : "1px solid",
-              outlineColor: isSelected ? "primary.main" : "divider",
+              outlineColor: isSelected ? "#016B61" : "divider",
               transition: "all 0.2s",
               "&:hover": { transform: "translateY(-2px)", boxShadow: 3 }
             }}
@@ -183,38 +183,56 @@ export default function FetchInstagramMedia() {
   );
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1400, mx: "auto" }}>
+    <Box sx={{ px: 1, py: 3,  maxWidth: 1400, mx: "auto" }}>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
         <Stack direction="row" gap={2} alignItems="center">
            <IconButton onClick={() => navigate("/professional/automations")}>
              <WestOutlinedIcon />
            </IconButton>
-           <Typography variant="h5" fontWeight={600}>Select Media</Typography>
+           <Typography sx={{ fontFamily: 'Inter', fontSize : {xs: '14px', sm: '14px', md: '20px'}, fontWeight : 600 }}>Select Media</Typography>
         </Stack>
         
         <Button 
           variant="contained" 
           disabled={!selectedItem} 
           onClick={handleSetupAutomation}
-          sx={{ borderRadius: 10 }}
+          sx={{ fontFamily: 'Inter', fontSize : {xs: '14px', sm: '14px', md: '14px'}, fontWeight : 600, borderRadius: 10, textTransform : 'none', background : '#016B61' }}
         >
           Setup Automation
         </Button>
       </Stack>
 
       {/* Tabs */}
-      <Tabs 
-        value={activeTab} 
-        onChange={handleTabChange} 
-        textColor="primary" 
-        indicatorColor="primary"
-        sx={{ borderBottom: 1, borderColor: 'divider' }}
-      >
-        <Tab icon={<MovieCreationIcon />} iconPosition="start" label="Reels" value="reels" />
-        <Tab icon={<PhotoLibraryIcon />} iconPosition="start" label="Photos" value="photos" />
-        {/* <Tab icon={<HistoryToggleOffIcon />} iconPosition="start" label="Stories" value="stories" /> */}
-      </Tabs>
+     <Tabs
+  value={activeTab}
+  onChange={handleTabChange}
+  textColor="primary"
+  indicatorColor="primary"
+  sx={{ borderBottom: 1, borderColor: "divider" }}
+>
+  {[
+    { icon: <MovieCreationIcon />, label: "Reels", value: "reels" },
+    { icon: <PhotoLibraryIcon />, label: "Photos", value: "photos" },
+    { icon: <HistoryToggleOffIcon />, label: "Stories", value: "stories" }
+  ].map((t) => (
+    <Tab
+      key={t.value}
+      icon={React.cloneElement(t.icon, { sx: { fontSize: 18 } })}
+      iconPosition="start"
+      label={t.label}
+      value={t.value}
+      sx={{
+        "& .MuiTab-wrapper": {
+          flexDirection: "row",
+          gap: "6px",
+          fontSize: "14px"
+        }
+      }}
+    />
+  ))}
+</Tabs>
+
 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 

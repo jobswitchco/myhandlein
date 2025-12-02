@@ -5546,10 +5546,10 @@ const handleLaunchAutomation = async () => {
           mb: 3,
         }}
       >
-        <Typography sx={{ fontWeight: 700, fontSize: 20, mb: 0.5 }}>
+        <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
           Keywords
         </Typography>
-        <Typography variant="caption" color="textSecondary" mb={1}>
+        <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
           Enter keyword(s) and press enter to add them
         </Typography>
         <TextField
@@ -5623,11 +5623,11 @@ const handleLaunchAutomation = async () => {
                 <SendIcon />
               </Box>
               <Box flex={1}>
-                <Typography sx={{ fontWeight: 700, fontSize: "18px", mb: 0.5 }}>
+                <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
                   Initial DM Message
                 </Typography>
-                <Typography variant="caption" sx={{ color: "#64748B" }}>
-                  This will be sent to users who comment
+                <Typography sx={{ fontFamily : 'Inter', fontSize : '14px', color: "#64748B"}}>
+                  This message will be sent to users who comment
                 </Typography>
               </Box>
             </Stack>

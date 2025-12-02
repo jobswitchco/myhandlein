@@ -5406,43 +5406,19 @@ console.log('Automation Details: ', JSON.stringify(payload));
       {/* Header */}
       <Box
         sx={{
-          bgcolor: "white",
-          borderBottom: "1px solid",
-          borderColor: "grey.200",
-          position: "sticky",
           top: 0,
           zIndex: 1000,
-          px: { xs: 2, sm: 3, md: 4 },
-          py: { xs: 1.5, md: 2 },
         }}
       >
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={{ xs: 1.5, md: 2 }}
-          maxWidth="900px"
-          mx="auto"
-        >
+       
           <IconButton
             onClick={() => navigate("/professional/fetch_media")}
             size={isMobile ? "small" : "medium"}
-            sx={{ bgcolor: "grey.100", "&:hover": { bgcolor: "grey.200" } }}
+            sx={{ bgcolor: "#70B2B2", "&:hover": { bgcolor: "grey.200" } }}
           >
             <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
           </IconButton>
-          <Box flex={1}>
-            <Typography
-              sx={{
-                fontFamily: "Inter",
-                fontSize: { xs: "18px", sm: "20px", md: "24px" },
-                fontWeight: 700,
-                color: "#0F172A",
-              }}
-            >
-              Build Automation Flow
-            </Typography>
-          </Box>
-        </Stack>
+      
       </Box>
 
       {/* ============ ZOOM/PAN WRAPPER STARTS ============ */}
@@ -5571,10 +5547,10 @@ console.log('Automation Details: ', JSON.stringify(payload));
           mb: 3,
         }}
       >
-        <Typography sx={{ fontWeight: 700, fontSize: 20, mb: 0.5 }}>
+        <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
           Keywords
         </Typography>
-        <Typography variant="caption" color="textSecondary" mb={1}>
+        <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
           Enter keyword(s) and press enter to add them
         </Typography>
         <TextField
@@ -5626,10 +5602,10 @@ console.log('Automation Details: ', JSON.stringify(payload));
           mb: 4,
         }}
       >
-        <Typography sx={{ fontWeight: 700, fontSize: 20, mb: 0.5 }}>
-          Reply to Comment
+        <Typography sx={{fontFamily: 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
+          Reply to a comment
         </Typography>
-        <Typography variant="caption" color="textSecondary" mb={1}>
+        <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
           Automatically reply to comments matching keywords
         </Typography>
         <RadioGroup
@@ -5692,11 +5668,11 @@ console.log('Automation Details: ', JSON.stringify(payload));
                 <SendIcon />
               </Box>
               <Box flex={1}>
-                <Typography sx={{ fontWeight: 700, fontSize: "18px", mb: 0.5 }}>
+                <Typography sx={{fontFamily: 'Inter', fontWeight: 600, fontSize: "20px", mb: 0.5 }}>
                   Initial DM Message
                 </Typography>
-                <Typography variant="caption" sx={{ color: "#64748B" }}>
-                  This will be sent to users who comment
+                <Typography sx={{ color: "#64748B", mb: 1, fontFamily : 'Inter', fontSize : '14px' }}>
+                  This message will be sent to users who comment
                 </Typography>
               </Box>
             </Stack>
