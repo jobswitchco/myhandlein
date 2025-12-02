@@ -1,5 +1,5 @@
 // components/CreatorBookings.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -11,7 +11,6 @@ import {
   Tab,
   Tabs,
   IconButton,
-  Tooltip,
   Button,
   CircularProgress,
   Alert,
@@ -19,18 +18,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  MenuItem,
   useTheme,
-  useMediaQuery,
   Grid,
-  Divider,
   alpha,
-  Paper,
   Badge,
-  Menu,
-  ListItemIcon,
-  ListItemText,
 } from '@mui/material';
 import {
   CalendarMonth,
@@ -38,21 +29,14 @@ import {
   Phone,
   Person,
   AccessTime,
-  AttachMoney,
-  CheckCircle,
-  Cancel,
   Event,
   MoreVert,
-  FilterList,
-  Refresh,
   ArrowBack,
   ChevronRight,
   CheckCircleOutline,
   CancelOutlined,
-  Campaign as CampaignIcon,
-  Payments as PaymentsIcon,
 } from '@mui/icons-material';
-import { format, parseISO, isPast, isFuture, isToday, addHours, addMinutes } from 'date-fns';
+import { format, parseISO, addHours, addMinutes } from 'date-fns';
 import axios from 'axios';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 
@@ -61,9 +45,7 @@ import TransactionsPage from './TransactionsPage'; // Adjust path as needed
 
 const CreatorBookings = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const baseUrl = "/api/usersOn";
-  const IST_TIMEZONE = 'Asia/Kolkata';
 
   // State
   const [mainTab, setMainTab] = useState('campaigns'); // 'campaigns' or 'payments'
@@ -73,8 +55,6 @@ const CreatorBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('all');
-  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
@@ -121,14 +101,7 @@ const CreatorBookings = () => {
     return istDateOnly > nowISTOnly;
   };
 
-  // Helper function to check if date is past in IST (before today)
-  const isPastIST = (dateString) => {
-    const istDate = convertToIST(dateString);
-    const nowIST = getNowIST();
-    const istDateOnly = format(istDate, 'yyyy-MM-dd');
-    const nowISTOnly = format(nowIST, 'yyyy-MM-dd');
-    return istDateOnly < nowISTOnly;
-  };
+
 
   // Update handlers
   const handleMenuOpen = (event, booking) => {

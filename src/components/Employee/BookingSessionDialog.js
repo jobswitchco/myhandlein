@@ -13,23 +13,16 @@ import {
   TextField,
   Divider,
   Collapse,
-  useTheme,
-  DialogActions,
   InputAdornment
 } from '@mui/material';
 import { 
   Close as CloseIcon, 
-  CalendarToday as CalendarMonth, 
-  Block as BlockIcon,
   Person as PersonIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
   KeyboardArrowDown as ArrowDownIcon,
   KeyboardArrowUp as ArrowUpIcon,
 } from '@mui/icons-material';
-import Person from '@mui/icons-material/PersonOutlineOutlined';
-import CheckCircleOutline from '@mui/icons-material/CheckCircleOutlineOutlined';
-import CheckCircle from '@mui/icons-material/CheckCircleOutlineOutlined';
 import BookingSuccessDialog from './BookingSuccessDialog'; // Add this import
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import WatchLaterIcon from '@mui/icons-material/WatchLater';

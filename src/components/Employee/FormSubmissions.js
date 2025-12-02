@@ -10,10 +10,6 @@ import {
   Stack,
   Button,
   IconButton,
-  TextField,
-  InputAdornment,
-  Menu,
-  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -33,14 +29,8 @@ import {
   Tooltip,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
-  FilterList as FilterIcon,
   Assignment as FormIcon,
-  Person as PersonIcon,
-  CalendarToday as CalendarIcon,
-  Delete as DeleteIcon,
   Visibility as VisibilityIcon,
-  FileDownload as DownloadIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
@@ -66,7 +56,6 @@ const FormSubmissions = () => {
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormId, setSelectedFormId] = useState('all');
-  const [filterMenuAnchor, setFilterMenuAnchor] = useState(null);
 
   // Detail dialog
   const [detailsOpen, setDetailsOpen] = useState(false);

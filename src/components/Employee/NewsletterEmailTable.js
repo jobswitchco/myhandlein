@@ -1,5 +1,5 @@
 // components/NewsletterEmailsTable.js
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import {
   Box,

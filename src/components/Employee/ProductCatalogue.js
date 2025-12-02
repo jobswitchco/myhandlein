@@ -27,7 +27,6 @@ import {
   Divider,
   Autocomplete,
   useMediaQuery,
-  MenuItem,
   Chip,
   InputAdornment,
   Card,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -43,7 +43,6 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import AddIcon from "@mui/icons-material/Add";
 import LinkIcon from "@mui/icons-material/Link";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import InstagramIcon from "@mui/icons-material/Instagram";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -52,7 +51,6 @@ import ZoomOutIcon from "@mui/icons-material/ZoomOut";
 import CenterFocusStrongIcon from "@mui/icons-material/CenterFocusStrong";
 import FitScreenIcon from "@mui/icons-material/FitScreen";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import axios from "axios";
 

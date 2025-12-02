@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Avatar,
   Box,
@@ -10,7 +10,6 @@ import {
   Chip,
   Button,
   IconButton,
-  useMediaQuery,
   useTheme,
   Dialog,
   DialogTitle,
@@ -27,7 +26,6 @@ import {
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'; // Add Icon
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'; // Add Icon
 import SaveIcon from '@mui/icons-material/Save'; // Add Icon
-import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SendIcon from "@mui/icons-material/Send";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
@@ -43,9 +41,8 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import AddIcon from "@mui/icons-material/Add";
 import LinkIcon from "@mui/icons-material/Link";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import InstagramIcon from "@mui/icons-material/Instagram";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import ZoomOutIcon from "@mui/icons-material/ZoomOut";
@@ -508,12 +505,7 @@ const ZoomControls = () => {
   );
 };
 
-function getAnchors(total) {
-  if (total === 1) return ["50%"];
-  if (total === 2) return ["15%", "85%"];
-  const step = 70 / (total - 1);
-  return Array.from({ length: total }, (_, i) => `${15 + step * i}%`);
-}
+
 
 
 
@@ -522,9 +514,7 @@ function getAnchors(total) {
 export default function SetupAutoDmAutomation() {
   const { post_id } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const { caption, thumbnail_url, id } = location.state || {};
   const [confDialogOpen, setConfDialogOpen] = useState(false);
@@ -579,11 +569,7 @@ export default function SetupAutoDmAutomation() {
     instagramPage: "thisis.ram",
   });
 
-  const data = {
-    id: post_id || id || "",
-    thumbnail: thumbnail_url || "",
-    caption: caption || "",
-  };
+
 
   useEffect(() => {
     const fetchAutomationConfig = async () => {

@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AppBar,
   Avatar,
   Box,
   Button,
-  Chip,
   Container,
   Dialog,
   IconButton,

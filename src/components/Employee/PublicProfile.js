@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import Grid from "@mui/material/Grid";
 import Box from "@mui/material/Box";
@@ -8,7 +7,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
-import Divider from "@mui/material/Divider";
 import CloseIcon from '@mui/icons-material/CloseOutlined';
 import Stack from "@mui/material/Stack";
 import { alpha } from "@mui/material/styles";
@@ -22,7 +20,6 @@ import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import MovieIcon from "@mui/icons-material/Movie";
 import AddIcon from "@mui/icons-material/Add";
 import FormControl from "@mui/material/FormControl";
-import FormLabel from "@mui/material/FormLabel";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -37,7 +34,6 @@ import Snackbar from "@mui/material/Snackbar";
 import IndiaFlag from "../../images/flag.png";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import { Checkbox } from "@mui/material";
-import newsletterBg from "../../images/newsLetterBg.jpg";
 import MailOutlinedIcon from '@mui/icons-material/MailOutlined';
 import 'react-toastify/dist/ReactToastify.css';
 import { toast } from "react-toastify";
@@ -53,7 +49,6 @@ Select,
 
 export default function PublicProfile({ handle, initialProfile = null }) {
   
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [profile, setProfile] = useState(initialProfile);

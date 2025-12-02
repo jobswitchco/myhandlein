@@ -16,7 +16,6 @@ import {
   useMediaQuery,
   Container,
   Fade,
-  Avatar,
   Paper,
   Divider,
 } from "@mui/material";
@@ -26,11 +25,8 @@ import EmailIcon from "@mui/icons-material/EmailOutlined";
 import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CircularProgress from "@mui/material/CircularProgress";
-import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
-import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
 import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import RocketLaunchIcon from "@mui/icons-material/RocketLaunch"; // Visual flair
 
 import { useDispatch } from "react-redux";
 import { logout } from "../../store/professionalSlice";
