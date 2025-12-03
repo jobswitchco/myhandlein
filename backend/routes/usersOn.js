@@ -1884,46 +1884,144 @@ async function filterAutomatedPosts(userId, mediaItems) {
     };
 }
 
-router.get("/instagram/reels", authenticateToken, async (req, res) => {
+// GET /instagram/posts
+router.get("/instagram/posts", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user?.user_id;
-    const user = await USER.findById(userId).select("igUserId fbLongLivedToken").lean();
+    const tokenUserId = req.user?.user_id;
+    const user = await USER.findById(tokenUserId).select("igUserId fbLongLivedToken").lean();
     if (!user || !user.igUserId) return res.status(400).json({ error: "Instagram not connected" });
 
     const fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
-    const limit = 20; // Fetch slightly more since we might filter out non-videos
-    const after = req.query.after ? `&after=${encodeURIComponent(req.query.after)}` : "";
+    const limit = Number(req.query.limit) || 12;
 
-    const url = `https://graph.facebook.com/v21.0/${user.igUserId}/media?fields=${fields}&limit=${limit}${after}&access_token=${user.fbLongLivedToken}`;
+    // --- Accept either a composite `cursor` OR explicit reels_after/photos_after ---
+    let reelsAfterParam = req.query.reels_after || null;
+    let photosAfterParam = req.query.photos_after || null;
 
-    // Fetch
-    const response = await getWithRetries(url, { retries: 3, timeout: 15000 });
-    let rawData = response.data || [];
+    if (req.query.cursor) {
+      try {
+        const decoded = Buffer.from(req.query.cursor, "base64").toString("utf8");
+        const parsed = JSON.parse(decoded);
+        reelsAfterParam = parsed.reels_after ?? reelsAfterParam;
+        photosAfterParam = parsed.photos_after ?? photosAfterParam;
+      } catch (err) {
+        console.warn("Invalid composite cursor provided, ignoring and loading first page");
+      }
+    }
 
-    // Filter for VIDEOS only (Reels)
-    // Note: We filter in memory. API doesn't strictly allow filtering by type in the GET call easily.
-    const videoOnly = rawData.filter(m => m.media_type === 'VIDEO' || m.media_type === 'REEL');
+    const reelsAfter = reelsAfterParam ? `&after=${encodeURIComponent(reelsAfterParam)}` : "";
+    const photosAfter = photosAfterParam ? `&after=${encodeURIComponent(photosAfterParam)}` : "";
 
-    // Filter Automation
-    const { filtered, excludedCount } = await filterAutomatedPosts(userId, videoOnly);
+    const reelsUrl = `https://graph.facebook.com/v21.0/${user.igUserId}/media?fields=${fields}&limit=${limit}${reelsAfter}&access_token=${user.fbLongLivedToken}`;
+    const photosUrl = `https://graph.facebook.com/v21.0/${user.igUserId}/media?fields=${fields}&limit=${limit}${photosAfter}&access_token=${user.fbLongLivedToken}`;
 
-    // Normalize
-    const normalized = filtered.map(m => ({
-        ...m,
-        thumbnail_url: m.thumbnail_url || m.media_url // Use media_url if thumbnail missing
-    }));
+    // fetch concurrently (defensive)
+    const [reelsResp, photosResp] = await Promise.allSettled([
+      getWithRetries(reelsUrl, { retries: 3, timeout: 15000 }),
+      getWithRetries(photosUrl, { retries: 3, timeout: 15000 }),
+    ]);
+
+    // Defensive extraction of arrays
+    const extractArray = (resp) => {
+      if (!resp || resp.status !== "fulfilled") return [];
+      const payload = resp.value?.data ?? resp.value ?? resp;
+      if (Array.isArray(payload?.data)) return payload.data;
+      if (Array.isArray(payload)) return payload;
+      return [];
+    };
+
+    const reelsData = extractArray(reelsResp);
+    const photosData = extractArray(photosResp);
+
+    // filter by type
+    const videoLike = reelsData.filter(m => m.media_type === "VIDEO" || m.media_type === "REEL");
+    const photoLike = photosData.filter(m => m.media_type === "IMAGE" || m.media_type === "CAROUSEL_ALBUM");
+
+    // merge + dedupe by id, then sort by timestamp desc
+    const byId = new Map();
+    [...videoLike, ...photoLike].forEach(item => {
+      byId.set(String(item.id), { ...(byId.get(String(item.id)) || {}), ...item });
+    });
+    const merged = Array.from(byId.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // --- Automation lookup: match postId and userId (defensive casting) ---
+    const postIds = merged.map(m => String(m.id));
+    let automatedSet = new Set();
+    try {
+      let ownerId = null;
+      try {
+        ownerId = new mongoose.Types.ObjectId(tokenUserId);
+      } catch (idErr) {
+        ownerId = null;
+      }
+
+      // Check against Automation collection
+      const query = { userId: tokenUserId, postId: { $in: postIds } };
+      const automations = await Automation.find(query).select("postId").lean();
+
+      automations.forEach(a => {
+        if (a.postId) automatedSet.add(String(a.postId));
+      });
+    } catch (dbErr) {
+      console.warn("Failed to query Automation collection:", dbErr?.message || dbErr);
+      automatedSet = new Set();
+    }
+
+    // ============================================================
+    // UPDATED LOGIC: Filter out posts that are already automated
+    // ============================================================
+    const filteredData = merged
+      .filter(item => !automatedSet.has(String(item.id))) // Exclude if in set
+      .map(item => ({
+        ...item,
+        thumbnail_url: item.thumbnail_url || item.media_url || null,
+        // isAutomated property removed since we aren't sending them back
+      }));
+
+    // Build combined paging info from raw responses
+    const extractPaging = (resp) => {
+      if (!resp || resp.status !== "fulfilled") return null;
+      const payload = resp.value?.data ?? resp.value ?? resp;
+      return payload?.paging ?? resp.paging ?? null;
+    };
+
+    const paging = {
+      reels: extractPaging(reelsResp),
+      photos: extractPaging(photosResp),
+    };
+
+    const reelsAfterCursor = paging.reels?.cursors?.after || null;
+    const photosAfterCursor = paging.photos?.cursors?.after || null;
+
+    let compositeCursor = null;
+    if (reelsAfterCursor || photosAfterCursor) {
+      compositeCursor = Buffer.from(JSON.stringify({
+        reels_after: reelsAfterCursor || null,
+        photos_after: photosAfterCursor || null
+      })).toString("base64");
+    }
 
     res.json({
-        data: normalized,
-        paging: response.paging ? { next: Boolean(response.paging.next), cursors: response.paging.cursors } : null,
-        meta: { totalFetched: rawData.length, excludedForAutomation: excludedCount }
+      data: filteredData, // Sending only non-automated posts
+      paging,
+      compositeCursor,
+      meta: {
+        reelsOk: reelsResp.status === "fulfilled",
+        photosOk: photosResp.status === "fulfilled",
+        totalFetched: filteredData.length, // Count of visible posts
+        hiddenAutomatedCount: automatedSet.size, // Helpful for debugging
+        reelsCount: videoLike.length,
+        photosCount: photoLike.length,
+      }
     });
-
   } catch (err) {
-    console.error("Reels Fetch Error:", err.message);
-    res.status(500).json({ error: "Failed to fetch Reels" });
+    console.error("Posts Fetch Error:", err?.message || err);
+    res.status(500).json({ error: "Failed to fetch posts" });
   }
 });
+
+
+
 
 router.get("/instagram/stories", authenticateToken, async (req, res) => {
   try {
@@ -1932,78 +2030,70 @@ router.get("/instagram/stories", authenticateToken, async (req, res) => {
     if (!user || !user.igUserId) return res.status(400).json({ error: "Instagram not connected" });
 
     const fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
-    // Stories endpoint does not always support standard cursor pagination perfectly, but we attempt it
-    const after = req.query.after ? `&after=${encodeURIComponent(req.query.after)}` : "";
+    const afterQuery = req.query.after ? `&after=${encodeURIComponent(req.query.after)}` : "";
+    const url = `https://graph.facebook.com/v21.0/${user.igUserId}/stories?fields=${fields}${afterQuery}&access_token=${user.fbLongLivedToken}`;
+
+    // call FB (your getWithRetries wrapper)
+    const response = await getWithRetries(url, { retries: 3, timeout: 15000 });
+
+    // --- Robust extraction of payload and paging ---
+    const rawPayload = response?.data ?? response; // prefer response.data, fallback to response
+    const rawData = Array.isArray(rawPayload?.data) ? rawPayload.data : Array.isArray(rawPayload) ? rawPayload : [];
+    const rawPaging = rawPayload?.paging || response?.paging || null;
+
+    // ============================================================
+    // UPDATED LOGIC: Filter out stories that are already automated
+    // ============================================================
     
-    const url = `https://graph.facebook.com/v21.0/${user.igUserId}/stories?fields=${fields}${after}&access_token=${user.fbLongLivedToken}`;
+    // 1. Collect all Story IDs from the fetch
+    const storyIds = rawData.map(s => String(s.id));
+    let automatedSet = new Set();
 
-    const response = await getWithRetries(url, { retries: 3, timeout: 15000 });
-    let rawData = response.data || [];
+    // 2. Check against Automation collection
+    try {
+      // We assume your schema stores story IDs in 'postId' just like regular posts
+      const query = { userId, postId: { $in: storyIds } };
+      const automations = await Automation.find(query).select("postId").lean();
 
-    // Stories are always type STORY, no type filtering needed
+      automations.forEach(a => {
+        if (a.postId) automatedSet.add(String(a.postId));
+      });
+    } catch (dbErr) {
+      console.warn("Failed to query Automation collection for stories:", dbErr?.message || dbErr);
+      automatedSet = new Set();
+    }
 
-    // Filter Automation
-    const { filtered, excludedCount } = await filterAutomatedPosts(userId, rawData);
-
-    // Normalize
-    const normalized = filtered.map(m => ({
+    // 3. Filter and Normalize
+    const filteredData = rawData
+      .filter(item => !automatedSet.has(String(item.id))) // Exclude if found in DB
+      .map(m => ({
         ...m,
-        thumbnail_url: m.thumbnail_url || m.media_url // Usually stories don't have separate thumbs, but good fallback
-    }));
+        thumbnail_url: m.thumbnail_url || m.media_url
+      }));
+
+    // Normalize paging for frontend
+    const pagingNormalized = rawPaging
+      ? {
+          next: Boolean(rawPaging.next),
+          cursors: rawPaging.cursors || null
+        }
+      : null;
+
+    // Provide a simpler nextCursor field that the client can use (?after=...)
+    const nextCursor = pagingNormalized?.cursors?.after || null;
 
     res.json({
-        data: normalized,
-        paging: response.paging ? { next: Boolean(response.paging.next), cursors: response.paging.cursors } : null,
-        meta: { totalFetched: rawData.length, excludedForAutomation: excludedCount }
+      data: filteredData,
+      paging: pagingNormalized,
+      nextCursor, 
+      meta: {
+        totalFetched: filteredData.length,
+        hiddenAutomatedCount: automatedSet.size // Helpful for debugging
+      }
     });
-
   } catch (err) {
-    console.error("Stories Fetch Error:", err.message);
+    console.error("Stories Fetch Error:", err?.message || err);
     res.status(500).json({ error: "Failed to fetch Stories" });
-  }
-});
-
-
-router.get("/instagram/photos", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user?.user_id;
-    const user = await USER.findById(userId).select("igUserId fbLongLivedToken").lean();
-    if (!user || !user.igUserId) return res.status(400).json({ error: "Instagram not connected" });
-
-    const fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
-    const limit = 25; // Fetch slightly more to account for filtering out videos
-    const after = req.query.after ? `&after=${encodeURIComponent(req.query.after)}` : "";
-
-    const url = `https://graph.facebook.com/v21.0/${user.igUserId}/media?fields=${fields}&limit=${limit}${after}&access_token=${user.fbLongLivedToken}`;
-
-    // 1. Fetch Data
-    const response = await getWithRetries(url, { retries: 3, timeout: 15000 });
-    let rawData = response.data || [];
-
-    // 2. Filter for PHOTOS Only (Image or Carousel)
-    const photosOnly = rawData.filter(m => 
-        m.media_type === 'IMAGE' || m.media_type === 'CAROUSEL_ALBUM'
-    );
-
-    // 3. Filter out already automated posts
-    const { filtered, excludedCount } = await filterAutomatedPosts(userId, photosOnly);
-
-    // 4. Normalize
-    const normalized = filtered.map(m => ({
-        ...m,
-        // For photos, media_url is the image. 
-        thumbnail_url: m.media_url 
-    }));
-
-    res.json({
-        data: normalized,
-        paging: response.paging ? { next: Boolean(response.paging.next), cursors: response.paging.cursors } : null,
-        meta: { totalFetched: rawData.length, excludedForAutomation: excludedCount }
-    });
-
-  } catch (err) {
-    console.error("Photos Fetch Error:", err.message);
-    res.status(500).json({ error: "Failed to fetch Photos" });
   }
 });
 
@@ -2181,20 +2271,12 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       flowNodes,
       keywords,
       hasReply,
-      replyComment
+      replyComments
     } = req.body || {};
 
     // ===== BASIC VALIDATION =====
     if (!postId || !String(postId).trim()) {
       return res.status(400).json({ success: false, message: "postId is required" });
-    }
-
-    // 1️⃣ FETCH USER CONTEXT (New Step)
-    // We need the tokens and the flag to decide if we should subscribe
-    const user = await USER.findById(userId).select("fbPageId fbPageAccessToken automationFeedSubscribed");
-    
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User profile not found." });
     }
 
     // ===== PREPARE DOCUMENT FOR UPSERT =====
@@ -2207,7 +2289,7 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       flowNodes,
       keywords,
       hasReply,
-      replyComment,
+     replyComments, 
       ...(status ? { status } : {}),
     };
 
@@ -2218,43 +2300,11 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // 2️⃣ CHECK & SUBSCRIBE (The Logic You Requested)
-    let webhookStatus = "already_active";
-
-    // If the user has a token BUT has not been marked as subscribed yet
-    if (user.fbPageId && user.fbPageAccessToken && !user.automationFeedSubscribed) {
-        console.log(`🔌 Initializing Webhooks for User ${userId}...`);
-        
-        try {
-            // Run the helper function
-            const subResult = await subscribePageToInstagramWebhooks(
-                user.fbPageId, 
-                user.fbPageAccessToken, 
-                userId
-            );
-
-            if (subResult.success) {
-                // Update the flag so we don't run this every time
-                await USER.findByIdAndUpdate(userId, { automationFeedSubscribed: true });
-                webhookStatus = "activated_now";
-                console.log("✅ Webhook initialized successfully.");
-            } else {
-                webhookStatus = "activation_failed";
-            }
-        } catch (subErr) {
-            console.error("⚠️ Webhook auto-subscription failed:", subErr.message);
-            webhookStatus = "error";
-            // We do NOT crash the request here. The automation is saved, which is the primary goal.
-        }
-    }
-
     return res.json({
       success: true,
       message: "Automation configuration saved",
-      webhook_status: webhookStatus, // Useful for frontend debugging
       data: doc
     });
-
   } catch (err) {
     console.error("POST /automation/config error:", err);
     

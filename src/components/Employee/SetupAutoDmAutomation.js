@@ -5522,51 +5522,82 @@ const handleLaunchAutomation = async () => {
 
        <Box sx={{ maxWidth: 600, mx: "auto", p: 3 }}>
       {/* Keywords Input */}
-      <Box
-        sx={{
-          p: 3,
-          borderRadius: "16px",
-          border: "2px solid #8B5CF6",
-          bgcolor: "rgba(139, 92, 246, 0.1)",
-          backdropFilter: "blur(10px)",
-          mb: 3,
-        }}
-      >
-        <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
-          Keywords
-        </Typography>
-        <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
-          Enter keyword(s) and press enter to add them
-        </Typography>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Type a keyword and hit enter"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          InputProps={{
-            endAdornment: inputValue && (
-              <InputAdornment position="end">
-                <IconButton onClick={handleAddKeyword} edge="end" size="small" aria-label="add keyword">
-                  +
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-        <Stack direction="row" spacing={1} mt={2} flexWrap="wrap">
-          {keywords.map((keyword) => (
-            <Chip
-              key={keyword}
-              label={keyword}
-              onDelete={() => handleDeleteKeyword(keyword)}
-              sx={{ mb: 1 }}
-              color="primary"
-            />
-          ))}
-        </Stack>
-      </Box>
+     <Box
+           sx={{
+             p: 3,
+             borderRadius: "16px",
+             border: "2px solid #8B5CF6",
+             bgcolor: "rgba(139, 92, 246, 0.1)",
+             backdropFilter: "blur(10px)",
+             mb: 3,
+           }}
+         >
+           <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
+             Keywords
+           </Typography>
+           <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
+           The automation will trigger when a DM(Direct Message) includes the following specific keywords.
+           </Typography>
+           <TextField
+             fullWidth
+             size="small"
+             placeholder="Type a keyword and hit Enter"
+             value={inputValue}
+             onChange={(e) => setInputValue(e.target.value)}
+             onKeyDown={handleKeyDown}
+             InputProps={{
+               endAdornment: inputValue && (
+                 <InputAdornment position="end">
+                   <IconButton onClick={handleAddKeyword} edge="end" size="small" aria-label="add keyword">
+                     +
+                   </IconButton>
+                 </InputAdornment>
+               ),
+             }}
+           />
+   
+            <Typography
+         sx={{
+           fontFamily: "Inter",
+           fontSize: "14px",
+           color: "text.secondary",
+           opacity: 0.8,
+           mt: 0.5
+         }}
+       >
+         Keywords are not case-sensitive, e.g. "Hello" and "hello" are recognized as the same.
+       </Typography>
+   
+           <Stack direction="row" spacing={1} mt={2} flexWrap="wrap">
+           {keywords.map((keyword) => (
+     <Chip
+       key={keyword}
+       label={keyword}
+       onDelete={() => handleDeleteKeyword(keyword)}
+       sx={{
+         mb: 1,
+         backgroundColor: "#37353E",        // custom bg
+         color: "#FFFFFF",  
+         fontFamily: 'Inter',                // text color
+         fontWeight: 500,                   // bold
+         fontSize: "14px",                  // custom font size
+         padding: "6px 6px",               // 🔥 custom padding for bigger chip
+         borderRadius: "8px",               // smoother corners
+   
+         // delete (x) icon color
+         "& .MuiChip-deleteIcon": {
+           color: "#FFFFFF",
+           ml: 0.5,
+           "&:hover": {
+             color: "#E62727",
+           }
+         }
+       }}
+     />
+   ))}
+   
+           </Stack>
+         </Box>
 
     
 

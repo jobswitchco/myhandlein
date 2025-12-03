@@ -4,6 +4,7 @@ import {
   Card,
   CardContent,
   CardMedia,
+  Collapse,
   Typography,
   Stack,
   TextField,
@@ -25,7 +26,9 @@ import {
   InputAdornment,
   Slide,
   Switch,
-  Avatar
+  Avatar,
+  Divider
+
 } from "@mui/material";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -53,6 +56,7 @@ import FitScreenIcon from "@mui/icons-material/FitScreen";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import axios from "axios";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import RotateLeftOutlinedIcon from '@mui/icons-material/RotateLeftOutlined';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -540,8 +544,16 @@ export default function SetupAutomation() {
   const [flowNodes, setFlowNodes] = useState([]);
   const [keywords, setKeywords] = useState(['Link']);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [replyComment, setReplyComment] = useState('Thanks for the comment, Please check DM.');
-  const [isReplyAvailable, setIsReplyAvailable] = useState(true);
+
+  // three replies (prefilled)
+  const [replies, setReplies] = useState([
+    "Thanks for the comment, Please check DM 🙂",
+    "Love this — thank you for sharing!",
+    "Great point — totally agree with you."
+  ]);
+
+    const [isReplyAvailable, setIsReplyAvailable] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [selectedNodeType, setSelectedNodeType] = useState(null);
  
  const [inputValue, setInputValue] = useState("");
@@ -552,6 +564,14 @@ export default function SetupAutomation() {
       setKeywords([...keywords, newKeyword]);
     }
     setInputValue("");
+  };
+
+   const handleReplyChange = (index, value) => {
+    setReplies(prev => {
+      const copy = [...prev];
+      copy[index] = value;
+      return copy;
+    });
   };
 
   const handleKeyDown = (e) => {
@@ -5380,7 +5400,7 @@ const leftPosition = stepPercent * (index + 1)
         thumbnail: data.thumbnail,
         keywords: keywords,
         hasReply : isReplyAvailable,
-        replyComment: replyComment
+      replyComments: isReplyAvailable ? replies : []
 
       };
 console.log('Automation Details: ', JSON.stringify(payload));
@@ -5549,12 +5569,12 @@ console.log('Automation Details: ', JSON.stringify(payload));
           Keywords
         </Typography>
         <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
-          Enter keyword(s) and press enter to add them
+        The automation will trigger when a comment includes the following specific keywords.
         </Typography>
         <TextField
           fullWidth
           size="small"
-          placeholder="Type a keyword and hit enter"
+          placeholder="Type a keyword and hit Enter"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -5568,16 +5588,47 @@ console.log('Automation Details: ', JSON.stringify(payload));
             ),
           }}
         />
+
+         <Typography
+      sx={{
+        fontFamily: "Inter",
+        fontSize: "14px",
+        color: "text.secondary",
+        opacity: 0.8,
+        mt: 0.5
+      }}
+    >
+      Keywords are not case-sensitive, e.g. "Hello" and "hello" are recognized as the same.
+    </Typography>
+
         <Stack direction="row" spacing={1} mt={2} flexWrap="wrap">
-          {keywords.map((keyword) => (
-            <Chip
-              key={keyword}
-              label={keyword}
-              onDelete={() => handleDeleteKeyword(keyword)}
-              sx={{ mb: 1 }}
-              color="primary"
-            />
-          ))}
+        {keywords.map((keyword) => (
+  <Chip
+    key={keyword}
+    label={keyword}
+    onDelete={() => handleDeleteKeyword(keyword)}
+    sx={{
+      mb: 1,
+      backgroundColor: "#37353E",        // custom bg
+      color: "#FFFFFF",  
+      fontFamily: 'Inter',                // text color
+      fontWeight: 500,                   // bold
+      fontSize: "14px",                  // custom font size
+      padding: "6px 6px",               // 🔥 custom padding for bigger chip
+      borderRadius: "8px",               // smoother corners
+
+      // delete (x) icon color
+      "& .MuiChip-deleteIcon": {
+        color: "#FFFFFF",
+        ml: 0.5,
+        "&:hover": {
+          color: "#E62727",
+        }
+      }
+    }}
+  />
+))}
+
         </Stack>
       </Box>
 
@@ -5590,43 +5641,102 @@ console.log('Automation Details: ', JSON.stringify(payload));
       </Box>
 
       {/* Reply to Comment */}
-      <Box
-        sx={{
-          p: 3,
-          borderRadius: "16px 16px 16px 16px",
-          border: "2px solid #8B5CF6",
-          bgcolor: "rgba(139, 92, 246, 0.1)",
-          backdropFilter: "blur(10px)",
-          mb: 4,
-        }}
-      >
-        <Typography sx={{fontFamily: 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
-          Reply to a comment
-        </Typography>
-        <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
-          Automatically reply to comments matching keywords
-        </Typography>
-        <RadioGroup
-          row
-          value={isReplyAvailable ? "yes" : "no"}
-          onChange={(e) => setIsReplyAvailable(e.target.value === "yes")}
-          sx={{ mb: 2 }}
-        >
-          <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-          <FormControlLabel value="no" control={<Radio />} label="No" />
-        </RadioGroup>
+    <Box
+      sx={{
+        p: 3,
+        borderRadius: "16px",
+        border: "2px solid #8B5CF6",
+        bgcolor: "rgba(139, 92, 246, 0.1)",
+        backdropFilter: "blur(10px)",
+        mb: 4,
+      }}
+    >
+      <Typography sx={{ fontFamily: "Inter", fontWeight: 600, fontSize: 20, mb: 0.5 }}>
+        Reply to a comment
+      </Typography>
 
-        {isReplyAvailable && (
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            placeholder="Write reply to comment here..."
-            value={replyComment}
-            onChange={(e) => setReplyComment(e.target.value)}
-          />
-        )}
-      </Box>
+      <Typography color="textSecondary" mb={1} sx={{ fontFamily: "Inter", fontSize: "14px" }}>
+        Would you like to reply to the comments as well?
+      </Typography>
+
+      <RadioGroup
+        row
+        value={isReplyAvailable ? "yes" : "no"}
+        onChange={(e) => {
+          const on = e.target.value === "yes";
+          setIsReplyAvailable(on);
+          if (!on) setExpanded(false);
+        }}
+        sx={{ mb: 2 }}
+      >
+        <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+        <FormControlLabel value="no" control={<Radio />} label="No" />
+      </RadioGroup>
+
+      {isReplyAvailable && (
+        <>
+          {/* Single-line description with collapse icon on the right (closed by default) */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              p: 1,
+              mb: 1,
+              gap: 2
+            }}
+          >
+              <Typography color="text.secondary" sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
+                Below 3 replies will be sent in a random order so that your replies don't look like a bot.
+                <br />
+              </Typography>
+
+            <Divider sx={{ mb: 2 }} />
+
+            <IconButton
+              onClick={() => setExpanded(s => !s)}
+              aria-label={expanded ? "collapse" : "expand"}
+              size="small"
+              sx={{
+                transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 200ms ease",
+                background: '#8B5CF6'
+              }}
+            >
+              <ExpandMoreIcon />
+            </IconButton>
+          </Box>
+
+          {/* Collapsible description + three reply fields */}
+          <Collapse in={expanded} timeout="auto" unmountOnExit>
+
+            <Stack spacing={2} mt={1}>
+              <TextField
+                label="Reply 1"
+                fullWidth
+                size="small"
+                value={replies[0]}
+                onChange={(e) => handleReplyChange(0, e.target.value)}
+              />
+              <TextField
+                label="Reply 2"
+                fullWidth
+                size="small"
+                value={replies[1]}
+                onChange={(e) => handleReplyChange(1, e.target.value)}
+              />
+              <TextField
+                label="Reply 3"
+                fullWidth
+                size="small"
+                value={replies[2]}
+                onChange={(e) => handleReplyChange(2, e.target.value)}
+              />
+            </Stack>
+          </Collapse>
+        </>
+      )}
+    </Box>
 
       {/* Arrow Down to next block can be added similarly */}
     </Box>
