@@ -526,11 +526,11 @@ const [addBlockMenuAnchor, setAddBlockMenuAnchor] = useState(null);
 
 // Block type configurations
 const blockTypes = [
-  { type: 'link', label: 'Link', icon: <LinkIcon />, color: '#667eea' },
-  { type: 'video', label: 'Video', icon: <MovieIcon />, color: '#f093fb' },
-  { type: 'form', label: 'Form', icon: <DescriptionIcon />, color: '#fa709a' },
-  { type: 'newsletter', label: 'Newsletter', icon: <EmailIcon />, color: '#30cfd0' },
-  { type: 'booking', label: 'Booking', icon: <EventIcon />, color: '#a8edea' },
+  { type: 'link', label: 'Link', description: 'Boost your income by adding product and affiliate links that generate commissions.', icon: <LinkIcon />, color: '#667eea' },
+  { type: 'video', label: 'Video', description: 'Grow your channel by embedding your YouTube videos directly on your page.', icon: <MovieIcon />, color: '#f093fb' },
+  { type: 'form', label: 'Form', description: 'Easily collect emails, phone numbers, and other key details with a customizable form.', icon: <DescriptionIcon />, color: '#fa709a' },
+  { type: 'booking', label: 'Booking', description: 'Allow your audience to schedule personalized 1:1 sessions at their convenience.', icon: <EventIcon />, color: '#7132CA' },
+  { type: 'newsletter', label: 'Newsletter', description: 'Build stronger relationships by delivering valuable content and updates straight to your subscribers.', icon: <EmailIcon />, color: '#30cfd0' },
 ];
 
 
@@ -1398,6 +1398,7 @@ const handleBlockTypeSelect = (blockType) => {
   open={isAddBlockOpen}
   TransitionComponent={isMobile ? Transition : undefined} // Only slide up on mobile
   keepMounted
+  maxWidth="md"
   onClose={handleAddBlockClose}
   scroll="paper"
   // Specific styling for the "Bottom Sheet" look on mobile
@@ -1418,7 +1419,6 @@ const handleBlockTypeSelect = (blockType) => {
       : {
           borderRadius: 3,
           width: "100%",
-          maxWidth: 500,
         },
   }}
 >
@@ -1426,9 +1426,10 @@ const handleBlockTypeSelect = (blockType) => {
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center',
-      pb: 1
+      pb: 1,
+      mb: 1
     }}>
-    <Typography sx={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 18 }}>
+    <Typography sx={{ fontFamily: 'Inter', fontWeight: 600, fontSize: 18 }}>
       What would you like to add?
     </Typography>
     <IconButton onClick={handleAddBlockClose} size="small">
@@ -1437,9 +1438,9 @@ const handleBlockTypeSelect = (blockType) => {
   </DialogTitle>
 
   <DialogContent sx={{ p: 2 }}>
-    <Grid container spacing={2}>
+    <Grid container spacing={2} mt={1}>
       {blockTypes.map((block) => (
-        <Grid item xs={12} sm={6} key={block.type}>
+        <Grid size={{ xs: 12, sm: 6}} key={block.type}>
           <Card
             elevation={0}
             sx={{
@@ -1473,15 +1474,15 @@ const handleBlockTypeSelect = (blockType) => {
                 }}
               >
                 {/* Clone element to increase icon size if needed */}
-                {React.cloneElement(block.icon, { sx: { fontSize: 26 } })}
+                {React.cloneElement(block.icon, { sx: { fontSize: 32 } })}
               </Box>
               
               <Box>
                 <Typography sx={{ fontFamily: 'Inter', fontWeight: 600, fontSize: 16 }}>
                   {block.label}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Add a {block.label.toLowerCase()} block
+                <Typography color="text.secondary" sx={{ fontFamily: 'Inter', fontWeight: 400, fontSize: 13, mt: 0.5 }}>
+                  {block.description}
                 </Typography>
               </Box>
             </CardActionArea>
@@ -1555,194 +1556,243 @@ const handleBlockTypeSelect = (blockType) => {
             </Paper>
           </Grid>
 
-          {/* Your complete preview pane */}
-          <Grid size={{ xs: 12, md: 4}} sx={{minHeight: '100dvh', overflowY: 'auto'}}>
-            <Box
-              sx={{
-                margin: "0 auto",
-                boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
-                background: "linear-gradient(135deg, #0f0c29 0%, #0b0b0b 40%, #0b0b0b 100%)",
-              }}
-            >
+       {/* Modified Preview Pane - iPhone Look */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            {/* Sticky container so the phone stays in view while scrolling the editor on the left */}
+            <Box sx={{ position: { md: "sticky" }, top: { md: 24 }, pb: 4 }}>
+              
+              {/* The Phone Frame / Bezel */}
               <Box
                 sx={{
+                  margin: "0 auto",
+                  width: { xs: "100%", sm: 360 }, // Standard mobile width
+                  height: { xs: 600, sm: 720 },   // Fixed height for the "Phone"
+                  border: "6px solid #313647",   // Dark grey bezel
+                  borderRadius: "45px",           // Heavy rounding
+                  overflow: "hidden",             // Clips the content to the rounded corners
                   position: "relative",
-                  height: { xs: 260, sm: 320 },
-                  bgcolor: "#0b0b0b",
+                  bgcolor: "#000",
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)", // Deep shadow for depth
                 }}
               >
-                <Box
-                  component="img"
-                  src={userDetails.leftHeadImage}
-                  alt="hero"
-                  sx={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    objectPosition: { xs: "center 10%", sm: "center 25%" },
-                    display: "block",
-                  }}
-                />
-
+                {/* The "Notch" or Dynamic Island (Visual flair) */}
                 <Box
                   sx={{
                     position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: "15%",
-                    background:
-                      "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(8,8,12,0.55) 45%, rgba(8,8,12,0.85) 75%, #08080c 100%)",
-                    pointerEvents: "none",
+                    top: 0,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 100,
+                    height: 12,
+                    bgcolor: "#2d2d2d",
+                    borderBottomLeftRadius: 14,
+                    borderBottomRightRadius: 14,
+                    zIndex: 10,
                   }}
                 />
-              </Box>
 
-              <Box sx={{ p: { xs: 2, sm: 2 } }}>
+                {/* The Scrollable Screen Area */}
                 <Box
                   sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    mt: 1,
+                    height: "100%",
+                    overflowY: "auto", // Makes content scrollable
+                    background: "linear-gradient(135deg, #0f0c29 0%, #0b0b0b 40%, #0b0b0b 100%)",
+                    // Hide scrollbar for Chrome/Safari/Opera
+                    "&::-webkit-scrollbar": {
+                      display: "none",
+                    },
+                    // Hide scrollbar for IE, Edge and Firefox
+                    msOverflowStyle: "none",
+                    scrollbarWidth: "none",
                   }}
                 >
-                  <Typography
+                  <Box
                     sx={{
-                      color: "#FFFFFF",
-                      fontFamily: "Inter",
-                      fontWeight: 500,
-                      fontSize: { xs: 16, sm: 18 },
+                      position: "relative",
+                      height: { xs: 200, sm: 240 }, // Slightly adjusted header height for phone prop
+                      bgcolor: "#0b0b0b",
                     }}
                   >
-                    {name}
-                  </Typography>
+                    <Box
+                      component="img"
+                      src={userDetails.leftHeadImage}
+                      alt="hero"
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        objectPosition: { xs: "center 10%", sm: "center 25%" },
+                        display: "block",
+                      }}
+                    />
 
-                  <Typography
-                    sx={{
-                      color: "#FFFFFF",
-                      fontFamily: "Inter",
-                      fontWeight: 400,
-                      fontSize: { xs: 12, sm: 13 },
-                      mt: 1,
-                    }}
-                  >
-                    {userIntro}
-                  </Typography>
-
-                  <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1 }}>
-                    {socials.map((s) => {
-                      const key = (s.platform || s.name || "").toLowerCase();
-                      const IconComp =
-                        key === "youtube"
-                          ? YouTubeIcon
-                          : key === "twitter"
-                          ? TwitterIcon
-                          : key === "whatsapp"
-                          ? WhatsAppIcon
-                          : key === "instagram"
-                          ? InstagramIcon
-                          : key === "linkedin"
-                          ? LinkedInIcon
-                          : LinkIcon;
-
-                      const BRAND = {
-                        youtube: "#FF0000",
-                        twitter: "#1DA1F2",
-                        whatsapp: "#25D366",
-                        instagram: "#E1306C",
-                        linkedin: "#0077B5",
-                        default: "#6366f1",
-                      };
-                      const color = BRAND[key] || BRAND.default;
-                      const bg = alpha(color, 0.03);
-                      const hoverBg = alpha(color, 0.18);
-
-                      const rawUrl = s.url || s.link || s.href || s.number || "";
-                      const url =
-                        key === "whatsapp"
-                          ? makeWaUrl(rawUrl, s.message || "")
-                          : rawUrl;
-
-                      return (
-                        <Tooltip key={s._id || rawUrl} title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"} arrow>
-                          <IconButton
-                            onClick={() => url && window.open(url, "_blank", "noopener, noreferrer")}
-                            sx={{
-                              bgcolor: bg,
-                              borderRadius: 1,
-                              width: 34,
-                              height: 34,
-                              "&:hover": { bgcolor: hoverBg },
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                            aria-label={`open ${key}`}
-                            size="small"
-                          >
-                            <IconComp sx={{ fontSize: 28, color: color }} />
-                          </IconButton>
-                        </Tooltip>
-                      );
-                    })}
-
-                    {userDetails?.store_enabled ? (
-                      <IconButton
-                        onClick={() => alert("Store is enabled — open store or show products here.")}
-                        title="Open store"
-                        sx={{
-                          color: "#fff",
-                          ml: 0.5,
-                        }}
-                      >
-                        <StorefrontIcon sx={{ fontSize: 22 }} />
-                      </IconButton>
-                    ) : null}
-
-                    {userDetails?.dm_enabled ? (
-                      <IconButton
-                        onClick={() => alert("DM is enabled — open My Inbox.")}
-                        title="DM Enabled"
-                        sx={{
-                          color: "#fff",
-                          ml: 0.5,
-                        }}
-                      >
-                        <SmsOutlinedIcon sx={{ fontSize: 22 }} />
-                      </IconButton>
-                    ) : null}
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: "30%",
+                        background:
+                          "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(8,8,12,0.55) 45%, rgba(8,8,12,0.85) 75%, #08080c 100%)",
+                        pointerEvents: "none",
+                      }}
+                    />
                   </Box>
-                </Box>
 
-                <Stack spacing={1.25} sx={{ mt: 1, mb: 1 }}>
-                  {loadingBlocks ? (
+                  <Box sx={{ p: 2, pb: 6 }}>
                     <Box
                       sx={{
                         display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        py: 4,
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        mt: 1,
                       }}
                     >
-                      <CircularProgress />
+                      <Typography
+                        sx={{
+                          color: "#FFFFFF",
+                          fontFamily: "Inter",
+                          fontWeight: 500,
+                          fontSize: 18,
+                        }}
+                      >
+                        {name}
+                      </Typography>
+
+                      <Typography
+                        sx={{
+                          color: "#FFFFFF",
+                          fontFamily: "Inter",
+                          fontWeight: 400,
+                          fontSize: 13,
+                          mt: 1,
+                        }}
+                      >
+                        {userIntro}
+                      </Typography>
+
+                      {/* Social Icons Render Logic (Kept exactly as yours) */}
+                      <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1, flexWrap: "wrap" }}>
+                        {socials.map((s) => {
+                          const key = (s.platform || s.name || "").toLowerCase();
+                          const IconComp =
+                            key === "youtube"
+                              ? YouTubeIcon
+                              : key === "twitter"
+                              ? TwitterIcon
+                              : key === "whatsapp"
+                              ? WhatsAppIcon
+                              : key === "instagram"
+                              ? InstagramIcon
+                              : key === "linkedin"
+                              ? LinkedInIcon
+                              : LinkIcon;
+
+                          const BRAND = {
+                            youtube: "#FF0000",
+                            twitter: "#1DA1F2",
+                            whatsapp: "#25D366",
+                            instagram: "#E1306C",
+                            linkedin: "#0077B5",
+                            default: "#6366f1",
+                          };
+                          const color = BRAND[key] || BRAND.default;
+                          const bg = alpha(color, 0.03);
+                          const hoverBg = alpha(color, 0.18);
+
+                          const rawUrl = s.url || s.link || s.href || s.number || "";
+                          const url =
+                            key === "whatsapp"
+                              ? makeWaUrl(rawUrl, s.message || "")
+                              : rawUrl;
+
+                          return (
+                            <Tooltip
+                              key={s._id || rawUrl}
+                              title={(key && key.charAt(0).toUpperCase() + key.slice(1)) || "Link"}
+                              arrow
+                            >
+                              <IconButton
+                                onClick={() => url && window.open(url, "_blank", "noopener, noreferrer")}
+                                sx={{
+                                  bgcolor: bg,
+                                  borderRadius: 1,
+                                  width: 34,
+                                  height: 34,
+                                  "&:hover": { bgcolor: hoverBg },
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                                aria-label={`open ${key}`}
+                                size="small"
+                              >
+                                <IconComp sx={{ fontSize: 28, color: color }} />
+                              </IconButton>
+                            </Tooltip>
+                          );
+                        })}
+                        {/* Store/DM Icons logic kept same... */}
+                         {userDetails?.store_enabled ? (
+                            <IconButton onClick={() => alert("Store is enabled")} sx={{ color: "#fff", ml: 0.5 }}>
+                              <StorefrontIcon sx={{ fontSize: 22 }} />
+                            </IconButton>
+                          ) : null}
+                          {userDetails?.dm_enabled ? (
+                            <IconButton onClick={() => alert("DM is enabled")} sx={{ color: "#fff", ml: 0.5 }}>
+                              <SmsOutlinedIcon sx={{ fontSize: 22 }} />
+                            </IconButton>
+                          ) : null}
+                      </Box>
                     </Box>
-                  ) : (
-                    blocks.map((b) => renderPreviewBlock(b))
-                  )}
-                </Stack>
 
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {link}
-                  </Typography>
-                </Box>
+                    {/* Preview Blocks */}
+                    <Stack spacing={1.25} sx={{ mt: 2, mb: 1 }}>
+                      {loadingBlocks ? (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            py: 4,
+                          }}
+                        >
+                          <CircularProgress />
+                        </Box>
+                      ) : (
+                        blocks.map((b) => renderPreviewBlock(b))
+                      )}
+                    </Stack>
 
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "center", mt: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1}}>
-                    <Typography sx={{ fontFamily: "Inter", fontWeight: 400, color: "rgba(255,255,255,0.8)", fontSize: { xs: 12, sm: 12 }, mb: 0.25 }}>Made in India</Typography>
-                    <Box component="img" src={IndiaFlag} alt="India flag" sx={{ width: 18, height: "auto", display: "block", borderRadius: "2px" }} aria-hidden={false} />
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {link}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "center", mt: 3, mb: 2 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Typography
+                          sx={{
+                            fontFamily: "Inter",
+                            fontWeight: 400,
+                            color: "rgba(255,255,255,0.8)",
+                            fontSize: 12,
+                            mb: 0.25,
+                          }}
+                        >
+                          Made in India
+                        </Typography>
+                        <Box
+                          component="img"
+                          src={IndiaFlag}
+                          alt="India flag"
+                          sx={{ width: 18, height: "auto", display: "block", borderRadius: "2px" }}
+                        />
+                      </Box>
+                    </Box>
                   </Box>
                 </Box>
               </Box>

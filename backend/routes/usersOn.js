@@ -484,9 +484,12 @@ async function refreshFacebookTokensIfNeeded(user) {
   if (!user?.fbLongLivedToken) return null;
 
   const remaining = daysLeft(user.fbLongLivedTokenExpiry);
-  if (remaining >= 28) return null; // still plenty of time
+  // Refresh if less than 28 days remaining (or whatever your threshold is)
+  if (remaining >= 28) return null; 
 
-  // Refresh long-lived user token
+  console.log(`Token expiring in ${remaining} days. Refreshing...`);
+
+  // 1️⃣ Refresh long-lived USER token
   const llResp = await axios.get(`${FB_API}/oauth/access_token`, {
     params: {
       grant_type: "fb_exchange_token",
@@ -499,15 +502,45 @@ async function refreshFacebookTokensIfNeeded(user) {
   const newUserLL = llResp.data?.access_token;
   if (!newUserLL) throw new Error("Failed to refresh long-lived user token");
 
-  const newUserExpiry = new Date(Date.now() + FALLBACK_58_DAYS_MS);
+  // Calculate new expiry (API usually returns expires_in, otherwise fallback)
+  const expiresInSec = llResp.data?.expires_in; 
+  let newUserExpiry;
+  if (expiresInSec) {
+      newUserExpiry = new Date(Date.now() + expiresInSec * 1000);
+  } else {
+      newUserExpiry = new Date(Date.now() + FALLBACK_58_DAYS_MS);
+  }
   
-  // Re-fetch Page token (ties to the user token)
+  // 2️⃣ Re-fetch PAGE token using the Workaround (List accounts -> Find match)
   let newPageToken = user.fbPageAccessToken || null;
+
   if (user.fbPageId) {
-    const pageTokResp = await axios.get(`${FB_API}/${user.fbPageId}`, {
-      params: { fields: "access_token", access_token: newUserLL },
-    });
-    newPageToken = pageTokResp.data?.access_token || newPageToken;
+    try {
+        // We use /me/accounts because we might not have permission to query /<page-id> directly
+        const accountsResp = await axios.get(`${FB_API}/me/accounts`, {
+            params: { 
+                access_token: newUserLL,
+                fields: "id,name,access_token",
+                limit: 100 // Fetch up to 100 pages to ensure we find ours
+            },
+        });
+
+        const pages = accountsResp.data?.data || [];
+        
+        // Find the specific page connected to this user
+        const targetPage = pages.find(p => p.id === user.fbPageId);
+
+        if (targetPage && targetPage.access_token) {
+            newPageToken = targetPage.access_token;
+            console.log("✅ Successfully refreshed Page Access Token via accounts list");
+        } else {
+            console.warn(`⚠️ User refreshed token, but Page ID ${user.fbPageId} was not found in their /me/accounts list.`);
+        }
+
+    } catch (pageErr) {
+        console.error("❌ Failed to fetch /me/accounts during refresh:", pageErr?.response?.data || pageErr.message);
+        // We do NOT throw here. We still want to save the new User Token even if Page Token fetch failed.
+    }
   }
 
   const patch = {
@@ -515,12 +548,12 @@ async function refreshFacebookTokensIfNeeded(user) {
     fbLongLivedTokenExpiry: newUserExpiry,
     fbPageAccessToken: newPageToken,
     fbLastRefreshAt: new Date(),
-    fbNeedsReconnect: false,
+    fbNeedsReconnect: false, // Reset this flag since we succeeded
     updated_at: new Date(),
   };
 
   await USER.findByIdAndUpdate(user._id, patch);
-  return patch; // optional return if you want to use in-memory
+  return patch;
 }
 
 

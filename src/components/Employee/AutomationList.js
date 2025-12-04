@@ -31,6 +31,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import PolylineOutlinedIcon from '@mui/icons-material/PolylineOutlined';
 import InstagramIcon from "@mui/icons-material/Instagram";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
@@ -69,7 +70,7 @@ function EmptyState({ onCreate }) {
           bgcolor: "action.hover",
         }}
       >
-        <InfoOutlinedIcon fontSize="large" />
+        <PolylineOutlinedIcon fontSize="large" />
       </Box>
 
       <Stack spacing={0.5}>
@@ -722,7 +723,14 @@ const handleConnectInstagram = useCallback(async () => {
                 startIcon={!connectLoading && <InstagramIcon />}
                 onClick={handleConnectInstagram}
                 disabled={connectLoading}
-                sx={{ textTransform: "none", borderRadius: 2, px: 2.5, minWidth: 220 }}
+                sx={{ 
+  textTransform: "none", 
+  borderRadius: 2, 
+  px: 2.5, 
+  minWidth: 220, 
+  color: "white",
+  background: "linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d)"
+}}
               >
                 {connectLoading ? <CircularProgress size={20} sx={{ color: "white" }} /> : "Connect Instagram"}
               </Button>
