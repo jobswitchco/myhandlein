@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Avatar,
   Box,
@@ -10,6 +10,7 @@ import {
   Chip,
   Button,
   IconButton,
+  useMediaQuery,
   useTheme,
   Dialog,
   DialogTitle,
@@ -20,12 +21,14 @@ import {
   Tooltip,
   InputAdornment,
   Switch,
-  Slide
+  Slide,
+  Snackbar
 } from "@mui/material";
 
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'; // Add Icon
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'; // Add Icon
 import SaveIcon from '@mui/icons-material/Save'; // Add Icon
+import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SendIcon from "@mui/icons-material/Send";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
@@ -41,8 +44,9 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import AddIcon from "@mui/icons-material/Add";
 import LinkIcon from "@mui/icons-material/Link";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import InstagramIcon from "@mui/icons-material/Instagram";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
 import ZoomOutIcon from "@mui/icons-material/ZoomOut";
@@ -505,7 +509,12 @@ const ZoomControls = () => {
   );
 };
 
-
+function getAnchors(total) {
+  if (total === 1) return ["50%"];
+  if (total === 2) return ["15%", "85%"];
+  const step = 70 / (total - 1);
+  return Array.from({ length: total }, (_, i) => `${15 + step * i}%`);
+}
 
 
 
@@ -514,11 +523,19 @@ const ZoomControls = () => {
 export default function SetupAutoDmAutomation() {
   const { post_id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const { caption, thumbnail_url, id } = location.state || {};
   const [confDialogOpen, setConfDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: "",
+  severity: "success",
+});
+
 
 
   const baseUrl = "/api/usersOn";
@@ -569,7 +586,11 @@ export default function SetupAutoDmAutomation() {
     instagramPage: "thisis.ram",
   });
 
-
+  const data = {
+    id: post_id || id || "",
+    thumbnail: thumbnail_url || "",
+    caption: caption || "",
+  };
 
   useEffect(() => {
     const fetchAutomationConfig = async () => {
@@ -603,46 +624,72 @@ export default function SetupAutoDmAutomation() {
     fetchAutomationConfig();
   }, []);
 
-  const handleUpdateAutomation = async () => {
-    if (!dmMessage.trim()) {
-      toast.error("Please enter a DM message");
-      return;
-    }
+const handleUpdateAutomation = async () => {
+  if (!dmMessage.trim()) {
+    setSnackbar({
+      open: true,
+      message: "Please enter a DM message",
+      severity: "error",
+    });
+    return;
+  }
 
-    try {
-      const payload = {
-        keywords,
-        dmMessage,
-        buttonText,
-        flowNodes,
-      };
+  try {
+    const payload = {
+      keywords,
+      dmMessage,
+      buttonText,
+      flowNodes,
+    };
 
-      await axios.put(`${baseUrl}/autodm/automation/update`, payload, {
-        withCredentials: true,
-      });
+    await axios.put(`${baseUrl}/autodm/automation/update`, payload, {
+      withCredentials: true,
+    });
 
-      toast.success("Automation updated successfully!");
-    } catch (error) {
-      console.error("Error updating automation:", error);
-      toast.error("Failed to update automation.");
-    }
-  };
+    setSnackbar({
+      open: true,
+      message: "Automation updated successfully!",
+      severity: "success",
+    });
+  } catch (error) {
+    console.error("Error updating automation:", error);
+    setSnackbar({
+      open: true,
+      message: "Failed to update automation.",
+      severity: "error",
+    });
+  }
+};
 
-  const handleToggleStatus = async () => {
-    try {
-      const newStatus = !isActive;
-      
-      await axios.patch(`${baseUrl}/autodm/automation/status`, { isActive: newStatus }, {
-        withCredentials: true,
-      });
 
-      setIsActive(newStatus);
-      toast.success(newStatus ? "Automation Resumed!" : "Automation Stopped.");
-    } catch (error) {
-      console.error("Error toggling status:", error);
-      toast.error("Failed to change status.");
-    }
-  };
+ const handleToggleStatus = async () => {
+  try {
+    const newStatus = !isActive;
+
+    await axios.patch(
+      `${baseUrl}/autodm/automation/status`,
+      { isActive: newStatus },
+      { withCredentials: true }
+    );
+
+    setIsActive(newStatus);
+
+    setSnackbar({
+      open: true,
+      message: newStatus ? "Automation Resumed!" : "Automation Stopped.",
+      severity: "success",
+    });
+  } catch (error) {
+    console.error("Error toggling status:", error);
+
+    setSnackbar({
+      open: true,
+      message: "Failed to change status.",
+      severity: "error",
+    });
+  }
+};
+
 
   
 
@@ -1916,6 +1963,8 @@ const addActionToContext = (newAction) => {
   // Render Quick Reply node for button actions
   const renderButtonQuickReply = (nodeId, branchType, button) => {
     const quickReplyAction = button.actions.find((action) => action.type === "quickReply");
+    // CHECK LIMIT
+    const isMaxReached = (quickReplyAction.replyOptions?.length || 0) >= 3;
     
     if (!quickReplyAction) return null;
 
@@ -2038,65 +2087,55 @@ const addActionToContext = (newAction) => {
               }}
             />
 
-            <Button
-              size="small"
-              variant="text"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                const updatedNodes = flowNodes.map((node) => {
-                  if (node.id === nodeId && node.type === "followCheck") {
-                    const updateButtons = (buttons) =>
-                      buttons.map((btn) =>
-                        btn.id === button.id
-                          ? {
-                              ...btn,
-                              actions: btn.actions.map((action) =>
-                                action.id === quickReplyAction.id
-                                  ? {
-                                      ...action,
-                                      replyOptions: [
-                                        ...action.replyOptions,
-                                        {
-                                          id: Date.now(),
-                                          text: `Option ${action.replyOptions.length + 1}`,
-                                          actions: [],
-                                        },
-                                      ],
-                                    }
-                                  : action
-                              ),
-                            }
-                          : btn
-                      );
-
-                    if (branchType === "following") {
-                      return {
-                        ...node,
-                        followingButtons: updateButtons(node.followingButtons),
-                      };
-                    } else {
-                      return {
-                        ...node,
-                        notFollowingButtons: updateButtons(node.notFollowingButtons),
-                      };
-                    }
-                  }
-                  return node;
-                });
-                setFlowNodes(updatedNodes);
-                toast.success("Option added!");
-              }}
-              sx={{
-                textTransform: "none",
-                color: "#F59E0B",
-                justifyContent: "flex-start",
-                "&:hover": {
-                  bgcolor: "#FFFBEB",
-                },
-              }}
-            >
-              Add Option
-            </Button>
+        <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+              <span>
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<AddIcon />}
+                  disabled={isMaxReached}
+                  onClick={() => {
+                    // ... (existing add logic) ...
+                    const updatedNodes = flowNodes.map((node) => {
+                      if (node.id === nodeId && node.type === "followCheck") {
+                        const updateButtons = (buttons) =>
+                          buttons.map((btn) =>
+                            btn.id === button.id
+                              ? {
+                                  ...btn,
+                                  actions: btn.actions.map((action) =>
+                                    action.id === quickReplyAction.id
+                                      ? {
+                                          ...action,
+                                          replyOptions: [
+                                            ...action.replyOptions,
+                                            { id: Date.now(), text: `Option ${action.replyOptions.length + 1}`, actions: [] },
+                                          ],
+                                        }
+                                      : action
+                                  ),
+                                }
+                              : btn
+                          );
+                        if (branchType === "following") return { ...node, followingButtons: updateButtons(node.followingButtons) };
+                        else return { ...node, notFollowingButtons: updateButtons(node.notFollowingButtons) };
+                      }
+                      return node;
+                    });
+                    setFlowNodes(updatedNodes);
+                    toast.success("Option added!");
+                  }}
+                  sx={{
+                    textTransform: "none",
+                    color: isMaxReached ? "grey.400" : "#F59E0B",
+                    justifyContent: "flex-start",
+                    "&:hover": { bgcolor: "#FFFBEB" },
+                  }}
+                >
+                  Add Option
+                </Button>
+              </span>
+            </Tooltip>
           </Stack>
         </Card>
 
@@ -2304,6 +2343,9 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
   const nestedQR = option.actions.find((a) => a.type === "quickReply");
   if (!nestedQR) return null;
 
+  // CHECK LIMIT
+  const isMaxReached = (nestedQR.replyOptions?.length || 0) >= 3;
+
   return (
     <Box sx={{ width: "100%", mt: 3 }}>
       {/* Connection line */}
@@ -2480,79 +2522,69 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
             }}
           />
 
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              const updatedNodes = flowNodes.map((node) => {
-                if (node.id === nodeId && node.type === "followCheck") {
-                  const updateButtons = (buttons) =>
-                    buttons.map((btn) =>
-                      btn.id === buttonId
-                        ? {
-                            ...btn,
-                            actions: btn.actions.map((action) =>
-                              action.id === parentQR.id
-                                ? {
-                                    ...action,
-                                    replyOptions: action.replyOptions.map((opt) =>
-                                      opt.id === option.id
-                                        ? {
-                                            ...opt,
-                                            actions: opt.actions.map((a) =>
-                                              a.id === nestedQR.id
-                                                ? {
-                                                    ...a,
-                                                    replyOptions: [
-                                                      ...(a.replyOptions || []),
-                                                      {
-                                                        id: Date.now(),
-                                                        text: `Option ${(a.replyOptions?.length || 0) + 1}`,
-                                                        actions: [],
-                                                      },
-                                                    ],
-                                                  }
-                                                : a
-                                            ),
-                                          }
-                                        : opt
-                                    ),
-                                  }
-                                : action
-                            ),
-                          }
-                        : btn
-                    );
-
-                  if (branchType === "following") {
-                    return {
-                      ...node,
-                      followingButtons: updateButtons(node.followingButtons),
-                    };
-                  } else {
-                    return {
-                      ...node,
-                      notFollowingButtons: updateButtons(node.notFollowingButtons),
-                    };
-                  }
-                }
-                return node;
-              });
-              setFlowNodes(updatedNodes);
-              toast.success("Option added!");
-            }}
-            sx={{
-              textTransform: "none",
-              color: "#F59E0B",
-              justifyContent: "flex-start",
-              "&:hover": {
-                bgcolor: "#FFFBEB",
-              },
-            }}
-          >
-            Add Option
-          </Button>
+       <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+            <span>
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<AddIcon />}
+                disabled={isMaxReached}
+                onClick={() => {
+                  /* ... add logic ... */
+                  const updatedNodes = flowNodes.map((node) => {
+                    if (node.id === nodeId && node.type === "followCheck") {
+                      const updateButtons = (buttons) =>
+                        buttons.map((btn) =>
+                          btn.id === buttonId
+                            ? {
+                                ...btn,
+                                actions: btn.actions.map((action) =>
+                                  action.id === parentQR.id
+                                    ? {
+                                        ...action,
+                                        replyOptions: action.replyOptions.map((opt) =>
+                                          opt.id === option.id
+                                            ? {
+                                                ...opt,
+                                                actions: opt.actions.map((a) =>
+                                                  a.id === nestedQR.id
+                                                    ? {
+                                                        ...a,
+                                                        replyOptions: [
+                                                          ...(a.replyOptions || []),
+                                                          { id: Date.now(), text: `Option ${(a.replyOptions?.length || 0) + 1}`, actions: [] },
+                                                        ],
+                                                      }
+                                                    : a
+                                                ),
+                                              }
+                                            : opt
+                                        ),
+                                      }
+                                    : action
+                                ),
+                              }
+                            : btn
+                        );
+                      if (branchType === "following") return { ...node, followingButtons: updateButtons(node.followingButtons) };
+                      else return { ...node, notFollowingButtons: updateButtons(node.notFollowingButtons) };
+                    }
+                    return node;
+                  });
+                  setFlowNodes(updatedNodes);
+                  toast.success("Option added!");
+                }}
+                sx={{
+                  textTransform: "none",
+                  color: isMaxReached ? "grey.400" : "#F59E0B",
+                  justifyContent: "flex-start",
+                  "&:hover": { bgcolor: "#FFFBEB" },
+                }}
+              >
+                Add Option
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
       </Card>
 
@@ -3451,6 +3483,9 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
     const totalButtons = buttons.length;
     const splitY = 40, downHeight = 60;
 
+    // CHECK LIMIT
+      const isMaxReached = totalButtons >= 3;
+
     let anchors = [];
     if (totalButtons === 1) {
       anchors = ["50%"];
@@ -3749,56 +3784,48 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
                     setFlowNodes(updatedNodes);
                   }}
                 />
-
-                <Button
-                  size="small"
-                  variant="text"
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    const updatedNodes = flowNodes.map((node) => {
-                      if (node.id === nodeId && node.type === "quickReply") {
-                        return {
-                          ...node,
-                          replyOptions: node.replyOptions.map((opt) =>
-                            opt.id === option.id
-                              ? {
-                                  ...opt,
-                                  actions: opt.actions.map((action) =>
-                                    action.id === followCheckAction.id
+<Tooltip title={followCheckAction.followingButtons?.length >= 3 ? "You can add max 3 options" : ""} arrow placement="top">
+                     <span>
+                       <Button
+                         size="small" variant="text" startIcon={<AddIcon />}
+                         disabled={followCheckAction.followingButtons?.length >= 3}
+                         onClick={() => {
+                            // ... add button logic for 'following' branch ...
+                            const updatedNodes = flowNodes.map((node) => {
+                              if (node.id === nodeId && node.type === "quickReply") {
+                                return {
+                                  ...node,
+                                  replyOptions: node.replyOptions.map((opt) =>
+                                    opt.id === option.id
                                       ? {
-                                          ...action,
-                                          followingButtons: [
-                                            ...(action.followingButtons || []),
-                                            {
-                                              id: Date.now(),
-                                              text: `Button ${(action.followingButtons?.length || 0) + 1}`,
-                                              actions: [],
-                                            },
-                                          ],
+                                          ...opt,
+                                          actions: opt.actions.map((action) =>
+                                            action.id === followCheckAction.id
+                                              ? {
+                                                  ...action,
+                                                  followingButtons: [
+                                                    ...(action.followingButtons || []),
+                                                    { id: Date.now(), text: `Button ${(action.followingButtons?.length || 0) + 1}`, actions: [] },
+                                                  ],
+                                                }
+                                              : action
+                                          ),
                                         }
-                                      : action
+                                      : opt
                                   ),
-                                }
-                              : opt
-                          ),
-                        };
-                      }
-                      return node;
-                    });
-                    setFlowNodes(updatedNodes);
-                    toast.success("Button added!");
-                  }}
-                  sx={{
-                    textTransform: "none",
-                    color: "#10B981",
-                    justifyContent: "flex-start",
-                    "&:hover": {
-                      bgcolor: "#F0FDF4",
-                    },
-                  }}
-                >
-                  Add Button
-                </Button>
+                                };
+                              }
+                              return node;
+                            });
+                            setFlowNodes(updatedNodes);
+                            toast.success("Button added!");
+                         }}
+                         sx={{ textTransform: "none", color: followCheckAction.followingButtons?.length >= 3 ? "grey.400" : "#10B981", justifyContent: "flex-start", "&:hover": { bgcolor: "#F0FDF4" } }}
+                       >
+                         Add Button
+                       </Button>
+                     </span>
+                   </Tooltip>
               </Stack>
             </Card>
 
@@ -3934,6 +3961,10 @@ const renderQuickReplyOptionQuickReply = (nodeId, option) => {
   const quickReplyAction = option.actions?.find(action => action.type === "quickReply");
   if (!quickReplyAction) return null;
 
+  // CHECK LIMIT
+    const isMaxReached = (quickReplyAction.replyOptions?.length || 0) >= 3;
+
+
   return (
     <Box sx={{ width: "100%", mt: 3 }}>
       {/* Connection line from above */}
@@ -4036,53 +4067,57 @@ const renderQuickReplyOptionQuickReply = (nodeId, option) => {
               setFlowNodes(updatedNodes);
             }}
           />
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              const updatedNodes = flowNodes.map(node => {
-                if (node.id === nodeId && node.type === "quickReply") {
-                  return {
-                    ...node,
-                    replyOptions: node.replyOptions.map(opt =>
-                      opt.id === option.id
-                        ? {
-                            ...opt,
-                            actions: opt.actions.map(action =>
-                              action.id === quickReplyAction.id
-                                ? {
-                                    ...action,
-                                    replyOptions: [
-                                      ...(action.replyOptions || []),
-                                      {
-                                        id: Date.now(),
-                                        text: `Option ${(action.replyOptions?.length || 0) + 1}`,
-                                        actions: [],
-                                      }
-                                    ]
-                                  }
-                                : action
-                            )
-                          }
-                        : opt
-                    )
-                  };
-                }
-                return node;
-              });
-              setFlowNodes(updatedNodes);
-              toast.success("Option added!");
-            }}
-            sx={{
-              textTransform: "none",
-              color: "#F59E0B",
-              justifyContent: "flex-start",
-              "&:hover": { bgcolor: "#FFFBEB" }
-            }}
-          >
-            Add Option
-          </Button>
+        
+
+        <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+              <span>
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<AddIcon />}
+                  disabled={isMaxReached}
+                  onClick={() => {
+                    // ... (add logic)
+                    const updatedNodes = flowNodes.map(node => {
+                      if (node.id === nodeId && node.type === "quickReply") {
+                        return {
+                          ...node,
+                          replyOptions: node.replyOptions.map(opt =>
+                            opt.id === option.id
+                              ? {
+                                  ...opt,
+                                  actions: opt.actions.map(action =>
+                                    action.id === quickReplyAction.id
+                                      ? {
+                                          ...action,
+                                          replyOptions: [
+                                            ...(action.replyOptions || []),
+                                            { id: Date.now(), text: `Option ${(action.replyOptions?.length || 0) + 1}`, actions: [] },
+                                          ]
+                                        }
+                                      : action
+                                  )
+                                }
+                              : opt
+                          )
+                        };
+                      }
+                      return node;
+                    });
+                    setFlowNodes(updatedNodes);
+                    toast.success("Option added!");
+                  }}
+                  sx={{
+                    textTransform: "none",
+                    color: isMaxReached ? "grey.400" : "#F59E0B",
+                    justifyContent: "flex-start",
+                    "&:hover": { bgcolor: "#FFFBEB" }
+                  }}
+                >
+                  Add Option
+                </Button>
+              </span>
+            </Tooltip>
         </Stack>
       </Card>
       {/* Recursively render further nested options */}
@@ -4399,6 +4434,8 @@ const renderDeepNestedQuickReply = (nodeId, parentOptionId, parentQRAction, opti
   const nestedQuickReply = option.actions?.find((action) => action.type === "quickReply");
   
   if (!nestedQuickReply) return null;
+  // CHECK LIMIT
+    const isMaxReached = (nestedQuickReply.replyOptions?.length || 0) >= 3;
 
   return (
     <Box sx={{ width: "100%", mt: 3 }}>
@@ -4556,69 +4593,69 @@ const renderDeepNestedQuickReply = (nodeId, parentOptionId, parentQRAction, opti
             }}
           />
 
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              const updatedNodes = flowNodes.map((node) => {
-                if (node.id === nodeId && node.type === "quickReply") {
-                  return {
-                    ...node,
-                    replyOptions: node.replyOptions.map((parentOpt) =>
-                      parentOpt.id === parentOptionId
-                        ? {
-                            ...parentOpt,
-                            actions: parentOpt.actions.map((act) =>
-                              act.id === parentQRAction.id
-                                ? {
-                                    ...act,
-                                    replyOptions: act.replyOptions.map((opt) =>
-                                      opt.id === option.id
-                                        ? {
-                                            ...opt,
-                                            actions: opt.actions.map((a) =>
-                                              a.id === nestedQuickReply.id
-                                                ? {
-                                                    ...a,
-                                                    replyOptions: [
-                                                      ...(a.replyOptions || []),
-                                                      {
-                                                        id: Date.now(),
-                                                        text: `Option ${(a.replyOptions?.length || 0) + 1}`,
-                                                        actions: [],
-                                                      },
-                                                    ],
-                                                  }
-                                                : a
-                                            ),
-                                          }
-                                        : opt
-                                    ),
-                                  }
-                                : act
-                            ),
-                          }
-                        : parentOpt
-                    ),
-                  };
-                }
-                return node;
-              });
-              setFlowNodes(updatedNodes);
-              toast.success("Option added!");
-            }}
-            sx={{
-              textTransform: "none",
-              color: "#F59E0B",
-              justifyContent: "flex-start",
-              "&:hover": {
-                bgcolor: "#FFFBEB",
-              },
-            }}
-          >
-            Add Option
-          </Button>
+        <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+              <span>
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<AddIcon />}
+                  disabled={isMaxReached}
+                  onClick={() => {
+                    // ... (add logic)
+                    const updatedNodes = flowNodes.map((node) => {
+                      if (node.id === nodeId && node.type === "quickReply") {
+                        return {
+                          ...node,
+                          replyOptions: node.replyOptions.map((parentOpt) =>
+                            parentOpt.id === parentOptionId
+                              ? {
+                                  ...parentOpt,
+                                  actions: parentOpt.actions.map((act) =>
+                                    act.id === parentQRAction.id
+                                      ? {
+                                          ...act,
+                                          replyOptions: act.replyOptions.map((opt) =>
+                                            opt.id === option.id
+                                              ? {
+                                                  ...opt,
+                                                  actions: opt.actions.map((a) =>
+                                                    a.id === nestedQuickReply.id
+                                                      ? {
+                                                          ...a,
+                                                          replyOptions: [
+                                                            ...(a.replyOptions || []),
+                                                            { id: Date.now(), text: `Option ${(a.replyOptions?.length || 0) + 1}`, actions: [] },
+                                                          ],
+                                                        }
+                                                      : a
+                                                  ),
+                                                }
+                                              : opt
+                                          ),
+                                        }
+                                      : act
+                                  ),
+                                }
+                              : parentOpt
+                          ),
+                        };
+                      }
+                      return node;
+                    });
+                    setFlowNodes(updatedNodes);
+                    toast.success("Option added!");
+                  }}
+                  sx={{
+                    textTransform: "none",
+                    color: isMaxReached ? "grey.400" : "#F59E0B",
+                    justifyContent: "flex-start",
+                    "&:hover": { bgcolor: "#FFFBEB" },
+                  }}
+                >
+                  Add Option
+                </Button>
+              </span>
+            </Tooltip>
         </Stack>
       </Card>
 
@@ -4875,6 +4912,8 @@ const leftPosition = stepPercent * (index + 1)
   const renderFollowCheckBranch = (node) => {
   const splitY = 30, downHeight = 50;
   const anchors = ["25%", "75%"];
+  // CHECK LIMIT
+    const isFollowingMaxReached = node.followingButtons.length >= 3;
   return (
     <Box sx={{ width: "100%", mt: 0 }}>
       <Box sx={{ position: "relative", height: splitY + downHeight, mb: 2 }}>
@@ -4927,22 +4966,27 @@ const leftPosition = stepPercent * (index + 1)
                   }}
                 />
 
-                <Button
-                  size="small"
-                  variant="text"
-                  startIcon={<AddIcon />}
-                  onClick={() => handleAddButton(node.id, "following")}
-                  sx={{
-                    textTransform: "none",
-                    color: "#10B981",
-                    justifyContent: "flex-start",
-                    "&:hover": {
-                      bgcolor: "#F0FDF4",
-                    },
-                  }}
-                >
-                  Add Button
-                </Button>
+              <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+                    <span>
+                      <Button
+                        size="small"
+                        variant="text"
+                        startIcon={<AddIcon />}
+                        disabled={isFollowingMaxReached}
+                        onClick={() => handleAddButton(node.id, "following")}
+                        sx={{
+                          textTransform: "none",
+                          color: isFollowingMaxReached ? "grey.400" : "#10B981",
+                          justifyContent: "flex-start",
+                          "&:hover": {
+                            bgcolor: "#F0FDF4",
+                          },
+                        }}
+                      >
+                        Add Button
+                      </Button>
+                    </span>
+                  </Tooltip>
               </Stack>
             </Card>
 
@@ -5095,6 +5139,7 @@ const leftPosition = stepPercent * (index + 1)
     }
 
     if (node.type === "quickReply") {
+      const isMaxReached = (node.replyOptions?.length || 0) >= 3;
       return (
         <Box key={node.id} sx={{ width: "100%", position: "relative" }}>
           <Card
@@ -5173,22 +5218,27 @@ const leftPosition = stepPercent * (index + 1)
                 }}
               />
 
-              <Button
-                size="small"
-                variant="text"
-                startIcon={<AddIcon />}
-                onClick={() => handleAddQuickReplyOption(node.id)}
-                sx={{
-                  textTransform: "none",
-                  color: "#F59E0B",
-                  justifyContent: "flex-start",
-                  "&:hover": {
-                    bgcolor: "#FFFBEB",
-                  },
-                }}
-              >
-                Add Option
-              </Button>
+             <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+                <span>
+                  <Button
+                    size="small"
+                    variant="text"
+                    startIcon={<AddIcon />}
+                    disabled={isMaxReached}
+                    onClick={() => handleAddQuickReplyOption(node.id)}
+                    sx={{
+                      textTransform: "none",
+                      color: isMaxReached ? "grey.400" : "#F59E0B",
+                      justifyContent: "flex-start",
+                      "&:hover": {
+                        bgcolor: "#FFFBEB",
+                      },
+                    }}
+                  >
+                    Add Option
+                  </Button>
+                </span>
+              </Tooltip>
             </Stack>
           </Card>
 
@@ -5973,6 +6023,23 @@ const handleLaunchAutomation = async () => {
           </DialogActions>
         )}
       </Dialog>
+
+      <Snackbar
+  open={snackbar.open}
+  autoHideDuration={3000}
+  onClose={() => setSnackbar({ ...snackbar, open: false })}
+  anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+>
+  <Alert
+    onClose={() => setSnackbar({ ...snackbar, open: false })}
+    severity={snackbar.severity}
+    variant="filled"
+    sx={{ width: "100%" }}
+  >
+    {snackbar.message}
+  </Alert>
+</Snackbar>
+
 
 
        {/* CONFIRMATION DIALOG */}
