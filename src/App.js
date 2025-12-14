@@ -55,7 +55,7 @@ import SetupAutoDmAutomation from './components/Employee/SetupAutoDmAutomation.j
 
 function App({ initialSubdomain = null, initialProfile = null }) {
 
-   const GOOGLE_CLIENT_ID = "191478155465-ldeodgltp87ehgudqg648no94cuitbqs.apps.googleusercontent.com";
+   const GOOGLE_CLIENT_ID = "91155692692-kli34ond8jron8msdvikk4ac70mvk912.apps.googleusercontent.com";
 
  // inside App component, replace the early-return branch with this:
 
