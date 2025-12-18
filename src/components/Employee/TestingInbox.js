@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo, useLayoutEffect } from "react";
 import axios from "axios";
-import EmojiPicker from "emoji-picker-react"; // npm install emoji-picker-react
+import EmojiPicker from "emoji-picker-react";
 import {
   Box,
   Avatar,
@@ -127,10 +127,8 @@ export default function InboxManagement() {
     const fetchConversations = async () => {
       try {
         setLoading(true);
-        const res = await axios.post(
-          `${baseUrl}/conversations/sync`,
-          {},
-          { withCredentials: true }
+        const res = await axios.get(
+          `${baseUrl}/conversations/sync`, { withCredentials: true }
         );
         const data = res.data?.data || [];
         console.log('Data::: ', data);
