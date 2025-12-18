@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 const router = express.Router();
 import USER from "../models/User.js";
-import cookie from "cookie";
 import ParticipantUser from "../models/ParticipantUser.js";
 import Conversation from "../models/Conversation.js";
 import Subscriptions from "../models/Subscriptions.js";
