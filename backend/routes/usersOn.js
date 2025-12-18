@@ -41,7 +41,9 @@ const metaCache = new NodeCache({ stdTTL: 86400 });
 import { Storage } from '@google-cloud/storage';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { redisGet } from "../../src/realtime/redisBridge.js";
+import redisBridge from "../../src/realtime/redisBridge.js";
+const { redisGet } = redisBridge;
+
 import { warmIgProfile } from "../../src/realtime/igProfileCache.js";
 
 // Get __dirname equivalent in ES modules
