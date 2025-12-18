@@ -7,7 +7,7 @@ import USER from "../models/User.js";
 import ParticipantUser from "../models/ParticipantUser.js";
 import Conversation from "../models/Conversation.js";
 import Subscriptions from "../models/Subscriptions.js";
-import InstagramService from "../middleware/InstagramService.js";
+import InstagramService from "../middleware/instagramService.js";
 import Message from "../models/Message.js";
 import Participant from "../models/Participant.js"
 import Bookings from "../models/Bookings.js";

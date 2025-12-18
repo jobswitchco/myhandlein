@@ -1,4 +1,4 @@
-// services/instagramService.js
+//instagramService.js
 import axios from 'axios';
 
 const GRAPH_API_VERSION = 'v24.0';
