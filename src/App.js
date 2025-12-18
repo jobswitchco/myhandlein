@@ -45,6 +45,7 @@ import FormSubmissions from './components/Employee/FormSubmissions.js';
 import RepliedContacts from './components/Employee/RepliedContacts.js';
 import UpgradePlan from './components/Employee/UpgradePlan.js';
 import SetupAutoDmAutomation from './components/Employee/SetupAutoDmAutomation.js';
+import InboxManagement from './components/Employee/TestingInbox.js';
 
 
 // very critial yes
@@ -138,6 +139,7 @@ if (initialSubdomain) {
                 <Route path="my/formsubmissions" element={<FormSubmissions />} />
                 <Route path="contacts/replied" element={<RepliedContacts />} />
                 <Route path="upgrade/plan" element={<UpgradePlan />} />
+                <Route path="inbox/creator" element={<InboxManagement />} />
 
 
 

@@ -3,8 +3,8 @@ import { Server as IOServer } from "socket.io";
 import cookie from "cookie";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import Conversation from "../models/Conversations.js";
-import Message from "../models/Messages.js";
+import Conversation from "../models/Conversation.js";
+import Message from "../models/Message.js";
 import USER from "../models/User.js";
 import OpenAI from "openai";
 
