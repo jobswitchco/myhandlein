@@ -870,13 +870,13 @@ const [trialDays, setTrialDays] = useState(0);
 
                 <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
-                  onClick={() => goTo("/professional/inbox/creator")}
-                  selected={location.pathname === "/professional/inbox/creator"}
+                  onClick={() => goTo("/professional/business/inbox")}
+                  selected={location.pathname === "/professional/business/inbox"}
                   sx={{
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/inbox/creator" ? "#6E8CFB" : "transparent",
+                    backgroundColor: location.pathname === "/professional/business/inbox" ? "#6E8CFB" : "transparent",
                     "&:hover": { 
                       backgroundColor: "#6E8CFB",
                       "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
@@ -888,7 +888,7 @@ const [trialDays, setTrialDays] = useState(0);
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <PermContactCalendarOutlinedIcon
                       sx={{
-                        color: location.pathname === "/professional/inbox/creator" ? "#FFFFFF" : "#9CA3AF",
+                        color: location.pathname === "/professional/business/inbox" ? "#FFFFFF" : "#9CA3AF",
                         fontSize: "1.2rem",
                       }}
                     />
@@ -897,8 +897,8 @@ const [trialDays, setTrialDays] = useState(0);
                     primary="Business Inbox"
                     primaryTypographyProps={{
                       sx: {
-                        color: location.pathname === "/professional/inbox/creator" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/inbox/creator" ? 500 : 400,
+                        color: location.pathname === "/professional/business/inbox" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/business/inbox" ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}

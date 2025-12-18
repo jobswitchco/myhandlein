@@ -139,7 +139,7 @@ if (initialSubdomain) {
                 <Route path="my/formsubmissions" element={<FormSubmissions />} />
                 <Route path="contacts/replied" element={<RepliedContacts />} />
                 <Route path="upgrade/plan" element={<UpgradePlan />} />
-                <Route path="inbox/creator" element={<InboxManagement />} />
+                <Route path="business/inbox" element={<InboxManagement />} />
 
 
 
