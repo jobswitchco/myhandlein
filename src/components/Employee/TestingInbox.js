@@ -32,6 +32,8 @@ import {
   DoneAll,
   Close as CloseIcon
 } from "@mui/icons-material";
+import { getSocket } from "../../realtime/socket";
+
 
 /* ---------- CONSTANTS ---------- */
 const LABELS = ["Personal", "Lead", "General"];
@@ -58,6 +60,7 @@ export default function InboxManagement() {
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
 
   const [rawMessages, setRawMessages] = useState([]); // Store raw API data
   const [cursor, setCursor] = useState(null);
@@ -122,10 +125,8 @@ export default function InboxManagement() {
     // setEmojiAnchor(null); 
   };
 
-  console.log('Before Mount');
   /* ---------- FETCH CONVERSATIONS ---------- */
   useEffect(() => {
-  console.log('On Mount');
 
     const fetchConversations = async () => {
       try {
@@ -147,6 +148,27 @@ export default function InboxManagement() {
     fetchConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
+
+  useEffect(() => {
+  if (!selectedConversationId) return;
+
+  const socket = getSocket();
+
+  socket.emit("join_conversation", {
+    conversationId: selectedConversationId,
+  });
+
+  console.log("📥 Joined conversation:", selectedConversationId);
+
+  return () => {
+    socket.emit("leave_conversation", {
+      conversationId: selectedConversationId,
+    });
+
+    console.log("📤 Left conversation:", selectedConversationId);
+  };
+}, [selectedConversationId]);
+
 
   /* ---------- FETCH MESSAGES ---------- */
   const fetchMessages = useCallback(async (conversationId, cursorParam = null) => {
