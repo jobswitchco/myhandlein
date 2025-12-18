@@ -7,7 +7,8 @@ import bodyParser from "body-parser";
 import cors from 'cors';
 import usersOnBoard from "./routes/usersOn.js";
 import mongoose from 'mongoose';
-import { initSocketServer } from "../src/realtime/socketServer.js";
+import  socketServer  from "../src/realtime/socketServer.js";
+const { initSocketServer } = socketServer;
 
 
 dbConnection();
