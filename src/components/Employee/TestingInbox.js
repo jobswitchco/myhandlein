@@ -127,9 +127,7 @@ export default function InboxManagement() {
     const fetchConversations = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(
-          `${baseUrl}/conversations/sync`, { withCredentials: true }
-        );
+        const res = await axios.get(baseUrl+ "/conversations/sync", { withCredentials: true });
         const data = res.data?.data || [];
         console.log('Data::: ', data);
         setConversations(data);
