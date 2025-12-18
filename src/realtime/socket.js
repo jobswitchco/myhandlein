@@ -7,7 +7,7 @@ export function getSocket() {
   if (!socket) {
     const token = localStorage.getItem("tokenMyhandleProf"); // or however you store JWT
 
-    socket = io("https://api.myhandle.in", {
+    socket = io("https://myhandle.in", {
       transports: ["websocket"],       // force websocket (prod best practice)
       autoConnect: false,               // manual control
       auth: {
