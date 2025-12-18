@@ -830,7 +830,7 @@ const [trialDays, setTrialDays] = useState(0);
 
                 {/* Contacts */}
 
-                {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/contacts/replied")}
                   selected={location.pathname === "/professional/contacts/replied"}
@@ -866,45 +866,8 @@ const [trialDays, setTrialDays] = useState(0);
                     }}
                   />
                 </ListItemButton>
-              </ListItem> */}
-
-                <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/business/inbox")}
-                  selected={location.pathname === "/professional/business/inbox"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/business/inbox" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
-                      backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
-                    },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <PermContactCalendarOutlinedIcon
-                      sx={{
-                        color: location.pathname === "/professional/business/inbox" ? "#FFFFFF" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Business Inbox"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/business/inbox" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/business/inbox" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
               </ListItem>
+              
 
       
             </List>
