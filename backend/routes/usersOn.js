@@ -4985,6 +4985,7 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 router.post("/conversations/sync", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
+    console.log('Hit::::::::::::');
 
     const user = await USER.findById(userId)
       .select("+fbPageId +fbPageAccessToken +instagramConnected +igUserId")

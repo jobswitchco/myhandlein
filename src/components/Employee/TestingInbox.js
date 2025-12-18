@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo, useLayoutEffect } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, useLayoutEffect } from "react";
 import axios from "axios";
 import EmojiPicker from "emoji-picker-react"; // npm install emoji-picker-react
 import {
@@ -133,6 +133,7 @@ export default function InboxManagement() {
           { withCredentials: true }
         );
         const data = res.data?.data || [];
+        console.log('Data::: ', data);
         setConversations(data);
         if(!selectedConversation && data.length > 0) {
             setSelectedConversation(data[0]);
