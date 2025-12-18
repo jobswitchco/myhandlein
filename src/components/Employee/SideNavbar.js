@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getSocket } from "../../../backend/realtime/socket";
+import { getSocket } from "../../realtime/socket"
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import {

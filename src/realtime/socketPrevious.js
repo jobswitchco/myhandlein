@@ -3,9 +3,9 @@ import { Server as IOServer } from "socket.io";
 import cookie from "cookie";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import Conversation from "../models/Conversation.js";
-import Message from "../models/Message.js";
-import USER from "../models/User.js";
+import Conversation from "../../backend/models/Conversation.js";
+import Message from "../../backend/models/Message.js";
+import USER from "../../backend/models/User.js";
 import OpenAI from "openai";
 
 
