@@ -1,8 +1,9 @@
-import Redis from "ioredis";
+// services/redis.js
+const Redis = require("ioredis");
 
 const redis = new Redis({
-//   host: process.env.REDIS_HOST, // private IP
-  host: '10.188.103.27', // private IP
+  // host: process.env.REDIS_HOST, // private IP
+  host: "10.188.103.27", // private IP
   port: 6379,
   maxRetriesPerRequest: null,
   enableReadyCheck: true,
@@ -17,6 +18,4 @@ redis.on("error", (err) => {
   console.error("❌ Redis error", err);
 });
 
-export default redis;
-
-
+module.exports = redis;

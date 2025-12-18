@@ -1,7 +1,8 @@
-import { Server } from "socket.io";
-import  redis from "./redis.js";
+// services/socketServer.js
+const { Server } = require("socket.io");
+const redis = require("./redis.js");
 
-export function initSocketServer(httpServer) {
+const initSocketServer = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
       origin: "*", // tighten later
@@ -23,6 +24,7 @@ export function initSocketServer(httpServer) {
     });
 
     socket.on("leave_conversation", ({ conversationId }) => {
+      if (!conversationId) return;
       socket.leave(`conv:${conversationId}`);
     });
 
@@ -54,4 +56,8 @@ export function initSocketServer(httpServer) {
   });
 
   return io;
-}
+};
+
+module.exports = {
+  initSocketServer,
+};

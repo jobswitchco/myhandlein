@@ -1,14 +1,14 @@
 // services/igProfileCache.js
-import axios from "axios";
-import { redisGet, redisSet } from "./redisBridge.js";
+const axios = require("axios");
+const { redisGet, redisSet } = require("./redisBridge.js");
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours
 
-export async function warmIgProfile({
+const warmIgProfile = async ({
   igUserId,
   username,
   accessToken
-}) {
+}) => {
   const cacheKey = `ig:user:${igUserId}`;
 
   // 1️⃣ If cached (even restricted), never retry
@@ -99,4 +99,8 @@ export async function warmIgProfile({
       fbError || err.message
     );
   }
-}
+};
+
+module.exports = {
+  warmIgProfile,
+};
