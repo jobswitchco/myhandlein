@@ -122,8 +122,11 @@ export default function InboxManagement() {
     // setEmojiAnchor(null); 
   };
 
+  console.log('Before Mount');
   /* ---------- FETCH CONVERSATIONS ---------- */
   useEffect(() => {
+  console.log('On Mount');
+
     const fetchConversations = async () => {
       try {
         setLoading(true);
