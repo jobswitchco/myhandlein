@@ -44,7 +44,8 @@ import { dirname, join } from 'path';
 import redisBridge from "../../src/realtime/redisBridge.js";
 const { redisGet } = redisBridge;
 
-import { warmIgProfile } from "../../src/realtime/igProfileCache.js";
+import igProfileCache from "../../src/realtime/igProfileCache.js";
+const { warmIgProfile } = igProfileCache;
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
