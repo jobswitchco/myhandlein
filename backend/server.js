@@ -7,8 +7,7 @@ import bodyParser from "body-parser";
 import cors from 'cors';
 import usersOnBoard from "./routes/usersOn.js";
 import mongoose from 'mongoose';
-import attachSocket from './realtime/socket.js';
-import { initSocketServer } from "./realtime/socketServer.js";
+import { initSocketServer } from "../src/realtime/socketServer.js";
 
 
 dbConnection();
@@ -196,8 +195,8 @@ app.get('*', async (req, res, next) => {
 const server = http.createServer(app);
 initSocketServer(server);
 
-const io = attachSocket(server, app);
-app.set('io', io);
+// const io = attachSocket(server, app);
+// app.set('io', io);
 
 
 server.listen(8001, () => {
