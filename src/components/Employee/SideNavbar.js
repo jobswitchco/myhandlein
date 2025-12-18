@@ -830,7 +830,7 @@ const [trialDays, setTrialDays] = useState(0);
 
                 {/* Contacts */}
 
-                <ListItem disablePadding sx={{ mb: 0.5 }}>
+                {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/contacts/replied")}
                   selected={location.pathname === "/professional/contacts/replied"}
@@ -866,7 +866,7 @@ const [trialDays, setTrialDays] = useState(0);
                     }}
                   />
                 </ListItemButton>
-              </ListItem>
+              </ListItem> */}
 
                 <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
