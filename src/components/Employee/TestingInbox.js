@@ -95,18 +95,15 @@ export default function InboxManagement() {
 
 
       /* ---------- SORT + DEDUPE ---------- */
-  const messages = useMemo(() => {
-    return rawMessages
-      .filter((m) => {
-        if (messageIdSetRef.current.has(m._id)) return false;
-        messageIdSetRef.current.add(m._id);
-        return true;
-      })
-      .sort(
-        (a, b) =>
-          new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform)
-      );
-  }, [rawMessages]);
+const messages = useMemo(
+  () =>
+    [...rawMessages].sort(
+      (a, b) =>
+        new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform)
+    ),
+  [rawMessages]
+);
+
 
 
 
@@ -145,12 +142,16 @@ useEffect(() => {
 
     const { conversationId, data } = payload;
 
-    // 1️⃣ If this is the open conversation → append message
+    // 🔒 DEDUPE (THIS IS WHERE IT BELONGS)
+    if (messageIdSetRef.current.has(data._id)) return;
+    messageIdSetRef.current.add(data._id);
+
+    // ✅ Append ONLY if this conversation is open
     if (conversationId === selectedConversationId) {
       setRawMessages((prev) => [...prev, data]);
     }
 
-    // 2️⃣ Always update conversation list preview + unread
+    // ✅ Always update sidebar preview + unread
     setConversations((prev) =>
       prev.map((c) =>
         c._id === conversationId
@@ -172,11 +173,10 @@ useEffect(() => {
   };
 
   socket.on("inbox:event", handler);
-
-  return () => {
-    socket.off("inbox:event", handler);
-  };
+  return () => socket.off("inbox:event", handler);
 }, [selectedConversationId]);
+
+
 
 
     /* ---------- FETCH CONVERSATIONS ---------- */
@@ -204,18 +204,26 @@ useEffect(() => {
 
 
     /* ---------- JOIN / LEAVE ROOM ---------- */
-  useEffect(() => {
-    if (!selectedConversationId) return;
+useEffect(() => {
+  if (!selectedConversationId) return;
 
-    const socket = getSocket();
+  const socket = getSocket();
+
+  if (socket.connected) {
     socket.emit("join_conversation", { conversationId: selectedConversationId });
+  } else {
+    socket.once("connect", () => {
+      socket.emit("join_conversation", { conversationId: selectedConversationId });
+    });
+  }
 
-    return () => {
-      socket.emit("leave_conversation", {
-        conversationId: selectedConversationId,
-      });
-    };
-  }, [selectedConversationId]);
+  return () => {
+    socket.emit("leave_conversation", {
+      conversationId: selectedConversationId,
+    });
+  };
+}, [selectedConversationId]);
+
 
   /* ---------- FETCH MESSAGES ---------- */
   const fetchMessages = useCallback(
@@ -264,18 +272,6 @@ useEffect(() => {
     setHasMore(true);
     fetchMessages(selectedConversation._id);
   }, [selectedConversation?._id, fetchMessages]);
-
-  useEffect(() => {
-  const socket = getSocket();
-
-  if (!socket.connected) {
-    socket.connect();
-  }
-
-  return () => {
-    socket.disconnect();
-  };
-}, []);
 
 
   /* ---------- SCROLL MANAGEMENT ---------- */
@@ -330,10 +326,15 @@ useEffect(() => {
           }
         );
 
-        if (res.data.success) {
-          // Add new message to state immediately
-          setRawMessages((prev) => [...prev, res.data.data]);
-        }
+      if (res.data.success) {
+  const msg = res.data.data;
+
+  if (!messageIdSetRef.current.has(msg._id)) {
+    messageIdSetRef.current.add(msg._id);
+    setRawMessages((prev) => [...prev, msg]);
+  }
+}
+
 
         handleRemoveFile(); // Clear file
         setMessageText(""); // Clear text
@@ -349,9 +350,15 @@ useEffect(() => {
           { withCredentials: true }
         );
 
-        if (res.data.success) {
-          setRawMessages((prev) => [...prev, res.data.data]);
-        }
+      if (res.data.success) {
+  const msg = res.data.data;
+
+  if (!messageIdSetRef.current.has(msg._id)) {
+    messageIdSetRef.current.add(msg._id);
+    setRawMessages((prev) => [...prev, msg]);
+  }
+}
+
       }
     } catch (err) {
       console.error("Send message failed", err);

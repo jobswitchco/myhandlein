@@ -1,5 +1,6 @@
 // import logo from './logo.svg';
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { useEffect } from "react";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ToastContainer } from 'react-toastify';
@@ -46,6 +47,7 @@ import RepliedContacts from './components/Employee/RepliedContacts.js';
 import UpgradePlan from './components/Employee/UpgradePlan.js';
 import SetupAutoDmAutomation from './components/Employee/SetupAutoDmAutomation.js';
 import InboxManagement from './components/Employee/TestingInbox.js';
+import { getSocket } from "../src/realtime/socket.js";
 
 
 // very critial yes
@@ -57,6 +59,27 @@ import InboxManagement from './components/Employee/TestingInbox.js';
 function App({ initialSubdomain = null, initialProfile = null }) {
 
    const GOOGLE_CLIENT_ID = "91155692692-kli34ond8jron8msdvikk4ac70mvk912.apps.googleusercontent.com";
+
+   useEffect(() => {
+  const socket = getSocket();
+
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  socket.on("connect", () => {
+    console.log("🟢 Global socket connected:", socket.id);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("🔴 Global socket disconnected");
+  });
+
+  return () => {
+    socket.disconnect();
+  };
+}, []);
+
 
  // inside App component, replace the early-return branch with this:
 

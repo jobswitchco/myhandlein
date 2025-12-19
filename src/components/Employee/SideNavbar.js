@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { getSocket } from "../../realtime/socket"
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import {
@@ -167,23 +166,7 @@ const [trialDays, setTrialDays] = useState(0);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    useEffect(() => {
-  const socket = getSocket();
 
-  socket.connect();
-
-  socket.on("connect", () => {
-    console.log("🟢 Socket connected:", socket.id);
-  });
-
-  socket.on("connect_error", (err) => {
-    console.error("🔴 Socket connection error:", err.message);
-  });
-
-  return () => {
-    socket.disconnect();
-  };
-}, []);
 
 
   useEffect(() => {
