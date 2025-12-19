@@ -4898,7 +4898,7 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 
       try {
         const metaResult = await InstagramService.fetchOlderMessages({
-          igConversationId: conversation.igConversationId,
+          igConversationId: conversation.metaThreadId,
           pageAccessToken: user.fbPageAccessToken,
           beforeCursor: oldestMessage?.metaCursor || null,
           limit: limit - sliced.length,
