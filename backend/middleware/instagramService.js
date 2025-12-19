@@ -84,8 +84,6 @@ async fetchOlderMessages({
         }
       );
 
-      console.log('Res : ', res);
-
       return res.data;
     } catch (error) {
       console.error(
