@@ -85,20 +85,30 @@ export default function InboxManagement() {
   const fileInputRef = useRef(null);
   const prevScrollHeightRef = useRef(null); // For scroll restoration
 
+   // 🔒 DEDUPE SET (CRITICAL)
+  const messageIdSetRef = useRef(new Set());
+
+
   // File Upload State
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  /* ---------- DEDUPLICATION LOGIC (FIX #4) ---------- */
-  // We use useMemo to filter rawMessages and ensure unique IDs
+
+      /* ---------- SORT + DEDUPE ---------- */
   const messages = useMemo(() => {
-    const seen = new Set();
-    return rawMessages.filter((msg) => {
-      if (seen.has(msg._id)) return false;
-      seen.add(msg._id);
-      return true;
-    }).sort((a, b) => new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform));
+    return rawMessages
+      .filter((m) => {
+        if (messageIdSetRef.current.has(m._id)) return false;
+        messageIdSetRef.current.add(m._id);
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform)
+      );
   }, [rawMessages]);
+
+
 
   /* ---------- FILE HANDLERS (FIX #3) ---------- */
   const handleFileSelect = (e) => {
@@ -125,18 +135,71 @@ export default function InboxManagement() {
     // setEmojiAnchor(null); 
   };
 
-  /* ---------- FETCH CONVERSATIONS ---------- */
-  useEffect(() => {
 
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handler = (payload) => {
+      if (payload.type !== "message:new") return;
+
+      const { conversationId, data } = payload;
+
+      // Only update currently open conversation
+     if (conversationId === selectedConversationId) {
+  setRawMessages((prev) => [...prev, data]);
+}
+
+// Always update conversation list preview
+setConversations((prev) =>
+  prev.map((c) =>
+    c._id === conversationId
+      ? {
+          ...c,
+          lastMessage: {
+            text: data.text,
+            type: data.type,
+            timestamp: data.createdAtPlatform,
+          },
+          unreadCount:
+            conversationId === selectedConversationId
+              ? 0
+              : (c.unreadCount || 0) + 1,
+        }
+      : c
+  )
+);
+
+
+      // Deduplicate
+      if (messageIdSetRef.current.has(data._id)) return;
+
+      messageIdSetRef.current.add(data._id);
+
+      setRawMessages((prev) => [...prev, data]);
+    };
+
+    socket.on("inbox:event", handler);
+
+    return () => {
+      socket.off("inbox:event", handler);
+    };
+  }, [selectedConversationId]);
+
+
+    /* ---------- FETCH CONVERSATIONS ---------- */
+  useEffect(() => {
     const fetchConversations = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(baseUrl+ "/conversations/sync", { withCredentials: true });
+        const res = await axios.get(`${baseUrl}/conversations/sync`, {
+          withCredentials: true,
+        });
         const data = res.data?.data || [];
-        console.log('Data::: ', data);
         setConversations(data);
-        if(!selectedConversation && data.length > 0) {
-            setSelectedConversation(data[0]);
+        if (!selectedConversation && data.length > 0) {
+          setSelectedConversation(data[0]);
+          setSelectedConversationId(data[0]._id);
         }
       } catch (err) {
         console.error("Conversation sync failed", err);
@@ -144,96 +207,99 @@ export default function InboxManagement() {
         setLoading(false);
       }
     };
-
     fetchConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseUrl]);
+  }, []);
 
+
+    /* ---------- JOIN / LEAVE ROOM ---------- */
   useEffect(() => {
-  if (!selectedConversationId) return;
+    if (!selectedConversationId) return;
 
-  const socket = getSocket();
+    const socket = getSocket();
+    socket.emit("join_conversation", { conversationId: selectedConversationId });
 
-  socket.emit("join_conversation", {
-    conversationId: selectedConversationId,
-  });
-
-  console.log("📥 Joined conversation:", selectedConversationId);
-
-  return () => {
-    socket.emit("leave_conversation", {
-      conversationId: selectedConversationId,
-    });
-
-    console.log("📤 Left conversation:", selectedConversationId);
-  };
-}, [selectedConversationId]);
-
+    return () => {
+      socket.emit("leave_conversation", {
+        conversationId: selectedConversationId,
+      });
+    };
+  }, [selectedConversationId]);
 
   /* ---------- FETCH MESSAGES ---------- */
-  const fetchMessages = useCallback(async (conversationId, cursorParam = null) => {
-    try {
-      setLoadingMessages(true);
-      
-      // Capture scroll height before fetching for "Scroll to Top" restoration
-      if (cursorParam && messagesContainerRef.current) {
-        prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
-      }
+  const fetchMessages = useCallback(
+    async (conversationId, cursorParam = null) => {
+      try {
+        setLoadingMessages(true);
 
-      const res = await axios.get(
-        `${baseUrl}/conversations/${conversationId}/messages`,
-        {
-          withCredentials: true,
-          params: cursorParam ? { cursor: cursorParam, limit: 20 } : { limit: 20 },
+        if (cursorParam && messagesContainerRef.current) {
+          prevScrollHeightRef.current =
+            messagesContainerRef.current.scrollHeight;
         }
-      );
 
-      const payload = res.data?.data;
-      if (!payload) return;
+        const res = await axios.get(
+          `${baseUrl}/conversations/${conversationId}/messages`,
+          {
+            withCredentials: true,
+            params: cursorParam ? { cursor: cursorParam, limit: 20 } : { limit: 20 },
+          }
+        );
 
-      setRawMessages((prev) =>
-        cursorParam ? [...payload.messages, ...prev] : payload.messages
-      );
+        const payload = res.data?.data;
+        if (!payload) return;
 
-      setCursor(payload.nextCursor);
-      setHasMore(payload.hasMore);
-    } catch (err) {
-      console.error("Message fetch failed", err);
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, [baseUrl]);
+        setRawMessages((prev) =>
+          cursorParam ? [...payload.messages, ...prev] : payload.messages
+        );
 
-  // Reset when conversation changes
+        setCursor(payload.nextCursor);
+        setHasMore(payload.hasMore);
+      } catch (err) {
+        console.error("Message fetch failed", err);
+      } finally {
+        setLoadingMessages(false);
+      }
+    },
+    []
+  );
+
+  /* ---------- RESET ON CONVERSATION CHANGE ---------- */
   useEffect(() => {
     if (!selectedConversation?._id) return;
+
     setRawMessages([]);
+    messageIdSetRef.current.clear(); // 🔥 reset dedupe
     setCursor(null);
     setHasMore(true);
-    setPreviewUrl(null);
-    setSelectedFile(null);
-    setMessageText("");
     fetchMessages(selectedConversation._id);
   }, [selectedConversation?._id, fetchMessages]);
 
-  /* ---------- SCROLL LOGIC (FIX #6) ---------- */
-  // Use useLayoutEffect to adjust scroll position *before* the browser paints
+  useEffect(() => {
+  const socket = getSocket();
+
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  return () => {
+    socket.disconnect();
+  };
+}, []);
+
+
+  /* ---------- SCROLL MANAGEMENT ---------- */
   useLayoutEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    // 1. If loading initial messages (no previous scroll capture), scroll to bottom
     if (!prevScrollHeightRef.current) {
-        container.scrollTop = container.scrollHeight;
-    } 
-    // 2. If we loaded older messages, restore scroll position
-    else {
-        const newScrollHeight = container.scrollHeight;
-        const diff = newScrollHeight - prevScrollHeightRef.current;
-        container.scrollTop = diff;
-        prevScrollHeightRef.current = null; // Reset
+      container.scrollTop = container.scrollHeight;
+    } else {
+      const diff = container.scrollHeight - prevScrollHeightRef.current;
+      container.scrollTop = diff;
+      prevScrollHeightRef.current = null;
     }
-  }, [messages]); // Trigger whenever sorted messages update
+  }, [messages]);
+
 
   const handleScroll = (e) => {
     const el = e.target;
