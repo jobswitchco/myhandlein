@@ -17,6 +17,7 @@ const ConversationSchema = new Schema(
     // Platform info
     platform: { type: String, enum: ["instagram"], required: true },
     igConversationId: { type: String, required: true },
+    metaThreadId: { type: String },
 
     // Owner (creator)
     creatorId: { type: Schema.Types.ObjectId, ref: "users", required: true },

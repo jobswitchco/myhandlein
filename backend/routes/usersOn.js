@@ -4988,7 +4988,6 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 router.get("/conversations/sync", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
-    console.log('Hit::::::::::::');
 
     const user = await USER.findById(userId)
       .select("+fbPageId +fbPageAccessToken +instagramConnected +igUserId")
@@ -5028,7 +5027,9 @@ router.get("/conversations/sync", authenticateToken, async (req, res) => {
     for (const conv of conversations || []) {
       if (!conv?.id) continue;
 
-      const igConversationId = conv.id;
+      const metaThreadId = conv.id;
+      const igConversationId = `igdm:${user.igUserId}:${igParticipant.id}`;
+
 
       /* ---------- PARTICIPANT (IDENTITY ONLY) ---------- */
       const igParticipant = conv.participants?.data?.find(
@@ -5075,6 +5076,7 @@ router.get("/conversations/sync", authenticateToken, async (req, res) => {
         {
           platform: "instagram",
           igConversationId,
+          metaThreadId,
           creatorId: user._id,
           participantId: participant._id,
           lastMessage: lastMessageSnapshot,
