@@ -137,54 +137,46 @@ export default function InboxManagement() {
 
 
 
-  useEffect(() => {
-    const socket = getSocket();
+useEffect(() => {
+  const socket = getSocket();
 
-    const handler = (payload) => {
-      if (payload.type !== "message:new") return;
+  const handler = (payload) => {
+    if (payload.type !== "message:new") return;
 
-      const { conversationId, data } = payload;
+    const { conversationId, data } = payload;
 
-      // Only update currently open conversation
-     if (conversationId === selectedConversationId) {
-  setRawMessages((prev) => [...prev, data]);
-}
-
-// Always update conversation list preview
-setConversations((prev) =>
-  prev.map((c) =>
-    c._id === conversationId
-      ? {
-          ...c,
-          lastMessage: {
-            text: data.text,
-            type: data.type,
-            timestamp: data.createdAtPlatform,
-          },
-          unreadCount:
-            conversationId === selectedConversationId
-              ? 0
-              : (c.unreadCount || 0) + 1,
-        }
-      : c
-  )
-);
-
-
-      // Deduplicate
-      if (messageIdSetRef.current.has(data._id)) return;
-
-      messageIdSetRef.current.add(data._id);
-
+    // 1️⃣ If this is the open conversation → append message
+    if (conversationId === selectedConversationId) {
       setRawMessages((prev) => [...prev, data]);
-    };
+    }
 
-    socket.on("inbox:event", handler);
+    // 2️⃣ Always update conversation list preview + unread
+    setConversations((prev) =>
+      prev.map((c) =>
+        c._id === conversationId
+          ? {
+              ...c,
+              lastMessage: {
+                text: data.text,
+                type: data.type,
+                timestamp: data.createdAtPlatform,
+              },
+              unreadCount:
+                conversationId === selectedConversationId
+                  ? 0
+                  : (c.unreadCount || 0) + 1,
+            }
+          : c
+      )
+    );
+  };
 
-    return () => {
-      socket.off("inbox:event", handler);
-    };
-  }, [selectedConversationId]);
+  socket.on("inbox:event", handler);
+
+  return () => {
+    socket.off("inbox:event", handler);
+  };
+}, [selectedConversationId]);
 
 
     /* ---------- FETCH CONVERSATIONS ---------- */
