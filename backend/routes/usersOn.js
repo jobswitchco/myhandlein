@@ -5028,7 +5028,6 @@ router.get("/conversations/sync", authenticateToken, async (req, res) => {
       if (!conv?.id) continue;
 
       const metaThreadId = conv.id;
-      const igConversationId = `igdm:${user.igUserId}:${igParticipant.id}`;
 
 
       /* ---------- PARTICIPANT (IDENTITY ONLY) ---------- */
@@ -5036,7 +5035,11 @@ router.get("/conversations/sync", authenticateToken, async (req, res) => {
         p => p.id !== user.igUserId
       );
 
+
+
       if (!igParticipant?.id) continue;
+
+       const igConversationId = `igdm:${user.igUserId}:${igParticipant.id}`;
 
       // 🔒 MongoDB stores ONLY identity (no profilePic / name)
       const participant = await Participant.findOneAndUpdate(
