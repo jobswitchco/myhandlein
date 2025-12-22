@@ -73,6 +73,7 @@ export default function InboxManagement() {
   const [activeLabel, setActiveLabel] = useState("All");
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
+  const [syncingConvId, setSyncingConvId] = useState(null);
 
   // Menus & Popups
   const [menuAnchor, setMenuAnchor] = useState(null);
@@ -662,6 +663,8 @@ const uInitial = uname.charAt(0).toUpperCase();
                     bgcolor: isSelected ? "#EEF4FF" : "#fff",
                     transition: "0.2s",
                     "&:hover": { bgcolor: isSelected ? "#EEF4FF" : "#f9fafb" },
+                     opacity: syncingConvId === conv._id ? 0.6 : 1,
+                    pointerEvents: syncingConvId === conv._id ? "none" : "auto",
                   }}
                 >
                   <Box display="flex" justifyContent="space-between">
