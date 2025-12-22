@@ -46,7 +46,7 @@ const initSocketServer = (httpServer) => {
 
   sub.on("pmessage", (_pattern, channel, message) => {
     try {
-       console.log("📡 Redis fanout received:", channel);
+      //  console.log("📡 Redis fanout received:", channel);
       const payload = JSON.parse(message);
       const conversationId = channel.split(":").pop();
 
