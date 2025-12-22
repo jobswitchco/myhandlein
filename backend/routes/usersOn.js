@@ -5349,10 +5349,6 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 });
 
 
-
-
-// ==================== COMPLETE BACKEND FIX ====================
-
 async function syncInstagramConversations(userId) {
   const lockKey = `ig:sync:running:${userId}`;
   if (await redisGet(lockKey)) return;
@@ -5704,8 +5700,6 @@ async function upsertParticipant(igUser) {
   return participant._id;
 }
 
-
-
 // 3. FIX: Send message endpoint to properly update conversation
 router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
   try {
@@ -5816,16 +5810,6 @@ router.post("/conversations/:id/messages", authenticateToken, upload.single("fil
       })
       .lean();
 
-    // Emit events
-    await redis.publish(
-      `inbox:conversation:${conversationId}`,
-      JSON.stringify({
-        type: "message:new",
-        creatorId: userId,
-        conversationId,
-        data: normalized,
-      })
-    );
 
     // Emit conversation update with full data
     const igUserId = updatedConv.participantId?.igUserId;

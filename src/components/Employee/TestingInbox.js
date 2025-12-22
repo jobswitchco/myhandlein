@@ -149,12 +149,21 @@ useEffect(() => {
     if (!["message:new", "conversation:updated"].includes(payload.type)) return;
 
     // Handle conversation updates
-    if (payload.type === "conversation:updated") {
+  if (payload.type === "conversation:updated") {
       if (payload.data) {
-        // Full conversation data received - update sidebar
+        // 🔥 FIX: Use the actual timestamp from lastMessage, not lastActivityAt
+        const actualTimestamp = payload.data.lastMessage?.timestamp || payload.data.lastActivityAt;
+        
         setConversations((prev) => {
           const filtered = prev.filter((c) => c._id !== payload.conversationId);
-          return [payload.data, ...filtered]; // Move to top with fresh data
+          
+          // Update the conversation with correct timestamp
+          const updatedConv = {
+            ...payload.data,
+            lastActivityAt: actualTimestamp // Ensure we use the message timestamp
+          };
+          
+          return [updatedConv, ...filtered]; // Move to top with fresh data
         });
       }
       
@@ -765,8 +774,6 @@ const uInitial = uname.charAt(0).toUpperCase();
                   <CircularProgress size={20} />
                 </Box>
               )}
-
-           // Replace your message rendering code with this:
 
 {messages.map((msg, index) => {
   // 🔥 FIX: Use stable, unique key
