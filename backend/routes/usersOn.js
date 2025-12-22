@@ -5359,9 +5359,7 @@ async function syncInstagramConversations(userId) {
       .select("+fbPageId +fbPageAccessToken +igUserId")
       .lean();
 
-    if (!user?.fbPageId || !user?.fbPageAccessToken || !user?.igUserId) {
-      return;
-    }
+    if (!user?.fbPageId || !user?.fbPageAccessToken || !user?.igUserId) return;
 
     const metaConversations = await InstagramService.fetchConversations({
       pageId: user.fbPageId,
@@ -5391,9 +5389,8 @@ async function syncInstagramConversations(userId) {
         { upsert: true, new: true }
       );
 
-      // ---- Fetch ONLY new messages from Meta ----
       const result = await InstagramService.fetchMessagesAfter({
-        igConversationId: metaThreadId, // ✅ MUST be metaThreadId
+        igConversationId: metaThreadId,
         accessToken: user.fbPageAccessToken,
         afterCursor: conversation.lastMetaCursor || null,
         limit: 20,
@@ -5404,15 +5401,15 @@ async function syncInstagramConversations(userId) {
       for (const msg of result.messages) {
         const normalized = await upsertMessage(msg, conversation, user);
 
-        // Only react if this message was newly inserted
         if (normalized) {
           latestInsertedMessage = normalized;
 
-          // 🔥 realtime: new message
+          // 🔥 FIX: include creatorId for socket room routing
           await redis.publish(
             `inbox:conversation:${conversation._id}`,
             JSON.stringify({
               type: "message:new",
+              creatorId: userId,
               conversationId: conversation._id,
               data: normalized,
             })
@@ -5420,7 +5417,7 @@ async function syncInstagramConversations(userId) {
         }
       }
 
-      // ---- Update conversation metadata ----
+      // ---- Update conversation snapshot ----
       if (latestInsertedMessage) {
         await Conversation.updateOne(
           { _id: conversation._id },
@@ -5437,11 +5434,12 @@ async function syncInstagramConversations(userId) {
           }
         );
 
-        // 🔔 notify sidebar refresh
+        // 🔥 FIX: sidebar refresh event WITH creatorId
         await redis.publish(
           `inbox:conversation:${conversation._id}`,
           JSON.stringify({
             type: "conversation:updated",
+            creatorId: userId,
             conversationId: conversation._id,
           })
         );
@@ -5490,7 +5488,7 @@ async function syncOlderMessages({ userId, conversationId }) {
     if (!conversation?.metaThreadId) return;
 
     const result = await InstagramService.fetchOlderMessages({
-      igConversationId: conversation.metaThreadId, // ✅ ALWAYS metaThreadId
+      igConversationId: conversation.metaThreadId,
       pageAccessToken: user.fbPageAccessToken,
       beforeCursor: conversation.lastMetaCursor || null,
       limit: 20,
@@ -5505,7 +5503,6 @@ async function syncOlderMessages({ userId, conversationId }) {
       if (normalized) insertedAny = true;
     }
 
-    // ---- Update cursor (older pagination uses BEFORE) ----
     const prevCursor = result.paging?.cursors?.before;
     if (prevCursor) {
       await Conversation.updateOne(
@@ -5514,12 +5511,13 @@ async function syncOlderMessages({ userId, conversationId }) {
       );
     }
 
-    // ---- Notify frontend to refetch DB messages ----
     if (insertedAny) {
+      // 🔥 FIX: include creatorId
       await redis.publish(
         `inbox:conversation:${conversationId}`,
         JSON.stringify({
           type: "conversation:updated",
+          creatorId: userId,
           conversationId,
         })
       );
@@ -5532,97 +5530,80 @@ async function syncOlderMessages({ userId, conversationId }) {
 }
 
 
+
 async function upsertMessage(metaMsg, conversation, user) {
   if (!metaMsg?.id) return null;
 
-  // ---- Idempotency check ----
   const exists = await Message.findOne(
     { igMessageId: metaMsg.id },
     { _id: 1 }
   ).lean();
-
   if (exists) return null;
 
-  // ---- Sender detection ----
   const isFromMe = metaMsg.from?.id === user.igUserId;
 
- const sender = isFromMe ? "me" : "them";
-const senderType = isFromMe ? "creator" : "participant";
+  const sender = isFromMe ? "me" : "them";
+  const senderType = isFromMe ? "creator" : "participant";
+  const senderTypeRef = isFromMe ? "users" : "participants";
+  const senderId = isFromMe ? user._id : conversation.participantId;
 
-const senderTypeRef = isFromMe ? "users" : "participants";
-const senderId = isFromMe ? user._id : conversation.participantId;
-
-  // ---- Message type detection ----
   let type = "text";
   let text = metaMsg.message || null;
   let mediaUrl = null;
   let mediaType = null;
   let action = null;
 
-  // Attachments (image / video / reel / story)
   const attachment = metaMsg.attachments?.data?.[0];
 
-  if (attachment) {
-    if (attachment.image_data?.url) {
-      type = "image";
-      mediaType = "image";
-      mediaUrl = attachment.image_data.url;
-    } else if (attachment.video_data?.url) {
-      type = "video";
-      mediaType = "video";
-      mediaUrl = attachment.video_data.url;
-    } else if (attachment.mime_type) {
-      type = "file";
-      mediaType = attachment.mime_type;
-    }
+  if (attachment?.image_data?.url) {
+    type = "image";
+    mediaType = "image";
+    mediaUrl = attachment.image_data.url;
+  } else if (attachment?.video_data?.url) {
+    type = "video";
+    mediaType = "video";
+    mediaUrl = attachment.video_data.url;
   }
 
-  // ---- System messages (shared reel, post, story) ----
-if (metaMsg.is_unsupported) {
-  return {
-    type: "system",
-    text: "Shared a reel",
-    action: {
+  // 🔥 FIX: system messages must persist
+  if (metaMsg.is_unsupported) {
+    type = "system";
+    text = "Shared a reel";
+    action = {
       label: "View on Instagram",
-      url: igConversationId
-        ? `https://www.instagram.com/direct/inbox/`
-        : null
-    },
-    media: null
-  };
-}
+      url: `https://www.instagram.com/direct/t/${conversation.metaThreadId}`,
+    };
+  }
 
-  // ---- Normalize timestamps ----
   const createdAtPlatform = metaMsg.created_time
     ? new Date(metaMsg.created_time)
     : new Date();
 
-  // ---- Final normalized document ----
-const normalizedMessage = {
-  conversationId: conversation._id,
-  platform: "instagram",
-  igMessageId: metaMsg.id,
+  const inserted = await Message.create({
+    conversationId: conversation._id,
+    platform: "instagram",
+    igMessageId: metaMsg.id,
+    sender,
+    senderType,
+    senderTypeRef,
+    senderId,
+    type,
+    text,
+    mediaUrl,
+    mediaType,
+    action,
+    createdAtPlatform,
+    isRead: sender === "me",
+    isDeleted: false,
+  });
 
-  sender,
-  senderType,
-  senderTypeRef,   // ✅ REQUIRED
-  senderId,        // ✅ REQUIRED
-
-  type,
-  text,
-  mediaUrl,
-  mediaType,
-  action,
-
-  createdAtPlatform,
-
-  isRead: sender === "me",
-  isDeleted: false,
-};
-
-
-  // ---- Insert ----
-  const inserted = await Message.create(normalizedMessage);
+  // 🔥 FIX: DB-level unread increment
+  if (sender === "them") {
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      { $inc: { unreadCount: 1 } }
+    );
+  }
 
   return {
     _id: inserted._id,
@@ -5636,6 +5617,7 @@ const normalizedMessage = {
     isRead: inserted.isRead,
   };
 }
+
 
 async function upsertParticipant(igUser) {
   if (!igUser?.id) {
