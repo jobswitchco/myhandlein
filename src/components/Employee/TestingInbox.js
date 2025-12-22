@@ -609,35 +609,51 @@ const uInitial = uname.charAt(0).toUpperCase();
                   px={2}
                   py={2}
                   borderBottom="1px solid #f1f1f1"
-          onClick={async () => {
+      onClick={async () => {
               const isSameConversation = selectedConversationId === conv._id;
 
-              // 1️⃣ Trigger Meta sync FIRST
-              await axios.post(
-                `${baseUrl}/conversations/${conv._id}/sync-latest`,
-                {},
-                { withCredentials: true }
-              );
+              try {
+                // Show loading
+                setSyncingConvId(conv._id);
 
-              // 2️⃣ If returning to same conversation, force refetch
-              if (isSameConversation) {
-                setRawMessages([]);
-                messageIdSetRef.current.clear();
-                setCursor(null);
-                setHasMore(true);
-                await fetchMessages(conv._id);
-              } else {
-                // 3️⃣ Switch conversation (triggers fetchMessages via useEffect)
-                setSelectedConversation(conv);
-                setSelectedConversationId(conv._id);
+                // 1️⃣ Trigger Meta sync and WAIT for completion
+                await axios.post(
+                  `${baseUrl}/conversations/${conv._id}/sync-latest`,
+                  {},
+                  { withCredentials: true }
+                );
+
+                // 2️⃣ If returning to same conversation, force refetch
+                if (isSameConversation) {
+                  setRawMessages([]);
+                  messageIdSetRef.current.clear();
+                  setCursor(null);
+                  setHasMore(true);
+                  await fetchMessages(conv._id);
+                } else {
+                  // 3️⃣ Switch conversation (triggers fetchMessages via useEffect)
+                  setSelectedConversation(conv);
+                  setSelectedConversationId(conv._id);
+                }
+
+                // 4️⃣ Refresh conversation list to update preview
+                const res = await axios.get(`${baseUrl}/conversations`, {
+                  withCredentials: true,
+                });
+                const freshConvos = res.data?.data || [];
+                setConversations(freshConvos);
+
+                // 5️⃣ Reset unread locally
+                setConversations((prev) =>
+                  prev.map((c) =>
+                    c._id === conv._id ? { ...c, unreadCount: 0 } : c
+                  )
+                );
+              } catch (err) {
+                console.error("Sync failed:", err);
+              } finally {
+                setSyncingConvId(null);
               }
-
-              // 4️⃣ Reset unread locally
-              setConversations((prev) =>
-                prev.map((c) =>
-                  c._id === conv._id ? { ...c, unreadCount: 0 } : c
-                )
-              );
             }}
 
 

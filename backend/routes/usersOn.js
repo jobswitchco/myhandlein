@@ -5352,15 +5352,14 @@ router.post("/conversations/:id/sync-latest", authenticateToken, async (req, res
     const userId = req.user.user_id;
     const conversationId = req.params.id;
 
-    console.log('userId : ', userId);
-    console.log('conversationId : ', conversationId);
-
-    process.nextTick(() => {
-      syncLatestConversation({ userId, conversationId })
-        .catch(console.error);
-    });
-
-    res.json({ success: true });
+    try {
+      // 🔥 Make it blocking - wait for sync to complete
+      await syncLatestConversation({ userId, conversationId });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Sync failed:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
   }
 );
 
