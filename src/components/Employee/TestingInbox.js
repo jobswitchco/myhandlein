@@ -139,66 +139,78 @@ const messages = useMemo(
 
 
 
+
+// ==================== FRONTEND FIX ====================
+
+// Replace the socket event handler in your InboxManagement component
+
 useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
     if (!["message:new", "conversation:updated"].includes(payload.type)) return;
 
-if (payload.type === "conversation:updated") {
-  // ONLY refetch messages if older-sync happened
-  if (payload.reason === "older-sync" &&
-      payload.conversationId === selectedConversationId) {
-    setRawMessages([]);
-    messageIdSetRef.current.clear();
-    fetchMessages(selectedConversationId);
-  }
-  return;
-}
-
-
-  if (payload.type !== "message:new") return;
-
-  const { conversationId, data } = payload;
-  if (!data?._id) return;
-
-
-    // 🔒 DEDUPE (THIS IS WHERE IT BELONGS)
-    if (messageIdSetRef.current.has(data._id)) return;
-    messageIdSetRef.current.add(data._id);
-
-    // ✅ Append ONLY if this conversation is open
-    if (conversationId === selectedConversationId) {
-      setRawMessages((prev) => [...prev, data]);
+    // 🔥 FIX 1: Handle conversation updates with full data
+    if (payload.type === "conversation:updated") {
+      if (payload.data) {
+        // Update the conversation in the list with fresh data
+        setConversations((prev) => {
+          const filtered = prev.filter((c) => c._id !== payload.conversationId);
+          return [payload.data, ...filtered]; // Move to top
+        });
+      }
+      
+      // Handle older-sync case
+      if (payload.reason === "older-sync" &&
+          payload.conversationId === selectedConversationId) {
+        setRawMessages([]);
+        messageIdSetRef.current.clear();
+        fetchMessages(selectedConversationId);
+      }
+      return;
     }
 
-    // ✅ Always update sidebar preview + unread
-  setConversations((prev) => {
-  const existing = prev.find((c) => c._id === conversationId);
-  if (!existing) return prev;
+    // 🔥 FIX 2: Handle new messages with proper deduplication
+    if (payload.type === "message:new") {
+      const { conversationId, data } = payload;
+      if (!data?._id) return;
 
-  const updated = {
-    ...existing,
-    lastMessage: {
-      text: data.text,
-      type: data.type,
-      sender: data.sender,
-      timestamp: data.createdAtPlatform,
-    },
-    lastActivityAt: data.createdAtPlatform,
-    unreadCount:
-      conversationId === selectedConversationId
-        ? 0
-        : (existing.unreadCount || 0) + 1,
-  };
+      // Dedupe: Check if message already exists
+      if (messageIdSetRef.current.has(data._id)) return;
+      messageIdSetRef.current.add(data._id);
 
-  // 🔥 MOVE TO TOP
-  return [
-    updated,
-    ...prev.filter((c) => c._id !== conversationId),
-  ];
-});
+      // Only append to chat if this conversation is open
+      if (conversationId === selectedConversationId) {
+        setRawMessages((prev) => [...prev, data]);
+      }
 
+      // Update sidebar preview + unread
+      setConversations((prev) => {
+        const existing = prev.find((c) => c._id === conversationId);
+        if (!existing) return prev;
+
+        const updated = {
+          ...existing,
+          lastMessage: {
+            text: data.text,
+            type: data.type,
+            sender: data.sender,
+            timestamp: data.createdAtPlatform,
+          },
+          lastActivityAt: data.createdAtPlatform,
+          unreadCount:
+            conversationId === selectedConversationId
+              ? 0
+              : (existing.unreadCount || 0) + (data.sender === "them" ? 1 : 0),
+        };
+
+        // Move to top
+        return [
+          updated,
+          ...prev.filter((c) => c._id !== conversationId),
+        ];
+      });
+    }
   };
 
   socket.on("inbox:event", handler);
@@ -372,82 +384,68 @@ const handleScroll = async (e) => {
 
 
   /* ---------- SEND MESSAGE ---------- */
-  const sendMessage = async () => {
-    if (sending || !selectedConversation) return;
-    if (!messageText.trim() && !selectedFile) return;
+const sendMessage = async () => {
+  if (sending || !selectedConversation) return;
+  if (!messageText.trim() && !selectedFile) return;
 
-    setSending(true);
+  setSending(true);
 
-    try {
-      // 🟦 MEDIA MESSAGE
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append(
-          "type",
-          selectedFile.type.startsWith("video") ? "video" : "image"
-        );
-        if (messageText.trim()) {
-          formData.append("text", messageText.trim());
-        }
+  try {
+    // Save current text before clearing
+    const textToSend = messageText.trim();
+    const fileToSend = selectedFile;
 
-        const res = await axios.post(
-          `${baseUrl}/conversations/${selectedConversation._id}/messages`,
-          formData,
-          {
-            withCredentials: true,
-            headers: { "Content-Type": "multipart/form-data" },
-          }
-        );
+    // Clear inputs immediately for better UX
+    setMessageText("");
+    handleRemoveFile();
 
-      if (res.data.success) {
-  const msg = res.data.data;
-
-  if (!messageIdSetRef.current.has(msg._id)) {
-    messageIdSetRef.current.add(msg._id);
-    setRawMessages((prev) => [...prev, msg]);
-  }
-}
-
-
-        handleRemoveFile(); // Clear file
-        setMessageText(""); // Clear text
-      } 
-      // 🟩 TEXT MESSAGE
-      else if (messageText.trim()) {
-        const textToSend = messageText.trim();
-        setMessageText(""); // Clear optimistic
-
-        const res = await axios.post(
-          `${baseUrl}/conversations/${selectedConversation._id}/messages`,
-          { text: textToSend, type: "text" },
-          { withCredentials: true }
-        );
-
-      if (res.data.success) {
-  const msg = res.data.data;
-
-  if (!messageIdSetRef.current.has(msg._id)) {
-    messageIdSetRef.current.add(msg._id);
-    setRawMessages((prev) => [...prev, msg]);
-  }
-}
-
+    // Send message
+    if (fileToSend) {
+      const formData = new FormData();
+      formData.append("file", fileToSend);
+      formData.append(
+        "type",
+        fileToSend.type.startsWith("video") ? "video" : "image"
+      );
+      if (textToSend) {
+        formData.append("text", textToSend);
       }
-    } catch (err) {
-      console.error("Send message failed", err);
-      alert("Failed to send message");
-    } finally {
-      setSending(false);
-      // Optional: Scroll to bottom after send
-      setTimeout(() => {
-        if(messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+
+      await axios.post(
+        `${baseUrl}/conversations/${selectedConversation._id}/messages`,
+        formData,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
         }
-      }, 100);
-      inputRef.current?.focus();
+      );
+    } else if (textToSend) {
+      await axios.post(
+        `${baseUrl}/conversations/${selectedConversation._id}/messages`,
+        { text: textToSend, type: "text" },
+        { withCredentials: true }
+      );
     }
-  };
+
+    // 🔥 DON'T add message here - let socket event handle it
+    // This prevents duplicates
+
+    // Scroll to bottom after send
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }, 100);
+  } catch (err) {
+    console.error("Send message failed", err);
+    alert("Failed to send message");
+    // Restore text on error
+    setMessageText(textToSend);
+  } finally {
+    setSending(false);
+    inputRef.current?.focus();
+  }
+};
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
