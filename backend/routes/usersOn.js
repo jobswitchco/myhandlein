@@ -5348,12 +5348,12 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
   }
 });
 
-router.post(
-  "/conversations/:id/sync-latest",
-  authenticateToken,
-  async (req, res) => {
+router.post("/conversations/:id/sync-latest", authenticateToken, async (req, res) => {
     const userId = req.user.user_id;
     const conversationId = req.params.id;
+
+    console.log('userId : ', userId);
+    console.log('conversationId : ', conversationId);
 
     process.nextTick(() => {
       syncLatestConversation({ userId, conversationId })
@@ -5376,58 +5376,65 @@ async function syncLatestConversation({ userId, conversationId }) {
     .select("+fbPageAccessToken +igUserId")
     .lean();
 
-  const result = await InstagramService.fetchMessagesAfter({
-    igConversationId: conversation.metaThreadId,
-    accessToken: user.fbPageAccessToken,
-    afterCursor: conversation.lastMetaCursor || null,
-    limit: 50,
-  });
+const result = await InstagramService.fetchMessagesAfter({
+  igConversationId: conversation.metaThreadId,
+  accessToken: user.fbPageAccessToken,
+  afterCursor: conversation.lastMetaCursor || null,
+  pageLimit: 50,
+  maxPages: 10, // ~500 msgs max per sync
+});
 
-  let latestMessage = null;
+console.log('result Messages : ', result.messages);
 
-  for (const msg of result.messages) {
-    const inserted = await upsertMessage(msg, conversation, user);
-    if (inserted) {
-      if (
-        !latestMessage ||
-        new Date(inserted.createdAtPlatform) >
-          new Date(latestMessage.createdAtPlatform)
-      ) {
-        latestMessage = inserted;
-      }
+
+let latestMessage = null;
+
+for (const msg of result.messages) {
+  const inserted = await upsertMessage(msg, conversation, user);
+
+  if (inserted) {
+    if (
+      !latestMessage ||
+      new Date(inserted.createdAtPlatform) >
+        new Date(latestMessage.createdAtPlatform)
+    ) {
+      latestMessage = inserted;
     }
   }
+}
 
-  // 🔥 CRITICAL: guard against backward overwrite
-  if (latestMessage) {
-    await Conversation.updateOne(
-      {
-        _id: conversation._id,
-        $or: [
-          { lastActivityAt: { $exists: false } },
-          { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
-        ],
-      },
-      {
-        $set: {
-          lastMessage: {
-            text: latestMessage.text,
-            type: latestMessage.type,
-            sender: latestMessage.sender,
-            timestamp: latestMessage.createdAtPlatform,
-          },
-          lastActivityAt: latestMessage.createdAtPlatform,
+// 🔥 Guard against backward overwrite
+if (latestMessage) {
+  await Conversation.updateOne(
+    {
+      _id: conversation._id,
+      $or: [
+        { lastActivityAt: { $exists: false } },
+        { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
+      ],
+    },
+    {
+      $set: {
+        lastMessage: {
+          text: latestMessage.text,
+          type: latestMessage.type,
+          sender: latestMessage.sender,
+          timestamp: latestMessage.createdAtPlatform,
         },
-      }
-    );
-  }
+        lastActivityAt: latestMessage.createdAtPlatform,
+      },
+    }
+  );
+}
 
-  if (result.paging?.cursors?.after) {
-    await Conversation.updateOne(
-      { _id: conversation._id },
-      { $set: { lastMetaCursor: result.paging.cursors.after } }
-    );
-  }
+// 🔥 Persist cursor ONLY after full pagination
+if (result.pagingCursor) {
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    { $set: { lastMetaCursor: result.pagingCursor } }
+  );
+}
+
 }
 
 
