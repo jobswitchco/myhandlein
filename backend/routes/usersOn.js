@@ -43,6 +43,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import redisBridge from "../../src/realtime/redisBridge.js";
 const { redisGet, redisSet } = redisBridge;
+import redis from "../../src/realtime/redis.js";
 
 import igProfileCache from "../../src/realtime/igProfileCache.js";
 const { warmIgProfile } = igProfileCache;
