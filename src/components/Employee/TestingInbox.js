@@ -142,21 +142,19 @@ const messages = useMemo(
 
 // ==================== FRONTEND FIX ====================
 
-// Replace the socket event handler in your InboxManagement component
-
 useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
     if (!["message:new", "conversation:updated"].includes(payload.type)) return;
 
-    // 🔥 FIX 1: Handle conversation updates with full data
+    // Handle conversation updates
     if (payload.type === "conversation:updated") {
       if (payload.data) {
-        // Update the conversation in the list with fresh data
+        // Full conversation data received - update sidebar
         setConversations((prev) => {
           const filtered = prev.filter((c) => c._id !== payload.conversationId);
-          return [payload.data, ...filtered]; // Move to top
+          return [payload.data, ...filtered]; // Move to top with fresh data
         });
       }
       
@@ -170,18 +168,36 @@ useEffect(() => {
       return;
     }
 
-    // 🔥 FIX 2: Handle new messages with proper deduplication
+    // Handle new messages
     if (payload.type === "message:new") {
       const { conversationId, data } = payload;
       if (!data?._id) return;
 
-      // Dedupe: Check if message already exists
-      if (messageIdSetRef.current.has(data._id)) return;
-      messageIdSetRef.current.add(data._id);
+      // 🔥 FIX: Strict deduplication using string comparison
+      const msgId = typeof data._id === 'object' ? data._id.toString() : String(data._id);
+      
+      if (messageIdSetRef.current.has(msgId)) {
+        console.log("Duplicate message blocked:", msgId);
+        return;
+      }
+      messageIdSetRef.current.add(msgId);
 
       // Only append to chat if this conversation is open
       if (conversationId === selectedConversationId) {
-        setRawMessages((prev) => [...prev, data]);
+        setRawMessages((prev) => {
+          // Extra safety: check if message already exists in array
+          const exists = prev.some(m => {
+            const existingId = typeof m._id === 'object' ? m._id.toString() : String(m._id);
+            return existingId === msgId;
+          });
+          
+          if (exists) {
+            console.log("Message already in array:", msgId);
+            return prev;
+          }
+          
+          return [...prev, data];
+        });
       }
 
       // Update sidebar preview + unread
@@ -218,16 +234,16 @@ useEffect(() => {
 }, [selectedConversationId]);
 
 
-useEffect(() => {
-  const i = setInterval(async () => {
-    const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
-      withCredentials: true,
-    });
-    setIsSyncing(res.data.syncing);
-  }, 10000);
+// useEffect(() => {
+//   const i = setInterval(async () => {
+//     const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
+//       withCredentials: true,
+//     });
+//     setIsSyncing(res.data.syncing);
+//   }, 10000);
 
-  return () => clearInterval(i);
-}, []);
+//   return () => clearInterval(i);
+// }, []);
 
 
 
@@ -291,53 +307,64 @@ useEffect(() => {
 
 
   /* ---------- FETCH MESSAGES ---------- */
-  const fetchMessages = useCallback(
-    async (conversationId, cursorParam = null) => {
-      try {
-        setLoadingMessages(true);
+const fetchMessages = useCallback(
+  async (conversationId, cursorParam = null) => {
+    try {
+      setLoadingMessages(true);
 
-        if (cursorParam && messagesContainerRef.current) {
-          prevScrollHeightRef.current =
-            messagesContainerRef.current.scrollHeight;
-        }
-
-        const res = await axios.get(
-          `${baseUrl}/conversations/${conversationId}/messages`,
-          {
-            withCredentials: true,
-            params: cursorParam ? { cursor: cursorParam, limit: 20 } : { limit: 20 },
-          }
-        );
-
-        const payload = res.data?.data;
-        if (!payload) return;
-
-        setRawMessages((prev) =>
-          cursorParam ? [...payload.messages, ...prev] : payload.messages
-        );
-
-        setCursor(payload.nextCursor);
-        setHasMore(payload.hasMore);
-      } catch (err) {
-        console.error("Message fetch failed", err);
-      } finally {
-        setLoadingMessages(false);
+      if (cursorParam && messagesContainerRef.current) {
+        prevScrollHeightRef.current =
+          messagesContainerRef.current.scrollHeight;
       }
-    },
-    []
-  );
+
+      const res = await axios.get(
+        `${baseUrl}/conversations/${conversationId}/messages`,
+        {
+          withCredentials: true,
+          params: cursorParam ? { cursor: cursorParam, limit: 20 } : { limit: 20 },
+        }
+      );
+
+      const payload = res.data?.data;
+      if (!payload) return;
+
+      // 🔥 FIX: Add fetched messages to dedupe set
+      const newMessages = payload.messages.filter(msg => {
+        const msgId = typeof msg._id === 'object' ? msg._id.toString() : String(msg._id);
+        
+        if (messageIdSetRef.current.has(msgId)) {
+          return false; // Skip duplicate
+        }
+        
+        messageIdSetRef.current.add(msgId);
+        return true;
+      });
+
+      setRawMessages((prev) =>
+        cursorParam ? [...newMessages, ...prev] : newMessages
+      );
+
+      setCursor(payload.nextCursor);
+      setHasMore(payload.hasMore);
+    } catch (err) {
+      console.error("Message fetch failed", err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  },
+  []
+);
 
   /* ---------- RESET ON CONVERSATION CHANGE ---------- */
-  useEffect(() => {
-    if (!selectedConversation?._id) return;
+useEffect(() => {
+  if (!selectedConversation?._id) return;
 
-    setRawMessages([]);
-    messageIdSetRef.current.clear(); // 🔥 reset dedupe
-    setCursor(null);
-    setHasMore(true);
-    fetchMessages(selectedConversation._id);
-  }, [selectedConversation?._id, fetchMessages]);
-
+  setRawMessages([]);
+  messageIdSetRef.current.clear(); // Clear dedupe set
+  setCursor(null);
+  setHasMore(true);
+  fetchMessages(selectedConversation._id);
+}, [selectedConversation?._id, fetchMessages]);
 
   /* ---------- SCROLL MANAGEMENT ---------- */
   useLayoutEffect(() => {
@@ -390,14 +417,13 @@ const sendMessage = async () => {
 
   setSending(true);
 
-      // Save current text before clearing
     const textToSend = messageText.trim();
     const fileToSend = selectedFile;
 
   try {
+  
 
-
-    // Clear inputs immediately for better UX
+    // Clear inputs immediately
     setMessageText("");
     handleRemoveFile();
 
@@ -429,10 +455,10 @@ const sendMessage = async () => {
       );
     }
 
-    // 🔥 DON'T add message here - let socket event handle it
-    // This prevents duplicates
+    // 🔥 DON'T add message here - socket will handle it
+    // This prevents duplicates completely
 
-    // Scroll to bottom after send
+    // Scroll to bottom
     setTimeout(() => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -441,8 +467,7 @@ const sendMessage = async () => {
   } catch (err) {
     console.error("Send message failed", err);
     alert("Failed to send message");
-    // Restore text on error
-    setMessageText(textToSend);
+    setMessageText(textToSend); // Restore on error
   } finally {
     setSending(false);
     inputRef.current?.focus();
@@ -741,120 +766,173 @@ const uInitial = uname.charAt(0).toUpperCase();
                 </Box>
               )}
 
-              {messages.map((msg, index) => {
-                const isMe = msg.sender === "me"; // ISSUE 1: Ensure backend returns 'me' correctly
-                
-                // Grouping Logic
-                const prevMsg = messages[index - 1];
-                const showAvatar = !isMe && (!prevMsg || prevMsg.sender !== msg.sender);
-                const showTimestamp = !prevMsg || (new Date(msg.createdAtPlatform) - new Date(prevMsg.createdAtPlatform) > 300000); // 5 mins
+           // Replace your message rendering code with this:
 
-                return (
-                  <Box key={msg._id} display="flex" flexDirection="column">
-                    {showTimestamp && (
-                      <Box display="flex" justifyContent="center" my={2}>
-                        <Typography variant="caption" sx={{ bgcolor: "#e0e7ff", color: "#4338ca", px: 1.5, py: 0.5, borderRadius: 4 }}>
-                          {new Date(msg.createdAtPlatform).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}
-                        </Typography>
-                      </Box>
-                    )}
+{messages.map((msg, index) => {
+  // 🔥 FIX: Use stable, unique key
+  const msgKey = typeof msg._id === 'object' 
+    ? msg._id.toString() 
+    : String(msg._id);
 
-                    <Box
-                      display="flex"
-                      justifyContent={isMe ? "flex-end" : "flex-start"}
-                      alignItems="flex-end"
-                      mb={showAvatar ? 1 : 0.2}
-                    >
-                      {/* Avatar for 'Them' */}
-                      {!isMe && (
-                          <Box width={32} mr={1}>
-                             {showAvatar && (
-                                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.8rem" }}>
-                                    {displayName[0]?.toUpperCase()}
-                                </Avatar>
-                             )}
-                          </Box>
-                      )}
+  const isMe = msg.sender === "me";
+  
+  // Grouping Logic
+  const prevMsg = messages[index - 1];
+  const showAvatar = !isMe && (!prevMsg || prevMsg.sender !== msg.sender);
+  const showTimestamp = !prevMsg || 
+    (new Date(msg.createdAtPlatform) - new Date(prevMsg.createdAtPlatform) > 300000);
 
-                      {/* Message Bubble */}
-                      <Box
-                        maxWidth="60%"
-                        sx={{
-                          bgcolor: isMe ? "#2563EB" : "#fff",
-                          color: isMe ? "#fff" : "#1e293b",
-                          borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                          p: 1.5,
-                          position: "relative",
-                          wordBreak: "break-word"
-                        }}
-                      >
-                         {/* ISSUE 5: Handle Attachment/Text Rendering */}
-                         
-                         {/* Image Render */}
-                       {msg.type === "image" && msg.mediaUrl && (
-                          <Box
-                            component="img"
-                            src={msg.mediaUrl}
-                            alt="attachment"
-                            sx={{ borderRadius: 2, maxWidth: "100%" }}
-                          />
-                        )}
+  return (
+    <Box key={msgKey} display="flex" flexDirection="column">
+      {showTimestamp && (
+        <Box display="flex" justifyContent="center" my={2}>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              bgcolor: "#e0e7ff", 
+              color: "#4338ca", 
+              px: 1.5, 
+              py: 0.5, 
+              borderRadius: 4 
+            }}
+          >
+            {new Date(msg.createdAtPlatform).toLocaleString([], { 
+              month: 'short', 
+              day: 'numeric', 
+              hour: '2-digit', 
+              minute: '2-digit'
+            })}
+          </Typography>
+        </Box>
+      )}
 
-                        {msg.type === "video" && msg.mediaUrl && (
-                          <video
-                            src={msg.mediaUrl}
-                            controls
-                            style={{ maxWidth: "100%", borderRadius: 8 }}
-                          />
-                        )}
+      <Box
+        display="flex"
+        justifyContent={isMe ? "flex-end" : "flex-start"}
+        alignItems="flex-end"
+        mb={showAvatar ? 1 : 0.2}
+      >
+        {!isMe && (
+          <Box width={32} mr={1}>
+            {showAvatar && (
+              <Avatar 
+                sx={{ 
+                  width: 32, 
+                  height: 32, 
+                  bgcolor: "primary.main", 
+                  fontSize: "0.8rem" 
+                }}
+              >
+                {displayName[0]?.toUpperCase()}
+              </Avatar>
+            )}
+          </Box>
+        )}
 
+        <Box
+          maxWidth="60%"
+          sx={{
+            bgcolor: isMe ? "#2563EB" : "#fff",
+            color: isMe ? "#fff" : "#1e293b",
+            borderRadius: isMe 
+              ? "18px 18px 4px 18px" 
+              : "18px 18px 18px 4px",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+            p: 1.5,
+            position: "relative",
+            wordBreak: "break-word"
+          }}
+        >
+          {msg.type === "image" && msg.mediaUrl && (
+            <Box
+              component="img"
+              src={msg.mediaUrl}
+              alt="attachment"
+              sx={{ borderRadius: 2, maxWidth: "100%" }}
+            />
+          )}
 
-                         {/* Text Render */}
-                         {msg.text ? (
-                            <Typography variant="body2" fontSize="0.95rem" lineHeight={1.5}>
-                                {msg.text}
-                            </Typography>
-                         ) : (
-                             // Only show placeholder if NO media and NO text
-                             (!msg.mediaUrl && !msg.text) && (
-                                 <Typography variant="body2" fontStyle="italic">Attachment unavailable</Typography>
-                             )
-                         )}
-                         {/* Action link for system messages (e.g. View on Instagram) */}
-                        {msg.action?.url && (
-                        <Typography
-                            variant="body2"
-                            sx={{
-                            mt: 0.5,
-                            color: isMe ? "#BFDBFE" : "#2563EB",
-                            fontSize: "0.85rem",
-                            cursor: "pointer",
-                            fontWeight: 500,
-                            "&:hover": { textDecoration: "underline" }
-                            }}
-                            onClick={() =>
-                            window.open(msg.action.url, "_blank", "noopener,noreferrer")
-                            }
-                        >
-                            {msg.action.label}
-                        </Typography>
-                        )}
+          {msg.type === "video" && msg.mediaUrl && (
+            <video
+              src={msg.mediaUrl}
+              controls
+              style={{ maxWidth: "100%", borderRadius: 8 }}
+            />
+          )}
 
+          {msg.text && (
+            <Typography 
+              variant="body2" 
+              fontSize="0.95rem" 
+              lineHeight={1.5}
+            >
+              {msg.text}
+            </Typography>
+          )}
 
-                         {/* Metadata (Time + Read Receipt) */}
-                         <Box display="flex" justifyContent="flex-end" alignItems="center" gap={0.5} mt={0.5}>
-                             <Typography variant="caption" fontSize="0.65rem" sx={{ opacity: 0.8 }}>
-                                {new Date(msg.createdAtPlatform).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}
-                             </Typography>
-                             {isMe && <DoneAll sx={{ fontSize: 14, color: msg.isRead ? "#93c5fd" : "#cbd5e1" }} />}
-                         </Box>
+          {!msg.text && !msg.mediaUrl && (
+            <Typography 
+              variant="body2" 
+              fontStyle="italic"
+            >
+              Attachment unavailable
+            </Typography>
+          )}
 
-                      </Box>
-                    </Box>
-                  </Box>
-                );
+          {msg.action?.url && (
+            <Typography
+              variant="body2"
+              sx={{
+                mt: 0.5,
+                color: isMe ? "#BFDBFE" : "#2563EB",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                fontWeight: 500,
+                "&:hover": { textDecoration: "underline" }
+              }}
+              onClick={() =>
+                window.open(
+                  msg.action.url, 
+                  "_blank", 
+                  "noopener,noreferrer"
+                )
+              }
+            >
+              {msg.action.label}
+            </Typography>
+          )}
+
+          <Box 
+            display="flex" 
+            justifyContent="flex-end" 
+            alignItems="center" 
+            gap={0.5} 
+            mt={0.5}
+          >
+            <Typography 
+              variant="caption" 
+              fontSize="0.65rem" 
+              sx={{ opacity: 0.8 }}
+            >
+              {new Date(msg.createdAtPlatform).toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute:'2-digit'
               })}
+            </Typography>
+            {isMe && (
+              <DoneAll 
+                sx={{ 
+                  fontSize: 14, 
+                  color: msg.isRead ? "#93c5fd" : "#cbd5e1" 
+                }} 
+              />
+            )}
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  );
+})}
             </Box>
 
             {/* INPUT AREA */}

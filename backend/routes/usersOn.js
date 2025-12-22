@@ -5350,104 +5350,9 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 
 
 
-async function syncOlderMessages({ userId, conversationId }) {
-  const lockKey = `ig:sync:older:${conversationId}`;
-  if (await redisGet(lockKey)) return;
 
-  await redisSet(lockKey, "1", 90);
+// ==================== COMPLETE BACKEND FIX ====================
 
-  try {
-    const user = await USER.findById(userId)
-      .select("+fbPageAccessToken")
-      .lean();
-
-    if (!user?.fbPageAccessToken) return;
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      creatorId: userId,
-    }).lean();
-
-    if (!conversation?.metaThreadId) return;
-
-    const result = await InstagramService.fetchOlderMessages({
-      igConversationId: conversation.metaThreadId,
-      pageAccessToken: user.fbPageAccessToken,
-      beforeCursor: conversation.lastMetaCursor || null,
-      limit: 20,
-    });
-
-    if (!result.messages.length) return;
-
-    let insertedAny = false;
-
-    for (const msg of result.messages) {
-      const normalized = await upsertMessage(msg, conversation, user);
-      if (normalized) insertedAny = true;
-    }
-
-    const prevCursor = result.paging?.cursors?.before;
-    if (prevCursor) {
-      await Conversation.updateOne(
-        { _id: conversationId },
-        { $set: { lastMetaCursor: prevCursor } }
-      );
-    }
-
-    if (insertedAny) {
-      // 🔥 FIX: include creatorId
-      await redis.publish(
-        `inbox:conversation:${conversationId}`,
-        JSON.stringify({
-          type: "conversation:updated",
-          creatorId: userId,
-          conversationId,
-        })
-      );
-    }
-  } catch (err) {
-    console.error("❌ syncOlderMessages failed", err);
-  } finally {
-    await redisDel(lockKey);
-  }
-}
-
-
-async function upsertParticipant(igUser) {
-  if (!igUser?.id) {
-    throw new Error("Invalid Instagram participant");
-  }
-
-  const update = {
-    platform: "instagram",
-    igUserId: igUser.id,
-    username: igUser.username || null,
-    updatedAt: new Date(),
-  };
-
-  const participant = await Participant.findOneAndUpdate(
-    {
-      platform: "instagram",
-      igUserId: igUser.id,
-    },
-    {
-      $set: update,
-      $setOnInsert: {
-        createdAt: new Date(),
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-    }
-  );
-
-  return participant._id;
-}
-
-// ==================== BACKEND FIXES ====================
-
-// 1. FIX: Update syncInstagramConversations to emit full conversation data
 async function syncInstagramConversations(userId) {
   const lockKey = `ig:sync:running:${userId}`;
   if (await redisGet(lockKey)) return;
@@ -5496,15 +5401,16 @@ async function syncInstagramConversations(userId) {
         limit: 20,
       });
 
-      let latestInsertedMessage = null;
+      // 🔥 FIX: Collect ALL inserted messages
+      const insertedMessages = [];
 
       for (const msg of result.messages) {
         const normalized = await upsertMessage(msg, conversation, user);
 
         if (normalized) {
-          latestInsertedMessage = normalized;
+          insertedMessages.push(normalized);
 
-          // 🔥 Emit message:new event
+          // Emit message:new event
           await redis.publish(
             `inbox:conversation:${conversation._id}`,
             JSON.stringify({
@@ -5517,19 +5423,29 @@ async function syncInstagramConversations(userId) {
         }
       }
 
-      // ---- Update conversation snapshot ----
-      if (latestInsertedMessage) {
+      // 🔥 FIX: Find the ACTUAL latest message by timestamp
+      let latestMessage = null;
+      if (insertedMessages.length > 0) {
+        latestMessage = insertedMessages.reduce((latest, current) => {
+          const latestTime = new Date(latest.createdAtPlatform).getTime();
+          const currentTime = new Date(current.createdAtPlatform).getTime();
+          return currentTime > latestTime ? current : latest;
+        });
+      }
+
+      // ---- Update conversation snapshot ONLY if we have new messages ----
+      if (latestMessage) {
         const updatedConv = await Conversation.findByIdAndUpdate(
           conversation._id,
           {
             $set: {
               lastMessage: {
-                text: latestInsertedMessage.text,
-                type: latestInsertedMessage.type,
-                sender: latestInsertedMessage.sender,
-                timestamp: latestInsertedMessage.createdAtPlatform,
+                text: latestMessage.text,
+                type: latestMessage.type,
+                sender: latestMessage.sender,
+                timestamp: latestMessage.createdAtPlatform,
               },
-              lastActivityAt: latestInsertedMessage.createdAtPlatform,
+              lastActivityAt: latestMessage.createdAtPlatform,
             },
           },
           { new: true }
@@ -5540,13 +5456,14 @@ async function syncInstagramConversations(userId) {
           })
           .lean();
 
-        // 🔥 FIX: Emit full conversation data for sidebar update
+        // Fetch profile data
         const igUserId = updatedConv.participantId?.igUserId;
         let profile = null;
         if (igUserId) {
           profile = await redisGet(`ig:user:${igUserId}`);
         }
 
+        // 🔥 Emit full conversation data for sidebar update
         await redis.publish(
           `inbox:conversation:${conversation._id}`,
           JSON.stringify({
@@ -5593,7 +5510,68 @@ async function syncInstagramConversations(userId) {
   }
 }
 
-// 2. FIX: Update upsertMessage to not update conversation
+async function syncOlderMessages({ userId, conversationId }) {
+  const lockKey = `ig:sync:older:${conversationId}`;
+  if (await redisGet(lockKey)) return;
+
+  await redisSet(lockKey, "1", 90);
+
+  try {
+    const user = await USER.findById(userId)
+      .select("+fbPageAccessToken")
+      .lean();
+
+    if (!user?.fbPageAccessToken) return;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      creatorId: userId,
+    }).lean();
+
+    if (!conversation?.metaThreadId) return;
+
+    const result = await InstagramService.fetchOlderMessages({
+      igConversationId: conversation.metaThreadId,
+      pageAccessToken: user.fbPageAccessToken,
+      beforeCursor: conversation.lastMetaCursor || null,
+      limit: 20,
+    });
+
+    if (!result.messages.length) return;
+
+    let insertedAny = false;
+
+    for (const msg of result.messages) {
+      const normalized = await upsertMessage(msg, conversation, user);
+      if (normalized) insertedAny = true;
+    }
+
+    const prevCursor = result.paging?.cursors?.before;
+    if (prevCursor) {
+      await Conversation.updateOne(
+        { _id: conversationId },
+        { $set: { lastMetaCursor: prevCursor } }
+      );
+    }
+
+    if (insertedAny) {
+      await redis.publish(
+        `inbox:conversation:${conversationId}`,
+        JSON.stringify({
+          type: "conversation:updated",
+          creatorId: userId,
+          conversationId,
+          reason: "older-sync"
+        })
+      );
+    }
+  } catch (err) {
+    console.error("❌ syncOlderMessages failed", err);
+  } finally {
+    await redisDel(lockKey);
+  }
+}
+
 async function upsertMessage(metaMsg, conversation, user) {
   if (!metaMsg?.id) return null;
 
@@ -5682,7 +5660,7 @@ async function upsertMessage(metaMsg, conversation, user) {
 
   // ---------- Return normalized message ----------
   return {
-    _id: inserted._id,
+    _id: inserted._id.toString(),
     sender,
     type,
     text,
@@ -5693,6 +5671,40 @@ async function upsertMessage(metaMsg, conversation, user) {
     isRead: inserted.isRead,
   };
 }
+
+async function upsertParticipant(igUser) {
+  if (!igUser?.id) {
+    throw new Error("Invalid Instagram participant");
+  }
+
+  const update = {
+    platform: "instagram",
+    igUserId: igUser.id,
+    username: igUser.username || null,
+    updatedAt: new Date(),
+  };
+
+  const participant = await Participant.findOneAndUpdate(
+    {
+      platform: "instagram",
+      igUserId: igUser.id,
+    },
+    {
+      $set: update,
+      $setOnInsert: {
+        createdAt: new Date(),
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+
+  return participant._id;
+}
+
+
 
 // 3. FIX: Send message endpoint to properly update conversation
 router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
