@@ -5430,60 +5430,29 @@ async function syncInstagramConversations(userId) {
       }
 
       // ---- Update conversation snapshot ONLY if we have new messages ----
-      if (latestMessage) {
-        const updatedConv = await Conversation.findByIdAndUpdate(
-          conversation._id,
-          {
-            $set: {
-              lastMessage: {
-                text: latestMessage.text,
-                type: latestMessage.type,
-                sender: latestMessage.sender,
-                timestamp: latestMessage.createdAtPlatform,
-              },
-              lastActivityAt: latestMessage.createdAtPlatform,
-            },
-          },
-          { new: true }
-        )
-          .populate({
-            path: "participantId",
-            select: "igUserId username"
-          })
-          .lean();
-
-        // Fetch profile data
-        const igUserId = updatedConv.participantId?.igUserId;
-        let profile = null;
-        if (igUserId) {
-          profile = await redisGet(`ig:user:${igUserId}`);
-        }
-
-        // 🔥 Emit full conversation data for sidebar update
-        await redis.publish(
-          `inbox:conversation:${conversation._id}`,
-          JSON.stringify({
-            type: "conversation:updated",
-            creatorId: userId,
-            conversationId: conversation._id,
-            data: {
-              _id: updatedConv._id,
-              igConversationId: updatedConv.igConversationId,
-              label: updatedConv.label,
-              unreadCount: updatedConv.unreadCount,
-              lastMessage: updatedConv.lastMessage,
-              lastActivityAt: updatedConv.lastActivityAt,
-              participant: {
-                igUserId,
-                username: updatedConv.participantId?.username || null,
-                name: profile?.name || null,
-                profilePic: profile?.profilePic || null,
-                restricted: profile?.restricted || false
-              }
-            }
-          })
-        );
+    if (latestMessage) {
+  await Conversation.updateOne(
+    {
+      _id: conversation._id,
+      $or: [
+        { lastActivityAt: { $exists: false } },
+        { lastActivityAt: { $lt: latestMessage.createdAtPlatform } }
+      ]
+    },
+    {
+      $set: {
+        lastMessage: {
+          text: latestMessage.text,
+          type: latestMessage.type,
+          sender: latestMessage.sender,
+          timestamp: latestMessage.createdAtPlatform
+        },
+        lastActivityAt: latestMessage.createdAtPlatform
       }
+    }
+  );
+}
+
 
       // ---- Persist Meta cursor ----
       const nextCursor = result.paging?.cursors?.after;

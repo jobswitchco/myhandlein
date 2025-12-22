@@ -149,24 +149,29 @@ useEffect(() => {
     if (!["message:new", "conversation:updated"].includes(payload.type)) return;
 
     // Handle conversation updates
-    if (payload.type === "conversation:updated") {
-      if (payload.data) {
-        // Full conversation data received - update sidebar
-        setConversations((prev) => {
-          const filtered = prev.filter((c) => c._id !== payload.conversationId);
-          return [payload.data, ...filtered]; // Move to top with fresh data
-        });
-      }
-      
-      // Handle older-sync case
-      if (payload.reason === "older-sync" &&
-          payload.conversationId === selectedConversationId) {
-        setRawMessages([]);
-        messageIdSetRef.current.clear();
-        fetchMessages(selectedConversationId);
-      }
-      return;
+ if (payload.type === "conversation:updated") {
+
+  // 🔥 FIX 1: Older sync should NEVER reorder sidebar
+  if (payload.reason === "older-sync") {
+    if (payload.conversationId === selectedConversationId) {
+      setRawMessages([]);
+      messageIdSetRef.current.clear();
+      fetchMessages(selectedConversationId);
     }
+    return; // ⛔ stop here
+  }
+
+  // 🔥 FIX 2: Only reorder when full data is provided
+  if (payload.data) {
+    setConversations(prev => {
+      const filtered = prev.filter(c => c._id !== payload.conversationId);
+      return [payload.data, ...filtered];
+    });
+  }
+
+  return;
+}
+
 
     // Handle new messages
     if (payload.type === "message:new") {
@@ -234,16 +239,16 @@ useEffect(() => {
 }, [selectedConversationId]);
 
 
-// useEffect(() => {
-//   const i = setInterval(async () => {
-//     const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
-//       withCredentials: true,
-//     });
-//     setIsSyncing(res.data.syncing);
-//   }, 10000);
+useEffect(() => {
+  const i = setInterval(async () => {
+    const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
+      withCredentials: true,
+    });
+    setIsSyncing(res.data.syncing);
+  }, 10000);
 
-//   return () => clearInterval(i);
-// }, []);
+  return () => clearInterval(i);
+}, []);
 
 
 
