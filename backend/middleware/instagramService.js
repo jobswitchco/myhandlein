@@ -82,50 +82,29 @@ async fetchOlderMessages({
   return res.data?.data || [];
 }
 
-async fetchMessagesAfter({
+async fetchLatestMessages({
   igConversationId,
   accessToken,
-  afterCursor = null,
-  pageLimit = 50,     // Meta max
-  maxPages = 10       // safety guard
+  limit = 50
 }) {
-  let allMessages = [];
-  let cursor = afterCursor;
-  let pagesFetched = 0;
-
-  while (pagesFetched < maxPages) {
-    const params = {
-      access_token: accessToken,
-      limit: pageLimit,
-      fields:
-        "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
-    };
-
-    if (cursor) params.after = cursor;
-
-    const res = await axios.get(
-      `${GRAPH_API_BASE}/${igConversationId}/messages`,
-      { params }
-    );
-
-    const messages = res.data?.data || [];
-    const paging = res.data?.paging || {};
-
-    if (messages.length === 0) break;
-
-    allMessages.push(...messages);
-
-    cursor = paging?.cursors?.after;
-    pagesFetched++;
-
-    if (!cursor) break;
-  }
+  const res = await axios.get(
+    `${GRAPH_API_BASE}/${igConversationId}/messages`,
+    {
+      params: {
+        access_token: accessToken,
+        limit,
+        fields:
+          "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
+      }
+    }
+  );
 
   return {
-    messages: allMessages,
-    pagingCursor: cursor || afterCursor,
+    messages: res.data?.data || [],
+    paging: res.data?.paging || {}
   };
 }
+
 
 
 

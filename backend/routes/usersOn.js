@@ -5376,32 +5376,40 @@ async function syncLatestConversation({ userId, conversationId }) {
     .select("+fbPageAccessToken +igUserId")
     .lean();
 
-const result = await InstagramService.fetchMessagesAfter({
+// const result = await InstagramService.fetchMessagesAfter({
+//   igConversationId: conversation.metaThreadId,
+//   accessToken: user.fbPageAccessToken,
+//   afterCursor: conversation.lastMetaCursor || null,
+//   pageLimit: 50,
+//   maxPages: 10, // ~500 msgs max per sync
+// });
+
+const latestPage = await InstagramService.fetchLatestMessages({
   igConversationId: conversation.metaThreadId,
   accessToken: user.fbPageAccessToken,
-  afterCursor: conversation.lastMetaCursor || null,
-  pageLimit: 50,
-  maxPages: 10, // ~500 msgs max per sync
+  limit: 50,
 });
 
-console.log('result Messages : ', result.messages);
+
+console.log('latestPage Messages : ', latestPage.messages);
 
 
 let latestMessage = null;
 
-for (const msg of result.messages) {
-  const inserted = await upsertMessage(msg, conversation, user);
+for (const msg of latestPage.messages) {
+  const createdAt = new Date(msg.created_time);
 
-  if (inserted) {
-    if (
-      !latestMessage ||
-      new Date(inserted.createdAtPlatform) >
-        new Date(latestMessage.createdAtPlatform)
-    ) {
+  if (
+    !conversation.lastActivityAt ||
+    createdAt > new Date(conversation.lastActivityAt)
+  ) {
+    const inserted = await upsertMessage(msg, conversation, user);
+    if (inserted) {
       latestMessage = inserted;
     }
   }
 }
+
 
 // 🔥 Guard against backward overwrite
 if (latestMessage) {
@@ -5428,10 +5436,10 @@ if (latestMessage) {
 }
 
 // 🔥 Persist cursor ONLY after full pagination
-if (result.pagingCursor) {
+if (latestPage.pagingCursor) {
   await Conversation.updateOne(
     { _id: conversation._id },
-    { $set: { lastMetaCursor: result.pagingCursor } }
+    { $set: { lastMetaCursor: latestPage.pagingCursor } }
   );
 }
 
