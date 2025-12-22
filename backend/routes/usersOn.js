@@ -5631,6 +5631,39 @@ async function upsertMessage(metaMsg, conversation, user) {
   };
 }
 
+async function upsertParticipant(igUser) {
+  if (!igUser?.id) {
+    throw new Error("Invalid Instagram participant");
+  }
+
+  const update = {
+    platform: "instagram",
+    igUserId: igUser.id,
+    username: igUser.username || null,
+    updatedAt: new Date(),
+  };
+
+  const participant = await Participant.findOneAndUpdate(
+    {
+      platform: "instagram",
+      igUserId: igUser.id,
+    },
+    {
+      $set: update,
+      $setOnInsert: {
+        createdAt: new Date(),
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+
+  return participant._id;
+}
+
+
 
 
 
