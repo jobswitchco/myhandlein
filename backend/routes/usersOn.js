@@ -5810,6 +5810,16 @@ router.post("/conversations/:id/messages", authenticateToken, upload.single("fil
       })
       .lean();
 
+    // Emit events
+    await redis.publish(
+      `inbox:conversation:${conversationId}`,
+      JSON.stringify({
+        type: "message:new",
+        creatorId: userId,
+        conversationId,
+        data: normalized,
+      })
+    );
 
     // Emit conversation update with full data
     const igUserId = updatedConv.participantId?.igUserId;

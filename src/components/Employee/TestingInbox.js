@@ -149,21 +149,12 @@ useEffect(() => {
     if (!["message:new", "conversation:updated"].includes(payload.type)) return;
 
     // Handle conversation updates
-  if (payload.type === "conversation:updated") {
+    if (payload.type === "conversation:updated") {
       if (payload.data) {
-        // 🔥 FIX: Use the actual timestamp from lastMessage, not lastActivityAt
-        const actualTimestamp = payload.data.lastMessage?.timestamp || payload.data.lastActivityAt;
-        
+        // Full conversation data received - update sidebar
         setConversations((prev) => {
           const filtered = prev.filter((c) => c._id !== payload.conversationId);
-          
-          // Update the conversation with correct timestamp
-          const updatedConv = {
-            ...payload.data,
-            lastActivityAt: actualTimestamp // Ensure we use the message timestamp
-          };
-          
-          return [updatedConv, ...filtered]; // Move to top with fresh data
+          return [payload.data, ...filtered]; // Move to top with fresh data
         });
       }
       
@@ -775,171 +766,120 @@ const uInitial = uname.charAt(0).toUpperCase();
                 </Box>
               )}
 
-{messages.map((msg, index) => {
-  // 🔥 FIX: Use stable, unique key
-  const msgKey = typeof msg._id === 'object' 
-    ? msg._id.toString() 
-    : String(msg._id);
+              {messages.map((msg, index) => {
+                const isMe = msg.sender === "me"; // ISSUE 1: Ensure backend returns 'me' correctly
+                
+                // Grouping Logic
+                const prevMsg = messages[index - 1];
+                const showAvatar = !isMe && (!prevMsg || prevMsg.sender !== msg.sender);
+                const showTimestamp = !prevMsg || (new Date(msg.createdAtPlatform) - new Date(prevMsg.createdAtPlatform) > 300000); // 5 mins
 
-  const isMe = msg.sender === "me";
-  
-  // Grouping Logic
-  const prevMsg = messages[index - 1];
-  const showAvatar = !isMe && (!prevMsg || prevMsg.sender !== msg.sender);
-  const showTimestamp = !prevMsg || 
-    (new Date(msg.createdAtPlatform) - new Date(prevMsg.createdAtPlatform) > 300000);
+                return (
+                  <Box key={msg._id} display="flex" flexDirection="column">
+                    {showTimestamp && (
+                      <Box display="flex" justifyContent="center" my={2}>
+                        <Typography variant="caption" sx={{ bgcolor: "#e0e7ff", color: "#4338ca", px: 1.5, py: 0.5, borderRadius: 4 }}>
+                          {new Date(msg.createdAtPlatform).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}
+                        </Typography>
+                      </Box>
+                    )}
 
-  return (
-    <Box key={msgKey} display="flex" flexDirection="column">
-      {showTimestamp && (
-        <Box display="flex" justifyContent="center" my={2}>
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              bgcolor: "#e0e7ff", 
-              color: "#4338ca", 
-              px: 1.5, 
-              py: 0.5, 
-              borderRadius: 4 
-            }}
-          >
-            {new Date(msg.createdAtPlatform).toLocaleString([], { 
-              month: 'short', 
-              day: 'numeric', 
-              hour: '2-digit', 
-              minute: '2-digit'
-            })}
-          </Typography>
-        </Box>
-      )}
+                    <Box
+                      display="flex"
+                      justifyContent={isMe ? "flex-end" : "flex-start"}
+                      alignItems="flex-end"
+                      mb={showAvatar ? 1 : 0.2}
+                    >
+                      {/* Avatar for 'Them' */}
+                      {!isMe && (
+                          <Box width={32} mr={1}>
+                             {showAvatar && (
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.8rem" }}>
+                                    {displayName[0]?.toUpperCase()}
+                                </Avatar>
+                             )}
+                          </Box>
+                      )}
 
-      <Box
-        display="flex"
-        justifyContent={isMe ? "flex-end" : "flex-start"}
-        alignItems="flex-end"
-        mb={showAvatar ? 1 : 0.2}
-      >
-        {!isMe && (
-          <Box width={32} mr={1}>
-            {showAvatar && (
-              <Avatar 
-                sx={{ 
-                  width: 32, 
-                  height: 32, 
-                  bgcolor: "primary.main", 
-                  fontSize: "0.8rem" 
-                }}
-              >
-                {displayName[0]?.toUpperCase()}
-              </Avatar>
-            )}
-          </Box>
-        )}
+                      {/* Message Bubble */}
+                      <Box
+                        maxWidth="60%"
+                        sx={{
+                          bgcolor: isMe ? "#2563EB" : "#fff",
+                          color: isMe ? "#fff" : "#1e293b",
+                          borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                          p: 1.5,
+                          position: "relative",
+                          wordBreak: "break-word"
+                        }}
+                      >
+                         {/* ISSUE 5: Handle Attachment/Text Rendering */}
+                         
+                         {/* Image Render */}
+                       {msg.type === "image" && msg.mediaUrl && (
+                          <Box
+                            component="img"
+                            src={msg.mediaUrl}
+                            alt="attachment"
+                            sx={{ borderRadius: 2, maxWidth: "100%" }}
+                          />
+                        )}
 
-        <Box
-          maxWidth="60%"
-          sx={{
-            bgcolor: isMe ? "#2563EB" : "#fff",
-            color: isMe ? "#fff" : "#1e293b",
-            borderRadius: isMe 
-              ? "18px 18px 4px 18px" 
-              : "18px 18px 18px 4px",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-            p: 1.5,
-            position: "relative",
-            wordBreak: "break-word"
-          }}
-        >
-          {msg.type === "image" && msg.mediaUrl && (
-            <Box
-              component="img"
-              src={msg.mediaUrl}
-              alt="attachment"
-              sx={{ borderRadius: 2, maxWidth: "100%" }}
-            />
-          )}
+                        {msg.type === "video" && msg.mediaUrl && (
+                          <video
+                            src={msg.mediaUrl}
+                            controls
+                            style={{ maxWidth: "100%", borderRadius: 8 }}
+                          />
+                        )}
 
-          {msg.type === "video" && msg.mediaUrl && (
-            <video
-              src={msg.mediaUrl}
-              controls
-              style={{ maxWidth: "100%", borderRadius: 8 }}
-            />
-          )}
 
-          {msg.text && (
-            <Typography 
-              variant="body2" 
-              fontSize="0.95rem" 
-              lineHeight={1.5}
-            >
-              {msg.text}
-            </Typography>
-          )}
+                         {/* Text Render */}
+                         {msg.text ? (
+                            <Typography variant="body2" fontSize="0.95rem" lineHeight={1.5}>
+                                {msg.text}
+                            </Typography>
+                         ) : (
+                             // Only show placeholder if NO media and NO text
+                             (!msg.mediaUrl && !msg.text) && (
+                                 <Typography variant="body2" fontStyle="italic">Attachment unavailable</Typography>
+                             )
+                         )}
+                         {/* Action link for system messages (e.g. View on Instagram) */}
+                        {msg.action?.url && (
+                        <Typography
+                            variant="body2"
+                            sx={{
+                            mt: 0.5,
+                            color: isMe ? "#BFDBFE" : "#2563EB",
+                            fontSize: "0.85rem",
+                            cursor: "pointer",
+                            fontWeight: 500,
+                            "&:hover": { textDecoration: "underline" }
+                            }}
+                            onClick={() =>
+                            window.open(msg.action.url, "_blank", "noopener,noreferrer")
+                            }
+                        >
+                            {msg.action.label}
+                        </Typography>
+                        )}
 
-          {!msg.text && !msg.mediaUrl && (
-            <Typography 
-              variant="body2" 
-              fontStyle="italic"
-            >
-              Attachment unavailable
-            </Typography>
-          )}
 
-          {msg.action?.url && (
-            <Typography
-              variant="body2"
-              sx={{
-                mt: 0.5,
-                color: isMe ? "#BFDBFE" : "#2563EB",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                fontWeight: 500,
-                "&:hover": { textDecoration: "underline" }
-              }}
-              onClick={() =>
-                window.open(
-                  msg.action.url, 
-                  "_blank", 
-                  "noopener,noreferrer"
-                )
-              }
-            >
-              {msg.action.label}
-            </Typography>
-          )}
+                         {/* Metadata (Time + Read Receipt) */}
+                         <Box display="flex" justifyContent="flex-end" alignItems="center" gap={0.5} mt={0.5}>
+                             <Typography variant="caption" fontSize="0.65rem" sx={{ opacity: 0.8 }}>
+                                {new Date(msg.createdAtPlatform).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'})}
+                             </Typography>
+                             {isMe && <DoneAll sx={{ fontSize: 14, color: msg.isRead ? "#93c5fd" : "#cbd5e1" }} />}
+                         </Box>
 
-          <Box 
-            display="flex" 
-            justifyContent="flex-end" 
-            alignItems="center" 
-            gap={0.5} 
-            mt={0.5}
-          >
-            <Typography 
-              variant="caption" 
-              fontSize="0.65rem" 
-              sx={{ opacity: 0.8 }}
-            >
-              {new Date(msg.createdAtPlatform).toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute:'2-digit'
+                      </Box>
+                    </Box>
+                  </Box>
+                );
               })}
-            </Typography>
-            {isMe && (
-              <DoneAll 
-                sx={{ 
-                  fontSize: 14, 
-                  color: msg.isRead ? "#93c5fd" : "#cbd5e1" 
-                }} 
-              />
-            )}
-          </Box>
-        </Box>
-      </Box>
-    </Box>
-  );
-})}
             </Box>
 
             {/* INPUT AREA */}
