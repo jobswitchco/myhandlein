@@ -5363,6 +5363,89 @@ router.post("/conversations/:id/sync-latest", authenticateToken, async (req, res
   }
 );
 
+// async function syncLatestConversation({ userId, conversationId }) {
+//   const conversation = await Conversation.findOne({
+//     _id: conversationId,
+//     creatorId: userId,
+//   }).lean();
+
+//   if (!conversation?.metaThreadId) return;
+
+//   const user = await USER.findById(userId)
+//     .select("+fbPageAccessToken +igUserId")
+//     .lean();
+
+//   if (!user?.fbPageAccessToken || !user?.igUserId) return;
+
+//   const latestPage = await InstagramService.fetchLatestMessages({
+//     igConversationId: conversation.metaThreadId,
+//     accessToken: user.fbPageAccessToken,
+//     limit: 50, // Meta max
+//   });
+
+//   if (!latestPage.messages.length) return;
+
+//   let latestInsertedMessage = null;
+
+//   for (const msg of latestPage.messages) {
+//     const createdAt = msg.created_time
+//       ? new Date(msg.created_time)
+//       : new Date();
+
+
+//     if (
+//       conversation.lastActivityAt &&
+//       createdAt <= new Date(conversation.lastActivityAt)
+//     ) {
+//       continue;
+//     }
+
+//     const inserted = await upsertMessage(msg, conversation, user);
+
+//     if (inserted) {
+//       if (
+//         !latestInsertedMessage ||
+//         new Date(inserted.createdAtPlatform) >
+//           new Date(latestInsertedMessage.createdAtPlatform)
+//       ) {
+//         latestInsertedMessage = inserted;
+//       }
+//     }
+//   }
+
+//   /**
+//    * 🔥 Update conversation snapshot ONLY if we truly inserted newer data
+//    */
+//   if (latestInsertedMessage) {
+//     await Conversation.updateOne(
+//       {
+//         _id: conversation._id,
+//         $or: [
+//           { lastActivityAt: { $exists: false } },
+//           { lastActivityAt: { $lt: latestInsertedMessage.createdAtPlatform } },
+//         ],
+//       },
+//       {
+//         $set: {
+//           lastMessage: {
+//             text: latestInsertedMessage.text,
+//             type: latestInsertedMessage.type,
+//             sender: latestInsertedMessage.sender,
+//             timestamp: latestInsertedMessage.createdAtPlatform,
+//           },
+//           lastActivityAt: latestInsertedMessage.createdAtPlatform,
+//         },
+//       }
+//     );
+//   }
+
+//   /**
+//    * ❌ DO NOT UPDATE lastMetaCursor here
+//    * Cursor is ONLY for background / older sync
+//    */
+// }
+
+
 async function syncLatestConversation({ userId, conversationId }) {
   const conversation = await Conversation.findOne({
     _id: conversationId,
@@ -5378,9 +5461,7 @@ async function syncLatestConversation({ userId, conversationId }) {
   if (!user?.fbPageAccessToken || !user?.igUserId) return;
 
   /**
-   * 🔥 CRITICAL RULE:
-   * Latest sync MUST ALWAYS fetch from HEAD
-   * NO afterCursor
+   * 🔥 Fetch latest messages (Meta returns newest first)
    */
   const latestPage = await InstagramService.fetchLatestMessages({
     igConversationId: conversation.metaThreadId,
@@ -5391,26 +5472,32 @@ async function syncLatestConversation({ userId, conversationId }) {
   if (!latestPage.messages.length) return;
 
   let latestInsertedMessage = null;
+  let hasNewMessages = false;
 
+  // 🔥 Process messages (they come newest-first from Meta)
   for (const msg of latestPage.messages) {
     const createdAt = msg.created_time
       ? new Date(msg.created_time)
       : new Date();
 
     /**
-     * 🔥 HARD GUARD:
-     * Ignore anything older than what DB already knows
+     * 🔥 UPDATED LOGIC:
+     * Only process messages NEWER than what we have
+     * Since messages come newest-first, once we hit an old one, we can break
      */
     if (
       conversation.lastActivityAt &&
       createdAt <= new Date(conversation.lastActivityAt)
     ) {
-      continue;
+      break; // Stop processing - rest are older
     }
 
     const inserted = await upsertMessage(msg, conversation, user);
 
     if (inserted) {
+      hasNewMessages = true;
+      
+      // Track the latest (most recent) inserted message
       if (
         !latestInsertedMessage ||
         new Date(inserted.createdAtPlatform) >
@@ -5422,9 +5509,9 @@ async function syncLatestConversation({ userId, conversationId }) {
   }
 
   /**
-   * 🔥 Update conversation snapshot ONLY if we truly inserted newer data
+   * 🔥 Update conversation ONLY if we inserted new messages
    */
-  if (latestInsertedMessage) {
+  if (latestInsertedMessage && hasNewMessages) {
     await Conversation.updateOne(
       {
         _id: conversation._id,
@@ -5447,13 +5534,9 @@ async function syncLatestConversation({ userId, conversationId }) {
     );
   }
 
-  /**
-   * ❌ DO NOT UPDATE lastMetaCursor here
-   * Cursor is ONLY for background / older sync
-   */
+  // Return whether we found new messages (optional, for debugging)
+  return { hasNewMessages, count: latestPage.messages.length };
 }
-
-
 async function syncInstagramConversations(userId) {
   const lockKey = `ig:sync:running:${userId}`;
   if (await redisGet(lockKey)) return;
