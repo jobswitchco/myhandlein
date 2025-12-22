@@ -5578,7 +5578,7 @@ const senderId = isFromMe ? user._id : conversation.participantId;
   }
 
   // ---- System messages (shared reel, post, story) ----
-if (msg.is_unsupported) {
+if (metaMsg.is_unsupported) {
   return {
     type: "system",
     text: "Shared a reel",
