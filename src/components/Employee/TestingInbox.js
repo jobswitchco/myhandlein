@@ -239,16 +239,16 @@ useEffect(() => {
 }, [selectedConversationId]);
 
 
-useEffect(() => {
-  const i = setInterval(async () => {
-    const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
-      withCredentials: true,
-    });
-    setIsSyncing(res.data.syncing);
-  }, 10000);
+// useEffect(() => {
+//   const i = setInterval(async () => {
+//     const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
+//       withCredentials: true,
+//     });
+//     setIsSyncing(res.data.syncing);
+//   }, 10000);
 
-  return () => clearInterval(i);
-}, []);
+//   return () => clearInterval(i);
+// }, []);
 
 
 
@@ -609,7 +609,7 @@ const uInitial = uname.charAt(0).toUpperCase();
                   px={2}
                   py={2}
                   borderBottom="1px solid #f1f1f1"
-                onClick={() => {
+                onClick={async () => {
                 setSelectedConversation(conv);
                 setSelectedConversationId(conv._id);
 
@@ -618,6 +618,12 @@ const uInitial = uname.charAt(0).toUpperCase();
                   prev.map((c) =>
                     c._id === conv._id ? { ...c, unreadCount: 0 } : c
                   )
+                );
+
+                 await axios.post(
+                  `${baseUrl}/conversations/${conv._id}/sync-latest`,
+                  {},
+                  { withCredentials: true }
                 );
               }}
 

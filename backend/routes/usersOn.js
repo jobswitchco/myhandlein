@@ -5348,6 +5348,89 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
   }
 });
 
+router.post(
+  "/conversations/:id/sync-latest",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.user_id;
+    const conversationId = req.params.id;
+
+    process.nextTick(() => {
+      syncLatestConversation({ userId, conversationId })
+        .catch(console.error);
+    });
+
+    res.json({ success: true });
+  }
+);
+
+async function syncLatestConversation({ userId, conversationId }) {
+  const conversation = await Conversation.findOne({
+    _id: conversationId,
+    creatorId: userId,
+  });
+
+  if (!conversation?.metaThreadId) return;
+
+  const user = await USER.findById(userId)
+    .select("+fbPageAccessToken +igUserId")
+    .lean();
+
+  const result = await InstagramService.fetchMessagesAfter({
+    igConversationId: conversation.metaThreadId,
+    accessToken: user.fbPageAccessToken,
+    afterCursor: conversation.lastMetaCursor || null,
+    limit: 50,
+  });
+
+  let latestMessage = null;
+
+  for (const msg of result.messages) {
+    const inserted = await upsertMessage(msg, conversation, user);
+    if (inserted) {
+      if (
+        !latestMessage ||
+        new Date(inserted.createdAtPlatform) >
+          new Date(latestMessage.createdAtPlatform)
+      ) {
+        latestMessage = inserted;
+      }
+    }
+  }
+
+  // 🔥 CRITICAL: guard against backward overwrite
+  if (latestMessage) {
+    await Conversation.updateOne(
+      {
+        _id: conversation._id,
+        $or: [
+          { lastActivityAt: { $exists: false } },
+          { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
+        ],
+      },
+      {
+        $set: {
+          lastMessage: {
+            text: latestMessage.text,
+            type: latestMessage.type,
+            sender: latestMessage.sender,
+            timestamp: latestMessage.createdAtPlatform,
+          },
+          lastActivityAt: latestMessage.createdAtPlatform,
+        },
+      }
+    );
+  }
+
+  if (result.paging?.cursors?.after) {
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      { $set: { lastMetaCursor: result.paging.cursors.after } }
+    );
+  }
+}
+
+
 
 async function syncInstagramConversations(userId) {
   const lockKey = `ig:sync:running:${userId}`;
