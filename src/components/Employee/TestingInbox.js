@@ -459,11 +459,18 @@ const handleScroll = async (e) => {
   /* ---------- FILTER CONVERSATIONS ---------- */
 const sortedConversations = useMemo(() => {
   return [...conversations].sort((a, b) => {
-    const ta = new Date(a.lastActivityAt || a.lastMessage?.timestamp || 0);
-    const tb = new Date(b.lastActivityAt || b.lastMessage?.timestamp || 0);
-    return tb - ta; // newest first
+    const ta = a.lastActivityAt
+      ? new Date(a.lastActivityAt).getTime()
+      : 0;
+
+    const tb = b.lastActivityAt
+      ? new Date(b.lastActivityAt).getTime()
+      : 0;
+
+    return tb - ta;
   });
 }, [conversations]);
+
 
 const filteredConversations = sortedConversations
   .filter((c) => activeLabel === "All" || c.label === activeLabel)
@@ -487,6 +494,19 @@ const displayName =
   "Instagram User";
 
   const showUsername = selectedConversation?.participant?.username || "Instagram User";
+
+
+  const formatPreviewTime = (date) => {
+  const d = new Date(date);
+  const now = new Date();
+
+  const isToday =
+    d.toDateString() === now.toDateString();
+
+  return isToday
+    ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString([], { day: "2-digit", month: "short" });
+};
 
 
   /* ========================================================= */
@@ -593,11 +613,7 @@ const uInitial = uname.charAt(0).toUpperCase();
                     </Box>
                     <Box display="flex" flexDirection="column" alignItems="flex-end">
                        <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
-                        {conv.lastMessage?.timestamp &&
-                            new Date(conv.lastMessage.timestamp).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                       {conv.lastMessage?.timestamp && formatPreviewTime(conv.lastMessage.timestamp)}
                         </Typography>
                         {conv.unreadCount > 0 && (
                           <Badge color="primary" badgeContent={conv.unreadCount} sx={{ mt: 1, mr: 1}} />

@@ -5338,7 +5338,7 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
       success: true,
       data: {
         messages: ordered,
-        nextCursor: ordered[0]?.createdAtPlatform || null,
+        nextCursor: ordered[ordered.length - 1]?.createdAtPlatform || null,
         hasMore
       }
     });
@@ -5534,12 +5534,14 @@ async function syncOlderMessages({ userId, conversationId }) {
 async function upsertMessage(metaMsg, conversation, user) {
   if (!metaMsg?.id) return null;
 
+  // ---------- Idempotency ----------
   const exists = await Message.findOne(
     { igMessageId: metaMsg.id },
     { _id: 1 }
   ).lean();
   if (exists) return null;
 
+  // ---------- Sender detection ----------
   const isFromMe = metaMsg.from?.id === user.igUserId;
 
   const sender = isFromMe ? "me" : "them";
@@ -5547,6 +5549,7 @@ async function upsertMessage(metaMsg, conversation, user) {
   const senderTypeRef = isFromMe ? "users" : "participants";
   const senderId = isFromMe ? user._id : conversation.participantId;
 
+  // ---------- Content detection ----------
   let type = "text";
   let text = metaMsg.message || null;
   let mediaUrl = null;
@@ -5565,7 +5568,7 @@ async function upsertMessage(metaMsg, conversation, user) {
     mediaUrl = attachment.video_data.url;
   }
 
-  // 🔥 FIX: system messages must persist
+  // ---------- System messages (reel / post / story) ----------
   if (metaMsg.is_unsupported) {
     type = "system";
     text = "Shared a reel";
@@ -5575,36 +5578,52 @@ async function upsertMessage(metaMsg, conversation, user) {
     };
   }
 
+  // ---------- Timestamp ----------
   const createdAtPlatform = metaMsg.created_time
     ? new Date(metaMsg.created_time)
     : new Date();
 
+  // ---------- Insert message ----------
   const inserted = await Message.create({
     conversationId: conversation._id,
     platform: "instagram",
     igMessageId: metaMsg.id,
+
     sender,
     senderType,
     senderTypeRef,
     senderId,
+
     type,
     text,
     mediaUrl,
     mediaType,
     action,
+
     createdAtPlatform,
+
     isRead: sender === "me",
     isDeleted: false,
   });
 
-  // 🔥 FIX: DB-level unread increment
-  if (sender === "them") {
-    await Conversation.updateOne(
-      { _id: conversation._id },
-      { $inc: { unreadCount: 1 } }
-    );
-  }
+  // ---------- 🔥 UPDATE CONVERSATION SNAPSHOT (CRITICAL FIX) ----------
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    {
+      $set: {
+        lastMessage: {
+          text,
+          type,
+          sender,
+          timestamp: createdAtPlatform,
+        },
+        lastActivityAt: createdAtPlatform,
+      },
+      ...(sender === "them" ? { $inc: { unreadCount: 1 } } : {}),
+    }
+  );
 
+  // ---------- Return normalized message ----------
   return {
     _id: inserted._id,
     sender,
@@ -5617,6 +5636,7 @@ async function upsertMessage(metaMsg, conversation, user) {
     isRead: inserted.isRead,
   };
 }
+
 
 
 async function upsertParticipant(igUser) {
