@@ -59,6 +59,11 @@ action: {
     text: { type: String },
     mediaUrl: { type: String },
     mediaType: { type: String, enum: ["image", "video"] },
+    senderTypeRef: {
+  type: String,
+  required: true,
+  enum: ["users", "participants"],
+},
 
     isRead: { type: Boolean, default: false },
     isDeleted: { type: Boolean, default: false },

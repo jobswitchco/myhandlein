@@ -400,7 +400,7 @@ const ALLOWED = new Set([
 ]);
 
 
-const IG_API_VERSION = "v21.0"; // bump if you’re targeting a newer Graph version
+const IG_API_VERSION = "v24.0"; // bump if you’re targeting a newer Graph version
 
 // Axios client
 const ig = axios.create({
@@ -5545,9 +5545,11 @@ async function upsertMessage(metaMsg, conversation, user) {
   // ---- Sender detection ----
   const isFromMe = metaMsg.from?.id === user.igUserId;
 
-  const sender = isFromMe ? "me" : "them";
-  const senderType = isFromMe ? "creator" : "participant";
-  const senderId = isFromMe ? user._id : conversation.participantId;
+ const sender = isFromMe ? "me" : "them";
+const senderType = isFromMe ? "creator" : "participant";
+
+const senderTypeRef = isFromMe ? "users" : "participants";
+const senderId = isFromMe ? user._id : conversation.participantId;
 
   // ---- Message type detection ----
   let type = "text";
@@ -5593,27 +5595,28 @@ async function upsertMessage(metaMsg, conversation, user) {
     : new Date();
 
   // ---- Final normalized document ----
-  const normalizedMessage = {
-    conversationId: conversation._id,
-    platform: "instagram",
+const normalizedMessage = {
+  conversationId: conversation._id,
+  platform: "instagram",
+  igMessageId: metaMsg.id,
 
-    igMessageId: metaMsg.id,
+  sender,
+  senderType,
+  senderTypeRef,   // ✅ REQUIRED
+  senderId,        // ✅ REQUIRED
 
-    sender,
-    senderType,
-    senderId,
+  type,
+  text,
+  mediaUrl,
+  mediaType,
+  action,
 
-    type,
-    text,
-    mediaUrl,
-    mediaType,
-    action,
+  createdAtPlatform,
 
-    createdAtPlatform,
+  isRead: sender === "me",
+  isDeleted: false,
+};
 
-    isRead: sender === "me",
-    isDeleted: false,
-  };
 
   // ---- Insert ----
   const inserted = await Message.create(normalizedMessage);
