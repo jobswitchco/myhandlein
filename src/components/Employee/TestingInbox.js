@@ -609,7 +609,9 @@ const uInitial = uname.charAt(0).toUpperCase();
                   px={2}
                   py={2}
                   borderBottom="1px solid #f1f1f1"
-             onClick={async () => {
+          onClick={async () => {
+              const isSameConversation = selectedConversationId === conv._id;
+
               // 1️⃣ Trigger Meta sync FIRST
               await axios.post(
                 `${baseUrl}/conversations/${conv._id}/sync-latest`,
@@ -617,11 +619,20 @@ const uInitial = uname.charAt(0).toUpperCase();
                 { withCredentials: true }
               );
 
-              // 2️⃣ Now switch conversation (this triggers fetchMessages)
-              setSelectedConversation(conv);
-              setSelectedConversationId(conv._id);
+              // 2️⃣ If returning to same conversation, force refetch
+              if (isSameConversation) {
+                setRawMessages([]);
+                messageIdSetRef.current.clear();
+                setCursor(null);
+                setHasMore(true);
+                await fetchMessages(conv._id);
+              } else {
+                // 3️⃣ Switch conversation (triggers fetchMessages via useEffect)
+                setSelectedConversation(conv);
+                setSelectedConversationId(conv._id);
+              }
 
-              // 3️⃣ Reset unread locally
+              // 4️⃣ Reset unread locally
               setConversations((prev) =>
                 prev.map((c) =>
                   c._id === conv._id ? { ...c, unreadCount: 0 } : c
