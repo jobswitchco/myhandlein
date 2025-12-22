@@ -5671,142 +5671,142 @@ async function upsertParticipant(igUser) {
 
 
 
-// router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
-//     try {
-//       const userId = req.user?.user_id;
-//       const { id: conversationId } = req.params;
-//       const { text = "", type = "text" } = req.body;
+router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
+    try {
+      const userId = req.user?.user_id;
+      const { id: conversationId } = req.params;
+      const { text = "", type = "text" } = req.body;
 
-//       if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-//         return res.status(400).json({ success: false, error: "Invalid conversation id" });
-//       }
+      if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+        return res.status(400).json({ success: false, error: "Invalid conversation id" });
+      }
 
-//       // ✅ POPULATE participantId to get participant details
-//       const conversation = await Conversation.findOne({
-//         _id: conversationId,
-//         creatorId: userId,
-//       })
-//       .populate('participantId') // This will populate the full Participant document
-//       .lean();
+      // ✅ POPULATE participantId to get participant details
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        creatorId: userId,
+      })
+      .populate('participantId') // This will populate the full Participant document
+      .lean();
 
-//       if (!conversation) {
-//         return res.status(404).json({ success: false, error: "Conversation not found" });
-//       }
+      if (!conversation) {
+        return res.status(404).json({ success: false, error: "Conversation not found" });
+      }
 
-//       const user = await USER.findById(userId)
-//         .select("+fbPageId +fbPageAccessToken")
-//         .lean();
+      const user = await USER.findById(userId)
+        .select("+fbPageId +fbPageAccessToken")
+        .lean();
 
-//       if (!user?.fbPageAccessToken || !user?.fbPageId) {
-//         return res.status(400).json({ success: false, error: "Instagram not connected" });
-//       }
+      if (!user?.fbPageAccessToken || !user?.fbPageId) {
+        return res.status(400).json({ success: false, error: "Instagram not connected" });
+      }
 
-//       let mediaUrl = null;
-//       let mediaType = null;
+      let mediaUrl = null;
+      let mediaType = null;
 
-//       /* ---------- UPLOAD MEDIA TO GCS ---------- */
-//       if ((type === "image" || type === "video") && req.file) {
-//         const uploadResult = await uploadBufferToGCSFolder(
-//           req.file.buffer,
-//           req.file.originalname,
-//           req.file.mimetype,
-//           "instagram-messages"
-//         );
+      /* ---------- UPLOAD MEDIA TO GCS ---------- */
+      if ((type === "image" || type === "video") && req.file) {
+        const uploadResult = await uploadBufferToGCSFolder(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype,
+          "instagram-messages"
+        );
 
-//         mediaUrl = uploadResult.publicUrl;
-//         mediaType = type;
-//       }
+        mediaUrl = uploadResult.publicUrl;
+        mediaType = type;
+      }
 
-//       /* ---------- GET RECIPIENT IG USER ID ---------- */
-//       // After population, participantId contains the full Participant document
-//       const recipientIgUserId = conversation.participantId?.igUserId;
+      /* ---------- GET RECIPIENT IG USER ID ---------- */
+      // After population, participantId contains the full Participant document
+      const recipientIgUserId = conversation.participantId?.igUserId;
 
-//       console.log('recipientIgUserId:', recipientIgUserId);
-//       console.log('participant:', conversation.participantId);
+      console.log('recipientIgUserId:', recipientIgUserId);
+      console.log('participant:', conversation.participantId);
 
-//       if (!recipientIgUserId) {
-//         return res.status(400).json({
-//           success: false,
-//           error: "Recipient Instagram user id not found. Participant may not be properly linked.",
-//         });
-//       }
+      if (!recipientIgUserId) {
+        return res.status(400).json({
+          success: false,
+          error: "Recipient Instagram user id not found. Participant may not be properly linked.",
+        });
+      }
 
-//       /* ---------- BUILD IG PAYLOAD ---------- */
-//       const payload = buildInstagramPayload({
-//         type,
-//         text,
-//         mediaUrl,
-//         recipientIgUserId,
-//       });
+      /* ---------- BUILD IG PAYLOAD ---------- */
+      const payload = buildInstagramPayload({
+        type,
+        text,
+        mediaUrl,
+        recipientIgUserId,
+      });
 
-//       console.log('payload:', payload);
+      console.log('payload:', payload);
 
-//       /* ---------- SEND TO INSTAGRAM ---------- */
-//       const igResponse = await InstagramService.sendMessage({
-//         pageId: user.fbPageId,
-//         accessToken: user.fbPageAccessToken,
-//         payload,
-//       });
+      /* ---------- SEND TO INSTAGRAM ---------- */
+      const igResponse = await InstagramService.sendMessage({
+        pageId: user.fbPageId,
+        accessToken: user.fbPageAccessToken,
+        payload,
+      });
 
-//       if (!igResponse?.message_id) {
-//         throw new Error("Instagram did not return message_id");
-//       }
+      if (!igResponse?.message_id) {
+        throw new Error("Instagram did not return message_id");
+      }
 
-//       /* ---------- SAVE MESSAGE ---------- */
-//       const message = await Message.create({
-//         conversationId: conversation._id,
-//         platform: "instagram",
-//         igMessageId: igResponse.message_id,
-//         sender: "me",
-//         senderType: "creator",
-//         senderId: user._id,
-//         senderTypeRef: "users", // ✅ FIXED: Must match the collection name in the enum
-//         type,
-//         text: text || null,
-//         mediaUrl,
-//         mediaType,
-//         createdAtPlatform: new Date(),
-//         isRead: true,
-//         isDeleted: false,
-//       });
+      /* ---------- SAVE MESSAGE ---------- */
+      const message = await Message.create({
+        conversationId: conversation._id,
+        platform: "instagram",
+        igMessageId: igResponse.message_id,
+        sender: "me",
+        senderType: "creator",
+        senderId: user._id,
+        senderTypeRef: "users", // ✅ FIXED: Must match the collection name in the enum
+        type,
+        text: text || null,
+        mediaUrl,
+        mediaType,
+        createdAtPlatform: new Date(),
+        isRead: true,
+        isDeleted: false,
+      });
 
-//       await Conversation.updateOne(
-//         { _id: conversationId },
-//         {
-//           $set: {
-//             lastMessage: {
-//               text: type === "text" ? text : null,
-//               type,
-//               sender: "me",
-//               timestamp: new Date(),
-//             },
-//             lastActivityAt: new Date(),
-//           },
-//         }
-//       );
+      await Conversation.updateOne(
+        { _id: conversationId },
+        {
+          $set: {
+            lastMessage: {
+              text: type === "text" ? text : null,
+              type,
+              sender: "me",
+              timestamp: new Date(),
+            },
+            lastActivityAt: new Date(),
+          },
+        }
+      );
 
-//       return res.status(201).json({
-//         success: true,
-//         data: {
-//           _id: message._id,
-//           sender: message.sender,
-//           type: message.type,
-//           text: message.text,
-//           mediaUrl: message.mediaUrl,
-//           mediaType: message.mediaType,
-//           createdAtPlatform: message.createdAtPlatform,
-//           isRead: true,
-//         },
-//       });
-//     } catch (err) {
-//       console.error("Send message error:", err);
-//       return res.status(500).json({
-//         success: false,
-//         error: "Failed to send message",
-//       });
-//     }
-//   }
-// );
+      return res.status(201).json({
+        success: true,
+        data: {
+          _id: message._id,
+          sender: message.sender,
+          type: message.type,
+          text: message.text,
+          mediaUrl: message.mediaUrl,
+          mediaType: message.mediaType,
+          createdAtPlatform: message.createdAtPlatform,
+          isRead: true,
+        },
+      });
+    } catch (err) {
+      console.error("Send message error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to send message",
+      });
+    }
+  }
+);
 
 router.post("/page-analytics", authenticateToken, async (req, res) => {
   try {
