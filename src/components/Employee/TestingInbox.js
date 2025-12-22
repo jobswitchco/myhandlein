@@ -79,7 +79,6 @@ export default function InboxManagement() {
   const [emojiAnchor, setEmojiAnchor] = useState(null);
 
   // Refs
-  const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -87,6 +86,10 @@ export default function InboxManagement() {
 
    // 🔒 DEDUPE SET (CRITICAL)
   const messageIdSetRef = useRef(new Set());
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncingOlderRef = useRef(false);
+
+
 
 
   // File Upload State
@@ -138,9 +141,25 @@ useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
-    if (payload.type !== "message:new") return;
+    if (!["message:new", "conversation:updated"].includes(payload.type)) return;
 
-    const { conversationId, data } = payload;
+ if (payload.type === "conversation:updated") {
+    if (payload.conversationId === selectedConversationId) {
+      setRawMessages([]);
+messageIdSetRef.current.clear();
+setCursor(null);
+setHasMore(true);
+fetchMessages(selectedConversationId);
+
+    }
+    return; // 🔑 DO NOT FALL THROUGH
+  }
+
+  if (payload.type !== "message:new") return;
+
+  const { conversationId, data } = payload;
+  if (!data?._id) return;
+
 
     // 🔒 DEDUPE (THIS IS WHERE IT BELONGS)
     if (messageIdSetRef.current.has(data._id)) return;
@@ -163,9 +182,10 @@ useEffect(() => {
                 timestamp: data.createdAtPlatform,
               },
               unreadCount:
-                conversationId === selectedConversationId
-                  ? 0
-                  : (c.unreadCount || 0) + 1,
+  conversationId === selectedConversationId
+    ? 0
+    : Math.max((c.unreadCount || 0) + 1, 1),
+
             }
           : c
       )
@@ -177,30 +197,54 @@ useEffect(() => {
 }, [selectedConversationId]);
 
 
+useEffect(() => {
+  const i = setInterval(async () => {
+    const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
+      withCredentials: true,
+    });
+    setIsSyncing(res.data.syncing);
+  }, 10000);
+
+  return () => clearInterval(i);
+}, []);
+
+
 
 
     /* ---------- FETCH CONVERSATIONS ---------- */
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        setLoading(true);
-        const res = await axios.get(`${baseUrl}/conversations/sync`, {
-          withCredentials: true,
-        });
-        const data = res.data?.data || [];
-        setConversations(data);
-        if (!selectedConversation && data.length > 0) {
-          setSelectedConversation(data[0]);
-          setSelectedConversationId(data[0]._id);
-        }
-      } catch (err) {
-        console.error("Conversation sync failed", err);
-      } finally {
-        setLoading(false);
+useEffect(() => {
+  const loadInbox = async () => {
+    try {
+      setLoading(true);
+
+      // 1️⃣ FAST: load from DB
+      const res = await axios.get(`${baseUrl}/conversations`, {
+        withCredentials: true,
+      });
+
+      const data = res.data?.data || [];
+      setConversations(data);
+
+      if (!selectedConversation && data.length > 0) {
+        setSelectedConversation(data[0]);
+        setSelectedConversationId(data[0]._id);
       }
-    };
-    fetchConversations();
-  }, []);
+
+      // 2️⃣ NON-BLOCKING: background sync
+      axios.post(`${baseUrl}/conversations/sync`, {}, {
+        withCredentials: true,
+      }).catch(() => {});
+
+    } catch (err) {
+      console.error("Conversation load failed", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadInbox();
+}, []);
+
 
 
     /* ---------- JOIN / LEAVE ROOM ---------- */
@@ -289,13 +333,34 @@ useEffect(() => {
   }, [messages]);
 
 
-  const handleScroll = (e) => {
-    const el = e.target;
-    // Trigger fetch when scrolled to top
-    if (el.scrollTop === 0 && hasMore && !loadingMessages && cursor) {
+const handleScroll = async (e) => {
+  const el = e.target;
+
+  // Top reached
+  if (el.scrollTop === 0 && !loadingMessages) {
+
+    // 1️⃣ Load more from DB if possible
+    if (hasMore && cursor) {
       fetchMessages(selectedConversation._id, cursor);
+      return;
     }
-  };
+
+    // 2️⃣ DB exhausted → ask backend to sync older
+   if (!hasMore && !syncingOlderRef.current) {
+  syncingOlderRef.current = true;
+
+  axios.post(
+    `${baseUrl}/conversations/${selectedConversation._id}/sync-older`,
+    {},
+    { withCredentials: true }
+  ).finally(() => {
+    syncingOlderRef.current = false;
+  });
+}
+
+  }
+};
+
 
   /* ---------- SEND MESSAGE ---------- */
   const sendMessage = async () => {
@@ -443,6 +508,15 @@ const displayName =
             />
           ))}
         </Box>
+        {isSyncing && (
+  <Typography
+    variant="caption"
+    sx={{ ml: 1, color: "text.secondary" }}
+  >
+    Syncing…
+  </Typography>
+)}
+
 
         {/* Conversation List */}
         <Box flex={1} sx={{ overflowY: "auto" }}>
@@ -669,14 +743,23 @@ const uInitial = uname.charAt(0).toUpperCase();
                          {/* ISSUE 5: Handle Attachment/Text Rendering */}
                          
                          {/* Image Render */}
-                         {(msg.type === 'image' || msg.mediaUrl) && (
-                             <Box 
-                                component="img" 
-                                src={msg.mediaUrl} 
-                                alt="attachment"
-                                sx={{ borderRadius: 2, maxWidth: '100%', display: 'block', mb: msg.text ? 1 : 0 }} 
-                             />
-                         )}
+                       {msg.type === "image" && msg.mediaUrl && (
+                          <Box
+                            component="img"
+                            src={msg.mediaUrl}
+                            alt="attachment"
+                            sx={{ borderRadius: 2, maxWidth: "100%" }}
+                          />
+                        )}
+
+                        {msg.type === "video" && msg.mediaUrl && (
+                          <video
+                            src={msg.mediaUrl}
+                            controls
+                            style={{ maxWidth: "100%", borderRadius: 8 }}
+                          />
+                        )}
+
 
                          {/* Text Render */}
                          {msg.text ? (
@@ -723,7 +806,6 @@ const uInitial = uname.charAt(0).toUpperCase();
                   </Box>
                 );
               })}
-              <div ref={messagesEndRef} />
             </Box>
 
             {/* INPUT AREA */}

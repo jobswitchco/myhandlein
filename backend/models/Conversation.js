@@ -43,6 +43,9 @@ const ConversationSchema = new Schema(
     // Inbox snapshot
     lastMessage: { type: LastMessageSchema },
     unreadCount: { type: Number, default: 0 },
+    lastSyncedAt: Date,
+    lastMetaCursor: String,
+
 
     // Sorting
     lastActivityAt: { type: Date, required: true },

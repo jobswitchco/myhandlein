@@ -42,7 +42,7 @@ import { Storage } from '@google-cloud/storage';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import redisBridge from "../../src/realtime/redisBridge.js";
-const { redisGet } = redisBridge;
+const { redisGet, redisSet } = redisBridge;
 
 import igProfileCache from "../../src/realtime/igProfileCache.js";
 const { warmIgProfile } = igProfileCache;
@@ -4836,509 +4836,940 @@ router.get("/influencer/:subdomain", async (req, res) => {
   }
 });
 
-router.get("/conversations/:id/messages", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user?.user_id;
-    const { id: conversationId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ success: false, error: "Invalid conversation id" });
-    }
 
-    const limit = Math.min(Number(req.query.limit) || 20, 50);
-    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+// router.get("/conversations/:id/messages", authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user?.user_id;
+//     const { id: conversationId } = req.params;
 
-    /* ---------- VERIFY OWNERSHIP ---------- */
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      creatorId: userId,
-    }).lean();
+//     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+//       return res.status(400).json({ success: false, error: "Invalid conversation id" });
+//     }
 
-    if (!conversation) {
-      return res.status(404).json({ success: false, error: "Conversation not found" });
-    }
+//     const limit = Math.min(Number(req.query.limit) || 20, 50);
+//     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
-    /* ---------- FIX: FETCH PARTICIPANT ---------- */
-    // We need this to determine who 'them' is in the normalize function
-    const participant = await Participant.findById(conversation.participantId).lean();
+//     /* ---------- VERIFY OWNERSHIP ---------- */
+//     const conversation = await Conversation.findOne({
+//       _id: conversationId,
+//       creatorId: userId,
+//     }).lean();
+
+//     if (!conversation) {
+//       return res.status(404).json({ success: false, error: "Conversation not found" });
+//     }
+
+//     /* ---------- FIX: FETCH PARTICIPANT ---------- */
+//     // We need this to determine who 'them' is in the normalize function
+//     const participant = await Participant.findById(conversation.participantId).lean();
     
-    if (!participant) {
-        // Fallback or error if participant missing
-        return res.status(404).json({ success: false, error: "Participant not found" });
-    }
+//     if (!participant) {
+//         // Fallback or error if participant missing
+//         return res.status(404).json({ success: false, error: "Participant not found" });
+//     }
 
-    const user = await USER.findById(userId).select("+fbPageAccessToken").lean();
-    if (!user?.fbPageAccessToken) {
-      return res.status(400).json({ success: false, error: "Instagram not connected" });
-    }
+//     const user = await USER.findById(userId).select("+fbPageAccessToken").lean();
+//     if (!user?.fbPageAccessToken) {
+//       return res.status(400).json({ success: false, error: "Instagram not connected" });
+//     }
 
-    /* ---------- QUERY DB ---------- */
-    const query = { conversationId, isDeleted: false };
-    if (cursor) {
-      query.createdAtPlatform = { $lt: cursor };
-    }
+//     /* ---------- QUERY DB ---------- */
+//     const query = { conversationId, isDeleted: false };
+//     if (cursor) {
+//       query.createdAtPlatform = { $lt: cursor };
+//     }
 
-    let dbMessages = await Message.find(query)
-      .sort({ createdAtPlatform: -1 })
-      .limit(limit + 1)
-      .lean();
+//     let dbMessages = await Message.find(query)
+//       .sort({ createdAtPlatform: -1 })
+//       .limit(limit + 1)
+//       .lean();
 
-    let hasMore = dbMessages.length > limit;
-    let sliced = hasMore ? dbMessages.slice(0, limit) : dbMessages;
+//     let hasMore = dbMessages.length > limit;
+//     let sliced = hasMore ? dbMessages.slice(0, limit) : dbMessages;
 
-    /* ---------- META FALLBACK ---------- */
-    if (sliced.length < limit && conversation.igConversationId) {
-      const oldestMessage = await Message.findOne({
-        conversationId,
-        metaCursor: { $exists: true },
-      })
-        .sort({ createdAtPlatform: 1 })
-        .select("metaCursor")
-        .lean();
+//     /* ---------- META FALLBACK ---------- */
+//     if (sliced.length < limit && conversation.igConversationId) {
+//       const oldestMessage = await Message.findOne({
+//         conversationId,
+//         metaCursor: { $exists: true },
+//       })
+//         .sort({ createdAtPlatform: 1 })
+//         .select("metaCursor")
+//         .lean();
 
-      try {
-        const metaResult = await InstagramService.fetchOlderMessages({
-          igConversationId: conversation.metaThreadId,
-          pageAccessToken: user.fbPageAccessToken,
-          beforeCursor: oldestMessage?.metaCursor || null,
-          limit: limit - sliced.length,
-        });
+//       try {
+//         const metaResult = await InstagramService.fetchOlderMessages({
+//           igConversationId: conversation.metaThreadId,
+//           pageAccessToken: user.fbPageAccessToken,
+//           beforeCursor: oldestMessage?.metaCursor || null,
+//           limit: limit - sliced.length,
+//         });
 
-        if (metaResult?.messages?.length) {
-          /* ---------- FIX: NORMALIZE & DEDUPLICATE ---------- */
+//         if (metaResult?.messages?.length) {
+//           /* ---------- FIX: NORMALIZE & DEDUPLICATE ---------- */
           
-          // 1. Create a Set of existing IG IDs from the DB messages we just fetched
-          const existingIgIds = new Set(sliced.map((m) => m.igMessageId));
+//           // 1. Create a Set of existing IG IDs from the DB messages we just fetched
+//           const existingIgIds = new Set(sliced.map((m) => m.igMessageId));
 
-          const normalizedMessages = [];
+//           const normalizedMessages = [];
 
-          metaResult.messages.forEach((metaMsg) => {
-            // 2. Skip if we already have this message ID locally
-            if (existingIgIds.has(metaMsg.id)) return;
+//           metaResult.messages.forEach((metaMsg) => {
+//             // 2. Skip if we already have this message ID locally
+//             if (existingIgIds.has(metaMsg.id)) return;
 
-            // 3. Normalize (Pass participant.igUserId for correct sender logic)
-            const norm = normalizeInstagramMessage(metaMsg, conversationId, participant.igUserId);
+//             // 3. Normalize (Pass participant.igUserId for correct sender logic)
+//             const norm = normalizeInstagramMessage(metaMsg, conversationId, participant.igUserId);
             
-            // 4. Assign _id manually so we can use it safely immediately
-            norm._id = new mongoose.Types.ObjectId();
+//             // 4. Assign _id manually so we can use it safely immediately
+//             norm._id = new mongoose.Types.ObjectId();
             
-            normalizedMessages.push(norm);
-          });
+//             normalizedMessages.push(norm);
+//           });
 
-          if (normalizedMessages.length > 0) {
-            // 5. Insert valid new messages into DB (ignore if parallel insert happens)
-            await Message.insertMany(normalizedMessages, { ordered: false }).catch(() => {});
+//           if (normalizedMessages.length > 0) {
+//             // 5. Insert valid new messages into DB (ignore if parallel insert happens)
+//             await Message.insertMany(normalizedMessages, { ordered: false }).catch(() => {});
 
-            // 6. Append ONLY the new unique messages to our response list
-            sliced = [...sliced, ...normalizedMessages];
-          }
+//             // 6. Append ONLY the new unique messages to our response list
+//             sliced = [...sliced, ...normalizedMessages];
+//           }
 
-          hasMore = Boolean(metaResult.paging?.cursors?.before);
-        }
-      } catch (metaError) {
-        console.error("Meta fetch warning:", metaError.message);
-      }
-    }
+//           hasMore = Boolean(metaResult.paging?.cursors?.before);
+//         }
+//       } catch (metaError) {
+//         console.error("Meta fetch warning:", metaError.message);
+//       }
+//     }
 
-    /* ---------- RESPONSE PREP ---------- */
-    const ordered = sliced
-      .sort((a, b) => new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform));
+//     /* ---------- RESPONSE PREP ---------- */
+//     const ordered = sliced
+//       .sort((a, b) => new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform));
 
-    const nextCursor = ordered.length > 0 ? ordered[0].createdAtPlatform : null;
+//     const nextCursor = ordered.length > 0 ? ordered[0].createdAtPlatform : null;
 
-    /* ---------- MARK READ ---------- */
-    if (!cursor && ordered.length > 0) {
-      Promise.all([
-        Message.updateMany(
-          { conversationId, sender: "them", isRead: false },
-          { $set: { isRead: true } }
-        ),
-        Conversation.updateOne(
-          { _id: conversationId },
-          { $set: { unreadCount: 0 } }
-        )
-      ]).catch(() => {});
-    }
+//     /* ---------- MARK READ ---------- */
+//     if (!cursor && ordered.length > 0) {
+//       Promise.all([
+//         Message.updateMany(
+//           { conversationId, sender: "them", isRead: false },
+//           { $set: { isRead: true } }
+//         ),
+//         Conversation.updateOne(
+//           { _id: conversationId },
+//           { $set: { unreadCount: 0 } }
+//         )
+//       ]).catch(() => {});
+//     }
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        messages: ordered.map((m) => ({
-          _id: m._id,
-          sender: m.sender,
-          type: m.type,
-          text: m.text || "",
-          action: m.action || null,
-          mediaUrl: m.mediaUrl || null,
-          mediaType: m.mediaType || null,
-          createdAtPlatform: m.createdAtPlatform,
-          isRead: m.isRead,
-        })),
-        nextCursor,
-        hasMore,
-      },
-    });
-  } catch (error) {
-    console.error("Fetch messages error:", error);
-    return res.status(500).json({ success: false, error: "Failed to fetch messages" });
-  }
-});
+//     return res.status(200).json({
+//       success: true,
+//       data: {
+//         messages: ordered.map((m) => ({
+//           _id: m._id,
+//           sender: m.sender,
+//           type: m.type,
+//           text: m.text || "",
+//           action: m.action || null,
+//           mediaUrl: m.mediaUrl || null,
+//           mediaType: m.mediaType || null,
+//           createdAtPlatform: m.createdAtPlatform,
+//           isRead: m.isRead,
+//         })),
+//         nextCursor,
+//         hasMore,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Fetch messages error:", error);
+//     return res.status(500).json({ success: false, error: "Failed to fetch messages" });
+//   }
+// });
 
 
-router.get("/conversations/sync", authenticateToken, async (req, res) => {
+// router.get("/conversations/sync", authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user?.user_id;
+
+//     const user = await USER.findById(userId)
+//       .select("+fbPageId +fbPageAccessToken +instagramConnected +igUserId")
+//       .lean();
+
+//     if (!user || !user.instagramConnected) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "Instagram not connected"
+//       });
+//     }
+
+//     if (!user.fbPageId || !user.fbPageAccessToken) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "Instagram Page credentials missing"
+//       });
+//     }
+
+//     if (!user.igUserId) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "Instagram User ID missing"
+//       });
+//     }
+
+//     /* ---------- FETCH CONVERSATIONS FROM META ---------- */
+//     const conversations =
+//       await InstagramService.fetchConversationsWithMessages(
+//         user.fbPageId,
+//         user.fbPageAccessToken,
+//         20
+//       );
+
+//     const results = [];
+
+//     for (const conv of conversations || []) {
+//       if (!conv?.id) continue;
+
+//       const metaThreadId = conv.id;
+
+
+//       /* ---------- PARTICIPANT (IDENTITY ONLY) ---------- */
+//       const igParticipant = conv.participants?.data?.find(
+//         p => p.id !== user.igUserId
+//       );
+
+
+
+//       if (!igParticipant?.id) continue;
+
+//        const igConversationId = `igdm:${user.igUserId}:${igParticipant.id}`;
+
+//       // 🔒 MongoDB stores ONLY identity (no profilePic / name)
+//       const participant = await Participant.findOneAndUpdate(
+//         {
+//           platform: "instagram",
+//           igUserId: igParticipant.id
+//         },
+//         {
+//           platform: "instagram",
+//           igUserId: igParticipant.id,
+//           username: igParticipant.username || null
+//         },
+//         { upsert: true, new: true }
+//       );
+
+//       /* ---------- LAST MESSAGE ---------- */
+//       const messages = conv.messages?.data || [];
+//       const lastMsg = messages[0]; // Meta sends latest first
+
+
+//       const normalizedLast = lastMsg? normalizeMessage(lastMsg, igConversationId) : null;
+//       const lastMessageSnapshot = normalizedLast
+//         ? {
+//             text: normalizedLast.text,
+//             type: normalizedLast.type,
+//             sender: lastMsg.from?.id === user.igUserId ? "me" : "them",
+//             timestamp: new Date(lastMsg.created_time)
+//           }
+//         : null;
+
+//       /* ---------- CONVERSATION ---------- */
+//       const conversation = await Conversation.findOneAndUpdate(
+//         {
+//           creatorId: user._id,
+//           igConversationId
+//         },
+//         {
+//           platform: "instagram",
+//           igConversationId,
+//           metaThreadId,
+//           creatorId: user._id,
+//           participantId: participant._id,
+//           lastMessage: lastMessageSnapshot,
+//           lastActivityAt:
+//             lastMessageSnapshot?.timestamp || new Date()
+//         },
+//         {
+//           upsert: true,
+//           new: true,
+//           setDefaultsOnInsert: true
+//         }
+//       );
+
+//       /* ---------- STORE MESSAGES (IDEMPOTENT) ---------- */
+//       for (const msg of messages) {
+//         if (!msg?.id) continue;
+
+//         const normalized = normalizeMessage(msg, igConversationId);
+
+//         const isMe = msg.from?.id === user.igUserId;
+
+//         await Message.updateOne(
+//           { igMessageId: msg.id },
+//           {
+//             conversationId: conversation._id,
+//             platform: "instagram",
+//             igMessageId: msg.id,
+//             sender: isMe ? "me" : "them",
+//             senderType: isMe ? "creator" : "participant",
+//             senderTypeRef: isMe ? "users" : "participants",
+//             senderId: isMe ? user._id : participant._id,
+//             text: normalized.text,
+//             type: normalized.type,
+//             action: normalized.action || null,
+//             mediaUrl: normalized.media?.url || null,
+//             mediaType:
+//               normalized.type === "image"
+//                 ? "image"
+//                 : normalized.type === "video"
+//                 ? "video"
+//                 : null,
+//             createdAtPlatform: new Date(msg.created_time),
+//             isDeleted: false
+//           },
+//           { upsert: true }
+//         );
+//       }
+
+//       results.push(conversation._id);
+//     }
+
+//     /* ---------- POPULATE & REDIS ENRICH ---------- */
+//     const populatedConversations = await Conversation.find({
+//       _id: { $in: results }
+//     })
+//       .populate({
+//         path: "participantId",
+//         select: "username igUserId"
+//       })
+//       .sort({ lastActivityAt: -1 })
+//       .lean();
+
+//     const enriched = [];
+
+//     for (const c of populatedConversations) {
+//       const igUserId = c.participantId?.igUserId;
+//       const username = c.participantId?.username || "Unknown";
+
+//       let profile = null;
+
+// if (igUserId) {
+//   profile = await redisGet(`ig:user:${igUserId}`);
+
+//   // 🔥 Warm ONLY if not cached AND not restricted
+//   if (!profile) {
+//     warmIgProfile({
+//       igUserId,
+//       username,
+//       accessToken: user.fbPageAccessToken
+//     });
+//   }
+// }
+
+// const igThreadUrl = c.igConversationId
+//   ? `https://www.instagram.com/direct/t/${c.igConversationId}/`
+//   : null;
+
+//       enriched.push({
+//         _id: c._id,
+//         igConversationId: c.igConversationId,
+//         igThreadUrl,
+//         label: c.label,
+//         unreadCount: c.unreadCount,
+//         lastMessage: c.lastMessage,
+//         lastActivityAt: c.lastActivityAt,
+//       participant: {
+//   igUserId,
+//   username,
+//   name: profile?.name || null,
+//   profilePic: profile?.profilePic || null,
+//   restricted: profile?.restricted || false
+// }
+
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: `Synced ${enriched.length} conversations`,
+//       data: enriched
+//     });
+
+//   } catch (error) {
+//     console.error("Conversation sync error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       error: error.message || "Failed to sync conversations"
+//     });
+//   }
+// });
+
+
+// Send a Message
+
+
+// GET /conversations
+
+router.get("/conversations", authenticateToken, async (req, res) => {
   try {
-    const userId = req.user?.user_id;
+    const userId = req.user.user_id;
 
-    const user = await USER.findById(userId)
-      .select("+fbPageId +fbPageAccessToken +instagramConnected +igUserId")
-      .lean();
-
-    if (!user || !user.instagramConnected) {
-      return res.status(400).json({
-        success: false,
-        error: "Instagram not connected"
-      });
-    }
-
-    if (!user.fbPageId || !user.fbPageAccessToken) {
-      return res.status(400).json({
-        success: false,
-        error: "Instagram Page credentials missing"
-      });
-    }
-
-    if (!user.igUserId) {
-      return res.status(400).json({
-        success: false,
-        error: "Instagram User ID missing"
-      });
-    }
-
-    /* ---------- FETCH CONVERSATIONS FROM META ---------- */
-    const conversations =
-      await InstagramService.fetchConversationsWithMessages(
-        user.fbPageId,
-        user.fbPageAccessToken,
-        20
-      );
-
-    const results = [];
-
-    for (const conv of conversations || []) {
-      if (!conv?.id) continue;
-
-      const metaThreadId = conv.id;
-
-
-      /* ---------- PARTICIPANT (IDENTITY ONLY) ---------- */
-      const igParticipant = conv.participants?.data?.find(
-        p => p.id !== user.igUserId
-      );
-
-
-
-      if (!igParticipant?.id) continue;
-
-       const igConversationId = `igdm:${user.igUserId}:${igParticipant.id}`;
-
-      // 🔒 MongoDB stores ONLY identity (no profilePic / name)
-      const participant = await Participant.findOneAndUpdate(
-        {
-          platform: "instagram",
-          igUserId: igParticipant.id
-        },
-        {
-          platform: "instagram",
-          igUserId: igParticipant.id,
-          username: igParticipant.username || null
-        },
-        { upsert: true, new: true }
-      );
-
-      /* ---------- LAST MESSAGE ---------- */
-      const messages = conv.messages?.data || [];
-      const lastMsg = messages[0]; // Meta sends latest first
-
-
-      const normalizedLast = lastMsg? normalizeMessage(lastMsg, igConversationId) : null;
-      const lastMessageSnapshot = normalizedLast
-        ? {
-            text: normalizedLast.text,
-            type: normalizedLast.type,
-            sender: lastMsg.from?.id === user.igUserId ? "me" : "them",
-            timestamp: new Date(lastMsg.created_time)
-          }
-        : null;
-
-      /* ---------- CONVERSATION ---------- */
-      const conversation = await Conversation.findOneAndUpdate(
-        {
-          creatorId: user._id,
-          igConversationId
-        },
-        {
-          platform: "instagram",
-          igConversationId,
-          metaThreadId,
-          creatorId: user._id,
-          participantId: participant._id,
-          lastMessage: lastMessageSnapshot,
-          lastActivityAt:
-            lastMessageSnapshot?.timestamp || new Date()
-        },
-        {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true
-        }
-      );
-
-      /* ---------- STORE MESSAGES (IDEMPOTENT) ---------- */
-      for (const msg of messages) {
-        if (!msg?.id) continue;
-
-        const normalized = normalizeMessage(msg, igConversationId);
-
-        const isMe = msg.from?.id === user.igUserId;
-
-        await Message.updateOne(
-          { igMessageId: msg.id },
-          {
-            conversationId: conversation._id,
-            platform: "instagram",
-            igMessageId: msg.id,
-            sender: isMe ? "me" : "them",
-            senderType: isMe ? "creator" : "participant",
-            senderTypeRef: isMe ? "users" : "participants",
-            senderId: isMe ? user._id : participant._id,
-            text: normalized.text,
-            type: normalized.type,
-            action: normalized.action || null,
-            mediaUrl: normalized.media?.url || null,
-            mediaType:
-              normalized.type === "image"
-                ? "image"
-                : normalized.type === "video"
-                ? "video"
-                : null,
-            createdAtPlatform: new Date(msg.created_time),
-            isDeleted: false
-          },
-          { upsert: true }
-        );
-      }
-
-      results.push(conversation._id);
-    }
-
-    /* ---------- POPULATE & REDIS ENRICH ---------- */
-    const populatedConversations = await Conversation.find({
-      _id: { $in: results }
-    })
+    const conversations = await Conversation.find({ creatorId: userId })
       .populate({
         path: "participantId",
-        select: "username igUserId"
+        select: "igUserId username"
       })
       .sort({ lastActivityAt: -1 })
       .lean();
 
     const enriched = [];
 
-    for (const c of populatedConversations) {
+    for (const c of conversations) {
       const igUserId = c.participantId?.igUserId;
-      const username = c.participantId?.username || "Unknown";
 
       let profile = null;
-
-if (igUserId) {
-  profile = await redisGet(`ig:user:${igUserId}`);
-
-  // 🔥 Warm ONLY if not cached AND not restricted
-  if (!profile) {
-    warmIgProfile({
-      igUserId,
-      username,
-      accessToken: user.fbPageAccessToken
-    });
-  }
-}
-
-const igThreadUrl = c.igConversationId
-  ? `https://www.instagram.com/direct/t/${c.igConversationId}/`
-  : null;
+      if (igUserId) {
+        profile = await redisGet(`ig:user:${igUserId}`);
+      }
 
       enriched.push({
         _id: c._id,
         igConversationId: c.igConversationId,
-        igThreadUrl,
         label: c.label,
         unreadCount: c.unreadCount,
         lastMessage: c.lastMessage,
         lastActivityAt: c.lastActivityAt,
-      participant: {
-  igUserId,
-  username,
-  name: profile?.name || null,
-  profilePic: profile?.profilePic || null,
-  restricted: profile?.restricted || false
-}
-
+        participant: {
+          igUserId,
+          username: c.participantId?.username || null,
+          name: profile?.name || null,
+          profilePic: profile?.profilePic || null,
+          restricted: profile?.restricted || false
+        }
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: `Synced ${enriched.length} conversations`,
-      data: enriched
-    });
-
-  } catch (error) {
-    console.error("Conversation sync error:", error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || "Failed to sync conversations"
-    });
+    return res.json({ success: true, data: enriched });
+  } catch (err) {
+    console.error("Fetch conversations error", err);
+    res.status(500).json({ success: false, error: "Failed to load conversations" });
   }
 });
 
+router.post("/conversations/sync", authenticateToken, async (req, res) => {
+  const userId = req.user.user_id;
 
-// Send a Message
-router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
-    try {
-      const userId = req.user?.user_id;
-      const { id: conversationId } = req.params;
-      const { text = "", type = "text" } = req.body;
+  // 🔥 Fire-and-forget
+  process.nextTick(() => {
+    syncInstagramConversations(userId).catch(console.error);
+  });
 
-      if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-        return res.status(400).json({ success: false, error: "Invalid conversation id" });
-      }
+  return res.json({ success: true, started: true });
+});
 
-      // ✅ POPULATE participantId to get participant details
-      const conversation = await Conversation.findOne({
-        _id: conversationId,
-        creatorId: userId,
-      })
-      .populate('participantId') // This will populate the full Participant document
+router.post("/conversations/:id/sync-older", authenticateToken, async (req, res) => {
+  const conversationId = req.params.id;
+  const userId = req.user.user_id;
+
+  process.nextTick(() => {
+    syncOlderMessages({ userId, conversationId }).catch(console.error);
+  });
+
+  res.json({ success: true, started: true });
+});
+
+// GET /conversations/sync-status
+router.get("/conversations/sync-status", authenticateToken, async (req, res) => {
+  const userId = req.user.user_id;
+
+  const active = await redisGet(`ig:sync:running:${userId}`);
+  res.json({ syncing: Boolean(active) });
+});
+
+// GET /conversations/:id/messages (DB ONLY)
+router.get("/conversations/:id/messages", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const conversationId = req.params.id;
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
+    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ success: false, error: "Invalid id" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      creatorId: userId
+    }).lean();
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: "Not found" });
+    }
+
+    const query = { conversationId, isDeleted: false };
+    if (cursor) query.createdAtPlatform = { $lt: cursor };
+
+    const docs = await Message.find(query)
+      .sort({ createdAtPlatform: -1 })
+      .limit(limit + 1)
       .lean();
 
-      if (!conversation) {
-        return res.status(404).json({ success: false, error: "Conversation not found" });
-      }
+    const hasMore = docs.length > limit;
+    const sliced = hasMore ? docs.slice(0, limit) : docs;
 
-      const user = await USER.findById(userId)
-        .select("+fbPageId +fbPageAccessToken")
-        .lean();
+    const ordered = sliced.sort(
+      (a, b) => new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform)
+    );
 
-      if (!user?.fbPageAccessToken || !user?.fbPageId) {
-        return res.status(400).json({ success: false, error: "Instagram not connected" });
-      }
-
-      let mediaUrl = null;
-      let mediaType = null;
-
-      /* ---------- UPLOAD MEDIA TO GCS ---------- */
-      if ((type === "image" || type === "video") && req.file) {
-        const uploadResult = await uploadBufferToGCSFolder(
-          req.file.buffer,
-          req.file.originalname,
-          req.file.mimetype,
-          "instagram-messages"
-        );
-
-        mediaUrl = uploadResult.publicUrl;
-        mediaType = type;
-      }
-
-      /* ---------- GET RECIPIENT IG USER ID ---------- */
-      // After population, participantId contains the full Participant document
-      const recipientIgUserId = conversation.participantId?.igUserId;
-
-      console.log('recipientIgUserId:', recipientIgUserId);
-      console.log('participant:', conversation.participantId);
-
-      if (!recipientIgUserId) {
-        return res.status(400).json({
-          success: false,
-          error: "Recipient Instagram user id not found. Participant may not be properly linked.",
-        });
-      }
-
-      /* ---------- BUILD IG PAYLOAD ---------- */
-      const payload = buildInstagramPayload({
-        type,
-        text,
-        mediaUrl,
-        recipientIgUserId,
-      });
-
-      console.log('payload:', payload);
-
-      /* ---------- SEND TO INSTAGRAM ---------- */
-      const igResponse = await InstagramService.sendMessage({
-        pageId: user.fbPageId,
-        accessToken: user.fbPageAccessToken,
-        payload,
-      });
-
-      if (!igResponse?.message_id) {
-        throw new Error("Instagram did not return message_id");
-      }
-
-      /* ---------- SAVE MESSAGE ---------- */
-      const message = await Message.create({
-        conversationId: conversation._id,
-        platform: "instagram",
-        igMessageId: igResponse.message_id,
-        sender: "me",
-        senderType: "creator",
-        senderId: user._id,
-        senderTypeRef: "users", // ✅ FIXED: Must match the collection name in the enum
-        type,
-        text: text || null,
-        mediaUrl,
-        mediaType,
-        createdAtPlatform: new Date(),
-        isRead: true,
-        isDeleted: false,
-      });
-
-      await Conversation.updateOne(
+    // mark read (async)
+    if (!cursor) {
+      Message.updateMany(
+        { conversationId, sender: "them", isRead: false },
+        { $set: { isRead: true } }
+      ).catch(() => {});
+      Conversation.updateOne(
         { _id: conversationId },
+        { $set: { unreadCount: 0 } }
+      ).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      data: {
+        messages: ordered,
+        nextCursor: ordered[0]?.createdAtPlatform || null,
+        hasMore
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false });
+  }
+});
+
+async function syncInstagramConversations(userId) {
+  const lockKey = `ig:sync:running:${userId}`;
+  if (await redisGet(lockKey)) return;
+
+  await redisSet(lockKey, "1", 90);
+
+  try {
+    const user = await USER.findById(userId)
+      .select("+fbPageId +fbPageAccessToken +igUserId")
+      .lean();
+
+    if (!user?.fbPageId || !user?.fbPageAccessToken || !user?.igUserId) {
+      return;
+    }
+
+    const metaConversations = await InstagramService.fetchConversations({
+      pageId: user.fbPageId,
+      accessToken: user.fbPageAccessToken,
+      limit: 50,
+    });
+
+    for (const conv of metaConversations) {
+      const metaThreadId = conv.id;
+
+      const participant = conv.participants?.data?.find(
+        (p) => p.id !== user.igUserId
+      );
+      if (!participant) continue;
+
+      const igConversationId = `igdm:${user.igUserId}:${participant.id}`;
+
+      const conversation = await Conversation.findOneAndUpdate(
+        { creatorId: userId, igConversationId },
         {
-          $set: {
-            lastMessage: {
-              text: type === "text" ? text : null,
-              type,
-              sender: "me",
-              timestamp: new Date(),
-            },
-            lastActivityAt: new Date(),
-          },
-        }
+          creatorId: userId,
+          igConversationId,
+          metaThreadId,
+          participantId: await upsertParticipant(participant),
+          platform: "instagram",
+        },
+        { upsert: true, new: true }
       );
 
-      return res.status(201).json({
-        success: true,
-        data: {
-          _id: message._id,
-          sender: message.sender,
-          type: message.type,
-          text: message.text,
-          mediaUrl: message.mediaUrl,
-          mediaType: message.mediaType,
-          createdAtPlatform: message.createdAtPlatform,
-          isRead: true,
-        },
+      // ---- Fetch ONLY new messages from Meta ----
+      const result = await InstagramService.fetchMessagesAfter({
+        igConversationId: metaThreadId, // ✅ MUST be metaThreadId
+        accessToken: user.fbPageAccessToken,
+        afterCursor: conversation.lastMetaCursor || null,
+        limit: 20,
       });
-    } catch (err) {
-      console.error("Send message error:", err);
-      return res.status(500).json({
-        success: false,
-        error: "Failed to send message",
-      });
+
+      let latestInsertedMessage = null;
+
+      for (const msg of result.messages) {
+        const normalized = await upsertMessage(msg, conversation, user);
+
+        // Only react if this message was newly inserted
+        if (normalized) {
+          latestInsertedMessage = normalized;
+
+          // 🔥 realtime: new message
+          await redis.publish(
+            `inbox:conversation:${conversation._id}`,
+            JSON.stringify({
+              type: "message:new",
+              conversationId: conversation._id,
+              data: normalized,
+            })
+          );
+        }
+      }
+
+      // ---- Update conversation metadata ----
+      if (latestInsertedMessage) {
+        await Conversation.updateOne(
+          { _id: conversation._id },
+          {
+            $set: {
+              lastMessage: {
+                text: latestInsertedMessage.text,
+                type: latestInsertedMessage.type,
+                sender: latestInsertedMessage.sender,
+                timestamp: latestInsertedMessage.createdAtPlatform,
+              },
+              lastActivityAt: latestInsertedMessage.createdAtPlatform,
+            },
+          }
+        );
+
+        // 🔔 notify sidebar refresh
+        await redis.publish(
+          `inbox:conversation:${conversation._id}`,
+          JSON.stringify({
+            type: "conversation:updated",
+            conversationId: conversation._id,
+          })
+        );
+      }
+
+      // ---- Persist Meta cursor ----
+      const nextCursor = result.paging?.cursors?.after;
+      if (nextCursor) {
+        await Conversation.updateOne(
+          { _id: conversation._id },
+          {
+            $set: {
+              lastMetaCursor: nextCursor,
+              lastSyncedAt: new Date(),
+            },
+          }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("❌ syncInstagramConversations failed", err);
+  } finally {
+    await redisDel(lockKey);
+  }
+}
+
+
+async function syncOlderMessages({ userId, conversationId }) {
+  const lockKey = `ig:sync:older:${conversationId}`;
+  if (await redisGet(lockKey)) return;
+
+  await redisSet(lockKey, "1", 90);
+
+  try {
+    const user = await USER.findById(userId)
+      .select("+fbPageAccessToken")
+      .lean();
+
+    if (!user?.fbPageAccessToken) return;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      creatorId: userId,
+    }).lean();
+
+    if (!conversation?.metaThreadId) return;
+
+    const result = await InstagramService.fetchOlderMessages({
+      igConversationId: conversation.metaThreadId, // ✅ ALWAYS metaThreadId
+      pageAccessToken: user.fbPageAccessToken,
+      beforeCursor: conversation.lastMetaCursor || null,
+      limit: 20,
+    });
+
+    if (!result.messages.length) return;
+
+    let insertedAny = false;
+
+    for (const msg of result.messages) {
+      const normalized = await upsertMessage(msg, conversation, user);
+      if (normalized) insertedAny = true;
+    }
+
+    // ---- Update cursor (older pagination uses BEFORE) ----
+    const prevCursor = result.paging?.cursors?.before;
+    if (prevCursor) {
+      await Conversation.updateOne(
+        { _id: conversationId },
+        { $set: { lastMetaCursor: prevCursor } }
+      );
+    }
+
+    // ---- Notify frontend to refetch DB messages ----
+    if (insertedAny) {
+      await redis.publish(
+        `inbox:conversation:${conversationId}`,
+        JSON.stringify({
+          type: "conversation:updated",
+          conversationId,
+        })
+      );
+    }
+  } catch (err) {
+    console.error("❌ syncOlderMessages failed", err);
+  } finally {
+    await redisDel(lockKey);
+  }
+}
+
+
+async function upsertMessage(metaMsg, conversation, user) {
+  if (!metaMsg?.id) return null;
+
+  // ---- Idempotency check ----
+  const exists = await Message.findOne(
+    { igMessageId: metaMsg.id },
+    { _id: 1 }
+  ).lean();
+
+  if (exists) return null;
+
+  // ---- Sender detection ----
+  const isFromMe = metaMsg.from?.id === user.igUserId;
+
+  const sender = isFromMe ? "me" : "them";
+  const senderType = isFromMe ? "creator" : "participant";
+  const senderId = isFromMe ? user._id : conversation.participantId;
+
+  // ---- Message type detection ----
+  let type = "text";
+  let text = metaMsg.message || null;
+  let mediaUrl = null;
+  let mediaType = null;
+  let action = null;
+
+  // Attachments (image / video / reel / story)
+  const attachment = metaMsg.attachments?.data?.[0];
+
+  if (attachment) {
+    if (attachment.image_data?.url) {
+      type = "image";
+      mediaType = "image";
+      mediaUrl = attachment.image_data.url;
+    } else if (attachment.video_data?.url) {
+      type = "video";
+      mediaType = "video";
+      mediaUrl = attachment.video_data.url;
+    } else if (attachment.mime_type) {
+      type = "file";
+      mediaType = attachment.mime_type;
     }
   }
-);
+
+  // ---- System messages (shared reel, post, story) ----
+  if (metaMsg.is_unsupported) {
+    type = "system";
+    text = "Shared a reel";
+
+    if (attachment?.url) {
+      action = {
+        label: "View on Instagram",
+        url: attachment.url,
+      };
+    }
+  }
+
+  // ---- Normalize timestamps ----
+  const createdAtPlatform = metaMsg.created_time
+    ? new Date(metaMsg.created_time)
+    : new Date();
+
+  // ---- Final normalized document ----
+  const normalizedMessage = {
+    conversationId: conversation._id,
+    platform: "instagram",
+
+    igMessageId: metaMsg.id,
+
+    sender,
+    senderType,
+    senderId,
+
+    type,
+    text,
+    mediaUrl,
+    mediaType,
+    action,
+
+    createdAtPlatform,
+
+    isRead: sender === "me",
+    isDeleted: false,
+  };
+
+  // ---- Insert ----
+  const inserted = await Message.create(normalizedMessage);
+
+  return {
+    _id: inserted._id,
+    sender,
+    type,
+    text,
+    mediaUrl,
+    mediaType,
+    action,
+    createdAtPlatform,
+    isRead: inserted.isRead,
+  };
+}
+
+
+
+
+// router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
+//     try {
+//       const userId = req.user?.user_id;
+//       const { id: conversationId } = req.params;
+//       const { text = "", type = "text" } = req.body;
+
+//       if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+//         return res.status(400).json({ success: false, error: "Invalid conversation id" });
+//       }
+
+//       // ✅ POPULATE participantId to get participant details
+//       const conversation = await Conversation.findOne({
+//         _id: conversationId,
+//         creatorId: userId,
+//       })
+//       .populate('participantId') // This will populate the full Participant document
+//       .lean();
+
+//       if (!conversation) {
+//         return res.status(404).json({ success: false, error: "Conversation not found" });
+//       }
+
+//       const user = await USER.findById(userId)
+//         .select("+fbPageId +fbPageAccessToken")
+//         .lean();
+
+//       if (!user?.fbPageAccessToken || !user?.fbPageId) {
+//         return res.status(400).json({ success: false, error: "Instagram not connected" });
+//       }
+
+//       let mediaUrl = null;
+//       let mediaType = null;
+
+//       /* ---------- UPLOAD MEDIA TO GCS ---------- */
+//       if ((type === "image" || type === "video") && req.file) {
+//         const uploadResult = await uploadBufferToGCSFolder(
+//           req.file.buffer,
+//           req.file.originalname,
+//           req.file.mimetype,
+//           "instagram-messages"
+//         );
+
+//         mediaUrl = uploadResult.publicUrl;
+//         mediaType = type;
+//       }
+
+//       /* ---------- GET RECIPIENT IG USER ID ---------- */
+//       // After population, participantId contains the full Participant document
+//       const recipientIgUserId = conversation.participantId?.igUserId;
+
+//       console.log('recipientIgUserId:', recipientIgUserId);
+//       console.log('participant:', conversation.participantId);
+
+//       if (!recipientIgUserId) {
+//         return res.status(400).json({
+//           success: false,
+//           error: "Recipient Instagram user id not found. Participant may not be properly linked.",
+//         });
+//       }
+
+//       /* ---------- BUILD IG PAYLOAD ---------- */
+//       const payload = buildInstagramPayload({
+//         type,
+//         text,
+//         mediaUrl,
+//         recipientIgUserId,
+//       });
+
+//       console.log('payload:', payload);
+
+//       /* ---------- SEND TO INSTAGRAM ---------- */
+//       const igResponse = await InstagramService.sendMessage({
+//         pageId: user.fbPageId,
+//         accessToken: user.fbPageAccessToken,
+//         payload,
+//       });
+
+//       if (!igResponse?.message_id) {
+//         throw new Error("Instagram did not return message_id");
+//       }
+
+//       /* ---------- SAVE MESSAGE ---------- */
+//       const message = await Message.create({
+//         conversationId: conversation._id,
+//         platform: "instagram",
+//         igMessageId: igResponse.message_id,
+//         sender: "me",
+//         senderType: "creator",
+//         senderId: user._id,
+//         senderTypeRef: "users", // ✅ FIXED: Must match the collection name in the enum
+//         type,
+//         text: text || null,
+//         mediaUrl,
+//         mediaType,
+//         createdAtPlatform: new Date(),
+//         isRead: true,
+//         isDeleted: false,
+//       });
+
+//       await Conversation.updateOne(
+//         { _id: conversationId },
+//         {
+//           $set: {
+//             lastMessage: {
+//               text: type === "text" ? text : null,
+//               type,
+//               sender: "me",
+//               timestamp: new Date(),
+//             },
+//             lastActivityAt: new Date(),
+//           },
+//         }
+//       );
+
+//       return res.status(201).json({
+//         success: true,
+//         data: {
+//           _id: message._id,
+//           sender: message.sender,
+//           type: message.type,
+//           text: message.text,
+//           mediaUrl: message.mediaUrl,
+//           mediaType: message.mediaType,
+//           createdAtPlatform: message.createdAtPlatform,
+//           isRead: true,
+//         },
+//       });
+//     } catch (err) {
+//       console.error("Send message error:", err);
+//       return res.status(500).json({
+//         success: false,
+//         error: "Failed to send message",
+//       });
+//     }
+//   }
+// );
 
 router.post("/page-analytics", authenticateToken, async (req, res) => {
   try {

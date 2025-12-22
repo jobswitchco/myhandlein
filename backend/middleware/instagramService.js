@@ -94,6 +94,46 @@ async fetchOlderMessages({
     }
   }
 
+  async fetchConversations({ pageId, accessToken, limit = 20 }) {
+  const url = `${GRAPH_API_BASE}/${pageId}/conversations`;
+
+  const params = {
+    access_token: accessToken,
+    platform: "instagram",
+    limit,
+    fields: "id,participants"
+  };
+
+  const res = await axios.get(url, { params });
+  return res.data?.data || [];
+}
+
+async fetchMessagesAfter({
+  igConversationId,
+  accessToken,
+  afterCursor = null,
+  limit = 20
+}) {
+  const url = `${GRAPH_API_BASE}/${igConversationId}/messages`;
+
+  const params = {
+    access_token: accessToken,
+    limit,
+    fields:
+      "id,created_time,from,to,message,attachments{mime_type,file_url,image_data,video_data}"
+  };
+
+  if (afterCursor) params.after = afterCursor;
+
+  const res = await axios.get(url, { params });
+
+  return {
+    messages: res.data?.data || [],
+    paging: res.data?.paging || {}
+  };
+}
+
+
 }
 
 export default new InstagramService();
