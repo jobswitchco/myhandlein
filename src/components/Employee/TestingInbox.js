@@ -44,13 +44,15 @@ const LABEL_STYLES = {
   General: { bg: "#F1F3F4", text: "#4B5563" },
 };
 
-const getLastMessagePreview = (lastMessage) => {
-  if (!lastMessage) return "No messages yet";
-  if (lastMessage.type === "system") return "Shared a reel";
-  if (lastMessage.type === "image") return "📷 Image";
-  if (lastMessage.type === "video") return "🎥 Video";
-  return lastMessage.text || "No messages yet";
+const getLastMessagePreview = (msg) => {
+  if (!msg) return "No messages yet";
+  if (msg.type === "system") return "Shared a reel";
+  if (msg.type === "image") return "📷 Image";
+  if (msg.type === "video") return "🎥 Video";
+  if (msg.text?.trim()) return msg.text;
+  return "New message";
 };
+
 
 export default function InboxManagement() {
   // Use environment variable or valid base URL
@@ -143,17 +145,17 @@ useEffect(() => {
   const handler = (payload) => {
     if (!["message:new", "conversation:updated"].includes(payload.type)) return;
 
- if (payload.type === "conversation:updated") {
-    if (payload.conversationId === selectedConversationId) {
-      setRawMessages([]);
-messageIdSetRef.current.clear();
-setCursor(null);
-setHasMore(true);
-fetchMessages(selectedConversationId);
-
-    }
-    return; // 🔑 DO NOT FALL THROUGH
+if (payload.type === "conversation:updated") {
+  // ONLY refetch messages if older-sync happened
+  if (payload.reason === "older-sync" &&
+      payload.conversationId === selectedConversationId) {
+    setRawMessages([]);
+    messageIdSetRef.current.clear();
+    fetchMessages(selectedConversationId);
   }
+  return;
+}
+
 
   if (payload.type !== "message:new") return;
 
@@ -171,25 +173,32 @@ fetchMessages(selectedConversationId);
     }
 
     // ✅ Always update sidebar preview + unread
-    setConversations((prev) =>
-      prev.map((c) =>
-        c._id === conversationId
-          ? {
-              ...c,
-              lastMessage: {
-                text: data.text,
-                type: data.type,
-                timestamp: data.createdAtPlatform,
-              },
-              unreadCount:
-  conversationId === selectedConversationId
-    ? 0
-    : Math.max((c.unreadCount || 0) + 1, 1),
+  setConversations((prev) => {
+  const existing = prev.find((c) => c._id === conversationId);
+  if (!existing) return prev;
 
-            }
-          : c
-      )
-    );
+  const updated = {
+    ...existing,
+    lastMessage: {
+      text: data.text,
+      type: data.type,
+      sender: data.sender,
+      timestamp: data.createdAtPlatform,
+    },
+    lastActivityAt: data.createdAtPlatform,
+    unreadCount:
+      conversationId === selectedConversationId
+        ? 0
+        : (existing.unreadCount || 0) + 1,
+  };
+
+  // 🔥 MOVE TO TOP
+  return [
+    updated,
+    ...prev.filter((c) => c._id !== conversationId),
+  ];
+});
+
   };
 
   socket.on("inbox:event", handler);
@@ -448,11 +457,20 @@ const handleScroll = async (e) => {
   };
 
   /* ---------- FILTER CONVERSATIONS ---------- */
-  const filteredConversations = conversations
-    .filter((c) => activeLabel === "All" || c.label === activeLabel)
-    .filter((c) =>
-      c.participant?.username?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+const sortedConversations = useMemo(() => {
+  return [...conversations].sort((a, b) => {
+    const ta = new Date(a.lastActivityAt || a.lastMessage?.timestamp || 0);
+    const tb = new Date(b.lastActivityAt || b.lastMessage?.timestamp || 0);
+    return tb - ta; // newest first
+  });
+}, [conversations]);
+
+const filteredConversations = sortedConversations
+  .filter((c) => activeLabel === "All" || c.label === activeLabel)
+  .filter((c) =>
+    c.participant?.username?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
 
   const handleLabelChange = (label) => {
     setConversations((prev) =>
@@ -537,7 +555,18 @@ const uInitial = uname.charAt(0).toUpperCase();
                   px={2}
                   py={2}
                   borderBottom="1px solid #f1f1f1"
-                  onClick={() => setSelectedConversation(conv)}
+                onClick={() => {
+                setSelectedConversation(conv);
+                setSelectedConversationId(conv._id);
+
+                // 🔥 IMMEDIATE unread reset
+                setConversations((prev) =>
+                  prev.map((c) =>
+                    c._id === conv._id ? { ...c, unreadCount: 0 } : c
+                  )
+                );
+              }}
+
                   sx={{
                     cursor: "pointer",
                     bgcolor: isSelected ? "#EEF4FF" : "#fff",

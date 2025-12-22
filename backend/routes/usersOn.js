@@ -5668,9 +5668,7 @@ async function upsertParticipant(igUser) {
 }
 
 
-
-
-
+//send a message
 router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
     try {
       const userId = req.user?.user_id;
