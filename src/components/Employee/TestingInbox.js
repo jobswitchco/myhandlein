@@ -609,23 +609,26 @@ const uInitial = uname.charAt(0).toUpperCase();
                   px={2}
                   py={2}
                   borderBottom="1px solid #f1f1f1"
-                onClick={async () => {
-                setSelectedConversation(conv);
-                setSelectedConversationId(conv._id);
+             onClick={async () => {
+              // 1️⃣ Trigger Meta sync FIRST
+              await axios.post(
+                `${baseUrl}/conversations/${conv._id}/sync-latest`,
+                {},
+                { withCredentials: true }
+              );
 
-                // 🔥 IMMEDIATE unread reset
-                setConversations((prev) =>
-                  prev.map((c) =>
-                    c._id === conv._id ? { ...c, unreadCount: 0 } : c
-                  )
-                );
+              // 2️⃣ Now switch conversation (this triggers fetchMessages)
+              setSelectedConversation(conv);
+              setSelectedConversationId(conv._id);
 
-                 await axios.post(
-                  `${baseUrl}/conversations/${conv._id}/sync-latest`,
-                  {},
-                  { withCredentials: true }
-                );
-              }}
+              // 3️⃣ Reset unread locally
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c._id === conv._id ? { ...c, unreadCount: 0 } : c
+                )
+              );
+            }}
+
 
                   sx={{
                     cursor: "pointer",
