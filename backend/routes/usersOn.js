@@ -5556,17 +5556,21 @@ async function upsertMessage(metaMsg, conversation, user) {
   let mediaType = null;
   let action = null;
 
-  const attachment = metaMsg.attachments?.data?.[0];
+const attachment = metaMsg.attachments?.data?.[0];
 
-  if (attachment?.image_data?.url) {
-    type = "image";
-    mediaType = "image";
-    mediaUrl = attachment.image_data.url;
-  } else if (attachment?.video_data?.url) {
-    type = "video";
-    mediaType = "video";
-    mediaUrl = attachment.video_data.url;
-  }
+if (attachment?.image_data?.url) {
+  type = "image";
+  mediaType = "image";
+  mediaUrl = attachment.image_data.url;
+} else if (attachment?.video_data?.url) {
+  type = "video";
+  mediaType = "video";
+  mediaUrl = attachment.video_data.url;
+} else if (attachment) {
+  type = "system";
+  text = "Shared an attachment";
+}
+
 
   // ---------- System messages (reel / post / story) ----------
   if (metaMsg.is_unsupported) {
@@ -5771,6 +5775,26 @@ router.post("/conversations/:id/messages", authenticateToken, upload.single("fil
         isRead: true,
         isDeleted: false,
       });
+
+      await redis.publish(
+  `inbox:conversation:${conversationId}`,
+  JSON.stringify({
+    type: "message:new",
+    creatorId: userId,
+    conversationId,
+    data: {
+      _id: message._id,
+      sender: "me",
+      type: message.type,
+      text: message.text,
+      mediaUrl: message.mediaUrl,
+      mediaType: message.mediaType,
+      createdAtPlatform: message.createdAtPlatform,
+      isRead: true,
+    }
+  })
+);
+
 
       await Conversation.updateOne(
         { _id: conversationId },

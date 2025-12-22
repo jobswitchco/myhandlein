@@ -569,6 +569,10 @@ const uInitial = uname.charAt(0).toUpperCase();
 
               const isSelected = selectedConversation?._id === conv._id;
               
+              const previewDate =
+  conv.lastActivityAt ||
+  conv.lastMessage?.timestamp ||
+  null;
               return (
                 <Box
                   key={conv._id}
@@ -613,7 +617,7 @@ const uInitial = uname.charAt(0).toUpperCase();
                     </Box>
                     <Box display="flex" flexDirection="column" alignItems="flex-end">
                        <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
-                       {conv.lastMessage?.timestamp && formatPreviewTime(conv.lastMessage.timestamp)}
+                       {previewDate && formatPreviewTime(previewDate)}
                         </Typography>
                         {conv.unreadCount > 0 && (
                           <Badge color="primary" badgeContent={conv.unreadCount} sx={{ mt: 1, mr: 1}} />
@@ -813,7 +817,7 @@ const uInitial = uname.charAt(0).toUpperCase();
                             </Typography>
                          ) : (
                              // Only show placeholder if NO media and NO text
-                             (!msg.mediaUrl && msg.type !== 'image' && msg.type !== 'sticker' && msg.type !== 'system') && (
+                             (!msg.mediaUrl && !msg.text) && (
                                  <Typography variant="body2" fontStyle="italic">Attachment unavailable</Typography>
                              )
                          )}
