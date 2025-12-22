@@ -390,10 +390,12 @@ const sendMessage = async () => {
 
   setSending(true);
 
-  try {
-    // Save current text before clearing
+      // Save current text before clearing
     const textToSend = messageText.trim();
     const fileToSend = selectedFile;
+
+  try {
+
 
     // Clear inputs immediately for better UX
     setMessageText("");
