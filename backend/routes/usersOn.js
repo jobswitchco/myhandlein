@@ -5368,7 +5368,7 @@ async function syncLatestConversation({ userId, conversationId }) {
   const conversation = await Conversation.findOne({
     _id: conversationId,
     creatorId: userId,
-  });
+  }).lean();
 
   if (!conversation?.metaThreadId) return;
 
@@ -5376,74 +5376,84 @@ async function syncLatestConversation({ userId, conversationId }) {
     .select("+fbPageAccessToken +igUserId")
     .lean();
 
-// const result = await InstagramService.fetchMessagesAfter({
-//   igConversationId: conversation.metaThreadId,
-//   accessToken: user.fbPageAccessToken,
-//   afterCursor: conversation.lastMetaCursor || null,
-//   pageLimit: 50,
-//   maxPages: 10, // ~500 msgs max per sync
-// });
+  if (!user?.fbPageAccessToken || !user?.igUserId) return;
 
-const latestPage = await InstagramService.fetchLatestMessages({
-  igConversationId: conversation.metaThreadId,
-  accessToken: user.fbPageAccessToken,
-  limit: 50,
-});
+  /**
+   * 🔥 CRITICAL RULE:
+   * Latest sync MUST ALWAYS fetch from HEAD
+   * NO afterCursor
+   */
+  const latestPage = await InstagramService.fetchLatestMessages({
+    igConversationId: conversation.metaThreadId,
+    accessToken: user.fbPageAccessToken,
+    limit: 50, // Meta max
+  });
 
+  if (!latestPage.messages.length) return;
 
-console.log('latestPage Messages : ', latestPage.messages);
+  let latestInsertedMessage = null;
 
+  for (const msg of latestPage.messages) {
+    const createdAt = msg.created_time
+      ? new Date(msg.created_time)
+      : new Date();
 
-let latestMessage = null;
+    /**
+     * 🔥 HARD GUARD:
+     * Ignore anything older than what DB already knows
+     */
+    if (
+      conversation.lastActivityAt &&
+      createdAt <= new Date(conversation.lastActivityAt)
+    ) {
+      continue;
+    }
 
-for (const msg of latestPage.messages) {
-  const createdAt = new Date(msg.created_time);
-
-  if (
-    !conversation.lastActivityAt ||
-    createdAt > new Date(conversation.lastActivityAt)
-  ) {
     const inserted = await upsertMessage(msg, conversation, user);
+
     if (inserted) {
-      latestMessage = inserted;
+      if (
+        !latestInsertedMessage ||
+        new Date(inserted.createdAtPlatform) >
+          new Date(latestInsertedMessage.createdAtPlatform)
+      ) {
+        latestInsertedMessage = inserted;
+      }
     }
   }
-}
 
-
-// 🔥 Guard against backward overwrite
-if (latestMessage) {
-  await Conversation.updateOne(
-    {
-      _id: conversation._id,
-      $or: [
-        { lastActivityAt: { $exists: false } },
-        { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
-      ],
-    },
-    {
-      $set: {
-        lastMessage: {
-          text: latestMessage.text,
-          type: latestMessage.type,
-          sender: latestMessage.sender,
-          timestamp: latestMessage.createdAtPlatform,
-        },
-        lastActivityAt: latestMessage.createdAtPlatform,
+  /**
+   * 🔥 Update conversation snapshot ONLY if we truly inserted newer data
+   */
+  if (latestInsertedMessage) {
+    await Conversation.updateOne(
+      {
+        _id: conversation._id,
+        $or: [
+          { lastActivityAt: { $exists: false } },
+          { lastActivityAt: { $lt: latestInsertedMessage.createdAtPlatform } },
+        ],
       },
-    }
-  );
+      {
+        $set: {
+          lastMessage: {
+            text: latestInsertedMessage.text,
+            type: latestInsertedMessage.type,
+            sender: latestInsertedMessage.sender,
+            timestamp: latestInsertedMessage.createdAtPlatform,
+          },
+          lastActivityAt: latestInsertedMessage.createdAtPlatform,
+        },
+      }
+    );
+  }
+
+  /**
+   * ❌ DO NOT UPDATE lastMetaCursor here
+   * Cursor is ONLY for background / older sync
+   */
 }
 
-// 🔥 Persist cursor ONLY after full pagination
-if (latestPage.pagingCursor) {
-  await Conversation.updateOne(
-    { _id: conversation._id },
-    { $set: { lastMetaCursor: latestPage.pagingCursor } }
-  );
-}
-
-}
 
 
 

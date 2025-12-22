@@ -85,7 +85,7 @@ async fetchOlderMessages({
 async fetchLatestMessages({
   igConversationId,
   accessToken,
-  limit = 50
+  limit = 50,
 }) {
   const res = await axios.get(
     `${GRAPH_API_BASE}/${igConversationId}/messages`,
@@ -95,15 +95,15 @@ async fetchLatestMessages({
         limit,
         fields:
           "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
-      }
+      },
     }
   );
 
   return {
     messages: res.data?.data || [],
-    paging: res.data?.paging || {}
   };
 }
+
 
 
 
