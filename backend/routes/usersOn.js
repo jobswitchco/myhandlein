@@ -5466,7 +5466,6 @@ async function syncInstagramConversations(userId) {
   }
 }
 
-
 async function syncOlderMessages({ userId, conversationId }) {
   const lockKey = `ig:sync:older:${conversationId}`;
   if (await redisGet(lockKey)) return;
@@ -5529,8 +5528,6 @@ async function syncOlderMessages({ userId, conversationId }) {
   }
 }
 
-
-
 async function upsertMessage(metaMsg, conversation, user) {
   if (!metaMsg?.id) return null;
 
@@ -5556,21 +5553,20 @@ async function upsertMessage(metaMsg, conversation, user) {
   let mediaType = null;
   let action = null;
 
-const attachment = metaMsg.attachments?.data?.[0];
+  const attachment = metaMsg.attachments?.data?.[0];
 
-if (attachment?.image_data?.url) {
-  type = "image";
-  mediaType = "image";
-  mediaUrl = attachment.image_data.url;
-} else if (attachment?.video_data?.url) {
-  type = "video";
-  mediaType = "video";
-  mediaUrl = attachment.video_data.url;
-} else if (attachment) {
-  type = "system";
-  text = "Shared an attachment";
-}
-
+  if (attachment?.image_data?.url) {
+    type = "image";
+    mediaType = "image";
+    mediaUrl = attachment.image_data.url;
+  } else if (attachment?.video_data?.url) {
+    type = "video";
+    mediaType = "video";
+    mediaUrl = attachment.video_data.url;
+  } else if (attachment) {
+    type = "system";
+    text = "Shared an attachment";
+  }
 
   // ---------- System messages (reel / post / story) ----------
   if (metaMsg.is_unsupported) {
@@ -5610,22 +5606,16 @@ if (attachment?.image_data?.url) {
     isDeleted: false,
   });
 
-  // ---------- 🔥 UPDATE CONVERSATION SNAPSHOT (CRITICAL FIX) ----------
-  await Conversation.updateOne(
-    { _id: conversation._id },
-    {
-      $set: {
-        lastMessage: {
-          text,
-          type,
-          sender,
-          timestamp: createdAtPlatform,
-        },
-        lastActivityAt: createdAtPlatform,
-      },
-      ...(sender === "them" ? { $inc: { unreadCount: 1 } } : {}),
-    }
-  );
+  // ---------- 🔥 REMOVED: Don't update conversation here ----------
+  // Let the calling function handle it with the correct latest message
+
+  // ---------- Update unread count for incoming messages ----------
+  if (sender === "them") {
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      { $inc: { unreadCount: 1 } }
+    );
+  }
 
   // ---------- Return normalized message ----------
   return {
@@ -5638,10 +5628,9 @@ if (attachment?.image_data?.url) {
     action,
     createdAtPlatform,
     isRead: inserted.isRead,
+    timestamp: createdAtPlatform, // Add this for sidebar preview
   };
 }
-
-
 
 async function upsertParticipant(igUser) {
   if (!igUser?.id) {

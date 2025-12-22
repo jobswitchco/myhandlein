@@ -48,7 +48,7 @@ async fetchOlderMessages({
       access_token: pageAccessToken,
       limit,
       fields:
-        "id,created_time,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
+        "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
     };
 
     if (beforeCursor) {
@@ -120,7 +120,7 @@ async fetchMessagesAfter({
     access_token: accessToken,
     limit,
     fields:
-      "id,created_time,from,to,message,attachments{mime_type,file_url,image_data,video_data}"
+      "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}"
   };
 
   if (afterCursor) params.after = afterCursor;
