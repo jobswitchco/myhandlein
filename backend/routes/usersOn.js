@@ -5578,17 +5578,19 @@ const senderId = isFromMe ? user._id : conversation.participantId;
   }
 
   // ---- System messages (shared reel, post, story) ----
-  if (metaMsg.is_unsupported) {
-    type = "system";
-    text = "Shared a reel";
-
-    if (attachment?.url) {
-      action = {
-        label: "View on Instagram",
-        url: attachment.url,
-      };
-    }
-  }
+if (msg.is_unsupported) {
+  return {
+    type: "system",
+    text: "Shared a reel",
+    action: {
+      label: "View on Instagram",
+      url: igConversationId
+        ? `https://www.instagram.com/direct/inbox/`
+        : null
+    },
+    media: null
+  };
+}
 
   // ---- Normalize timestamps ----
   const createdAtPlatform = metaMsg.created_time
