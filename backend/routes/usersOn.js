@@ -5497,7 +5497,7 @@ async function syncInstagramConversations(userId) {
         { upsert: true, new: true }
       );
 
-      const result = await InstagramService.fetchMessagesAfter({
+      const result = await InstagramService.fetchLatestMessages({
         igConversationId: metaThreadId,
         accessToken: user.fbPageAccessToken,
         afterCursor: conversation.lastMetaCursor || null,
