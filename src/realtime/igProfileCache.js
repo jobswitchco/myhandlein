@@ -1,6 +1,5 @@
 const { redisGet, redisSet } = require("./redisBridge");
 const { acquireLock, releaseLock } = require("./redisLock");
-const InstagramService = require("../../backend/middleware/instagramService");
 
 const PROFILE_TTL = 3600; // 1 hour
 
@@ -11,6 +10,17 @@ async function getCachedProfile(igUserId) {
   if (!igUserId) return null;
   return await redisGet(`ig:user:${igUserId}`);
 }
+
+let InstagramService = null;
+
+async function getInstagramService() {
+  if (!InstagramService) {
+    const mod = await import("../../backend/middleware/instagramService.js");
+    InstagramService = mod.default || mod;
+  }
+  return InstagramService;
+}
+
 
 /**
  * WRITE: Background only
@@ -32,10 +42,14 @@ async function fetchAndCacheProfileSafely({
   if (!locked) return null;
 
   try {
-    const profile = await InstagramService.fetchUserProfile({
-      igUserId,
-      accessToken,
-    });
+   
+    const InstagramService = await getInstagramService();
+
+const profile = await InstagramService.fetchUserProfile({
+  igUserId,
+  accessToken,
+});
+
 
     if (!profile) return null;
 
