@@ -5531,20 +5531,6 @@ async function upsertParticipant(igUser) {
   return participant._id;
 }
 
-async function refreshIgProfileIfNeeded({
-  igUserId,
-  accessToken,
-  conversationId
-}) {
-  const cacheKey = `ig:user:${igUserId}`;
-
-  // 🔥 If profile already cached → do nothing
-  const cached = await redisGet(cacheKey);
-  if (cached) return;
-
-  // Reuse the same helper
-  await fetchAndCacheProfile({ igUserId, accessToken, conversationId });
-}
 
 
 const REDIS_BRIDGE_URL = "http://34.180.49.15:3000";
@@ -5828,49 +5814,6 @@ async function upsertMessage(metaMsg, conversation, user) {
   // We'll let the caller handle publishing to avoid double-emit
 
   return normalizedMessage;
-}
-
-// ==================== UPDATE: fetchAndCacheProfile ====================
-
-async function fetchAndCacheProfile({ igUserId, accessToken, conversationId }) {
-  try {
-    const profile = await InstagramService.fetchUserProfile({
-      igUserId,
-      accessToken
-    });
-
-    if (!profile) return null;
-
-    const payload = {
-      igUserId,
-      name: profile.name || null,
-      profilePic: profile.profile_pic_url || null,
-      restricted: profile.is_private || false,
-      fetchedAt: Date.now()
-    };
-
-    // Cache in Redis
-    await redisSet(`ig:user:${igUserId}`, payload, 3600);
-
-    // 🔥 FIX: Use helper function for socket events
-    await publishSocketEvent({
-      conversationId,
-      payload: {
-        type: "participant:updated",
-        conversationId: conversationId.toString(),
-        data: {
-          igUserId,
-          name: payload.name,
-          profilePic: payload.profilePic
-        }
-      }
-    });
-
-    return payload;
-  } catch (err) {
-    console.error("❌ fetchAndCacheProfile failed", err.message);
-    return null;
-  }
 }
 
 // ==================== UPDATE: syncOlderMessages ====================

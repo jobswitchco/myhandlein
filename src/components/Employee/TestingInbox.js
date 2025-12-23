@@ -320,134 +320,100 @@ useEffect(() => {
     }
 
     // Handle conversation updates
-    if (payload.type === "conversation:updated") {
-      // 🔥 FIX 1: Older sync should NEVER reorder sidebar
-      if (payload.reason === "older-sync") {
-        if (payload.conversationId === selectedConversationId) {
-          // 🔥 Call fetchMessages directly without dependency
-          setRawMessages([]);
-          messageIdSetRef.current.clear();
-          
-          // Inline fetch to avoid dependency issues
-          (async () => {
-            try {
-              setLoadingMessages(true);
-              const res = await axios.get(
-                `${baseUrl}/conversations/${selectedConversationId}/messages`,
-                {
-                  withCredentials: true,
-                  params: { limit: 20 },
-                }
-              );
+   if (payload.type === "conversation:updated") {
+  const { conversationId, data, reason } = payload;
 
-              const payload = res.data?.data;
-              if (payload) {
-                const newMessages = payload.messages.filter(msg => {
-                  const msgId = typeof msg._id === 'object' ? msg._id.toString() : String(msg._id);
-                  
-                  if (messageIdSetRef.current.has(msgId)) {
-                    return false;
-                  }
-                  
-                  messageIdSetRef.current.add(msgId);
-                  return true;
-                });
+  // 🔥 1. Older sync: do NOT touch sidebar ordering
+  if (reason === "older-sync") {
+    if (conversationId === selectedConversationId) {
+      setRawMessages([]);
+      messageIdSetRef.current.clear();
 
-                setRawMessages(newMessages);
-                setCursor(payload.nextCursor);
-                setHasMore(payload.hasMore);
-              }
-            } catch (err) {
-              console.error("Message fetch failed", err);
-            } finally {
-              setLoadingMessages(false);
+      (async () => {
+        try {
+          setLoadingMessages(true);
+          const res = await axios.get(
+            `${baseUrl}/conversations/${selectedConversationId}/messages`,
+            {
+              withCredentials: true,
+              params: { limit: 20 },
             }
-          })();
-        }
-        return; // ⛔ stop here
-      }
+          );
 
-      // 🔥 FIX 2: Only reorder when full data is provided
-      if (payload.data) {
-        setConversations(prev => {
-          const filtered = prev.filter(c => c._id !== payload.conversationId);
-          return [payload.data, ...filtered];
-        });
-      }
-      return;
+          const payloadData = res.data?.data;
+          if (payloadData) {
+            const newMessages = payloadData.messages.filter(msg => {
+              const msgId = String(msg._id);
+              if (messageIdSetRef.current.has(msgId)) return false;
+              messageIdSetRef.current.add(msgId);
+              return true;
+            });
+
+            setRawMessages(newMessages);
+            setCursor(payloadData.nextCursor);
+            setHasMore(payloadData.hasMore);
+          }
+        } catch (err) {
+          console.error("Message fetch failed", err);
+        } finally {
+          setLoadingMessages(false);
+        }
+      })();
     }
+    return; // ⛔ stop here
+  }
+
+  // 🔥 2. NORMAL conversation update (PATCH, NOT REPLACE)
+  if (data) {
+    setConversations(prev => {
+      const existing = prev.find(c => c._id === conversationId);
+      if (!existing) return prev;
+
+      const updated = {
+        ...existing,
+        ...data, // ✅ applies unreadCount, lastMessage, lastActivityAt
+      };
+
+      // 🔥 Move to top ONLY for real activity
+      const filtered = prev.filter(c => c._id !== conversationId);
+      return [updated, ...filtered];
+    });
+  }
+
+  return;
+}
+
 
     // Handle new messages
-    if (payload.type === "message:new") {
-      const { conversationId, data } = payload;
-      
-      // 🔥 CRITICAL: Validate message data
-      if (!data?._id || !conversationId) {
-        console.warn("Invalid message data:", payload);
-        return;
-      }
+   if (payload.type === "message:new") {
+  const { conversationId, data, conversation } = payload;
 
-      // 🔥 FIX: Strict deduplication using string comparison
-      const msgId = typeof data._id === 'object' ? data._id.toString() : String(data._id);
-      
-      if (messageIdSetRef.current.has(msgId)) {
-        console.log("Duplicate message blocked:", msgId);
-        return;
-      }
-
-      // 🔥 CRITICAL FIX: Only add to chat if message belongs to CURRENT conversation
-      const isCurrentConversation = conversationId === selectedConversationId;
-      
-      if (isCurrentConversation) {
-        messageIdSetRef.current.add(msgId);
-        
-        setRawMessages((prev) => {
-          // Extra safety: check if message already exists in array
-          const exists = prev.some(m => {
-            const existingId = typeof m._id === 'object' ? m._id.toString() : String(m._id);
-            return existingId === msgId;
-          });
-          
-          if (exists) {
-            console.log("Message already in array:", msgId);
-            return prev;
-          }
-          
-          return [...prev, data];
-        });
-      }
-
-      // 🔥 FIX: Update sidebar for ALL conversations (not just current one)
-      setConversations((prev) => {
-        const existing = prev.find((c) => c._id === conversationId);
-        if (!existing) {
-          console.warn("Conversation not found in sidebar:", conversationId);
-          return prev;
-        }
-
-        // Create updated conversation object
-        const updated = {
-          ...existing,
-          lastMessage: {
-            text: data.text || (data.type === "image" ? "📷 Image" : data.type === "video" ? "🎥 Video" : "New message"),
-            type: data.type,
-            sender: data.sender,
-            timestamp: data.createdAtPlatform,
-          },
-          lastActivityAt: data.createdAtPlatform,
-          // 🔥 FIX: Only increment unread if NOT current conversation AND message is from them
-          unreadCount: isCurrentConversation
-            ? 0 // Reset unread if viewing this conversation
-            : data.sender === "them"
-              ? (existing.unreadCount || 0) + 1
-              : existing.unreadCount || 0,
-        };
-
-        // 🔥 FIX: Move to top regardless of which conversation it is
-        const filtered = prev.filter((c) => c._id !== conversationId);
-        return [updated, ...filtered];
-      });
+  // 1️⃣ Update chat only if active
+  if (conversationId === selectedConversationId) {
+    const msgId = String(data._id);
+    if (!messageIdSetRef.current.has(msgId)) {
+      messageIdSetRef.current.add(msgId);
+      setRawMessages(prev => [...prev, data]);
     }
+  }
+
+  // 2️⃣ Update sidebar using SERVER truth
+  setConversations(prev => {
+    const existing = prev.find(c => c._id === conversationId);
+    if (!existing) return prev;
+
+    const updated = {
+      ...existing,
+      lastMessage: conversation.lastMessage,
+      lastActivityAt: conversation.lastActivityAt,
+      unreadCount: conversation.unreadCount, // 🔥 FROM BACKEND
+    };
+
+    const filtered = prev.filter(c => c._id !== conversationId);
+    return [updated, ...filtered];
+  });
+}
+
   };
 
   socket.on("inbox:event", handler);
