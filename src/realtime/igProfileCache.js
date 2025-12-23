@@ -2,7 +2,7 @@
 const axios = require("axios");
 const { redisGet, redisSet } = require("./redisBridge.js");
 
-const CACHE_TTL = 60 * 60 * 24; // 24 hours
+const CACHE_TTL = 3600; // 24 hours
 
 const warmIgProfile = async ({
   igUserId,

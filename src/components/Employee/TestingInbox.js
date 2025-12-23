@@ -173,6 +173,34 @@ useEffect(() => {
   return;
 }
 
+if (payload.type === "participant:updated") {
+  setConversations(prev =>
+    prev.map(c =>
+      c._id === payload.conversationId
+        ? {
+            ...c,
+            participant: {
+              ...c.participant,
+              ...payload.data
+            }
+          }
+        : c
+    )
+  );
+
+  // Also update selected conversation
+  setSelectedConversation(prev =>
+    prev?._id === payload.conversationId
+      ? {
+          ...prev,
+          participant: {
+            ...prev.participant,
+            ...payload.data
+          }
+        }
+      : prev
+  );
+}
 
     // Handle new messages
     if (payload.type === "message:new") {

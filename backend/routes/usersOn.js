@@ -5363,87 +5363,6 @@ router.post("/conversations/:id/sync-latest", authenticateToken, async (req, res
   }
 );
 
-// async function syncLatestConversation({ userId, conversationId }) {
-//   const conversation = await Conversation.findOne({
-//     _id: conversationId,
-//     creatorId: userId,
-//   }).lean();
-
-//   if (!conversation?.metaThreadId) return;
-
-//   const user = await USER.findById(userId)
-//     .select("+fbPageAccessToken +igUserId")
-//     .lean();
-
-//   if (!user?.fbPageAccessToken || !user?.igUserId) return;
-
-//   const latestPage = await InstagramService.fetchLatestMessages({
-//     igConversationId: conversation.metaThreadId,
-//     accessToken: user.fbPageAccessToken,
-//     limit: 50, // Meta max
-//   });
-
-//   if (!latestPage.messages.length) return;
-
-//   let latestInsertedMessage = null;
-
-//   for (const msg of latestPage.messages) {
-//     const createdAt = msg.created_time
-//       ? new Date(msg.created_time)
-//       : new Date();
-
-
-//     if (
-//       conversation.lastActivityAt &&
-//       createdAt <= new Date(conversation.lastActivityAt)
-//     ) {
-//       continue;
-//     }
-
-//     const inserted = await upsertMessage(msg, conversation, user);
-
-//     if (inserted) {
-//       if (
-//         !latestInsertedMessage ||
-//         new Date(inserted.createdAtPlatform) >
-//           new Date(latestInsertedMessage.createdAtPlatform)
-//       ) {
-//         latestInsertedMessage = inserted;
-//       }
-//     }
-//   }
-
-//   /**
-//    * 🔥 Update conversation snapshot ONLY if we truly inserted newer data
-//    */
-//   if (latestInsertedMessage) {
-//     await Conversation.updateOne(
-//       {
-//         _id: conversation._id,
-//         $or: [
-//           { lastActivityAt: { $exists: false } },
-//           { lastActivityAt: { $lt: latestInsertedMessage.createdAtPlatform } },
-//         ],
-//       },
-//       {
-//         $set: {
-//           lastMessage: {
-//             text: latestInsertedMessage.text,
-//             type: latestInsertedMessage.type,
-//             sender: latestInsertedMessage.sender,
-//             timestamp: latestInsertedMessage.createdAtPlatform,
-//           },
-//           lastActivityAt: latestInsertedMessage.createdAtPlatform,
-//         },
-//       }
-//     );
-//   }
-
-//   /**
-//    * ❌ DO NOT UPDATE lastMetaCursor here
-//    * Cursor is ONLY for background / older sync
-//    */
-// }
 
 
 async function syncLatestConversation({ userId, conversationId }) {
@@ -5811,6 +5730,14 @@ async function upsertMessage(metaMsg, conversation, user) {
     );
   }
 
+  if (sender === "them") {
+  await refreshIgProfileIfNeeded({
+    igUserId: metaMsg.from.id,
+    accessToken: user.fbPageAccessToken
+  });
+}
+
+
   // ---------- Return normalized message ----------
   return {
     _id: inserted._id.toString(),
@@ -5856,6 +5783,57 @@ async function upsertParticipant(igUser) {
 
   return participant._id;
 }
+
+async function refreshIgProfileIfNeeded({
+  igUserId,
+  accessToken,
+  conversationId
+}) {
+  const cacheKey = `ig:user:${igUserId}`;
+
+  // 🔥 If profile already cached → do nothing
+  const cached = await redisGet(cacheKey);
+  if (cached) return;
+
+  try {
+    const profile = await InstagramService.fetchUserProfile({
+      igUserId,
+      accessToken
+    });
+
+    if (!profile) return;
+
+    const payload = {
+      igUserId,
+      name: profile.name || null,
+      profilePic: profile.profile_pic_url || null,
+      restricted: profile.is_private || false,
+      fetchedAt: Date.now()
+    };
+
+    // ✅ 1️⃣ Update Redis with TTL
+    await redisSet(cacheKey, payload, 3600);
+
+    // ✅ 2️⃣ 🔥 REALTIME PUSH (THIS IS THE ANSWER)
+    await redis.publish(
+      `inbox:conversation:${conversationId}`,
+      JSON.stringify({
+        type: "participant:updated",
+        conversationId,
+        data: {
+          igUserId,
+          name: payload.name,
+          profilePic: payload.profilePic
+        }
+      })
+    );
+
+  } catch (err) {
+    console.error("❌ refreshIgProfileIfNeeded failed", err.message);
+  }
+}
+
+
 
 // 3. FIX: Send message endpoint to properly update conversation
 router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
