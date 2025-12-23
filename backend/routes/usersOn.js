@@ -5364,7 +5364,6 @@ router.post("/conversations/:id/sync-latest", authenticateToken, async (req, res
 );
 
 
-
 async function syncLatestConversation({ userId, conversationId }) {
   const conversation = await Conversation.findOne({
     _id: conversationId,
@@ -5399,11 +5398,6 @@ async function syncLatestConversation({ userId, conversationId }) {
       ? new Date(msg.created_time)
       : new Date();
 
-    /**
-     * 🔥 UPDATED LOGIC:
-     * Only process messages NEWER than what we have
-     * Since messages come newest-first, once we hit an old one, we can break
-     */
     if (
       conversation.lastActivityAt &&
       createdAt <= new Date(conversation.lastActivityAt)
@@ -5730,13 +5724,14 @@ async function upsertMessage(metaMsg, conversation, user) {
     );
   }
 
+  // ✅ FIX: Pass conversationId to refresh function
   if (sender === "them") {
-  await refreshIgProfileIfNeeded({
-    igUserId: metaMsg.from.id,
-    accessToken: user.fbPageAccessToken
-  });
-}
-
+    await refreshIgProfileIfNeeded({
+      igUserId: metaMsg.from.id,
+      accessToken: user.fbPageAccessToken,
+      conversationId: conversation._id // 🔥 ADDED THIS
+    });
+  }
 
   // ---------- Return normalized message ----------
   return {
@@ -5787,7 +5782,7 @@ async function upsertParticipant(igUser) {
 async function refreshIgProfileIfNeeded({
   igUserId,
   accessToken,
-  conversationId
+  conversationId // ✅ Now required parameter
 }) {
   const cacheKey = `ig:user:${igUserId}`;
 
@@ -5814,12 +5809,12 @@ async function refreshIgProfileIfNeeded({
     // ✅ 1️⃣ Update Redis with TTL
     await redisSet(cacheKey, payload, 3600);
 
-    // ✅ 2️⃣ 🔥 REALTIME PUSH (THIS IS THE ANSWER)
+    // ✅ 2️⃣ 🔥 REALTIME PUSH (NOW WORKS!)
     await redis.publish(
-      `inbox:conversation:${conversationId}`,
+      `inbox:conversation:${conversationId}`, // ✅ Now has valid conversationId
       JSON.stringify({
         type: "participant:updated",
-        conversationId,
+        conversationId, // ✅ Now defined
         data: {
           igUserId,
           name: payload.name,
@@ -5828,10 +5823,13 @@ async function refreshIgProfileIfNeeded({
       })
     );
 
+    console.log(`✅ Profile refreshed for ${igUserId} in conversation ${conversationId}`);
+
   } catch (err) {
     console.error("❌ refreshIgProfileIfNeeded failed", err.message);
   }
 }
+
 
 
 
