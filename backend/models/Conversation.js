@@ -45,6 +45,9 @@ const ConversationSchema = new Schema(
     unreadCount: { type: Number, default: 0 },
     lastSyncedAt: Date,
     lastMetaCursor: String,
+    lastMetaAfterCursor: String,   // for latest sync
+lastMetaBeforeCursor: String,  // for older sync
+
 
 
     // Sorting

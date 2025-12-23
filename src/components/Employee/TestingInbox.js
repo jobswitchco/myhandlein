@@ -233,8 +233,7 @@ useEffect(() => {
   // 🔥 1. Older sync: do NOT touch sidebar ordering
   if (reason === "older-sync") {
     if (conversationId === selectedConversationId) {
-      setRawMessages([]);
-      messageIdSetRef.current.clear();
+      fetchMessages(selectedConversationId, cursor);
 
       (async () => {
         try {

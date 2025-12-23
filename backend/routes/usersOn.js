@@ -5169,66 +5169,103 @@ router.get("/conversations/sync-status", authenticateToken, async (req, res) => 
 });
 
 // GET /conversations/:id/messages (DB ONLY)
-router.get("/conversations/:id/messages", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.user_id;
-    const conversationId = req.params.id;
-    const limit = Math.min(Number(req.query.limit) || 20, 50);
-    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+router.get(
+  "/conversations/:id/messages",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.user_id;
+      const conversationId = req.params.id;
 
-    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
-      return res.status(400).json({ success: false, error: "Invalid id" });
-    }
+      const limit = Math.min(Number(req.query.limit) || 20, 50);
+      const cursor = req.query.cursor
+        ? new Date(req.query.cursor)
+        : null;
 
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      creatorId: userId
-    }).lean();
-
-    if (!conversation) {
-      return res.status(404).json({ success: false, error: "Not found" });
-    }
-
-    const query = { conversationId, isDeleted: false };
-    if (cursor) query.createdAtPlatform = { $lt: cursor };
-
-    const docs = await Message.find(query)
-      .sort({ createdAtPlatform: -1 })
-      .limit(limit + 1)
-      .lean();
-
-    const hasMore = docs.length > limit;
-    const sliced = hasMore ? docs.slice(0, limit) : docs;
-
-    const ordered = sliced.sort(
-      (a, b) => new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform)
-    );
-
-    // mark read (async)
-    if (!cursor) {
-      Message.updateMany(
-        { conversationId, sender: "them", isRead: false },
-        { $set: { isRead: true } }
-      ).catch(() => {});
-      Conversation.updateOne(
-        { _id: conversationId },
-        { $set: { unreadCount: 0 } }
-      ).catch(() => {});
-    }
-
-    res.json({
-      success: true,
-      data: {
-        messages: ordered,
-        nextCursor: ordered[ordered.length - 1]?.createdAtPlatform || null,
-        hasMore
+      if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid id" });
       }
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false });
+
+      // 🔒 Ownership check
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        creatorId: userId,
+      }).lean();
+
+      if (!conversation) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Not found" });
+      }
+
+      /* ================= CURSOR PAGINATION ================= */
+
+      const query = {
+        conversationId,
+        isDeleted: false,
+        ...(cursor && {
+          createdAtPlatform: { $lt: cursor }, // 🔥 older messages only
+        }),
+      };
+
+      // Fetch newest → oldest
+      const docs = await Message.find(query)
+        .sort({ createdAtPlatform: -1 })
+        .limit(limit + 1) // 🔥 fetch one extra to detect hasMore
+        .lean();
+
+      const hasMore = docs.length > limit;
+      const page = hasMore ? docs.slice(0, limit) : docs;
+
+      // Order for UI (oldest → newest)
+      const messages = page.sort(
+        (a, b) =>
+          new Date(a.createdAtPlatform) -
+          new Date(b.createdAtPlatform)
+      );
+
+      const nextCursor = hasMore
+        ? page[page.length - 1].createdAtPlatform
+        : null;
+
+      /* ================= READ SIDE EFFECTS ================= */
+
+      // Only mark read on FIRST page load (not on scroll-up pagination)
+      if (!cursor) {
+        Message.updateMany(
+          {
+            conversationId,
+            sender: "them",
+            isRead: false,
+          },
+          { $set: { isRead: true } }
+        ).catch(() => {});
+
+        Conversation.updateOne(
+          { _id: conversationId },
+          { $set: { unreadCount: 0 } }
+        ).catch(() => {});
+      }
+
+      /* ================= RESPONSE ================= */
+
+      res.json({
+        success: true,
+        data: {
+          messages,
+          nextCursor,
+          hasMore,
+        },
+      });
+    } catch (err) {
+      console.error("Fetch messages failed", err);
+      res.status(500).json({ success: false });
+    }
   }
-});
+);
+
 
 router.post("/conversations/:id/sync-latest", authenticateToken, async (req, res) => {
     const userId = req.user.user_id;
@@ -5676,7 +5713,8 @@ async function syncOlderMessages({ userId, conversationId }) {
     const result = await InstagramService.fetchOlderMessages({
       igConversationId: conversation.metaThreadId,
       pageAccessToken: user.fbPageAccessToken,
-      beforeCursor: conversation.lastMetaCursor || null,
+      beforeCursor: conversation.lastMetaBeforeCursor || null,
+
       limit: 20,
     });
 
@@ -5690,12 +5728,14 @@ async function syncOlderMessages({ userId, conversationId }) {
     }
 
     const prevCursor = result.paging?.cursors?.before;
-    if (prevCursor) {
-      await Conversation.updateOne(
-        { _id: conversationId },
-        { $set: { lastMetaCursor: prevCursor } }
-      );
-    }
+
+if (prevCursor) {
+  await Conversation.updateOne(
+    { _id: conversationId },
+    { $set: { lastMetaBeforeCursor: prevCursor } }
+  );
+}
+
 
     if (insertedAny) {
       // 🔥 FIX: Use helper function for socket events
