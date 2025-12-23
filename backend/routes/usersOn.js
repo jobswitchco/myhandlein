@@ -5317,12 +5317,13 @@ async function syncLatestConversation({ userId, conversationId }) {
       ? new Date(msg.created_time)
       : new Date();
 
-    if (
-      conversation.lastActivityAt &&
-      createdAt <= new Date(conversation.lastActivityAt)
-    ) {
-      break; // Stop processing - rest are older
-    }
+  if (
+  conversation.lastActivityAt &&
+  createdAt <= new Date(conversation.lastActivityAt)
+) {
+  continue; // ✅ skip only this one
+}
+
 
     const inserted = await upsertMessage(msg, conversation, user);
 

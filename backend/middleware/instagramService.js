@@ -13,7 +13,7 @@ async fetchOlderMessages({
   igConversationId,
   pageAccessToken,
   beforeCursor = null,
-  limit = 20,
+  limit = 50,
 }) {
   try {
     const url = `${GRAPH_API_BASE}/${igConversationId}/messages`;
