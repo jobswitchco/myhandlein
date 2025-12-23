@@ -128,24 +128,40 @@ async fetchOlderMessages({
 async fetchLatestMessages({
   igConversationId,
   accessToken,
+  afterCursor = null,
   limit = 50,
 }) {
-  const res = await axios.get(
-    `${GRAPH_API_BASE}/${igConversationId}/messages`,
-    {
-      params: {
-        access_token: accessToken,
-        limit,
-        fields:
-          "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
-      },
-    }
-  );
+  try {
+    const params = {
+      access_token: accessToken,
+      limit,
+      fields:
+        "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
+    };
 
-  return {
-    messages: res.data?.data || [],
-  };
+    // 🔥 USE AFTER CURSOR FOR LATEST SYNC
+    if (afterCursor) {
+      params.after = afterCursor;
+    }
+
+    const res = await axios.get(
+      `${GRAPH_API_BASE}/${igConversationId}/messages`,
+      { params }
+    );
+
+    return {
+      messages: res.data?.data || [],
+      paging: res.data?.paging || {},
+    };
+  } catch (err) {
+    console.error(
+      "Fetch latest IG messages failed:",
+      err.response?.data || err
+    );
+    throw err;
+  }
 }
+
 
 
 
