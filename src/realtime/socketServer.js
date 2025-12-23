@@ -28,6 +28,19 @@ const initSocketServer = (httpServer) => {
       socket.leave(`conv:${conversationId}`);
     });
 
+socket.on("join_creator", ({ creatorId }) => {
+  if (!creatorId) return;
+  socket.join(`creator:${creatorId}`);
+  console.log(`👤 ${socket.id} joined creator:${creatorId}`);
+});
+
+socket.on("leave_creator", ({ creatorId }) => {
+  if (!creatorId) return;
+  socket.leave(`creator:${creatorId}`);
+});
+
+
+
     socket.on("disconnect", () => {
       console.log("❌ Client disconnected:", socket.id);
     });
@@ -44,17 +57,37 @@ const initSocketServer = (httpServer) => {
     }
   });
 
-  sub.on("pmessage", (_pattern, channel, message) => {
-    try {
-      //  console.log("📡 Redis fanout received:", channel);
-      const payload = JSON.parse(message);
-      const conversationId = channel.split(":").pop();
+  sub.psubscribe("inbox:creator:*", (err) => {
+  if (err) {
+    console.error("❌ Redis psubscribe failed", err);
+  } else {
+    console.log("📡 Redis subscribed to inbox:creator:*");
+  }
+});
 
+
+sub.on("pmessage", (_pattern, channel, message) => {
+  try {
+    const payload = JSON.parse(message);
+
+    // inbox:conversation:<conversationId>
+    if (channel.startsWith("inbox:conversation:")) {
+      const conversationId = channel.split(":").pop();
       io.to(`conv:${conversationId}`).emit("inbox:event", payload);
-    } catch (e) {
-      console.error("❌ Redis message parse failed", e.message);
+      return;
     }
-  });
+
+    // inbox:creator:<creatorId>
+    if (channel.startsWith("inbox:creator:")) {
+      const creatorId = channel.split(":").pop();
+      io.to(`creator:${creatorId}`).emit("inbox:event", payload);
+      return;
+    }
+  } catch (e) {
+    console.error("❌ Redis message parse failed", e.message);
+  }
+});
+
 
   return io;
 };

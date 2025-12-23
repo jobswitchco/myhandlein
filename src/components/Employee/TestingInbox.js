@@ -92,6 +92,9 @@ export default function InboxManagement() {
   const [isSyncing, setIsSyncing] = useState(false);
   const syncingOlderRef = useRef(false);
 
+  const [creatorId, setCreatorId] = useState(null);
+
+
 
 
 
@@ -140,147 +143,51 @@ const messages = useMemo(
 
 
 
+  /* ---------- FETCH CREATOR ID (ONCE) ---------- */
+useEffect(() => {
+  let cancelled = false;
 
-// ==================== FRONTEND FIX ====================
+  (async () => {
+    try {
+   
 
-// useEffect(() => {
-//   const socket = getSocket();
+      const res = await axios.get(`${baseUrl}/fetch-creatorid`, {
+      withCredentials: true,
+    });
 
-//   const handler = (payload) => {
-//     if (!["message:new", "conversation:updated", "participant:updated"].includes(payload.type)) return;
+      if (!cancelled) {
+        setCreatorId(res.data?.user?._id || null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch creatorId", err);
+    }
+  })();
 
-//     // Handle participant profile updates
-//     if (payload.type === "participant:updated") {
-//       setConversations(prev =>
-//         prev.map(c =>
-//           c._id === payload.conversationId
-//             ? {
-//                 ...c,
-//                 participant: {
-//                   ...c.participant,
-//                   ...payload.data
-//                 }
-//               }
-//             : c
-//         )
-//       );
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
-//       // Also update selected conversation
-//       setSelectedConversation(prev =>
-//         prev?._id === payload.conversationId
-//           ? {
-//               ...prev,
-//               participant: {
-//                 ...prev.participant,
-//                 ...payload.data
-//               }
-//             }
-//           : prev
-//       );
-//       return;
-//     }
+/* ---------- JOIN CREATOR ROOM (SIDEBAR EVENTS) ---------- */
+useEffect(() => {
+  if (!creatorId) return;
 
-//     // Handle conversation updates
-//     if (payload.type === "conversation:updated") {
-//       // 🔥 FIX 1: Older sync should NEVER reorder sidebar
-//       if (payload.reason === "older-sync") {
-//         if (payload.conversationId === selectedConversationId) {
-//           setRawMessages([]);
-//           messageIdSetRef.current.clear();
-//           fetchMessages(selectedConversationId);
-//         }
-//         return; // ⛔ stop here
-//       }
+  const socket = getSocket();
 
-//       // 🔥 FIX 2: Only reorder when full data is provided
-//       if (payload.data) {
-//         setConversations(prev => {
-//           const filtered = prev.filter(c => c._id !== payload.conversationId);
-//           return [payload.data, ...filtered];
-//         });
-//       }
-//       return;
-//     }
+  if (socket.connected) {
+    socket.emit("join_creator", { creatorId });
+  } else {
+    socket.once("connect", () => {
+      socket.emit("join_creator", { creatorId });
+    });
+  }
 
-//     // Handle new messages
-//     if (payload.type === "message:new") {
-//       const { conversationId, data } = payload;
-      
-//       // 🔥 CRITICAL: Validate message data
-//       if (!data?._id || !conversationId) {
-//         console.warn("Invalid message data:", payload);
-//         return;
-//       }
-
-//       // 🔥 FIX: Strict deduplication using string comparison
-//       const msgId = typeof data._id === 'object' ? data._id.toString() : String(data._id);
-      
-//       if (messageIdSetRef.current.has(msgId)) {
-//         console.log("Duplicate message blocked:", msgId);
-//         return;
-//       }
-
-//       // 🔥 CRITICAL FIX: Only add to chat if message belongs to CURRENT conversation
-//       const isCurrentConversation = conversationId === selectedConversationId;
-      
-//       if (isCurrentConversation) {
-//         messageIdSetRef.current.add(msgId);
-        
-//         setRawMessages((prev) => {
-//           // Extra safety: check if message already exists in array
-//           const exists = prev.some(m => {
-//             const existingId = typeof m._id === 'object' ? m._id.toString() : String(m._id);
-//             return existingId === msgId;
-//           });
-          
-//           if (exists) {
-//             console.log("Message already in array:", msgId);
-//             return prev;
-//           }
-          
-//           return [...prev, data];
-//         });
-//       }
-
-//       // 🔥 FIX: Update sidebar for ALL conversations (not just current one)
-//       setConversations((prev) => {
-//         const existing = prev.find((c) => c._id === conversationId);
-//         if (!existing) {
-//           console.warn("Conversation not found in sidebar:", conversationId);
-//           return prev;
-//         }
-
-//         // Create updated conversation object
-//         const updated = {
-//           ...existing,
-//           lastMessage: {
-//             text: data.text || (data.type === "image" ? "📷 Image" : data.type === "video" ? "🎥 Video" : "New message"),
-//             type: data.type,
-//             sender: data.sender,
-//             timestamp: data.createdAtPlatform,
-//           },
-//           lastActivityAt: data.createdAtPlatform,
-//           // 🔥 FIX: Only increment unread if NOT current conversation AND message is from them
-//           unreadCount: isCurrentConversation
-//             ? 0 // Reset unread if viewing this conversation
-//             : data.sender === "them"
-//               ? (existing.unreadCount || 0) + 1
-//               : existing.unreadCount || 0,
-//         };
-
-//         // 🔥 FIX: Move to top regardless of which conversation it is
-//         const filtered = prev.filter((c) => c._id !== conversationId);
-//         return [updated, ...filtered];
-//       });
-//     }
-//   };
-
-//   socket.on("inbox:event", handler);
-//   return () => socket.off("inbox:event", handler);
-// }, [selectedConversationId, fetchMessages]);
+  return () => {
+    socket.emit("leave_creator", { creatorId });
+  };
+}, [creatorId]);
 
 
-// ==================== CORRECTED SOCKET HANDLER (NO DEPENDENCIES ISSUE) ====================
 
 useEffect(() => {
   const socket = getSocket();
