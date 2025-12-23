@@ -1,106 +1,80 @@
-// services/igProfileCache.js
-const axios = require("axios");
-const { redisGet, redisSet } = require("./redisBridge.js");
+const { redisGet, redisSet } = require("./redisBridge");
+const { acquireLock, releaseLock } = require("./redisLock");
+const InstagramService = require("../../backend/middleware/instagramService");
 
-const CACHE_TTL = 3600; // 24 hours
+const PROFILE_TTL = 3600; // 1 hour
 
-const warmIgProfile = async ({
+/**
+ * READ-ONLY: Safe for UI
+ */
+async function getCachedProfile(igUserId) {
+  if (!igUserId) return null;
+  return await redisGet(`ig:user:${igUserId}`);
+}
+
+/**
+ * WRITE: Background only
+ */
+async function fetchAndCacheProfileSafely({
   igUserId,
-  username,
-  accessToken
-}) => {
+  accessToken,
+  conversationId,
+  publishSocketEvent,
+}) {
   const cacheKey = `ig:user:${igUserId}`;
 
-  // 1️⃣ If cached (even restricted), never retry
-  const existing = await redisGet(cacheKey);
-  if (existing) return;
+  // Fast path
+  const cached = await redisGet(cacheKey);
+  if (cached) return cached;
+
+  // Lock
+  const locked = await acquireLock(`ig:user:${igUserId}`, 30);
+  if (!locked) return null;
 
   try {
-    const res = await axios.get(
-      `https://graph.facebook.com/v24.0/${igUserId}`,
-      {
-        params: {
-          fields: [
-            "username",
-            "name",
-            "profile_pic",
-            "follower_count",
-            "is_user_follow_business",
-            "is_business_follow_user"
-          ].join(","),
-          access_token: accessToken
-        },
-        timeout: 5000
-      }
-    );
-
-    const profile = {
+    const profile = await InstagramService.fetchUserProfile({
       igUserId,
-      username: res.data.username || username,
-      name: res.data.name || null,
-      profilePic: res.data.profile_pic || null,
+      accessToken,
+    });
 
-      // optional metadata
-      followerCount: res.data.follower_count || null,
-      followsBusiness: !!res.data.is_user_follow_business,
-      followedByBusiness: !!res.data.is_business_follow_user,
+    if (!profile) return null;
 
-      // bookkeeping
-      restricted: false,
-      fetchedAt: Date.now()
+    const payload = {
+      igUserId,
+      name: profile.name || null,
+      profilePic: profile.profile_pic_url || null,
+      restricted: profile.is_private || false,
+      fetchedAt: Date.now(),
     };
 
-    await redisSet(cacheKey, profile, CACHE_TTL);
-    return;
+    await redisSet(cacheKey, payload, PROFILE_TTL);
 
+    // 🔥 Optional realtime update
+    if (conversationId && publishSocketEvent) {
+      await publishSocketEvent({
+        conversationId,
+        payload: {
+          type: "participant:updated",
+          conversationId: conversationId.toString(),
+          data: {
+            igUserId,
+            name: payload.name,
+            profilePic: payload.profilePic,
+          },
+        },
+      });
+    }
+
+    return payload;
   } catch (err) {
-    const fbError = err.response?.data?.error;
-
-    // 🟡 CASE 1: User explicitly restricted profile access
-    if (fbError?.code === 230) {
-      await redisSet(
-        cacheKey,
-        {
-          igUserId,
-          username,
-          name: null,
-          profilePic: null,
-          restricted: true,
-          reason: "consent_required",
-          fetchedAt: Date.now()
-        },
-        CACHE_TTL
-      );
-      return;
-    }
-
-    // 🟡 CASE 2: Field not accessible for this node
-    if (fbError?.code === 100) {
-      await redisSet(
-        cacheKey,
-        {
-          igUserId,
-          username,
-          name: null,
-          profilePic: null,
-          restricted: true,
-          reason: "field_not_allowed",
-          fetchedAt: Date.now()
-        },
-        CACHE_TTL
-      );
-      return;
-    }
-
-    // 🔴 CASE 3: Real failure (network / rate limit / Meta outage)
-    console.error(
-      "IG profile fetch hard failure:",
-      igUserId,
-      fbError || err.message
-    );
+    console.error("❌ Profile fetch failed:", err.message);
+    return null;
+  } finally {
+    await releaseLock(`ig:user:${igUserId}`);
   }
-};
+}
 
 module.exports = {
-  warmIgProfile,
+  getCachedProfile,
+  fetchAndCacheProfileSafely,
 };
