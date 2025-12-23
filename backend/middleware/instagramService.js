@@ -44,6 +44,49 @@ async fetchOlderMessages({
   }
 }
 
+ async fetchUserProfile({ igUserId, accessToken }) {
+    try {
+      const url = `https://graph.facebook.com/v24.0/${igUserId}`;
+      
+      const response = await axios.get(url, {
+        params: {
+          fields: "id,username,name,profile_pic,follower_count,is_user_follow_business,is_business_follow_user",
+          access_token: accessToken,
+        },
+        timeout: 10000, // 10 second timeout
+      });
+
+      if (!response.data) {
+        console.warn(`⚠️ No profile data for ${igUserId}`);
+        return null;
+      }
+
+      // Return normalized profile
+      return {
+        id: response.data.id,
+        username: response.data.username || null,
+        name: response.data.name || null,
+        profile_pic_url: response.data.profile_pic || null,
+        follower_count: response.data.follower_count || 0,
+        is_following_business: response.data.is_user_follow_business || false,
+        is_followed_by_business: response.data.is_business_follow_user || false,
+        is_private: false, // Instagram Graph API doesn't expose this directly
+      };
+    } catch (err) {
+      // Handle specific errors
+      if (err.response?.status === 400) {
+        console.error(`❌ Invalid Instagram User ID: ${igUserId}`);
+      } else if (err.response?.status === 403) {
+        console.error(`❌ Access denied for user ${igUserId} - may be restricted`);
+      } else if (err.code === "ECONNABORTED") {
+        console.error(`❌ Timeout fetching profile for ${igUserId}`);
+      } else {
+        console.error(`❌ fetchUserProfile failed for ${igUserId}:`, err.message);
+      }
+      
+      return null;
+    }
+  }
 
 
  async sendMessage({ pageId, accessToken, payload }) {
