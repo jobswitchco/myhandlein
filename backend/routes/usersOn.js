@@ -5482,22 +5482,22 @@ async function syncInstagramConversations(userId) {
         { upsert: true, new: true }
       );
 
-      // Proactively fetch profile if not cached
+      /* ---------- Profile prefetch ---------- */
       const cached = await redisGet(`ig:user:${participant.id}`);
       if (!cached) {
-       fetchAndCacheProfileSafely({
-  igUserId: participant.id,
-  accessToken: user.fbPageAccessToken,
-  conversationId: conversation._id,
-  publishSocketEvent,
-}).catch(() => {});
-
+        fetchAndCacheProfileSafely({
+          igUserId: participant.id,
+          accessToken: user.fbPageAccessToken,
+          conversationId: conversation._id,
+          publishSocketEvent,
+        }).catch(() => {});
       }
 
+      /* ---------- LATEST MESSAGE SYNC ---------- */
       const result = await InstagramService.fetchLatestMessages({
         igConversationId: metaThreadId,
         accessToken: user.fbPageAccessToken,
-        afterCursor: conversation.lastMetaCursor || null,
+        afterCursor: conversation.lastMetaAfterCursor || null,
         limit: 20,
       });
 
@@ -5509,33 +5509,31 @@ async function syncInstagramConversations(userId) {
         if (normalized) {
           insertedMessages.push(normalized);
 
-          // 🔥 FIX: Use Redis Bridge for message events
+          // 🔥 realtime message event
           await publishMessageEvent({
             creatorId: userId,
             conversationId: conversation._id,
-            message: normalized
+            message: normalized,
           });
         }
       }
 
-      // Update conversation metadata
-      let latestMessage = null;
+      /* ---------- Update conversation preview ---------- */
       if (insertedMessages.length > 0) {
-        latestMessage = insertedMessages.reduce((latest, current) => {
-          const latestTime = new Date(latest.createdAtPlatform).getTime();
-          const currentTime = new Date(current.createdAtPlatform).getTime();
-          return currentTime > latestTime ? current : latest;
-        });
-      }
+        const latestMessage = insertedMessages.reduce((latest, current) =>
+          new Date(current.createdAtPlatform) >
+          new Date(latest.createdAtPlatform)
+            ? current
+            : latest
+        );
 
-      if (latestMessage) {
         await Conversation.updateOne(
           {
             _id: conversation._id,
             $or: [
               { lastActivityAt: { $exists: false } },
-              { lastActivityAt: { $lt: latestMessage.createdAtPlatform } }
-            ]
+              { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
+            ],
           },
           {
             $set: {
@@ -5543,21 +5541,22 @@ async function syncInstagramConversations(userId) {
                 text: latestMessage.text,
                 type: latestMessage.type,
                 sender: latestMessage.sender,
-                timestamp: latestMessage.createdAtPlatform
+                timestamp: latestMessage.createdAtPlatform,
               },
-              lastActivityAt: latestMessage.createdAtPlatform
-            }
+              lastActivityAt: latestMessage.createdAtPlatform,
+            },
           }
         );
       }
 
-      const nextCursor = result.paging?.cursors?.after;
-      if (nextCursor) {
+      /* ---------- Update AFTER cursor ONLY ---------- */
+      const nextAfterCursor = result.paging?.cursors?.after;
+      if (nextAfterCursor) {
         await Conversation.updateOne(
           { _id: conversation._id },
           {
             $set: {
-              lastMetaCursor: nextCursor,
+              lastMetaAfterCursor: nextAfterCursor,
               lastSyncedAt: new Date(),
             },
           }
@@ -5570,6 +5569,7 @@ async function syncInstagramConversations(userId) {
     await redisDel(lockKey);
   }
 }
+
 
 // ==================== UPDATE: upsertMessage ====================
 
