@@ -268,16 +268,16 @@ if (payload.type === "participant:updated") {
 }, [selectedConversationId]);
 
 
-// useEffect(() => {
-//   const i = setInterval(async () => {
-//     const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
-//       withCredentials: true,
-//     });
-//     setIsSyncing(res.data.syncing);
-//   }, 10000);
+useEffect(() => {
+  const i = setInterval(async () => {
+    const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
+      withCredentials: true,
+    });
+    setIsSyncing(res.data.syncing);
+  }, 10000);
 
-//   return () => clearInterval(i);
-// }, []);
+  return () => clearInterval(i);
+}, []);
 
 
 
