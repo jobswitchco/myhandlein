@@ -147,65 +147,70 @@ useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
-    if (!["message:new", "conversation:updated"].includes(payload.type)) return;
+    if (!["message:new", "conversation:updated", "participant:updated"].includes(payload.type)) return;
+
+    // Handle participant profile updates
+    if (payload.type === "participant:updated") {
+      setConversations(prev =>
+        prev.map(c =>
+          c._id === payload.conversationId
+            ? {
+                ...c,
+                participant: {
+                  ...c.participant,
+                  ...payload.data
+                }
+              }
+            : c
+        )
+      );
+
+      // Also update selected conversation
+      setSelectedConversation(prev =>
+        prev?._id === payload.conversationId
+          ? {
+              ...prev,
+              participant: {
+                ...prev.participant,
+                ...payload.data
+              }
+            }
+          : prev
+      );
+      return;
+    }
 
     // Handle conversation updates
- if (payload.type === "conversation:updated") {
-
-  // 🔥 FIX 1: Older sync should NEVER reorder sidebar
-  if (payload.reason === "older-sync") {
-    if (payload.conversationId === selectedConversationId) {
-      setRawMessages([]);
-      messageIdSetRef.current.clear();
-      fetchMessages(selectedConversationId);
-    }
-    return; // ⛔ stop here
-  }
-
-  // 🔥 FIX 2: Only reorder when full data is provided
-  if (payload.data) {
-    setConversations(prev => {
-      const filtered = prev.filter(c => c._id !== payload.conversationId);
-      return [payload.data, ...filtered];
-    });
-  }
-
-  return;
-}
-
-if (payload.type === "participant:updated") {
-  setConversations(prev =>
-    prev.map(c =>
-      c._id === payload.conversationId
-        ? {
-            ...c,
-            participant: {
-              ...c.participant,
-              ...payload.data
-            }
-          }
-        : c
-    )
-  );
-
-  // Also update selected conversation
-  setSelectedConversation(prev =>
-    prev?._id === payload.conversationId
-      ? {
-          ...prev,
-          participant: {
-            ...prev.participant,
-            ...payload.data
-          }
+    if (payload.type === "conversation:updated") {
+      // 🔥 FIX 1: Older sync should NEVER reorder sidebar
+      if (payload.reason === "older-sync") {
+        if (payload.conversationId === selectedConversationId) {
+          setRawMessages([]);
+          messageIdSetRef.current.clear();
+          fetchMessages(selectedConversationId);
         }
-      : prev
-  );
-}
+        return; // ⛔ stop here
+      }
+
+      // 🔥 FIX 2: Only reorder when full data is provided
+      if (payload.data) {
+        setConversations(prev => {
+          const filtered = prev.filter(c => c._id !== payload.conversationId);
+          return [payload.data, ...filtered];
+        });
+      }
+      return;
+    }
 
     // Handle new messages
     if (payload.type === "message:new") {
       const { conversationId, data } = payload;
-      if (!data?._id) return;
+      
+      // 🔥 CRITICAL: Validate message data
+      if (!data?._id || !conversationId) {
+        console.warn("Invalid message data:", payload);
+        return;
+      }
 
       // 🔥 FIX: Strict deduplication using string comparison
       const msgId = typeof data._id === 'object' ? data._id.toString() : String(data._id);
@@ -214,10 +219,13 @@ if (payload.type === "participant:updated") {
         console.log("Duplicate message blocked:", msgId);
         return;
       }
-      messageIdSetRef.current.add(msgId);
 
-      // Only append to chat if this conversation is open
-      if (conversationId === selectedConversationId) {
+      // 🔥 CRITICAL FIX: Only add to chat if message belongs to CURRENT conversation
+      const isCurrentConversation = conversationId === selectedConversationId;
+      
+      if (isCurrentConversation) {
+        messageIdSetRef.current.add(msgId);
+        
         setRawMessages((prev) => {
           // Extra safety: check if message already exists in array
           const exists = prev.some(m => {
@@ -234,38 +242,42 @@ if (payload.type === "participant:updated") {
         });
       }
 
-      // Update sidebar preview + unread
+      // 🔥 FIX: Update sidebar for ALL conversations (not just current one)
       setConversations((prev) => {
         const existing = prev.find((c) => c._id === conversationId);
-        if (!existing) return prev;
+        if (!existing) {
+          console.warn("Conversation not found in sidebar:", conversationId);
+          return prev;
+        }
 
+        // Create updated conversation object
         const updated = {
           ...existing,
           lastMessage: {
-            text: data.text,
+            text: data.text || (data.type === "image" ? "📷 Image" : data.type === "video" ? "🎥 Video" : "New message"),
             type: data.type,
             sender: data.sender,
             timestamp: data.createdAtPlatform,
           },
           lastActivityAt: data.createdAtPlatform,
-          unreadCount:
-            conversationId === selectedConversationId
-              ? 0
-              : (existing.unreadCount || 0) + (data.sender === "them" ? 1 : 0),
+          // 🔥 FIX: Only increment unread if NOT current conversation AND message is from them
+          unreadCount: isCurrentConversation
+            ? 0 // Reset unread if viewing this conversation
+            : data.sender === "them"
+              ? (existing.unreadCount || 0) + 1
+              : existing.unreadCount || 0,
         };
 
-        // Move to top
-        return [
-          updated,
-          ...prev.filter((c) => c._id !== conversationId),
-        ];
+        // 🔥 FIX: Move to top regardless of which conversation it is
+        const filtered = prev.filter((c) => c._id !== conversationId);
+        return [updated, ...filtered];
       });
     }
   };
 
   socket.on("inbox:event", handler);
   return () => socket.off("inbox:event", handler);
-}, [selectedConversationId]);
+}, [selectedConversationId, fetchMessages]);
 
 
 useEffect(() => {
@@ -393,10 +405,12 @@ const fetchMessages = useCallback(
 useEffect(() => {
   if (!selectedConversation?._id) return;
 
+  // 🔥 Clear messages and dedupe set
   setRawMessages([]);
-  messageIdSetRef.current.clear(); // Clear dedupe set
+  messageIdSetRef.current.clear();
   setCursor(null);
   setHasMore(true);
+  
   fetchMessages(selectedConversation._id);
 }, [selectedConversation?._id, fetchMessages]);
 

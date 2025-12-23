@@ -5511,6 +5511,136 @@ async function syncLatestConversation({ userId, conversationId }) {
   return { hasNewMessages, count: latestPage.messages.length };
 }
 
+// async function syncInstagramConversations(userId) {
+//   const lockKey = `ig:sync:running:${userId}`;
+//   if (await redisGet(lockKey)) return;
+
+//   await redisSet(lockKey, "1", 90);
+
+//   try {
+//     const user = await USER.findById(userId)
+//       .select("+fbPageId +fbPageAccessToken +igUserId")
+//       .lean();
+
+//     if (!user?.fbPageId || !user?.fbPageAccessToken || !user?.igUserId) return;
+
+//     const metaConversations = await InstagramService.fetchConversations({
+//       pageId: user.fbPageId,
+//       accessToken: user.fbPageAccessToken,
+//       limit: 50,
+//     });
+
+//     for (const conv of metaConversations) {
+//       const metaThreadId = conv.id;
+
+//       const participant = conv.participants?.data?.find(
+//         (p) => p.id !== user.igUserId
+//       );
+//       if (!participant) continue;
+
+//       const igConversationId = `igdm:${user.igUserId}:${participant.id}`;
+
+//       const conversation = await Conversation.findOneAndUpdate(
+//         { creatorId: userId, igConversationId },
+//         {
+//           creatorId: userId,
+//           igConversationId,
+//           metaThreadId,
+//           participantId: await upsertParticipant(participant),
+//           platform: "instagram",
+//         },
+//         { upsert: true, new: true }
+//       );
+
+//       // 🔥 NEW: Proactively fetch profile if not cached
+//       const cached = await redisGet(`ig:user:${participant.id}`);
+//       if (!cached) {
+//         fetchAndCacheProfile({
+//           igUserId: participant.id,
+//           accessToken: user.fbPageAccessToken,
+//           conversationId: conversation._id
+//         }).catch(() => {}); // Non-blocking
+//       }
+
+//       const result = await InstagramService.fetchLatestMessages({
+//         igConversationId: metaThreadId,
+//         accessToken: user.fbPageAccessToken,
+//         afterCursor: conversation.lastMetaCursor || null,
+//         limit: 20,
+//       });
+
+//       const insertedMessages = [];
+
+//       for (const msg of result.messages) {
+//         const normalized = await upsertMessage(msg, conversation, user);
+
+//         if (normalized) {
+//           insertedMessages.push(normalized);
+
+//           await redis.publish(
+//             `inbox:conversation:${conversation._id}`,
+//             JSON.stringify({
+//               type: "message:new",
+//               creatorId: userId,
+//               conversationId: conversation._id,
+//               data: normalized,
+//             })
+//           );
+//         }
+//       }
+
+//       let latestMessage = null;
+//       if (insertedMessages.length > 0) {
+//         latestMessage = insertedMessages.reduce((latest, current) => {
+//           const latestTime = new Date(latest.createdAtPlatform).getTime();
+//           const currentTime = new Date(current.createdAtPlatform).getTime();
+//           return currentTime > latestTime ? current : latest;
+//         });
+//       }
+
+//       if (latestMessage) {
+//         await Conversation.updateOne(
+//           {
+//             _id: conversation._id,
+//             $or: [
+//               { lastActivityAt: { $exists: false } },
+//               { lastActivityAt: { $lt: latestMessage.createdAtPlatform } }
+//             ]
+//           },
+//           {
+//             $set: {
+//               lastMessage: {
+//                 text: latestMessage.text,
+//                 type: latestMessage.type,
+//                 sender: latestMessage.sender,
+//                 timestamp: latestMessage.createdAtPlatform
+//               },
+//               lastActivityAt: latestMessage.createdAtPlatform
+//             }
+//           }
+//         );
+//       }
+
+//       const nextCursor = result.paging?.cursors?.after;
+//       if (nextCursor) {
+//         await Conversation.updateOne(
+//           { _id: conversation._id },
+//           {
+//             $set: {
+//               lastMetaCursor: nextCursor,
+//               lastSyncedAt: new Date(),
+//             },
+//           }
+//         );
+//       }
+//     }
+//   } catch (err) {
+//     console.error("❌ syncInstagramConversations failed", err);
+//   } finally {
+//     await redisDel(lockKey);
+//   }
+// }
+
 async function syncInstagramConversations(userId) {
   const lockKey = `ig:sync:running:${userId}`;
   if (await redisGet(lockKey)) return;
@@ -5552,14 +5682,14 @@ async function syncInstagramConversations(userId) {
         { upsert: true, new: true }
       );
 
-      // 🔥 NEW: Proactively fetch profile if not cached
+      // Proactively fetch profile if not cached
       const cached = await redisGet(`ig:user:${participant.id}`);
       if (!cached) {
         fetchAndCacheProfile({
           igUserId: participant.id,
           accessToken: user.fbPageAccessToken,
           conversationId: conversation._id
-        }).catch(() => {}); // Non-blocking
+        }).catch(() => {});
       }
 
       const result = await InstagramService.fetchLatestMessages({
@@ -5577,18 +5707,20 @@ async function syncInstagramConversations(userId) {
         if (normalized) {
           insertedMessages.push(normalized);
 
+          // 🔥 FIX: Emit with proper conversation ID
           await redis.publish(
-            `inbox:conversation:${conversation._id}`,
+            `inbox:conversation:${conversation._id.toString()}`,
             JSON.stringify({
               type: "message:new",
-              creatorId: userId,
-              conversationId: conversation._id,
+              creatorId: userId.toString(),
+              conversationId: conversation._id.toString(),
               data: normalized,
             })
           );
         }
       }
 
+      // Update conversation metadata
       let latestMessage = null;
       if (insertedMessages.length > 0) {
         latestMessage = insertedMessages.reduce((latest, current) => {
@@ -5640,6 +5772,7 @@ async function syncInstagramConversations(userId) {
     await redisDel(lockKey);
   }
 }
+
 
 async function syncOlderMessages({ userId, conversationId }) {
   const lockKey = `ig:sync:older:${conversationId}`;
@@ -5781,7 +5914,7 @@ async function upsertMessage(metaMsg, conversation, user) {
     isDeleted: false,
   });
 
-  // ---------- Update unread count only ----------
+  // ---------- Update unread count ----------
   if (sender === "them") {
     await Conversation.updateOne(
       { _id: conversation._id },
@@ -5789,17 +5922,17 @@ async function upsertMessage(metaMsg, conversation, user) {
     );
   }
 
-  // ✅ FIX: Pass conversationId to refresh function
+  // ---------- Refresh profile if needed ----------
   if (sender === "them") {
     await refreshIgProfileIfNeeded({
       igUserId: metaMsg.from.id,
       accessToken: user.fbPageAccessToken,
-      conversationId: conversation._id // 🔥 ADDED THIS
+      conversationId: conversation._id
     });
   }
 
   // ---------- Return normalized message ----------
-  return {
+  const normalizedMessage = {
     _id: inserted._id.toString(),
     sender,
     type,
@@ -5810,6 +5943,24 @@ async function upsertMessage(metaMsg, conversation, user) {
     createdAtPlatform,
     isRead: inserted.isRead,
   };
+
+  // 🔥 CRITICAL FIX: Emit socket event with VALIDATED data
+  try {
+    await redis.publish(
+      `inbox:conversation:${conversation._id}`,
+      JSON.stringify({
+        type: "message:new",
+        creatorId: user._id.toString(), // Ensure string
+        conversationId: conversation._id.toString(), // Ensure string
+        data: normalizedMessage,
+      })
+    );
+    console.log(`✅ Socket event emitted for conversation: ${conversation._id}`);
+  } catch (err) {
+    console.error("❌ Failed to emit socket event:", err);
+  }
+
+  return normalizedMessage;
 }
 
 async function upsertParticipant(igUser) {
