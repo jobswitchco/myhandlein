@@ -5210,6 +5210,52 @@ router.get("/influencer/:subdomain", async (req, res) => {
 
 // GET /conversations
 
+// router.get("/conversations", authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user.user_id;
+
+//     const conversations = await Conversation.find({ creatorId: userId })
+//       .populate({
+//         path: "participantId",
+//         select: "igUserId username"
+//       })
+//       .sort({ lastActivityAt: -1 })
+//       .lean();
+
+//     const enriched = [];
+
+//     for (const c of conversations) {
+//       const igUserId = c.participantId?.igUserId;
+
+//       let profile = null;
+//       if (igUserId) {
+//         profile = await redisGet(`ig:user:${igUserId}`);
+//       }
+
+//       enriched.push({
+//         _id: c._id,
+//         igConversationId: c.igConversationId,
+//         label: c.label,
+//         unreadCount: c.unreadCount,
+//         lastMessage: c.lastMessage,
+//         lastActivityAt: c.lastActivityAt,
+//         participant: {
+//           igUserId,
+//           username: c.participantId?.username || null,
+//           name: profile?.name || null,
+//           profilePic: profile?.profilePic || null,
+//           restricted: profile?.restricted || false
+//         }
+//       });
+//     }
+
+//     return res.json({ success: true, data: enriched });
+//   } catch (err) {
+//     console.error("Fetch conversations error", err);
+//     res.status(500).json({ success: false, error: "Failed to load conversations" });
+//   }
+// });
+
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -5222,6 +5268,11 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       .sort({ lastActivityAt: -1 })
       .lean();
 
+    // ✅ Get user's access token for profile fetching
+    const user = await USER.findById(userId)
+      .select("+fbPageAccessToken")
+      .lean();
+
     const enriched = [];
 
     for (const c of conversations) {
@@ -5230,6 +5281,15 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       let profile = null;
       if (igUserId) {
         profile = await redisGet(`ig:user:${igUserId}`);
+
+        // 🔥 FIX: If not in cache, fetch from Instagram
+        if (!profile && user?.fbPageAccessToken) {
+          profile = await fetchAndCacheProfile({
+            igUserId,
+            accessToken: user.fbPageAccessToken,
+            conversationId: c._id
+          });
+        }
       }
 
       enriched.push({
@@ -5450,6 +5510,7 @@ async function syncLatestConversation({ userId, conversationId }) {
   // Return whether we found new messages (optional, for debugging)
   return { hasNewMessages, count: latestPage.messages.length };
 }
+
 async function syncInstagramConversations(userId) {
   const lockKey = `ig:sync:running:${userId}`;
   if (await redisGet(lockKey)) return;
@@ -5491,6 +5552,16 @@ async function syncInstagramConversations(userId) {
         { upsert: true, new: true }
       );
 
+      // 🔥 NEW: Proactively fetch profile if not cached
+      const cached = await redisGet(`ig:user:${participant.id}`);
+      if (!cached) {
+        fetchAndCacheProfile({
+          igUserId: participant.id,
+          accessToken: user.fbPageAccessToken,
+          conversationId: conversation._id
+        }).catch(() => {}); // Non-blocking
+      }
+
       const result = await InstagramService.fetchLatestMessages({
         igConversationId: metaThreadId,
         accessToken: user.fbPageAccessToken,
@@ -5498,7 +5569,6 @@ async function syncInstagramConversations(userId) {
         limit: 20,
       });
 
-      // 🔥 FIX: Collect ALL inserted messages
       const insertedMessages = [];
 
       for (const msg of result.messages) {
@@ -5507,7 +5577,6 @@ async function syncInstagramConversations(userId) {
         if (normalized) {
           insertedMessages.push(normalized);
 
-          // Emit message:new event
           await redis.publish(
             `inbox:conversation:${conversation._id}`,
             JSON.stringify({
@@ -5520,7 +5589,6 @@ async function syncInstagramConversations(userId) {
         }
       }
 
-      // 🔥 FIX: Find the ACTUAL latest message by timestamp
       let latestMessage = null;
       if (insertedMessages.length > 0) {
         latestMessage = insertedMessages.reduce((latest, current) => {
@@ -5530,32 +5598,29 @@ async function syncInstagramConversations(userId) {
         });
       }
 
-      // ---- Update conversation snapshot ONLY if we have new messages ----
-    if (latestMessage) {
-  await Conversation.updateOne(
-    {
-      _id: conversation._id,
-      $or: [
-        { lastActivityAt: { $exists: false } },
-        { lastActivityAt: { $lt: latestMessage.createdAtPlatform } }
-      ]
-    },
-    {
-      $set: {
-        lastMessage: {
-          text: latestMessage.text,
-          type: latestMessage.type,
-          sender: latestMessage.sender,
-          timestamp: latestMessage.createdAtPlatform
-        },
-        lastActivityAt: latestMessage.createdAtPlatform
+      if (latestMessage) {
+        await Conversation.updateOne(
+          {
+            _id: conversation._id,
+            $or: [
+              { lastActivityAt: { $exists: false } },
+              { lastActivityAt: { $lt: latestMessage.createdAtPlatform } }
+            ]
+          },
+          {
+            $set: {
+              lastMessage: {
+                text: latestMessage.text,
+                type: latestMessage.type,
+                sender: latestMessage.sender,
+                timestamp: latestMessage.createdAtPlatform
+              },
+              lastActivityAt: latestMessage.createdAtPlatform
+            }
+          }
+        );
       }
-    }
-  );
-}
 
-
-      // ---- Persist Meta cursor ----
       const nextCursor = result.paging?.cursors?.after;
       if (nextCursor) {
         await Conversation.updateOne(
@@ -5782,7 +5847,7 @@ async function upsertParticipant(igUser) {
 async function refreshIgProfileIfNeeded({
   igUserId,
   accessToken,
-  conversationId // ✅ Now required parameter
+  conversationId
 }) {
   const cacheKey = `ig:user:${igUserId}`;
 
@@ -5790,13 +5855,18 @@ async function refreshIgProfileIfNeeded({
   const cached = await redisGet(cacheKey);
   if (cached) return;
 
+  // Reuse the same helper
+  await fetchAndCacheProfile({ igUserId, accessToken, conversationId });
+}
+
+async function fetchAndCacheProfile({ igUserId, accessToken, conversationId }) {
   try {
     const profile = await InstagramService.fetchUserProfile({
       igUserId,
       accessToken
     });
 
-    if (!profile) return;
+    if (!profile) return null;
 
     const payload = {
       igUserId,
@@ -5806,27 +5876,27 @@ async function refreshIgProfileIfNeeded({
       fetchedAt: Date.now()
     };
 
-    // ✅ 1️⃣ Update Redis with TTL
-    await redisSet(cacheKey, payload, 3600);
+    // Cache in Redis
+    await redisSet(`ig:user:${igUserId}`, payload, 3600);
 
-    // ✅ 2️⃣ 🔥 REALTIME PUSH (NOW WORKS!)
-    await redis.publish(
-      `inbox:conversation:${conversationId}`, // ✅ Now has valid conversationId
+    // 🔥 Non-blocking realtime broadcast (don't await)
+    redis.publish(
+      `inbox:conversation:${conversationId}`,
       JSON.stringify({
         type: "participant:updated",
-        conversationId, // ✅ Now defined
+        conversationId,
         data: {
           igUserId,
           name: payload.name,
           profilePic: payload.profilePic
         }
       })
-    );
+    ).catch(err => console.error("Redis publish failed:", err));
 
-    console.log(`✅ Profile refreshed for ${igUserId} in conversation ${conversationId}`);
-
+    return payload;
   } catch (err) {
-    console.error("❌ refreshIgProfileIfNeeded failed", err.message);
+    console.error("❌ fetchAndCacheProfile failed", err.message);
+    return null;
   }
 }
 
