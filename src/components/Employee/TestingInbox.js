@@ -193,138 +193,118 @@ useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
-    if (!["message:new", "conversation:updated", "participant:updated"].includes(payload.type)) return;
+    if (
+      !["message:new", "conversation:updated", "participant:updated"].includes(
+        payload.type
+      )
+    )
+      return;
 
-    // Handle participant profile updates
+    /* ================= PARTICIPANT UPDATE ================= */
     if (payload.type === "participant:updated") {
-      setConversations(prev =>
-        prev.map(c =>
+      setConversations((prev) =>
+        prev.map((c) =>
           c._id === payload.conversationId
             ? {
                 ...c,
                 participant: {
                   ...c.participant,
-                  ...payload.data
-                }
+                  ...payload.data,
+                },
               }
             : c
         )
       );
 
-      // Also update selected conversation
-      setSelectedConversation(prev =>
+      setSelectedConversation((prev) =>
         prev?._id === payload.conversationId
           ? {
               ...prev,
               participant: {
                 ...prev.participant,
-                ...payload.data
-              }
+                ...payload.data,
+              },
             }
           : prev
       );
+
       return;
     }
 
-    // Handle conversation updates
-   if (payload.type === "conversation:updated") {
-  const { conversationId, data, reason } = payload;
+    /* ================= CONVERSATION UPDATE ================= */
+    if (payload.type === "conversation:updated") {
+      const { conversationId, data, reason } = payload;
 
-  // 🔥 1. Older sync: do NOT touch sidebar ordering
-  if (reason === "older-sync") {
-    if (conversationId === selectedConversationId) {
-      fetchMessages(selectedConversationId, cursor);
+      /**
+       * 🔥 IMPORTANT
+       * Older sync means:
+       * - DB got older messages
+       * - DO NOT refetch
+       * - DO NOT reset messages
+       * - Scroll handler will load via cursor
+       */
+      if (reason === "older-sync") {
+        return;
+      }
 
-      (async () => {
-        try {
-          setLoadingMessages(true);
-          const res = await axios.get(
-            `${baseUrl}/conversations/${selectedConversationId}/messages`,
-            {
-              withCredentials: true,
-              params: { limit: 20 },
-            }
-          );
+      /**
+       * Normal conversation update
+       * (unreadCount / lastMessage / lastActivityAt)
+       */
+      if (data) {
+        setConversations((prev) => {
+          const existing = prev.find((c) => c._id === conversationId);
+          if (!existing) return prev;
 
-          const payloadData = res.data?.data;
-          if (payloadData) {
-            const newMessages = payloadData.messages.filter(msg => {
-              const msgId = String(msg._id);
-              if (messageIdSetRef.current.has(msgId)) return false;
-              messageIdSetRef.current.add(msgId);
-              return true;
-            });
+          const updated = {
+            ...existing,
+            ...data,
+          };
 
-            setRawMessages(newMessages);
-            setCursor(payloadData.nextCursor);
-            setHasMore(payloadData.hasMore);
-          }
-        } catch (err) {
-          console.error("Message fetch failed", err);
-        } finally {
-          setLoadingMessages(false);
+          // Move to top only for real activity
+          const rest = prev.filter((c) => c._id !== conversationId);
+          return [updated, ...rest];
+        });
+      }
+
+      return;
+    }
+
+    /* ================= MESSAGE NEW ================= */
+    if (payload.type === "message:new") {
+      const { conversationId, data, conversation } = payload;
+
+      // 1️⃣ Update active chat
+      if (conversationId === selectedConversationId) {
+        const msgId = String(data._id);
+        if (!messageIdSetRef.current.has(msgId)) {
+          messageIdSetRef.current.add(msgId);
+          setRawMessages((prev) => [...prev, data]);
         }
-      })();
+      }
+
+      // 2️⃣ Update sidebar preview (SERVER SOURCE OF TRUTH)
+      setConversations((prev) => {
+        const existing = prev.find((c) => c._id === conversationId);
+        if (!existing) return prev;
+
+        const updated = {
+          ...existing,
+          lastMessage: conversation?.lastMessage,
+          lastActivityAt: conversation?.lastActivityAt,
+          unreadCount: conversation?.unreadCount,
+        };
+
+        const rest = prev.filter((c) => c._id !== conversationId);
+        return [updated, ...rest];
+      });
     }
-    return; // ⛔ stop here
-  }
-
-  // 🔥 2. NORMAL conversation update (PATCH, NOT REPLACE)
-  if (data) {
-    setConversations(prev => {
-      const existing = prev.find(c => c._id === conversationId);
-      if (!existing) return prev;
-
-      const updated = {
-        ...existing,
-        ...data, // ✅ applies unreadCount, lastMessage, lastActivityAt
-      };
-
-      // 🔥 Move to top ONLY for real activity
-      const filtered = prev.filter(c => c._id !== conversationId);
-      return [updated, ...filtered];
-    });
-  }
-
-  return;
-}
-
-
-    // Handle new messages
-   if (payload.type === "message:new") {
-  const { conversationId, data, conversation } = payload;
-
-  // 1️⃣ Update chat only if active
-  if (conversationId === selectedConversationId) {
-    const msgId = String(data._id);
-    if (!messageIdSetRef.current.has(msgId)) {
-      messageIdSetRef.current.add(msgId);
-      setRawMessages(prev => [...prev, data]);
-    }
-  }
-
-  // 2️⃣ Update sidebar using SERVER truth
-  setConversations(prev => {
-    const existing = prev.find(c => c._id === conversationId);
-    if (!existing) return prev;
-
-    const updated = {
-      ...existing,
-      lastMessage: conversation.lastMessage,
-      lastActivityAt: conversation.lastActivityAt,
-      unreadCount: conversation.unreadCount, // 🔥 FROM BACKEND
-    };
-
-    const filtered = prev.filter(c => c._id !== conversationId);
-    return [updated, ...filtered];
-  });
-}
-
   };
 
   socket.on("inbox:event", handler);
   return () => socket.off("inbox:event", handler);
-}, [selectedConversationId]); // 🔥 REMOVED fetchMessages dependency
+}, [selectedConversationId]);
+
 
 // ==================== KEEP YOUR EXISTING fetchMessages UNCHANGED ====================
 // This should remain as is - no changes needed
@@ -481,30 +461,30 @@ useEffect(() => {
 const handleScroll = async (e) => {
   const el = e.target;
 
-  // Top reached
-  if (el.scrollTop === 0 && !loadingMessages) {
+  if (el.scrollTop !== 0 || loadingMessages) return;
 
-    // 1️⃣ Load more from DB if possible
-    if (hasMore && cursor) {
-      fetchMessages(selectedConversation._id, cursor);
-      return;
-    }
+  // 1️⃣ Always paginate DB first
+  if (cursor) {
+    fetchMessages(selectedConversation._id, cursor);
+    return;
+  }
 
-    // 2️⃣ DB exhausted → ask backend to sync older
-   if (!hasMore && !syncingOlderRef.current) {
-  syncingOlderRef.current = true;
+  // 2️⃣ Only when DB is exhausted → sync Meta
+  if (!syncingOlderRef.current) {
+    syncingOlderRef.current = true;
 
-  axios.post(
-    `${baseUrl}/conversations/${selectedConversation._id}/sync-older`,
-    {},
-    { withCredentials: true }
-  ).finally(() => {
-    syncingOlderRef.current = false;
-  });
-}
-
+    axios
+      .post(
+        `${baseUrl}/conversations/${selectedConversation._id}/sync-older`,
+        {},
+        { withCredentials: true }
+      )
+      .finally(() => {
+        syncingOlderRef.current = false;
+      });
   }
 };
+
 
 
   /* ---------- SEND MESSAGE ---------- */
