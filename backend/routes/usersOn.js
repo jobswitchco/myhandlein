@@ -82,6 +82,40 @@ const upload = multer({
     }
   },
 });
+
+async function uploadBufferToGCSFolder(buffer, originalName, mimeType, folderName) {
+
+  const ext = path.extname(originalName) || "";
+  const cleanFileName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9]/g, "_"); // Sanitize filename
+  
+  // Logic: GCS doesn't have real "folders", just paths with slashes
+  const objectName = `${folderName}/${Date.now()}-${cleanFileName}${ext}`;
+
+  const file = bucket.file(objectName);
+
+
+
+  return new Promise((resolve, reject) => {
+    const stream = file.createWriteStream({
+      metadata: { contentType: mimeType },
+      resumable: false,
+    });
+
+    stream.on("error", (err) => reject(err));
+    
+    stream.on("finish", async () => {
+      try {
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${objectName}`;
+
+        resolve({ publicUrl, objectName });
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    stream.end(buffer);
+  });
+}
 const IPDATA_KEY = process.env.IPDATA_KEY;
 const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
@@ -2250,44 +2284,7 @@ router.post("/automation/upload-asset", authenticateToken, upload.single("file")
   }
 });
 
-async function uploadBufferToGCSFolder(buffer, originalName, mimeType, folderName) {
 
-  const ext = path.extname(originalName) || "";
-  const cleanFileName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9]/g, "_"); // Sanitize filename
-  
-  // Logic: GCS doesn't have real "folders", just paths with slashes
-  const objectName = `${folderName}/${Date.now()}-${cleanFileName}${ext}`;
-
-  const file = bucket.file(objectName);
-
-
-
-  return new Promise((resolve, reject) => {
-    const stream = file.createWriteStream({
-      metadata: { contentType: mimeType },
-      resumable: false,
-    });
-
-    stream.on("error", (err) => reject(err));
-    
-    stream.on("finish", async () => {
-      try {
-        // Make public (ensure your bucket allows this or use signed URLs)
-        // Note: 'makePublic' might fail if Uniform Bucket Level Access is on. 
-        // If so, you just rely on the bucket being public read.
-        try { await file.makePublic(); } catch(e) { console.warn("Make public skipped/failed"); }
-        
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${objectName}`;
-
-        resolve({ publicUrl, objectName });
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    stream.end(buffer);
-  });
-}
 
 router.post("/automation/config", authenticateToken, async (req, res) => {
   try {
