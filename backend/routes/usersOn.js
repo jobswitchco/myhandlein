@@ -5530,11 +5530,25 @@ if (
         isDeleted: false,
       });
 
+      /* ================= MARK PREVIOUS USER MESSAGES AS READ ================= */
+          await Message.updateMany(
+            {
+              conversationId,
+              sender: "them",
+              isRead: false,
+            },
+            {
+              $set: { isRead: true },
+            }
+          );
+
+
       /* ================= UPDATE CONVERSATION ================= */
         const updatedConv = await Conversation.findByIdAndUpdate(
         conversationId,
         {
           $set: {
+            unreadCount: 0,
             lastMessage: {
               text: normalizedText,
               type: normalizedType,
@@ -5618,6 +5632,69 @@ if (
     }
   }
 );
+
+router.post(
+  "/conversations/:id/mark-read",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.user_id;
+    const conversationId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ success: false });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      creatorId: userId,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ success: false });
+    }
+
+    // 1️⃣ Mark messages as read (creator-side)
+    await Message.updateMany(
+      {
+        conversationId,
+        sender: "them",
+        isRead: false,
+      },
+      { $set: { isRead: true } }
+    );
+
+    // 2️⃣ Reset unread count
+    conversation.unreadCount = 0;
+    await conversation.save();
+
+    // 3️⃣ Realtime update
+    await redis.publish(
+      `inbox:conversation:${conversationId}`,
+      JSON.stringify({
+        type: "conversation:updated",
+        creatorId: userId,
+        conversationId,
+        data: {
+          unreadCount: 0,
+        },
+      })
+    );
+
+    await redis.publish(
+      `inbox:creator:${userId}`,
+      JSON.stringify({
+        type: "conversation:updated",
+        conversationId,
+        data: {
+          unreadCount: 0,
+        },
+      })
+    );
+
+    res.json({ success: true });
+  }
+);
+
 
 
 

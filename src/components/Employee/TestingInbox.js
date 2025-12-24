@@ -120,6 +120,25 @@ const messages = useMemo(
 );
 
 
+const markReadTimeoutRef = useRef(null);
+
+const markConversationAsRead = (conversationId) => {
+  if (markReadTimeoutRef.current) return;
+
+  markReadTimeoutRef.current = setTimeout(async () => {
+    try {
+      await axios.post(
+        `${baseUrl}/conversations/${conversationId}/mark-read`,
+        {},
+        { withCredentials: true }
+      );
+    } catch (e) {
+      console.error("mark-read failed", e);
+    } finally {
+      markReadTimeoutRef.current = null;
+    }
+  }, 300); // debounce window
+};
 
 
   /* ---------- FILE HANDLERS (FIX #3) ---------- */
@@ -292,68 +311,89 @@ useEffect(() => {
     }
 
     /* ================= MESSAGE NEW ================= */
-    if (payload.type === "message:new") {
-      const { conversationId, data, conversation } = payload;
+  if (payload.type === "message:new") {
+  const { conversationId, data, conversation } = payload;
 
-      /* 1️⃣ Active chat messages */
-      if (conversationId === selectedConversationId) {
-        const msgId = String(data._id);
-        if (!messageIdSetRef.current.has(msgId)) {
-          messageIdSetRef.current.add(msgId);
-          setRawMessages((prev) => [...prev, data]);
-        }
-      }
+  const isActiveConversation =
+    conversationId === selectedConversationId;
 
-      /* 2️⃣ Sidebar + eligibility update */
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c._id !== conversationId) return c;
+  const isFromThem = data?.sender === "them";
 
-          const lastParticipantMessageAt =
-            conversation?.lastParticipantMessageAt ??
-            c.lastParticipantMessageAt;
+  /* =========================================================
+     1️⃣ ACTIVE CHAT — APPEND MESSAGE
+     ========================================================= */
+  if (isActiveConversation) {
+    const msgId = String(data._id);
 
-          const canReply = computeCanReply(lastParticipantMessageAt);
-
-          return {
-            ...c,
-            lastMessage: conversation?.lastMessage ?? c.lastMessage,
-            lastActivityAt:
-              conversation?.lastActivityAt ?? c.lastActivityAt,
-            unreadCount: conversation?.unreadCount ?? c.unreadCount,
-            lastParticipantMessageAt,
-            canReply,
-            replyDisabledReason: canReply
-              ? null
-              : "waiting_for_reply",
-          };
-        })
-      );
-
-      /* 3️⃣ Active conversation update */
-      setSelectedConversation((prev) => {
-        if (!prev || prev._id !== conversationId) return prev;
-
-        const lastParticipantMessageAt =
-          conversation?.lastParticipantMessageAt ??
-          prev.lastParticipantMessageAt;
-
-        const canReply = computeCanReply(lastParticipantMessageAt);
-
-        return {
-          ...prev,
-          lastMessage: conversation?.lastMessage ?? prev.lastMessage,
-          lastActivityAt:
-            conversation?.lastActivityAt ?? prev.lastActivityAt,
-          unreadCount: conversation?.unreadCount ?? prev.unreadCount,
-          lastParticipantMessageAt,
-          canReply,
-          replyDisabledReason: canReply
-            ? null
-            : "waiting_for_reply",
-        };
-      });
+    if (!messageIdSetRef.current.has(msgId)) {
+      messageIdSetRef.current.add(msgId);
+      setRawMessages((prev) => [...prev, data]);
     }
+  }
+
+  /* =========================================================
+     2️⃣ AUTO MARK AS READ (CHAT IS OPEN)
+     ========================================================= */
+  if (isActiveConversation && isFromThem) {
+    markConversationAsRead(conversationId); // 🔥 debounced fn
+  }
+
+  /* =========================================================
+     3️⃣ SIDEBAR UPDATE (SOURCE OF TRUTH)
+     ========================================================= */
+  setConversations((prev) =>
+    prev.map((c) => {
+      if (c._id !== conversationId) return c;
+
+      const lastParticipantMessageAt =
+        conversation?.lastParticipantMessageAt ??
+        (isFromThem ? data.createdAtPlatform : c.lastParticipantMessageAt);
+
+      const canReply = computeCanReply(lastParticipantMessageAt);
+
+      return {
+        ...c,
+        lastMessage: conversation?.lastMessage ?? c.lastMessage,
+        lastActivityAt:
+          conversation?.lastActivityAt ?? data.createdAtPlatform ?? c.lastActivityAt,
+
+        unreadCount: isActiveConversation
+          ? 0
+          : conversation?.unreadCount ?? c.unreadCount,
+
+        lastParticipantMessageAt,
+        canReply,
+        replyDisabledReason: canReply ? null : "waiting_for_reply",
+      };
+    })
+  );
+
+  /* =========================================================
+     4️⃣ ACTIVE CONVERSATION SNAPSHOT
+     ========================================================= */
+  setSelectedConversation((prev) => {
+    if (!prev || prev._id !== conversationId) return prev;
+
+    const lastParticipantMessageAt =
+      conversation?.lastParticipantMessageAt ??
+      (isFromThem ? data.createdAtPlatform : prev.lastParticipantMessageAt);
+
+    const canReply = computeCanReply(lastParticipantMessageAt);
+
+    return {
+      ...prev,
+      lastMessage: conversation?.lastMessage ?? prev.lastMessage,
+      lastActivityAt:
+        conversation?.lastActivityAt ?? data.createdAtPlatform ?? prev.lastActivityAt,
+
+      unreadCount: 0,
+      lastParticipantMessageAt,
+      canReply,
+      replyDisabledReason: canReply ? null : "waiting_for_reply",
+    };
+  });
+}
+
   };
 
   socket.on("inbox:event", handler);
