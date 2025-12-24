@@ -94,14 +94,19 @@ export default function InboxManagement() {
   const syncingOlderRef = useRef(false);
 
   const [creatorId, setCreatorId] = useState(null);
-
-
-
-
+  const [mediaPreview, setMediaPreview] = useState(null);
 
   // File Upload State
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+
+  const CHAT_MEDIA_STYLE = {
+  maxWidth: "260px",
+  maxHeight: "320px",
+  objectFit: "contain",
+  cursor: "pointer",
+  display: "block",
+};
 
 
       /* ---------- SORT + DEDUPE ---------- */
@@ -892,6 +897,7 @@ const uInitial = uname.charAt(0).toUpperCase();
                 const prevMsg = messages[index - 1];
                 const showAvatar = !isMe && (!prevMsg || prevMsg.sender !== msg.sender);
                 const showTimestamp = !prevMsg || (new Date(msg.createdAtPlatform) - new Date(prevMsg.createdAtPlatform) > 300000); // 5 mins
+                const isMediaOnly = (msg.type === "image" || msg.type === "video") && !msg.text;
 
                 return (
                   <Box key={msg._id} display="flex" flexDirection="column">
@@ -924,11 +930,11 @@ const uInitial = uname.charAt(0).toUpperCase();
                       <Box
                         maxWidth="60%"
                         sx={{
-                          bgcolor: isMe ? "#2563EB" : "#fff",
+                          bgcolor: isMediaOnly ? "transparent" : isMe ? "#2563EB" : "#fff",
                           color: isMe ? "#fff" : "#1e293b",
-                          borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                          p: 1.5,
+                         borderRadius: isMediaOnly ? 0 : isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                         boxShadow: isMediaOnly ? "none" : "0 1px 2px rgba(0,0,0,0.1)",
+                        p: isMediaOnly ? 0 : 1.5,
                           position: "relative",
                           wordBreak: "break-word"
                         }}
@@ -936,22 +942,34 @@ const uInitial = uname.charAt(0).toUpperCase();
                          {/* ISSUE 5: Handle Attachment/Text Rendering */}
                          
                          {/* Image Render */}
-                       {msg.type === "image" && msg.mediaUrl && (
-                          <Box
-                            component="img"
-                            src={msg.mediaUrl}
-                            alt="attachment"
-                            sx={{ borderRadius: 2, maxWidth: "100%" }}
-                          />
-                        )}
+                   {msg.type === "image" && msg.mediaUrl && (
+                      <Box
+                        component="img"
+                        src={msg.mediaUrl}
+                        alt="attachment"
+                        sx={CHAT_MEDIA_STYLE}
+                        onClick={() =>
+                          setMediaPreview({ type: "image", url: msg.mediaUrl })
+                        }
+                      />
+                    )}
 
-                        {msg.type === "video" && msg.mediaUrl && (
-                          <video
-                            src={msg.mediaUrl}
-                            controls
-                            style={{ maxWidth: "100%", borderRadius: 8 }}
-                          />
-                        )}
+
+                      {msg.type === "video" && msg.mediaUrl && (
+                        <video
+                          src={msg.mediaUrl}
+                          controls
+                          style={{
+                            ...CHAT_MEDIA_STYLE,
+                            maxHeight: "240px",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMediaPreview({ type: "video", url: msg.mediaUrl });
+                          }}
+                        />
+                      )}
+
 
 
                          {/* Text Render */}
@@ -1127,6 +1145,83 @@ const uInitial = uname.charAt(0).toUpperCase();
           <Button color="error" variant="contained">Block</Button>
         </DialogActions>
       </Dialog>
+
+{/* img/video on click full view  */}
+      <Dialog
+  open={Boolean(mediaPreview)}
+  onClose={() => setMediaPreview(null)}
+  maxWidth="lg"
+  fullWidth
+>
+  <DialogContent
+    sx={{
+      position: "relative",
+      bgcolor: "#000",
+      p: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    {/* Close */}
+    <IconButton
+      onClick={() => setMediaPreview(null)}
+      sx={{
+        position: "absolute",
+        top: 16,
+        right: 16,
+        color: "#fff",
+        zIndex: 2,
+      }}
+    >
+      <CloseIcon />
+    </IconButton>
+
+    {/* Download */}
+    {mediaPreview?.url && (
+      <IconButton
+        component="a"
+        href={mediaPreview.url}
+        download
+        sx={{
+          position: "absolute",
+          top: 16,
+          right: 64,
+          color: "#fff",
+          zIndex: 2,
+        }}
+      >
+        ⬇️
+      </IconButton>
+    )}
+
+    {/* Media */}
+    {mediaPreview?.type === "image" && (
+      <img
+        src={mediaPreview.url}
+        alt="preview"
+        style={{
+          maxWidth: "100%",
+          maxHeight: "90vh",
+          objectFit: "contain",
+        }}
+      />
+    )}
+
+    {mediaPreview?.type === "video" && (
+      <video
+        src={mediaPreview.url}
+        controls
+        autoPlay
+        style={{
+          maxWidth: "100%",
+          maxHeight: "90vh",
+        }}
+      />
+    )}
+  </DialogContent>
+</Dialog>
+
     </Box>
   );
 }
