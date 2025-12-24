@@ -5724,8 +5724,8 @@ router.post("/conversations/:id/messages", authenticateToken, upload.single("fil
         {
           $set: {
             lastMessage: {
-              text: messageText,
-              type: msgType,
+              text: normalizedText,
+              type: normalizedType,
               sender: "me",
               timestamp: createdAtPlatform,
             },
