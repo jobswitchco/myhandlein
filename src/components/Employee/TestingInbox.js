@@ -407,16 +407,16 @@ useEffect(() => {
 // ==================== KEEP YOUR EXISTING fetchMessages UNCHANGED ====================
 // This should remain as is - no changes needed
 
-// useEffect(() => {
-//   const i = setInterval(async () => {
-//     const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
-//       withCredentials: true,
-//     });
-//     setIsSyncing(res.data.syncing);
-//   }, 10000);
+useEffect(() => {
+  const i = setInterval(async () => {
+    const res = await axios.get(`${baseUrl}/conversations/sync-status`, {
+      withCredentials: true,
+    });
+    setIsSyncing(res.data.syncing);
+  }, 10000);
 
-//   return () => clearInterval(i);
-// }, []);
+  return () => clearInterval(i);
+}, []);
 
 
 
@@ -776,14 +776,14 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
             />
           ))}
         </Box>
-        {isSyncing && (
+        {/* {isSyncing && (
   <Typography
     variant="caption"
     sx={{ ml: 1, color: "text.secondary" }}
   >
     Syncing…
   </Typography>
-)}
+)} */}
 
 
         {/* Conversation List */}
