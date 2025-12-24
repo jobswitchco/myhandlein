@@ -596,6 +596,9 @@ const displayName =
   "Instagram User";
 
   const showUsername = selectedConversation?.participant?.username || "Instagram User";
+const canReply = selectedConversation?.canReply === true;
+
+const waitingMessage = `Waiting for reply from @${showUsername}`;
 
 
   const formatPreviewTime = (date) => {
@@ -1045,19 +1048,21 @@ const uInitial = uname.charAt(0).toUpperCase();
                   fullWidth
                   multiline
                   maxRows={4}
-                  placeholder="Type a message..."
-                  value={messageText}
+                  placeholder={canReply ? "Type a message..." : waitingMessage}
+                  value={canReply ? messageText : ""}
+                  disabled={!canReply || sending}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  disabled={sending}
                   inputRef={inputRef}
                   sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: "20px",
-                      bgcolor: "#f8fafc",
-                      paddingRight: "40px" // Space for emoji
-                    },
-                  }}
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "20px",
+                        bgcolor: canReply ? "#f8fafc" : "#f1f5f9",
+                        color: canReply ? "inherit" : "#64748b",
+                        fontStyle: canReply ? "normal" : "italic",
+                        cursor: canReply ? "text" : "not-allowed",
+                      },
+                    }}
                   InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -1070,20 +1075,26 @@ const uInitial = uname.charAt(0).toUpperCase();
                   }}
                 />
 
-                <IconButton
-                  onClick={sendMessage}
-                  disabled={(!messageText.trim() && !selectedFile) || sending}
-                  sx={{
-                    bgcolor: "primary.main",
-                    color: "#fff",
-                    width: 44, 
-                    height: 44,
-                    "&:hover": { bgcolor: "primary.dark" },
-                    "&:disabled": { bgcolor: "#cbd5e1" },
-                  }}
+               <Tooltip
+                  title={!canReply ? waitingMessage : ""}
+                  disableHoverListener={canReply}
                 >
-                  {sending ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : <Send />}
-                </IconButton>
+                  <span>
+                    <IconButton
+                      onClick={sendMessage}
+                      disabled={!canReply || sending}
+                      sx={{
+                        bgcolor: canReply ? "primary.main" : "#cbd5e1",
+                        color: "#fff",
+                        width: 44,
+                        height: 44,
+                      }}
+                    >
+                      {sending ? <CircularProgress size={20} /> : <Send />}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
               </Box>
 
               {/* Emoji Popover */}

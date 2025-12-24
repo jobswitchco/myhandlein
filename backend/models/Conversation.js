@@ -48,8 +48,6 @@ const ConversationSchema = new Schema(
     lastMetaAfterCursor: String,   // for latest sync
 lastMetaBeforeCursor: String,  // for older sync
 
-
-
     // Sorting
     lastActivityAt: { type: Date, required: true },
   },
