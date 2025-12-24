@@ -101,8 +101,8 @@ export default function InboxManagement() {
   const [previewUrl, setPreviewUrl] = useState(null);
 
   const CHAT_MEDIA_STYLE = {
-  maxWidth: "260px",
-  maxHeight: "320px",
+  maxWidth: "300px",
+  maxHeight: "340px",
   objectFit: "contain",
   cursor: "pointer",
   display: "block",
@@ -955,20 +955,18 @@ const uInitial = uname.charAt(0).toUpperCase();
                     )}
 
 
-                      {msg.type === "video" && msg.mediaUrl && (
-                        <video
-                          src={msg.mediaUrl}
-                          controls
-                          style={{
-                            ...CHAT_MEDIA_STYLE,
-                            maxHeight: "240px",
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMediaPreview({ type: "video", url: msg.mediaUrl });
-                          }}
-                        />
-                      )}
+                     {msg.type === "video" && msg.mediaUrl && (
+                    <video
+                      src={msg.mediaUrl}
+                      controls
+                      style={{
+                        ...CHAT_MEDIA_STYLE,
+                        maxHeight: "300px",
+                        cursor: "default",
+                      }}
+                    />
+                  )}
+
 
 
 
@@ -1148,11 +1146,12 @@ const uInitial = uname.charAt(0).toUpperCase();
 
 {/* img/video on click full view  */}
       <Dialog
-  open={Boolean(mediaPreview)}
+  open={mediaPreview?.type === "image"}
   onClose={() => setMediaPreview(null)}
   maxWidth="lg"
   fullWidth
 >
+
   <DialogContent
     sx={{
       position: "relative",
@@ -1179,20 +1178,19 @@ const uInitial = uname.charAt(0).toUpperCase();
 
     {/* Download */}
     {mediaPreview?.url && (
-      <IconButton
-        component="a"
-        href={mediaPreview.url}
-        download
-        sx={{
-          position: "absolute",
-          top: 16,
-          right: 64,
-          color: "#fff",
-          zIndex: 2,
-        }}
-      >
-        ⬇️
-      </IconButton>
+   <IconButton
+  onClick={() => window.open(mediaPreview.url, "_blank", "noopener,noreferrer")}
+  sx={{
+    position: "absolute",
+    top: 16,
+    right: 64,
+    color: "#fff",
+    zIndex: 2,
+  }}
+>
+  ⬇️
+</IconButton>
+
     )}
 
     {/* Media */}
