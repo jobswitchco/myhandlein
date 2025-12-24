@@ -5059,7 +5059,7 @@ async function syncInstagramConversations(userId) {
     const metaConversations = await InstagramService.fetchConversations({
       pageId: user.fbPageId,
       accessToken: user.fbPageAccessToken,
-      limit: 50,
+      limit: 10,
     });
 
     for (const conv of metaConversations) {

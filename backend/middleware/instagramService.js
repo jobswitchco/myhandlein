@@ -111,7 +111,7 @@ async fetchOlderMessages({
     }
   }
 
-  async fetchConversations({ pageId, accessToken, limit = 20 }) {
+  async fetchConversations({ pageId, accessToken, limit = 10 }) {
   const url = `${GRAPH_API_BASE}/${pageId}/conversations`;
 
   const params = {
