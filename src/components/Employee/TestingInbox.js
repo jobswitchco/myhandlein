@@ -500,17 +500,15 @@ const sendMessage = async () => {
 
   setSending(true);
 
-    const textToSend = messageText.trim();
-    const fileToSend = selectedFile;
+  const textToSend = messageText.trim();
+  const fileToSend = selectedFile;
+
+  // clear UI immediately (optimistic UX)
+  setMessageText("");
+  handleRemoveFile();
 
   try {
-  
-
-    // Clear inputs immediately
-    setMessageText("");
-    handleRemoveFile();
-
-    // Send message
+    /** 1️⃣ SEND MEDIA FIRST **/
     if (fileToSend) {
       const formData = new FormData();
       formData.append("file", fileToSend);
@@ -518,9 +516,6 @@ const sendMessage = async () => {
         "type",
         fileToSend.type.startsWith("video") ? "video" : "image"
       );
-      if (textToSend) {
-        formData.append("text", textToSend);
-      }
 
       await axios.post(
         `${baseUrl}/conversations/${selectedConversation._id}/messages`,
@@ -530,7 +525,10 @@ const sendMessage = async () => {
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
-    } else if (textToSend) {
+    }
+
+    /** 2️⃣ SEND TEXT SECOND (SEPARATE MESSAGE) **/
+    if (textToSend) {
       await axios.post(
         `${baseUrl}/conversations/${selectedConversation._id}/messages`,
         { text: textToSend, type: "text" },
@@ -538,24 +536,19 @@ const sendMessage = async () => {
       );
     }
 
-    // 🔥 DON'T add message here - socket will handle it
-    // This prevents duplicates completely
-
-    // Scroll to bottom
-    setTimeout(() => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }
-    }, 100);
+    // socket will handle UI updates
   } catch (err) {
     console.error("Send message failed", err);
     alert("Failed to send message");
-    setMessageText(textToSend); // Restore on error
+
+    // restore text on failure
+    setMessageText(textToSend);
   } finally {
     setSending(false);
     inputRef.current?.focus();
   }
 };
+
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {

@@ -5364,11 +5364,7 @@ if (prevCursor) {
 }
 
 
-router.post(
-  "/conversations/:id/messages",
-  authenticateToken,
-  upload.single("file"),
-  async (req, res) => {
+router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
     try {
       const userId = req.user.user_id;
       const conversationId = req.params.id;
@@ -5426,31 +5422,26 @@ router.post(
       let mediaUrl = null;
       let mediaType = null;
       let messageText = req.body.text?.trim() || null;
-      let msgType = req.body.type || "text";
+      let msgType = "text";
 
-      if (req.file) {
-        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-          resource_type: req.file.mimetype.startsWith("video")
-            ? "video"
-            : "image",
-          folder: "instagram_messages",
-        });
+     if (req.file) {
+  const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+    resource_type: req.file.mimetype.startsWith("video") ? "video" : "image",
+    folder: "instagram_messages",
+  });
 
-        mediaUrl = uploadResult.secure_url;
-        mediaType = req.file.mimetype.startsWith("video")
-          ? "video"
-          : "image";
-        msgType = mediaType;
+  mediaUrl = uploadResult.secure_url;
+  mediaType = req.file.mimetype.startsWith("video") ? "video" : "image";
+  msgType = mediaType;
 
-        payload.message = {
-          attachment: {
-            type: mediaType,
-            payload: { url: mediaUrl },
-          },
-        };
-
-        if (messageText) payload.message.text = messageText;
-      } else if (messageText) {
+  payload.message = {
+    attachment: {
+      type: mediaType,
+      payload: { url: mediaUrl },
+    },
+  };
+}
+ else if (messageText) {
         payload.message = { text: messageText };
       } else {
         return res.status(400).json({
