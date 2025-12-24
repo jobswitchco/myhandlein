@@ -19,7 +19,7 @@ import {
   CircularProgress,
   InputAdornment,
   Popover,
-  Paper,
+  Skeleton,
   Tooltip
 } from "@mui/material";
 import {
@@ -99,6 +99,8 @@ export default function InboxManagement() {
   // File Upload State
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [hydratingFromMeta, setHydratingFromMeta] = useState(false);
+
 
   const CHAT_MEDIA_STYLE = {
   maxWidth: "300px",
@@ -425,7 +427,6 @@ useEffect(() => {
     try {
       setLoading(true);
 
-      // 1️⃣ FAST: load from DB
       const res = await axios.get(`${baseUrl}/conversations`, {
         withCredentials: true,
       });
@@ -433,18 +434,44 @@ useEffect(() => {
       const data = res.data?.data || [];
       setConversations(data);
 
-      if (!selectedConversation && data.length > 0) {
+      if (data.length === 0) {
+        // 👇 DB empty → Meta hydration mode
+        setHydratingFromMeta(true);
+
+        await axios.post(
+          `${baseUrl}/conversations/sync`,
+          {},
+          { withCredentials: true }
+        );
+
+        // 🔁 poll once for conversations
+        const retry = async () => {
+          const r = await axios.get(`${baseUrl}/conversations`, {
+            withCredentials: true,
+          });
+
+          const fresh = r.data?.data || [];
+          if (fresh.length > 0) {
+            setConversations(fresh);
+            setSelectedConversation(fresh[0]);
+            setSelectedConversationId(fresh[0]._id);
+            setHydratingFromMeta(false);
+          } else {
+            setTimeout(retry, 1500);
+          }
+        };
+
+        retry();
+        return;
+      }
+
+      // Normal path
+      if (!selectedConversation) {
         setSelectedConversation(data[0]);
         setSelectedConversationId(data[0]._id);
       }
-
-      // 2️⃣ NON-BLOCKING: background sync
-      axios.post(`${baseUrl}/conversations/sync`, {}, {
-        withCredentials: true,
-      }).catch(() => {});
-
     } catch (err) {
-      console.error("Conversation load failed", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -452,6 +479,7 @@ useEffect(() => {
 
   loadInbox();
 }, []);
+
 
 
 
@@ -760,11 +788,19 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
 
         {/* Conversation List */}
         <Box flex={1} sx={{ overflowY: "auto" }}>
-          {loading ? (
-            <Box p={3} display="flex" justifyContent="center">
-              <CircularProgress size={24} />
-            </Box>
-          ) : (
+        {loading || hydratingFromMeta ? (
+  <Box px={2}>
+    {[...Array(6)].map((_, i) => (
+      <Box key={i} display="flex" gap={2} py={2}>
+        <Skeleton variant="circular" width={40} height={40} />
+        <Box flex={1}>
+          <Skeleton width="60%" height={16} />
+          <Skeleton width="80%" height={14} />
+        </Box>
+      </Box>
+    ))}
+  </Box>
+) : (
             filteredConversations.map((conv) => {
              const uname = conv.participant?.name || conv.participant?.username || "Instagram User";
 const uInitial = uname.charAt(0).toUpperCase();
@@ -887,7 +923,21 @@ const uInitial = uname.charAt(0).toUpperCase();
 
       {/* ================= RIGHT CHAT ================= */}
       <Box flex={1} display="flex" flexDirection="column" bgcolor="#f0f2f5">
-        {selectedConversation ? (
+     
+     {hydratingFromMeta ? (
+  <Box flex={1} p={3}>
+    {[...Array(5)].map((_, i) => (
+      <Skeleton
+        key={i}
+        variant="rounded"
+        height={48}
+        width={`${60 + i * 5}%`}
+        sx={{ mb: 2 }}
+      />
+    ))}
+  </Box>
+) :
+        selectedConversation ? (
           <>
             {/* HEADER */}
             <Box

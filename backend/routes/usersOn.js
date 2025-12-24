@@ -5633,10 +5633,7 @@ if (
   }
 );
 
-router.post(
-  "/conversations/:id/mark-read",
-  authenticateToken,
-  async (req, res) => {
+router.post("/conversations/:id/mark-read", authenticateToken, async (req, res) => {
     const userId = req.user.user_id;
     const conversationId = req.params.id;
 
