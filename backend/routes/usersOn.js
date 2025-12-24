@@ -5129,26 +5129,33 @@ async function syncInstagramConversations(userId) {
             : latest
         );
 
-        await Conversation.updateOne(
-          {
-            _id: conversation._id,
-            $or: [
-              { lastActivityAt: { $exists: false } },
-              { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
-            ],
-          },
-          {
-            $set: {
-              lastMessage: {
-                text: latestMessage.text,
-                type: latestMessage.type,
-                sender: latestMessage.sender,
-                timestamp: latestMessage.createdAtPlatform,
-              },
-              lastActivityAt: latestMessage.createdAtPlatform,
-            },
-          }
-        );
+       const update = {
+  lastMessage: {
+    text: latestMessage.text,
+    type: latestMessage.type,
+    sender: latestMessage.sender,
+    timestamp: latestMessage.createdAtPlatform,
+  },
+  lastActivityAt: latestMessage.createdAtPlatform,
+};
+
+// 🔑 CRITICAL: capture participant reply time
+if (latestMessage.sender === "them") {
+  update.lastParticipantMessageAt =
+    latestMessage.createdAtPlatform;
+}
+
+await Conversation.updateOne(
+  {
+    _id: conversation._id,
+    $or: [
+      { lastActivityAt: { $exists: false } },
+      { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
+    ],
+  },
+  { $set: update }
+);
+
       }
 
       /* ---------- Update AFTER cursor ONLY ---------- */
