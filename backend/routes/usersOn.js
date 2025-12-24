@@ -5588,22 +5588,29 @@ router.post("/conversations/:id/messages", authenticateToken, upload.single("fil
 
 
        /* ================= 🔒 24-HOUR WINDOW CHECK ================= */
-      const lastMsg = conversation.lastMessage;
 
-      const WINDOW_MS = 24 * 60 * 60 * 1000;
+      const lastUserMessage = await Message.findOne({
+  conversationId,
+  sender: "them",
+})
+  .sort({ createdAtPlatform: -1 })
+  .lean();
 
-      if (
-        !lastMsg ||
-        lastMsg.sender !== "them" ||
-        !lastMsg.timestamp ||
-        Date.now() - new Date(lastMsg.timestamp).getTime() > WINDOW_MS
-      ) {
-        return res.status(403).json({
-          success: false,
-          error: "MESSAGE_WINDOW_CLOSED",
-          message: "Waiting for participant reply",
-        });
-      }
+
+    const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+if (
+  !lastUserMessage ||
+  !lastUserMessage.createdAtPlatform ||
+  Date.now() - new Date(lastUserMessage.createdAtPlatform).getTime() > WINDOW_MS
+) {
+  return res.status(403).json({
+    success: false,
+    error: "MESSAGE_WINDOW_CLOSED",
+    message: "Waiting for participant reply",
+  });
+}
+
 
       /* ================= FETCH CREATOR ================= */
       const user = await USER.findById(userId)
