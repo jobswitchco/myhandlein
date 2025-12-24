@@ -203,8 +203,9 @@ useEffect(() => {
       !["message:new", "conversation:updated", "participant:updated"].includes(
         payload.type
       )
-    )
+    ) {
       return;
+    }
 
     /* ================= PARTICIPANT UPDATE ================= */
     if (payload.type === "participant:updated") {
@@ -241,35 +242,49 @@ useEffect(() => {
     if (payload.type === "conversation:updated") {
       const { conversationId, data, reason } = payload;
 
-      /**
-       * 🔥 IMPORTANT
-       * Older sync means:
-       * - DB got older messages
-       * - DO NOT refetch
-       * - DO NOT reset messages
-       * - Scroll handler will load via cursor
-       */
-      if (reason === "older-sync") {
-        return;
-      }
+      if (reason === "older-sync") return;
 
-      /**
-       * Normal conversation update
-       * (unreadCount / lastMessage / lastActivityAt)
-       */
       if (data) {
-        setConversations((prev) => {
-          const existing = prev.find((c) => c._id === conversationId);
-          if (!existing) return prev;
+        setConversations((prev) =>
+          prev.map((c) => {
+            if (c._id !== conversationId) return c;
 
-          const updated = {
-            ...existing,
+            const lastParticipantMessageAt =
+              data.lastParticipantMessageAt ??
+              c.lastParticipantMessageAt;
+
+            const canReply = computeCanReply(lastParticipantMessageAt);
+
+            return {
+              ...c,
+              ...data,
+              lastParticipantMessageAt,
+              canReply,
+              replyDisabledReason: canReply
+                ? null
+                : "waiting_for_reply",
+            };
+          })
+        );
+
+        setSelectedConversation((prev) => {
+          if (!prev || prev._id !== conversationId) return prev;
+
+          const lastParticipantMessageAt =
+            data.lastParticipantMessageAt ??
+            prev.lastParticipantMessageAt;
+
+          const canReply = computeCanReply(lastParticipantMessageAt);
+
+          return {
+            ...prev,
             ...data,
+            lastParticipantMessageAt,
+            canReply,
+            replyDisabledReason: canReply
+              ? null
+              : "waiting_for_reply",
           };
-
-          // Move to top only for real activity
-          const rest = prev.filter((c) => c._id !== conversationId);
-          return [updated, ...rest];
         });
       }
 
@@ -280,7 +295,7 @@ useEffect(() => {
     if (payload.type === "message:new") {
       const { conversationId, data, conversation } = payload;
 
-      // 1️⃣ Update active chat
+      /* 1️⃣ Active chat messages */
       if (conversationId === selectedConversationId) {
         const msgId = String(data._id);
         if (!messageIdSetRef.current.has(msgId)) {
@@ -289,20 +304,54 @@ useEffect(() => {
         }
       }
 
-      // 2️⃣ Update sidebar preview (SERVER SOURCE OF TRUTH)
-      setConversations((prev) => {
-        const existing = prev.find((c) => c._id === conversationId);
-        if (!existing) return prev;
+      /* 2️⃣ Sidebar + eligibility update */
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c._id !== conversationId) return c;
 
-        const updated = {
-          ...existing,
-          lastMessage: conversation?.lastMessage,
-          lastActivityAt: conversation?.lastActivityAt,
-          unreadCount: conversation?.unreadCount,
+          const lastParticipantMessageAt =
+            conversation?.lastParticipantMessageAt ??
+            c.lastParticipantMessageAt;
+
+          const canReply = computeCanReply(lastParticipantMessageAt);
+
+          return {
+            ...c,
+            lastMessage: conversation?.lastMessage ?? c.lastMessage,
+            lastActivityAt:
+              conversation?.lastActivityAt ?? c.lastActivityAt,
+            unreadCount: conversation?.unreadCount ?? c.unreadCount,
+            lastParticipantMessageAt,
+            canReply,
+            replyDisabledReason: canReply
+              ? null
+              : "waiting_for_reply",
+          };
+        })
+      );
+
+      /* 3️⃣ Active conversation update */
+      setSelectedConversation((prev) => {
+        if (!prev || prev._id !== conversationId) return prev;
+
+        const lastParticipantMessageAt =
+          conversation?.lastParticipantMessageAt ??
+          prev.lastParticipantMessageAt;
+
+        const canReply = computeCanReply(lastParticipantMessageAt);
+
+        return {
+          ...prev,
+          lastMessage: conversation?.lastMessage ?? prev.lastMessage,
+          lastActivityAt:
+            conversation?.lastActivityAt ?? prev.lastActivityAt,
+          unreadCount: conversation?.unreadCount ?? prev.unreadCount,
+          lastParticipantMessageAt,
+          canReply,
+          replyDisabledReason: canReply
+            ? null
+            : "waiting_for_reply",
         };
-
-        const rest = prev.filter((c) => c._id !== conversationId);
-        return [updated, ...rest];
       });
     }
   };
@@ -310,6 +359,7 @@ useEffect(() => {
   socket.on("inbox:event", handler);
   return () => socket.off("inbox:event", handler);
 }, [selectedConversationId]);
+
 
 
 // ==================== KEEP YOUR EXISTING fetchMessages UNCHANGED ====================
@@ -556,6 +606,14 @@ const sendMessage = async () => {
       sendMessage();
     }
   };
+
+  const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function computeCanReply(lastParticipantMessageAt) {
+  if (!lastParticipantMessageAt) return false;
+  return Date.now() - new Date(lastParticipantMessageAt).getTime() <= WINDOW_MS;
+}
+
 
   /* ---------- FILTER CONVERSATIONS ---------- */
 const sortedConversations = useMemo(() => {
