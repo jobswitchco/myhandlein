@@ -4741,16 +4741,32 @@ if (lastParticipantMessageAt) {
 
 
 
+// router.post("/conversations/sync", authenticateToken, async (req, res) => {
+//   const userId = req.user.user_id;
+
+//   // 🔥 Fire-and-forget
+//   process.nextTick(() => {
+//     syncInstagramConversations(userId).catch(console.error);
+//   });
+
+//   return res.json({ success: true, started: true });
+// });
+
 router.post("/conversations/sync", authenticateToken, async (req, res) => {
   const userId = req.user.user_id;
+  const mode = req.query.mode || "blocking";
 
-  // 🔥 Fire-and-forget
-  process.nextTick(() => {
-    syncInstagramConversations(userId).catch(console.error);
-  });
+  if (mode === "background") {
+    process.nextTick(() => syncInstagramConversations(userId));
+    return res.json({ success: true, started: true });
+  }
 
-  return res.json({ success: true, started: true });
+  await syncInstagramConversations(userId);
+
+  const conversations = await Conversation.find({ creatorId: userId }).lean();
+  res.json({ success: true, hydrated: true, data: conversations });
 });
+
 
 router.post("/conversations/:id/sync-older", authenticateToken, async (req, res) => {
   const conversationId = req.params.id;

@@ -396,6 +396,19 @@ useEffect(() => {
   });
 }
 
+if (payload.type === "conversation:created") {
+  setConversations(prev => {
+    const exists = prev.some(c => c._id === payload.data._id);
+    if (exists) return prev;
+    return [payload.data, ...prev];
+  });
+
+  setSelectedConversation(payload.data);
+  setSelectedConversationId(payload.data._id);
+  return;
+}
+
+
   };
 
   socket.on("inbox:event", handler);
@@ -832,17 +845,17 @@ const uInitial = uname.charAt(0).toUpperCase();
                 );
 
                 // 2️⃣ If returning to same conversation, force refetch
-                if (isSameConversation) {
+                // if (isSameConversation) {
                   setRawMessages([]);
                   messageIdSetRef.current.clear();
                   setCursor(null);
                   setHasMore(true);
                   await fetchMessages(conv._id);
-                } else {
+                // } else {
                   // 3️⃣ Switch conversation (triggers fetchMessages via useEffect)
-                  setSelectedConversation(conv);
-                  setSelectedConversationId(conv._id);
-                }
+                  // setSelectedConversation(conv);
+                  // setSelectedConversationId(conv._id);
+                // }
 
                 // 4️⃣ Refresh conversation list to update preview
                 const res = await axios.get(`${baseUrl}/conversations`, {
