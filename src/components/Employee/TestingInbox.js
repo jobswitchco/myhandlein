@@ -176,36 +176,32 @@ const markConversationAsRead = (conversationId) => {
     // setEmojiAnchor(null); 
   };
 
-  const loadOlderConversations = async () => {
-  if (!hasMoreConversations || loadingOlderConversations) return;
+const loadOlderConversations = async () => {
+  if (
+    loadingOlderConversations ||
+    !hasMoreConversations ||
+    !convCursor
+  ) return;
 
   try {
     setLoadingOlderConversations(true);
-
-    if (convListRef.current) {
-      prevConvScrollHeightRef.current =
-        convListRef.current.scrollHeight;
-    }
 
     const res = await axios.get(`${baseUrl}/conversations`, {
       withCredentials: true,
       params: {
         cursor: convCursor,
-        limit: 10
-      }
+        limit: 10,
+      },
     });
 
-    setConversations(prev => [
-      ...prev,
-      ...res.data.data
-    ]);
-
+    setConversations((prev) => [...prev, ...res.data.data]);
     setConvCursor(res.data.nextCursor);
     setHasMoreConversations(res.data.hasMore);
   } finally {
     setLoadingOlderConversations(false);
   }
 };
+
 
 
 
@@ -864,13 +860,19 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
   ref={convListRef}
   flex={1}
   sx={{ overflowY: "auto" }}
-  onScroll={(e) => {
-    if (e.target.scrollTop === 0) {
-      loadOlderConversations();
-    }
-  }}
+ onScroll={(e) => {
+  const el = e.target;
+
+  const nearBottom =
+    el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+
+  if (nearBottom) {
+    loadOlderConversations();
+  }
+}}
+
 >
-        {loading || hydratingFromMeta || loadingOlderConversations ? (
+        {loading || hydratingFromMeta ? (
   <Box px={2}>
     {[...Array(6)].map((_, i) => (
       <Box key={i} display="flex" gap={2} py={2}>
@@ -999,7 +1001,22 @@ const uInitial = uname.charAt(0).toUpperCase();
                 </Box>
               );
             })
+
           )}
+
+          {loadingOlderConversations && (
+  <Box px={2} py={1}>
+    {[...Array(3)].map((_, i) => (
+      <Box key={i} display="flex" gap={2} py={2}>
+        <Skeleton variant="circular" width={40} height={40} />
+        <Box flex={1}>
+          <Skeleton width="60%" height={16} />
+          <Skeleton width="80%" height={14} />
+        </Box>
+      </Box>
+    ))}
+  </Box>
+)}
         </Box>
       </Box>
 
