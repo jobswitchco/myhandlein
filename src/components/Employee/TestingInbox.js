@@ -101,6 +101,14 @@ export default function InboxManagement() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [hydratingFromMeta, setHydratingFromMeta] = useState(false);
 
+  const [convCursor, setConvCursor] = useState(null);
+  const [hasMoreConversations, setHasMoreConversations] = useState(true);
+  const [loadingOlderConversations, setLoadingOlderConversations] = useState(false);
+
+  const convListRef = useRef(null);
+  const prevConvScrollHeightRef = useRef(null);
+
+
 
   const CHAT_MEDIA_STYLE = {
   maxWidth: "300px",
@@ -167,6 +175,38 @@ const markConversationAsRead = (conversationId) => {
     // Optional: Keep picker open or close it
     // setEmojiAnchor(null); 
   };
+
+  const loadOlderConversations = async () => {
+  if (!hasMoreConversations || loadingOlderConversations) return;
+
+  try {
+    setLoadingOlderConversations(true);
+
+    if (convListRef.current) {
+      prevConvScrollHeightRef.current =
+        convListRef.current.scrollHeight;
+    }
+
+    const res = await axios.get(`${baseUrl}/conversations`, {
+      withCredentials: true,
+      params: {
+        cursor: convCursor,
+        limit: 10
+      }
+    });
+
+    setConversations(prev => [
+      ...prev,
+      ...res.data.data
+    ]);
+
+    setConvCursor(res.data.nextCursor);
+    setHasMoreConversations(res.data.hasMore);
+  } finally {
+    setLoadingOlderConversations(false);
+  }
+};
+
 
 
 
@@ -441,11 +481,15 @@ useEffect(() => {
       setLoading(true);
 
       const res = await axios.get(`${baseUrl}/conversations`, {
-        withCredentials: true,
-      });
+  withCredentials: true,
+  params: { limit: 10 }
+});
 
-      const data = res.data?.data || [];
-      setConversations(data);
+const data = res.data?.data || [];
+
+setConversations(res.data.data);
+setConvCursor(res.data.nextCursor);
+setHasMoreConversations(res.data.hasMore);
 
       if (data.length === 0) {
         // 👇 DB empty → Meta hydration mode
@@ -593,6 +637,22 @@ useEffect(() => {
       prevScrollHeightRef.current = null;
     }
   }, [messages]);
+
+  useLayoutEffect(() => {
+  if (
+    !loadingOlderConversations &&
+    prevConvScrollHeightRef.current &&
+    convListRef.current
+  ) {
+    const diff =
+      convListRef.current.scrollHeight -
+      prevConvScrollHeightRef.current;
+
+    convListRef.current.scrollTop = diff;
+    prevConvScrollHeightRef.current = null;
+  }
+}, [conversations]);
+
 
 
 const handleScroll = async (e) => {
@@ -800,8 +860,17 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
 
 
         {/* Conversation List */}
-        <Box flex={1} sx={{ overflowY: "auto" }}>
-        {loading || hydratingFromMeta ? (
+       <Box
+  ref={convListRef}
+  flex={1}
+  sx={{ overflowY: "auto" }}
+  onScroll={(e) => {
+    if (e.target.scrollTop === 0) {
+      loadOlderConversations();
+    }
+  }}
+>
+        {loading || hydratingFromMeta || loadingOlderConversations ? (
   <Box px={2}>
     {[...Array(6)].map((_, i) => (
       <Box key={i} display="flex" gap={2} py={2}>

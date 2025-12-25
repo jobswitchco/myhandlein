@@ -4675,38 +4675,50 @@ router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
 
-    const conversations = await Conversation.find({ creatorId: userId })
+    const limit = Math.min(Number(req.query.limit) || 10, 20);
+    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+
+    const query = {
+      creatorId: userId,
+      ...(cursor && {
+        lastActivityAt: { $lt: cursor }
+      })
+    };
+
+    const docs = await Conversation.find(query)
+      .sort({ lastActivityAt: -1 })
+      .limit(limit + 1)
       .populate({
         path: "participantId",
-        select: "igUserId username",
+        select: "igUserId username"
       })
-      .sort({ lastActivityAt: -1 })
       .lean();
+
+    const hasMore = docs.length > limit;
+    const page = hasMore ? docs.slice(0, limit) : docs;
+
+    const nextCursor = hasMore
+      ? page[page.length - 1].lastActivityAt
+      : null;
 
     const enriched = [];
     const WINDOW_MS = 24 * 60 * 60 * 1000;
 
-    for (const c of conversations) {
+    for (const c of page) {
       const igUserId = c.participantId?.igUserId;
       const profile = igUserId ? await getCachedProfile(igUserId) : null;
 
-const lastParticipantMessageAt = c.lastParticipantMessageAt;
+      const lastParticipantMessageAt = c.lastParticipantMessageAt;
+      let canReply = false;
+      let replyDisabledReason = null;
 
-let canReply = false;
-let replyDisabledReason = null;
-
-if (lastParticipantMessageAt) {
-  const diffMs = Date.now() - new Date(lastParticipantMessageAt).getTime();
-
-  if (diffMs <= WINDOW_MS) {
-    canReply = true;
-  } else {
-    replyDisabledReason = "window_expired";
-  }
-} else {
-  replyDisabledReason = "waiting_for_reply";
-}
-
+      if (lastParticipantMessageAt) {
+        const diff = Date.now() - new Date(lastParticipantMessageAt).getTime();
+        canReply = diff <= WINDOW_MS;
+        if (!canReply) replyDisabledReason = "window_expired";
+      } else {
+        replyDisabledReason = "waiting_for_reply";
+      }
 
       enriched.push({
         _id: c._id,
@@ -4715,23 +4727,24 @@ if (lastParticipantMessageAt) {
         unreadCount: c.unreadCount,
         lastMessage: c.lastMessage,
         lastActivityAt: c.lastActivityAt,
-
-        // 🔥 NEW FIELDS
+        lastParticipantMessageAt,
         canReply,
         replyDisabledReason,
-        lastParticipantMessageAt,
-
         participant: {
           igUserId,
           username: c.participantId?.username || null,
           name: profile?.name || null,
-          profilePic: profile?.profilePic || null,
-          restricted: profile?.restricted || false,
-        },
+          profilePic: profile?.profilePic || null
+        }
       });
     }
 
-    res.json({ success: true, data: enriched });
+    res.json({
+      success: true,
+      data: enriched,
+      nextCursor,
+      hasMore
+    });
   } catch (err) {
     console.error("Fetch conversations error", err);
     res.status(500).json({ success: false });
@@ -4739,18 +4752,6 @@ if (lastParticipantMessageAt) {
 });
 
 
-
-
-// router.post("/conversations/sync", authenticateToken, async (req, res) => {
-//   const userId = req.user.user_id;
-
-//   // 🔥 Fire-and-forget
-//   process.nextTick(() => {
-//     syncInstagramConversations(userId).catch(console.error);
-//   });
-
-//   return res.json({ success: true, started: true });
-// });
 
 router.post("/conversations/sync", authenticateToken, async (req, res) => {
   const userId = req.user.user_id;
