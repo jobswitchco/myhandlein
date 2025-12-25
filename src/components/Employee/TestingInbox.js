@@ -111,6 +111,8 @@ export default function InboxManagement() {
   const [loadingMetaConversations, setLoadingMetaConversations] = useState(false);
 
 const loadingConversationsRef = useRef(false); // 🔥 Prevent duplicate calls
+// 🔒 DEDUPE SET FOR CONVERSATIONS (CRITICAL)
+const conversationIdSetRef = useRef(new Set());
 
 
   const CHAT_MEDIA_STYLE = {
@@ -213,7 +215,24 @@ const loadOlderConversations = async () => {
     });
 
     // 🔥 FIX #2: Append new conversations
-    setConversations((prev) => [...prev, ...newConvos]);
+    setConversations(prev => {
+  const unique = [];
+
+  for (const conv of newConvos) {
+    if (!conversationIdSetRef.current.has(conv._id)) {
+      conversationIdSetRef.current.add(conv._id);
+      unique.push(conv);
+    }
+  }
+
+  console.log("🧹 Deduped conversations:", {
+    incoming: newConvos.length,
+    appended: unique.length,
+  });
+
+  return [...prev, ...unique];
+});
+
     setConvCursor(res.data.nextCursor);
     setHasMoreConversations(res.data.hasMore);
   } catch (err) {
@@ -307,7 +326,24 @@ console.log("🧩 Meta → DB returned:", {
 
       // 🔥 Only update if we got new conversations
    if (newConvos.length > 0) {
-  setConversations(prev => [...prev, ...newConvos]);
+  setConversations(prev => {
+  const unique = [];
+
+  for (const conv of newConvos) {
+    if (!conversationIdSetRef.current.has(conv._id)) {
+      conversationIdSetRef.current.add(conv._id);
+      unique.push(conv);
+    }
+  }
+
+  console.log("🧩 Meta dedupe:", {
+    incoming: newConvos.length,
+    appended: unique.length,
+  });
+
+  return [...prev, ...unique];
+});
+
   setConvCursor(res.data.nextCursor);
   setHasMoreConversations(res.data.hasMore);
   console.log("✅ Appended Meta conversations");
@@ -623,6 +659,8 @@ useEffect(() => {
 
       // 🔥 FIX #3: Set initial state
       setConversations(data);
+conversationIdSetRef.current = new Set(data.map(c => c._id));
+
       setConvCursor(res.data.nextCursor);
       setHasMoreConversations(res.data.hasMore);
 
