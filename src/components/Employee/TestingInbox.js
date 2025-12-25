@@ -113,6 +113,8 @@ export default function InboxManagement() {
 const loadingConversationsRef = useRef(false); // 🔥 Prevent duplicate calls
 // 🔒 DEDUPE SET FOR CONVERSATIONS (CRITICAL)
 const conversationIdSetRef = useRef(new Set());
+const appendedInLastFetchRef = useRef(false);
+
 
 
   const CHAT_MEDIA_STYLE = {
@@ -215,7 +217,7 @@ const loadOlderConversations = async () => {
     });
 
     // 🔥 FIX #2: Append new conversations
-    setConversations(prev => {
+setConversations(prev => {
   const unique = [];
 
   for (const conv of newConvos) {
@@ -225,13 +227,11 @@ const loadOlderConversations = async () => {
     }
   }
 
-  console.log("🧹 Deduped conversations:", {
-    incoming: newConvos.length,
-    appended: unique.length,
-  });
+  appendedInLastFetchRef.current = unique.length > 0;
 
   return [...prev, ...unique];
 });
+
 
     setConvCursor(res.data.nextCursor);
     setHasMoreConversations(res.data.hasMore);
@@ -326,7 +326,7 @@ console.log("🧩 Meta → DB returned:", {
 
       // 🔥 Only update if we got new conversations
    if (newConvos.length > 0) {
-  setConversations(prev => {
+ setConversations(prev => {
   const unique = [];
 
   for (const conv of newConvos) {
@@ -336,13 +336,11 @@ console.log("🧩 Meta → DB returned:", {
     }
   }
 
-  console.log("🧩 Meta dedupe:", {
-    incoming: newConvos.length,
-    appended: unique.length,
-  });
+  appendedInLastFetchRef.current = unique.length > 0;
 
   return [...prev, ...unique];
 });
+
 
   setConvCursor(res.data.nextCursor);
   setHasMoreConversations(res.data.hasMore);
@@ -368,6 +366,14 @@ console.log("🧩 Meta → DB returned:", {
 
 
 
+useEffect(() => {
+  if (appendedInLastFetchRef.current) {
+    // allow one render frame to commit
+    requestAnimationFrame(() => {
+      appendedInLastFetchRef.current = false;
+    });
+  }
+}, [conversations]);
 
 
 
@@ -1185,16 +1191,18 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
             )}
 
             {/* 🔥 Only show "All loaded" when NOT loading and truly no more */}
-            {!hasMoreConversations &&
-              !loadingOlderConversations &&
-              !loadingMetaConversations &&
-              conversations.length > 0 && (
-                <Box py={2} textAlign="center">
-                  <Typography variant="caption" color="text.secondary">
-                    All conversations loaded
-                  </Typography>
-                </Box>
-              )}
+           {!hasMoreConversations &&
+ !loadingOlderConversations &&
+ !loadingMetaConversations &&
+ !appendedInLastFetchRef.current &&
+ conversations.length > 0 && (
+   <Box py={2} textAlign="center">
+     <Typography variant="caption" color="text.secondary">
+       All conversations loaded
+     </Typography>
+   </Box>
+ )}
+
 
 
           </>
