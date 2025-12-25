@@ -202,6 +202,22 @@ const loadOlderConversations = async () => {
   }
 };
 
+const handleConvScroll = async (e) => {
+  const el = e.target;
+  
+  if (loadingOlderConversations || !hasMoreConversations) return;
+
+  const nearBottom =
+    el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+
+  if (nearBottom && convCursor) {
+    // Save scroll height before loading
+    prevConvScrollHeightRef.current = el.scrollHeight;
+    
+    await loadOlderConversations();
+  }
+};
+
 
 
 
@@ -856,21 +872,11 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
 
 
         {/* Conversation List */}
-       <Box
+<Box
   ref={convListRef}
   flex={1}
   sx={{ overflowY: "auto" }}
- onScroll={(e) => {
-  const el = e.target;
-
-  const nearBottom =
-    el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-
-  if (nearBottom) {
-    loadOlderConversations();
-  }
-}}
-
+  onScroll={handleConvScroll}  // Use the new handler
 >
         {loading || hydratingFromMeta ? (
   <Box px={2}>
