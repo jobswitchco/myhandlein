@@ -181,11 +181,7 @@ const markConversationAsRead = (conversationId) => {
 
 const loadOlderConversations = async () => {
   // 🔥 FIX #1 & #2: Prevent duplicate calls and check conditions
-  if (
-    loadingConversationsRef.current ||
-    !hasMoreConversations ||
-    !convCursor
-  ) {
+ if (loadingConversationsRef.current || !hasMoreConversations) {
     console.log('⏭️ Skipping load:', {
       loading: loadingConversationsRef.current,
       hasMore: hasMoreConversations,
@@ -288,31 +284,38 @@ const handleConvScroll = async (e) => {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // 🔥 Refresh the entire conversation list from DB
-      const res = await axios.get(`${baseUrl}/conversations`, {
-        withCredentials: true,
-        params: { limit: conversations.length + 10 } // Get all existing + new ones
-      });
+   // ✅ After Meta sync, retry DB pagination
+console.log("🔁 Retrying DB pagination after Meta sync...");
 
-      const freshData = res.data?.data || [];
-      
-      console.log("✅ Refreshed after Meta sync:", {
-        previousCount: conversations.length,
-        newCount: freshData.length,
-        added: freshData.length - conversations.length,
-        nextCursor: res.data.nextCursor,
-        hasMore: res.data.hasMore
-      });
+// IMPORTANT: allow cursor-based fetch even if convCursor is null
+const res = await axios.get(`${baseUrl}/conversations`, {
+  withCredentials: true,
+  params: {
+    cursor: convCursor,
+    limit: 10,
+  },
+});
+
+const newConvos = res.data?.data || [];
+
+console.log("🧩 Meta → DB returned:", {
+  fetched: newConvos.length,
+  nextCursor: res.data.nextCursor,
+  hasMore: res.data.hasMore,
+});
+
 
       // 🔥 Only update if we got new conversations
-      if (freshData.length > conversations.length) {
-        setConversations(freshData);
-        setConvCursor(res.data.nextCursor);
-        setHasMoreConversations(res.data.hasMore);
-        console.log("✅ New conversations added!");
-      } else {
-        console.log("ℹ️ No new conversations from Meta");
-        setHasMoreConversations(false); // Stop trying
-      }
+   if (newConvos.length > 0) {
+  setConversations(prev => [...prev, ...newConvos]);
+  setConvCursor(res.data.nextCursor);
+  setHasMoreConversations(res.data.hasMore);
+  console.log("✅ Appended Meta conversations");
+} else {
+  console.log("ℹ️ No new conversations even after Meta");
+  setHasMoreConversations(false);
+}
+
 
     } catch (err) {
       console.error("❌ Meta sync failed", err);
@@ -322,7 +325,7 @@ const handleConvScroll = async (e) => {
       // Release lock after cooldown
       setTimeout(() => {
         syncingOlderRef.current = false;
-      }, 3000);
+      }, 500);
     }
   }
 };
