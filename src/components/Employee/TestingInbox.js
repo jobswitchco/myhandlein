@@ -232,16 +232,15 @@ const handleConvScroll = async (e) => {
   const el = e.target;
 
   if (syncingOlderRef.current) {
-  return;
-}
+    return;
+  }
 
-
-  const nearBottom =
-    el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
 
   console.log("📊 Conv Scroll Debug:", {
     nearBottom,
     loadingOlderConversations,
+    loadingMetaConversations,
     hasMoreConversations,
     convCursor,
   });
@@ -250,7 +249,7 @@ const handleConvScroll = async (e) => {
   if (!nearBottom) return;
 
   // ❌ Already loading → do nothing
-  if (loadingOlderConversations) return;
+  if (loadingOlderConversations || loadingMetaConversations) return;
 
   /**
    * =========================================================
@@ -259,51 +258,75 @@ const handleConvScroll = async (e) => {
    */
   if (hasMoreConversations && convCursor) {
     console.log("✅ Paginating DB conversations");
-
     prevConvScrollHeightRef.current = el.scrollHeight;
-
     await loadOlderConversations();
     return;
   }
 
   /**
    * =========================================================
-   * 2️⃣ FALLBACK — DB EXHAUSTED, META MAY HAVE MORE
+   * 2️⃣ FALLBACK — DB EXHAUSTED, FETCH FROM META
    * =========================================================
-   * We DO NOT fetch Meta directly.
-   * We trigger a background sync ONCE.
    */
-if (!hasMoreConversations && !syncingOlderRef.current) {
-  syncingOlderRef.current = true;
-  setLoadingMetaConversations(true);
+  if (!hasMoreConversations && !syncingOlderRef.current) {
+    console.log("🔄 DB exhausted, fetching from Meta...");
+    
+    syncingOlderRef.current = true;
+    setLoadingMetaConversations(true);
 
-  try {
-    await axios.post(
-      `${baseUrl}/conversations/load-more-from-meta`,
-      {},
-      { withCredentials: true }
-    );
+    try {
+      // Trigger Meta sync
+      await axios.post(
+        `${baseUrl}/conversations/load-more-from-meta`,
+        {},
+        { withCredentials: true }
+      );
 
-    // ⏳ Give backend time to persist new conversations
-    setTimeout(async () => {
-      prevConvScrollHeightRef.current = el.scrollHeight;
-      await loadOlderConversations();
-    }, 800);
-  } catch (err) {
-    console.error("❌ Meta background sync failed", err);
-  } finally {
-    // ⛔ DO NOT release immediately
-    setLoadingMetaConversations(false);
+      console.log("⏳ Waiting for Meta sync to complete...");
 
-    // ✅ RELEASE AFTER COOLDOWN
-    setTimeout(() => {
-      syncingOlderRef.current = false;
-    }, 3000);
+      // Wait for backend to persist new conversations
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // 🔥 Refresh the entire conversation list from DB
+      const res = await axios.get(`${baseUrl}/conversations`, {
+        withCredentials: true,
+        params: { limit: conversations.length + 10 } // Get all existing + new ones
+      });
+
+      const freshData = res.data?.data || [];
+      
+      console.log("✅ Refreshed after Meta sync:", {
+        previousCount: conversations.length,
+        newCount: freshData.length,
+        added: freshData.length - conversations.length,
+        nextCursor: res.data.nextCursor,
+        hasMore: res.data.hasMore
+      });
+
+      // 🔥 Only update if we got new conversations
+      if (freshData.length > conversations.length) {
+        setConversations(freshData);
+        setConvCursor(res.data.nextCursor);
+        setHasMoreConversations(res.data.hasMore);
+        console.log("✅ New conversations added!");
+      } else {
+        console.log("ℹ️ No new conversations from Meta");
+        setHasMoreConversations(false); // Stop trying
+      }
+
+    } catch (err) {
+      console.error("❌ Meta sync failed", err);
+    } finally {
+      setLoadingMetaConversations(false);
+      
+      // Release lock after cooldown
+      setTimeout(() => {
+        syncingOlderRef.current = false;
+      }, 3000);
+    }
   }
-}
-
-
 };
+
 
 
 
@@ -974,166 +997,164 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
 
         {/* Conversation List */}
 <Box
-  ref={convListRef}
-  flex={1}
-  sx={{ overflowY: "auto" }}
-  onScroll={handleConvScroll}
->
-  {loading || hydratingFromMeta ? (
-    <Box px={2}>
-      {[...Array(6)].map((_, i) => (
-        <Box key={i} display="flex" gap={2} py={2}>
-          <Skeleton variant="circular" width={40} height={40} />
-          <Box flex={1}>
-            <Skeleton width="60%" height={16} />
-            <Skeleton width="80%" height={14} />
+        ref={convListRef}
+        flex={1}
+        sx={{ overflowY: "auto" }}
+        onScroll={handleConvScroll}
+      >
+        {loading || hydratingFromMeta ? (
+          <Box px={2}>
+            {[...Array(6)].map((_, i) => (
+              <Box key={i} display="flex" gap={2} py={2}>
+                <Skeleton variant="circular" width={40} height={40} />
+                <Box flex={1}>
+                  <Skeleton width="60%" height={16} />
+                  <Skeleton width="80%" height={14} />
+                </Box>
+              </Box>
+            ))}
           </Box>
-        </Box>
-      ))}
-    </Box>
-  ) : (
-
-  <>
+        ) : (
+          <>
             {filteredConversations.map((conv) => {
-             const uname = conv.participant?.name || conv.participant?.username || "Instagram User";
-const uInitial = uname.charAt(0).toUpperCase();
-
+              const uname = conv.participant?.name || conv.participant?.username || "Instagram User";
               const isSelected = selectedConversation?._id === conv._id;
-              
-              const previewDate =
-  conv.lastActivityAt ||
-  conv.lastMessage?.timestamp ||
-  null;
+              const previewDate = conv.lastActivityAt || conv.lastMessage?.timestamp || null;
+
               return (
                 <Box
                   key={conv._id}
                   px={2}
                   py={2}
                   borderBottom="1px solid #f1f1f1"
-      onClick={async () => {
-              const isSameConversation = selectedConversationId === conv._id;
+                  onClick={async () => {
+                    const isSameConversation = selectedConversationId === conv._id;
 
-              try {
-                // Show loading
-                setSyncingConvId(conv._id);
+                    try {
+                      setSyncingConvId(conv._id);
 
-                // 1️⃣ Trigger Meta sync and WAIT for completion
-                await axios.post(
-                  `${baseUrl}/conversations/${conv._id}/sync-latest`,
-                  {},
-                  { withCredentials: true }
-                );
+                      await axios.post(
+                        `${baseUrl}/conversations/${conv._id}/sync-latest`,
+                        {},
+                        { withCredentials: true }
+                      );
 
-                // 2️⃣ If returning to same conversation, force refetch
-                if (isSameConversation) {
-                  setRawMessages([]);
-                  messageIdSetRef.current.clear();
-                  setCursor(null);
-                  setHasMore(true);
-                  await fetchMessages(conv._id);
-                } else {
-                  // 3️⃣ Switch conversation (triggers fetchMessages via useEffect)
-                  setSelectedConversation(conv);
-                  setSelectedConversationId(conv._id);
-                }
+                      if (isSameConversation) {
+                        setRawMessages([]);
+                        messageIdSetRef.current.clear();
+                        setCursor(null);
+                        setHasMore(true);
+                        await fetchMessages(conv._id);
+                      } else {
+                        setSelectedConversation(conv);
+                        setSelectedConversationId(conv._id);
+                      }
 
-                // 4️⃣ Refresh conversation list to update preview
-                const res = await axios.get(`${baseUrl}/conversations`, {
-                  withCredentials: true,
-                });
-                const freshConvos = res.data?.data || [];
-                setConversations(freshConvos);
+                      const res = await axios.get(`${baseUrl}/conversations`, {
+                        withCredentials: true,
+                      });
+                      const freshConvos = res.data?.data || [];
+                      setConversations(freshConvos);
 
-                // 5️⃣ Reset unread locally
-                setConversations((prev) =>
-                  prev.map((c) =>
-                    c._id === conv._id ? { ...c, unreadCount: 0 } : c
-                  )
-                );
-              } catch (err) {
-                console.error("Sync failed:", err);
-              } finally {
-                setSyncingConvId(null);
-              }
-            }}
-
-
+                      setConversations((prev) =>
+                        prev.map((c) =>
+                          c._id === conv._id ? { ...c, unreadCount: 0 } : c
+                        )
+                      );
+                    } catch (err) {
+                      console.error("Sync failed:", err);
+                    } finally {
+                      setSyncingConvId(null);
+                    }
+                  }}
                   sx={{
                     cursor: "pointer",
                     bgcolor: isSelected ? "#EEF4FF" : "#fff",
                     transition: "0.2s",
                     "&:hover": { bgcolor: isSelected ? "#EEF4FF" : "#f9fafb" },
-                     opacity: syncingConvId === conv._id ? 0.6 : 1,
+                    opacity: syncingConvId === conv._id ? 0.6 : 1,
                     pointerEvents: syncingConvId === conv._id ? "none" : "auto",
                   }}
                 >
                   <Box display="flex" justifyContent="space-between">
                     <Box display="flex" gap={1.5} alignItems="center">
-                    <Avatar
-  src={conv.participant?.profilePic || undefined}
-  sx={{ width: 40, height: 40 }}
->
-  {!conv.participant?.profilePic && uname[0]?.toUpperCase()}
-</Avatar>
-
+                      <Avatar
+                        src={conv.participant?.profilePic || undefined}
+                        sx={{ width: 40, height: 40 }}
+                      >
+                        {!conv.participant?.profilePic && uname[0]?.toUpperCase()}
+                      </Avatar>
                       <Box>
-                      
-                        <Typography fontWeight={600} fontSize="0.95rem">{uname}</Typography>
-                        <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: "180px", fontSize: "0.85rem" }}>
-                            {getLastMessagePreview(conv.lastMessage)}
+                        <Typography fontWeight={600} fontSize="0.95rem">
+                          {uname}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          noWrap
+                          sx={{ maxWidth: "180px", fontSize: "0.85rem" }}
+                        >
+                          {getLastMessagePreview(conv.lastMessage)}
                         </Typography>
                       </Box>
                     </Box>
                     <Box display="flex" flexDirection="column" alignItems="flex-end">
-                       <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
-                       {previewDate && formatPreviewTime(previewDate)}
-                        </Typography>
-                        {conv.unreadCount > 0 && (
-                          <Badge color="primary" badgeContent={conv.unreadCount} sx={{ mt: 1, mr: 1}} />
-                        )}
+                      <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
+                        {previewDate && formatPreviewTime(previewDate)}
+                      </Typography>
+                      {conv.unreadCount > 0 && (
+                        <Badge
+                          color="primary"
+                          badgeContent={conv.unreadCount}
+                          sx={{ mt: 1, mr: 1 }}
+                        />
+                      )}
                     </Box>
                   </Box>
-                  
+
                   {conv.label && (
-                      <Chip
-                        size="small"
-                        label={conv.label}
-                        sx={{
-                            mt: 1,
-                            bgcolor: LABEL_STYLES[conv.label]?.bg,
-                            color: LABEL_STYLES[conv.label]?.text,
-                            fontSize: "0.7rem",
-                            height: "20px",
-                        }}
-                        />
+                    <Chip
+                      size="small"
+                      label={conv.label}
+                      sx={{
+                        mt: 1,
+                        bgcolor: LABEL_STYLES[conv.label]?.bg,
+                        color: LABEL_STYLES[conv.label]?.text,
+                        fontSize: "0.7rem",
+                        height: "20px",
+                      }}
+                    />
                   )}
                 </Box>
               );
             })}
 
- {/* 🔥 FIX #1: Show skeleton loaders while loading more */}
-      {loadingOlderConversations && (
-        <Box px={2}>
-          {[...Array(3)].map((_, i) => (
-            <Box key={`skeleton-${i}`} display="flex" gap={2} py={2}>
-              <Skeleton variant="circular" width={40} height={40} />
-              <Box flex={1}>
-                <Skeleton width="60%" height={16} />
-                <Skeleton width="80%" height={14} />
+            {/* 🔥 Show skeleton loaders for BOTH DB pagination AND Meta sync */}
+            {(loadingOlderConversations || loadingMetaConversations) && (
+              <Box px={2}>
+                {[...Array(3)].map((_, i) => (
+                  <Box key={`skeleton-${i}`} display="flex" gap={2} py={2}>
+                    <Skeleton variant="circular" width={40} height={40} />
+                    <Box flex={1}>
+                      <Skeleton width="60%" height={16} />
+                      <Skeleton width="80%" height={14} />
+                    </Box>
+                  </Box>
+                ))}
               </Box>
-            </Box>
-          ))}
-        </Box>
-      )}
+            )}
 
-      {/* 🔥 End of list indicator */}
-      {!hasMoreConversations && conversations.length > 0 && (
-        <Box py={2} textAlign="center">
-          <Typography variant="caption" color="text.secondary">
-            All conversations loaded
-          </Typography>
-        </Box>
-      )}
+            {/* 🔥 Only show "All loaded" when NOT loading and truly no more */}
+            {!hasMoreConversations &&
+              !loadingOlderConversations &&
+              !loadingMetaConversations &&
+              conversations.length > 0 && (
+                <Box py={2} textAlign="center">
+                  <Typography variant="caption" color="text.secondary">
+                    All conversations loaded
+                  </Typography>
+                </Box>
+              )}
 
 
           </>
