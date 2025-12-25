@@ -5084,11 +5084,28 @@ async function syncInstagramConversations(userId) {
 
     if (!user?.fbPageId || !user?.fbPageAccessToken || !user?.igUserId) return;
 
+
     const metaConversations = await InstagramService.fetchConversations({
-      pageId: user.fbPageId,
-      accessToken: user.fbPageAccessToken,
-      limit: 10,
-    });
+  pageId: user.fbPageId,
+  accessToken: user.fbPageAccessToken,
+  limit: 10,
+  after: user.igConversationsSync?.afterCursor || null
+});
+
+await USER.updateOne(
+  { _id: userId },
+  {
+    $set: {
+      "igConversationsSync.afterCursor":
+        metaConversations.paging?.cursors?.after || null,
+      "igConversationsSync.hasMore":
+        Boolean(metaConversations.paging?.next),
+      "igConversationsSync.lastSyncedAt": new Date()
+    }
+  }
+);
+
+
 
     for (const conv of metaConversations) {
       const metaThreadId = conv.id;
@@ -5206,6 +5223,15 @@ await Conversation.updateOne(
     await redisDel(lockKey);
   }
 }
+
+router.post("/conversations/load-more-from-meta", authenticateToken, async (req, res) => {
+  const userId = req.user.user_id;
+
+  process.nextTick(() => syncInstagramConversations(userId));
+
+  res.json({ success: true, started: true });
+});
+
 
 
 // ==================== UPDATE: upsertMessage ====================

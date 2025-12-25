@@ -37,6 +37,12 @@ const User_Schema = new Schema({
     maskedEmail: { type: String },
   },
 
+  igConversationsSync: {
+  afterCursor: { type: String },
+  hasMore: { type: Boolean, default: true },
+  lastSyncedAt: { type: Date }
+},
+
 
   demo_logged_in: { type: Boolean },
   demo_logged_date: { type: Date },

@@ -204,32 +204,74 @@ const loadOlderConversations = async () => {
 
 const handleConvScroll = async (e) => {
   const el = e.target;
-  
-  console.log('📊 Scroll Debug:', {
-    scrollHeight: el.scrollHeight,
-    scrollTop: el.scrollTop,
-    clientHeight: el.clientHeight,
-    nearBottom: el.scrollHeight - el.scrollTop - el.clientHeight,
+
+  const nearBottom =
+    el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+
+  console.log("📊 Conv Scroll Debug:", {
+    nearBottom,
     loadingOlderConversations,
     hasMoreConversations,
-    convCursor
+    convCursor,
   });
-  
-  if (loadingOlderConversations || !hasMoreConversations) {
-    console.log('⏸️ Prevented load:', { loadingOlderConversations, hasMoreConversations });
+
+  // ❌ Not near bottom → do nothing
+  if (!nearBottom) return;
+
+  // ❌ Already loading → do nothing
+  if (loadingOlderConversations) return;
+
+  /**
+   * =========================================================
+   * 1️⃣ PRIMARY PATH — PAGINATE DB
+   * =========================================================
+   */
+  if (hasMoreConversations && convCursor) {
+    console.log("✅ Paginating DB conversations");
+
+    prevConvScrollHeightRef.current = el.scrollHeight;
+
+    await loadOlderConversations();
     return;
   }
 
-  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  /**
+   * =========================================================
+   * 2️⃣ FALLBACK — DB EXHAUSTED, META MAY HAVE MORE
+   * =========================================================
+   * We DO NOT fetch Meta directly.
+   * We trigger a background sync ONCE.
+   */
+  if (!hasMoreConversations && !syncingOlderRef.current) {
+    console.log("🔁 DB exhausted → triggering Meta background sync");
 
-  if (nearBottom && convCursor) {
-    console.log('✅ Loading more conversations...');
-    prevConvScrollHeightRef.current = el.scrollHeight;
-    await loadOlderConversations();
-  } else {
-    console.log('❌ Not loading:', { nearBottom, convCursor });
+    syncingOlderRef.current = true;
+
+    try {
+      await axios.post(
+        `${baseUrl}/conversations/load-more-from-meta`,
+        {},
+        { withCredentials: true }
+      );
+
+      // ⏳ Give backend time to persist new conversations
+      setTimeout(async () => {
+        console.log("🔄 Re-attempting DB pagination after Meta sync");
+
+        prevConvScrollHeightRef.current = el.scrollHeight;
+        await loadOlderConversations();
+      }, 800);
+    } catch (err) {
+      console.error("❌ Meta background sync failed", err);
+    } finally {
+      // release lock slightly later to avoid thrashing
+      setTimeout(() => {
+        syncingOlderRef.current = false;
+      }, 1500);
+    }
   }
 };
+
 
 
 

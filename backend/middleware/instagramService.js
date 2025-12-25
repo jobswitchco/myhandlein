@@ -111,19 +111,34 @@ async fetchOlderMessages({
     }
   }
 
-  async fetchConversations({ pageId, accessToken, limit = 10 }) {
+async fetchConversations({
+  pageId,
+  accessToken,
+  limit = 10,
+  after = null,
+}) {
   const url = `${GRAPH_API_BASE}/${pageId}/conversations`;
 
   const params = {
     access_token: accessToken,
     platform: "instagram",
     limit,
-    fields: "id,participants"
+    fields: "id,participants",
   };
 
+  // 🔑 Cursor support
+  if (after) {
+    params.after = after;
+  }
+
   const res = await axios.get(url, { params });
-  return res.data?.data || [];
+
+  return {
+    data: res.data?.data || [],
+    paging: res.data?.paging || null,
+  };
 }
+
 
 async fetchLatestMessages({
   igConversationId,
