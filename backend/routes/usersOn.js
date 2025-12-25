@@ -4685,19 +4685,22 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       })
     };
 
+    // 🔥 FIX: Fetch limit + 1 to detect if there are more
     const docs = await Conversation.find(query)
       .sort({ lastActivityAt: -1 })
-      .limit(limit + 1)
+      .limit(limit + 1)  // ← THIS IS THE KEY FIX
       .populate({
         path: "participantId",
         select: "igUserId username"
       })
       .lean();
 
+    // 🔥 FIX: Check if we got more than requested
     const hasMore = docs.length > limit;
     const page = hasMore ? docs.slice(0, limit) : docs;
 
-    const nextCursor = hasMore
+    // 🔥 FIX: Use the LAST item's timestamp as cursor
+    const nextCursor = hasMore && page.length > 0
       ? page[page.length - 1].lastActivityAt
       : null;
 
@@ -4739,6 +4742,13 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       });
     }
 
+    console.log('📤 Conversations response:', {
+      total: docs.length,
+      returned: enriched.length,
+      hasMore,
+      nextCursor
+    });
+
     res.json({
       success: true,
       data: enriched,
@@ -4750,6 +4760,7 @@ router.get("/conversations", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false });
   }
 });
+
 
 
 
