@@ -4671,6 +4671,7 @@ router.get("/influencer/:subdomain", async (req, res) => {
 
 
 
+// ==================== FIXED: /conversations route ====================
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -4685,23 +4686,23 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       })
     };
 
-    // 🔥 FIX: Fetch limit + 1 to detect if there are more
+    // 🔥 FIX #3: Fetch limit + 1 to detect if there are more
     const docs = await Conversation.find(query)
-      .sort({ lastActivityAt: -1 })
-      .limit(limit + 1)  // ← THIS IS THE KEY FIX
+      .sort({ lastActivityAt: -1 })  // ✅ Already correct - newest first
+      .limit(limit + 1)
       .populate({
         path: "participantId",
         select: "igUserId username"
       })
       .lean();
 
-    // 🔥 FIX: Check if we got more than requested
+    // 🔥 FIX #2: Check if we got more than requested
     const hasMore = docs.length > limit;
     const page = hasMore ? docs.slice(0, limit) : docs;
 
-    // 🔥 FIX: Use the LAST item's timestamp as cursor
+    // 🔥 FIX #2: Use the LAST item's timestamp as cursor (oldest in this batch)
     const nextCursor = hasMore && page.length > 0
-      ? page[page.length - 1].lastActivityAt
+      ? page[page.length - 1].lastActivityAt.toISOString()  // ✅ Convert to ISO string
       : null;
 
     const enriched = [];
@@ -4746,7 +4747,8 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       total: docs.length,
       returned: enriched.length,
       hasMore,
-      nextCursor
+      nextCursor,
+      query: cursor ? `cursor: ${cursor}` : 'initial load'
     });
 
     res.json({

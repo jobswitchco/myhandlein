@@ -110,7 +110,7 @@ export default function InboxManagement() {
 
   const [loadingMetaConversations, setLoadingMetaConversations] = useState(false);
 
-
+const loadingConversationsRef = useRef(false); // 🔥 Prevent duplicate calls
 
 
   const CHAT_MEDIA_STYLE = {
@@ -180,14 +180,25 @@ const markConversationAsRead = (conversationId) => {
   };
 
 const loadOlderConversations = async () => {
+  // 🔥 FIX #1 & #2: Prevent duplicate calls and check conditions
   if (
-    loadingOlderConversations ||
+    loadingConversationsRef.current ||
     !hasMoreConversations ||
     !convCursor
-  ) return;
+  ) {
+    console.log('⏭️ Skipping load:', {
+      loading: loadingConversationsRef.current,
+      hasMore: hasMoreConversations,
+      cursor: convCursor
+    });
+    return;
+  }
 
   try {
+    loadingConversationsRef.current = true;
     setLoadingOlderConversations(true);
+
+    console.log('📥 Loading more conversations with cursor:', convCursor);
 
     const res = await axios.get(`${baseUrl}/conversations`, {
       withCredentials: true,
@@ -197,10 +208,22 @@ const loadOlderConversations = async () => {
       },
     });
 
-    setConversations((prev) => [...prev, ...res.data.data]);
+    const newConvos = res.data.data || [];
+    
+    console.log('✅ Loaded conversations:', {
+      count: newConvos.length,
+      nextCursor: res.data.nextCursor,
+      hasMore: res.data.hasMore
+    });
+
+    // 🔥 FIX #2: Append new conversations
+    setConversations((prev) => [...prev, ...newConvos]);
     setConvCursor(res.data.nextCursor);
     setHasMoreConversations(res.data.hasMore);
+  } catch (err) {
+    console.error('❌ Failed to load conversations:', err);
   } finally {
+    loadingConversationsRef.current = false;
     setLoadingOlderConversations(false);
   }
 };
@@ -208,79 +231,25 @@ const loadOlderConversations = async () => {
 const handleConvScroll = async (e) => {
   const el = e.target;
 
-  if (syncingOlderRef.current) {
-  return;
-}
+  // 🔥 FIX #1: Check if near bottom (trigger point for loading)
+  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
 
-
-  const nearBottom =
-    el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-
-  console.log("📊 Conv Scroll Debug:", {
-    nearBottom,
-    loadingOlderConversations,
-    hasMoreConversations,
-    convCursor,
-  });
-
-  // ❌ Not near bottom → do nothing
   if (!nearBottom) return;
 
-  // ❌ Already loading → do nothing
-  if (loadingOlderConversations) return;
-
-  /**
-   * =========================================================
-   * 1️⃣ PRIMARY PATH — PAGINATE DB
-   * =========================================================
-   */
-  if (hasMoreConversations && convCursor) {
-    console.log("✅ Paginating DB conversations");
-
-    prevConvScrollHeightRef.current = el.scrollHeight;
-
-    await loadOlderConversations();
+  // 🔥 Already loading or no more data
+  if (loadingConversationsRef.current || !hasMoreConversations) {
     return;
   }
 
-  /**
-   * =========================================================
-   * 2️⃣ FALLBACK — DB EXHAUSTED, META MAY HAVE MORE
-   * =========================================================
-   * We DO NOT fetch Meta directly.
-   * We trigger a background sync ONCE.
-   */
-if (!hasMoreConversations && !syncingOlderRef.current) {
-  syncingOlderRef.current = true;
-  setLoadingMetaConversations(true);
+  console.log('📊 Conv Scroll - Near bottom, loading more...');
 
-  try {
-    await axios.post(
-      `${baseUrl}/conversations/load-more-from-meta`,
-      {},
-      { withCredentials: true }
-    );
+  // 🔥 FIX #2: Save scroll position before loading
+  prevConvScrollHeightRef.current = el.scrollHeight;
 
-    // ⏳ Give backend time to persist new conversations
-    setTimeout(async () => {
-      prevConvScrollHeightRef.current = el.scrollHeight;
-      await loadOlderConversations();
-    }, 800);
-  } catch (err) {
-    console.error("❌ Meta background sync failed", err);
-  } finally {
-    // ⛔ DO NOT release immediately
-    setLoadingMetaConversations(false);
-
-    // ✅ RELEASE AFTER COOLDOWN
-    setTimeout(() => {
-      syncingOlderRef.current = false;
-    }, 3000);
-  }
-}
-
-
+  // Load more from DB
+  await loadOlderConversations();
 };
+
 
 
 
@@ -557,25 +526,27 @@ useEffect(() => {
     try {
       setLoading(true);
 
+      // 🔥 FIX #3: Initial load gets first 10 conversations (newest first)
       const res = await axios.get(`${baseUrl}/conversations`, {
-  withCredentials: true,
-  params: { limit: 10 }
-});
+        withCredentials: true,
+        params: { limit: 10 }
+      });
 
-const data = res.data?.data || [];
+      const data = res.data?.data || [];
 
- console.log('📥 Initial load response:', {
-        dataLength: data.length,
+      console.log('📥 Initial conversations loaded:', {
+        count: data.length,
         nextCursor: res.data.nextCursor,
         hasMore: res.data.hasMore
       });
 
-setConversations(res.data.data);
-setConvCursor(res.data.nextCursor);
-setHasMoreConversations(res.data.hasMore);
+      // 🔥 FIX #3: Set initial state
+      setConversations(data);
+      setConvCursor(res.data.nextCursor);
+      setHasMoreConversations(res.data.hasMore);
 
       if (data.length === 0) {
-        // 👇 DB empty → Meta hydration mode
+        // DB empty → Meta hydration mode
         setHydratingFromMeta(true);
 
         await axios.post(
@@ -584,7 +555,7 @@ setHasMoreConversations(res.data.hasMore);
           { withCredentials: true }
         );
 
-        // 🔁 poll once for conversations
+        // Poll for conversations
         const retry = async () => {
           const r = await axios.get(`${baseUrl}/conversations`, {
             withCredentials: true,
@@ -593,6 +564,8 @@ setHasMoreConversations(res.data.hasMore);
           const fresh = r.data?.data || [];
           if (fresh.length > 0) {
             setConversations(fresh);
+            setConvCursor(r.data.nextCursor);
+            setHasMoreConversations(r.data.hasMore);
             setSelectedConversation(fresh[0]);
             setSelectedConversationId(fresh[0]._id);
             setHydratingFromMeta(false);
@@ -605,13 +578,13 @@ setHasMoreConversations(res.data.hasMore);
         return;
       }
 
-      // Normal path
-      if (!selectedConversation) {
+      // Normal path - select first conversation
+      if (!selectedConversation && data.length > 0) {
         setSelectedConversation(data[0]);
         setSelectedConversationId(data[0]._id);
       }
     } catch (err) {
-      console.error(err);
+      console.error('❌ Load inbox failed:', err);
     } finally {
       setLoading(false);
     }
@@ -721,20 +694,22 @@ useEffect(() => {
     }
   }, [messages]);
 
-  useLayoutEffect(() => {
+useLayoutEffect(() => {
+  // 🔥 FIX #2: Restore scroll position after new conversations load
   if (
     !loadingOlderConversations &&
     prevConvScrollHeightRef.current &&
     convListRef.current
   ) {
     const diff =
-      convListRef.current.scrollHeight -
-      prevConvScrollHeightRef.current;
+      convListRef.current.scrollHeight - prevConvScrollHeightRef.current;
 
-    convListRef.current.scrollTop = diff;
+    console.log('🔧 Restoring scroll position, diff:', diff);
+    
+    convListRef.current.scrollTop += diff;
     prevConvScrollHeightRef.current = null;
   }
-}, [conversations]);
+}, [conversations, loadingOlderConversations]);
 
 
 
@@ -947,24 +922,24 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
   ref={convListRef}
   flex={1}
   sx={{ overflowY: "auto" }}
-  onScroll={handleConvScroll}  // Use the new handler
+  onScroll={handleConvScroll}
 >
-        {loading || hydratingFromMeta ? (
-  <Box px={2}>
-    {[...Array(6)].map((_, i) => (
-      <Box key={i} display="flex" gap={2} py={2}>
-        <Skeleton variant="circular" width={40} height={40} />
-        <Box flex={1}>
-          <Skeleton width="60%" height={16} />
-          <Skeleton width="80%" height={14} />
+  {loading || hydratingFromMeta ? (
+    <Box px={2}>
+      {[...Array(6)].map((_, i) => (
+        <Box key={i} display="flex" gap={2} py={2}>
+          <Skeleton variant="circular" width={40} height={40} />
+          <Box flex={1}>
+            <Skeleton width="60%" height={16} />
+            <Skeleton width="80%" height={14} />
+          </Box>
         </Box>
-      </Box>
-    ))}
-  </Box>
-) : (
+      ))}
+    </Box>
+  ) : (
 
-  <>{
-            filteredConversations.map((conv) => {
+  <>
+            {filteredConversations.map((conv) => {
              const uname = conv.participant?.name || conv.participant?.username || "Instagram User";
 const uInitial = uname.charAt(0).toUpperCase();
 
@@ -1079,22 +1054,31 @@ const uInitial = uname.charAt(0).toUpperCase();
                   )}
                 </Box>
               );
-            })
-          }
+            })}
 
-{(loadingOlderConversations || loadingMetaConversations) && (
-  <Box px={2} py={1}>
-    {[...Array(6)].map((_, i) => (
-      <Box key={i} display="flex" gap={2} py={2}>
-        <Skeleton variant="circular" width={40} height={40} />
-        <Box flex={1}>
-          <Skeleton width="60%" height={16} />
-          <Skeleton width="80%" height={14} />
+ {/* 🔥 FIX #1: Show skeleton loaders while loading more */}
+      {loadingOlderConversations && (
+        <Box px={2}>
+          {[...Array(3)].map((_, i) => (
+            <Box key={`skeleton-${i}`} display="flex" gap={2} py={2}>
+              <Skeleton variant="circular" width={40} height={40} />
+              <Box flex={1}>
+                <Skeleton width="60%" height={16} />
+                <Skeleton width="80%" height={14} />
+              </Box>
+            </Box>
+          ))}
         </Box>
-      </Box>
-    ))}
-  </Box>
-)}
+      )}
+
+      {/* 🔥 End of list indicator */}
+      {!hasMoreConversations && conversations.length > 0 && (
+        <Box py={2} textAlign="center">
+          <Typography variant="caption" color="text.secondary">
+            All conversations loaded
+          </Typography>
+        </Box>
+      )}
 
 
           </>
