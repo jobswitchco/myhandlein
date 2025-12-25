@@ -205,16 +205,29 @@ const loadOlderConversations = async () => {
 const handleConvScroll = async (e) => {
   const el = e.target;
   
-  if (loadingOlderConversations || !hasMoreConversations) return;
+  console.log('📊 Scroll Debug:', {
+    scrollHeight: el.scrollHeight,
+    scrollTop: el.scrollTop,
+    clientHeight: el.clientHeight,
+    nearBottom: el.scrollHeight - el.scrollTop - el.clientHeight,
+    loadingOlderConversations,
+    hasMoreConversations,
+    convCursor
+  });
+  
+  if (loadingOlderConversations || !hasMoreConversations) {
+    console.log('⏸️ Prevented load:', { loadingOlderConversations, hasMoreConversations });
+    return;
+  }
 
-  const nearBottom =
-    el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
 
   if (nearBottom && convCursor) {
-    // Save scroll height before loading
+    console.log('✅ Loading more conversations...');
     prevConvScrollHeightRef.current = el.scrollHeight;
-    
     await loadOlderConversations();
+  } else {
+    console.log('❌ Not loading:', { nearBottom, convCursor });
   }
 };
 
@@ -498,6 +511,12 @@ useEffect(() => {
 });
 
 const data = res.data?.data || [];
+
+ console.log('📥 Initial load response:', {
+        dataLength: data.length,
+        nextCursor: res.data.nextCursor,
+        hasMore: res.data.hasMore
+      });
 
 setConversations(res.data.data);
 setConvCursor(res.data.nextCursor);
@@ -891,6 +910,8 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
     ))}
   </Box>
 ) : (
+
+  <>{
             filteredConversations.map((conv) => {
              const uname = conv.participant?.name || conv.participant?.username || "Instagram User";
 const uInitial = uname.charAt(0).toUpperCase();
@@ -1007,10 +1028,9 @@ const uInitial = uname.charAt(0).toUpperCase();
                 </Box>
               );
             })
+          }
 
-          )}
-
-          {loadingOlderConversations && (
+            {loadingOlderConversations && (
   <Box px={2} py={1}>
     {[...Array(3)].map((_, i) => (
       <Box key={i} display="flex" gap={2} py={2}>
@@ -1023,6 +1043,12 @@ const uInitial = uname.charAt(0).toUpperCase();
     ))}
   </Box>
 )}
+
+          </>
+
+          )}
+
+        
         </Box>
       </Box>
 
