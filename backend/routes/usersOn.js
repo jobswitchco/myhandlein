@@ -5085,21 +5085,31 @@ async function syncInstagramConversations(userId) {
     if (!user?.fbPageId || !user?.fbPageAccessToken || !user?.igUserId) return;
 
 
-    const metaConversations = await InstagramService.fetchConversations({
+const metaRes = await InstagramService.fetchConversations({
   pageId: user.fbPageId,
   accessToken: user.fbPageAccessToken,
   limit: 10,
   after: user.igConversationsSync?.afterCursor || null
 });
 
+if (!metaRes.data.length) {
+  console.log("ℹ️ No more Meta conversations to sync");
+  return;
+}
+
+
+const metaConversations = metaRes.data;
+
 await USER.updateOne(
   { _id: userId },
   {
     $set: {
       "igConversationsSync.afterCursor":
-        metaConversations.paging?.cursors?.after || null,
+        metaRes.paging?.cursors?.after || null,
+
       "igConversationsSync.hasMore":
-        Boolean(metaConversations.paging?.next),
+        Boolean(metaRes.paging?.next),
+
       "igConversationsSync.lastSyncedAt": new Date()
     }
   }
