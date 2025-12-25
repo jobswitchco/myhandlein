@@ -5213,6 +5213,19 @@ await Conversation.updateOne(
 
       }
 
+      // ================= SAFETY: ensure lastActivityAt always exists =================
+if (!conversation.lastActivityAt && insertedMessages.length === 0) {
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    {
+      $set: {
+        lastActivityAt: new Date(0), // fallback for stable sorting
+      },
+    }
+  );
+}
+
+
       /* ---------- Update AFTER cursor ONLY ---------- */
       const nextAfterCursor = result.paging?.cursors?.after;
       if (nextAfterCursor) {

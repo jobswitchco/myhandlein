@@ -108,6 +108,9 @@ export default function InboxManagement() {
   const convListRef = useRef(null);
   const prevConvScrollHeightRef = useRef(null);
 
+  const [loadingMetaConversations, setLoadingMetaConversations] = useState(false);
+
+
 
 
   const CHAT_MEDIA_STYLE = {
@@ -205,6 +208,11 @@ const loadOlderConversations = async () => {
 const handleConvScroll = async (e) => {
   const el = e.target;
 
+  if (syncingOlderRef.current) {
+  return;
+}
+
+
   const nearBottom =
     el.scrollHeight - el.scrollTop - el.clientHeight < 60;
 
@@ -242,34 +250,36 @@ const handleConvScroll = async (e) => {
    * We DO NOT fetch Meta directly.
    * We trigger a background sync ONCE.
    */
-  if (!hasMoreConversations && !syncingOlderRef.current) {
-    console.log("🔁 DB exhausted → triggering Meta background sync");
+if (!hasMoreConversations && !syncingOlderRef.current) {
+  syncingOlderRef.current = true;
+  setLoadingMetaConversations(true);
 
-    syncingOlderRef.current = true;
+  try {
+    await axios.post(
+      `${baseUrl}/conversations/load-more-from-meta`,
+      {},
+      { withCredentials: true }
+    );
 
-    try {
-      await axios.post(
-        `${baseUrl}/conversations/load-more-from-meta`,
-        {},
-        { withCredentials: true }
-      );
+    // ⏳ Give backend time to persist new conversations
+    setTimeout(async () => {
+      prevConvScrollHeightRef.current = el.scrollHeight;
+      await loadOlderConversations();
+    }, 800);
+  } catch (err) {
+    console.error("❌ Meta background sync failed", err);
+  } finally {
+    // ⛔ DO NOT release immediately
+    setLoadingMetaConversations(false);
 
-      // ⏳ Give backend time to persist new conversations
-      setTimeout(async () => {
-        console.log("🔄 Re-attempting DB pagination after Meta sync");
-
-        prevConvScrollHeightRef.current = el.scrollHeight;
-        await loadOlderConversations();
-      }, 800);
-    } catch (err) {
-      console.error("❌ Meta background sync failed", err);
-    } finally {
-      // release lock slightly later to avoid thrashing
-      setTimeout(() => {
-        syncingOlderRef.current = false;
-      }, 1500);
-    }
+    // ✅ RELEASE AFTER COOLDOWN
+    setTimeout(() => {
+      syncingOlderRef.current = false;
+    }, 3000);
   }
+}
+
+
 };
 
 
@@ -1072,9 +1082,9 @@ const uInitial = uname.charAt(0).toUpperCase();
             })
           }
 
-            {loadingOlderConversations && (
+{(loadingOlderConversations || loadingMetaConversations) && (
   <Box px={2} py={1}>
-    {[...Array(3)].map((_, i) => (
+    {[...Array(6)].map((_, i) => (
       <Box key={i} display="flex" gap={2} py={2}>
         <Skeleton variant="circular" width={40} height={40} />
         <Box flex={1}>
@@ -1085,6 +1095,7 @@ const uInitial = uname.charAt(0).toUpperCase();
     ))}
   </Box>
 )}
+
 
           </>
 
