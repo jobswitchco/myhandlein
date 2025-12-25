@@ -1191,7 +1191,7 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
             )}
 
             {/* 🔥 Only show "All loaded" when NOT loading and truly no more */}
-           {!hasMoreConversations &&
+           {/* {!hasMoreConversations &&
  !loadingOlderConversations &&
  !loadingMetaConversations &&
  !appendedInLastFetchRef.current &&
@@ -1201,7 +1201,7 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
        All conversations loaded
      </Typography>
    </Box>
- )}
+ )} */}
 
 
 

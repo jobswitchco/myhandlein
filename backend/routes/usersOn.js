@@ -5416,8 +5416,7 @@ async function syncOlderMessages({ userId, conversationId }) {
       igConversationId: conversation.metaThreadId,
       pageAccessToken: user.fbPageAccessToken,
       beforeCursor: conversation.lastMetaBeforeCursor || null,
-
-      limit: 20,
+      limit: 25,
     });
 
     if (!result.messages.length) return;
