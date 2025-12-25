@@ -5143,17 +5143,21 @@ await USER.updateOne(
 
       const igConversationId = `igdm:${user.igUserId}:${participant.id}`;
 
-      const conversation = await Conversation.findOneAndUpdate(
-        { creatorId: userId, igConversationId },
-        {
-          creatorId: userId,
-          igConversationId,
-          metaThreadId,
-          participantId: await upsertParticipant(participant),
-          platform: "instagram",
-        },
-        { upsert: true, new: true }
-      );
+    const conversation = await Conversation.findOneAndUpdate(
+  { creatorId: userId, igConversationId },
+  {
+    creatorId: userId,
+    igConversationId,
+    metaThreadId,
+    participantId: await upsertParticipant(participant),
+    platform: "instagram",
+    $setOnInsert: {
+      unreadCount: 0
+    }
+  },
+  { upsert: true, new: true }
+);
+
 
       /* ---------- Profile prefetch ---------- */
       const cached = await redisGet(`ig:user:${participant.id}`);
@@ -5177,7 +5181,12 @@ await USER.updateOne(
       const insertedMessages = [];
 
       for (const msg of result.messages) {
-        const normalized = await upsertMessage(msg, conversation, user);
+const normalized = await upsertMessage(
+  msg,
+  conversation,
+  user,
+  { isHydration: true }
+);
 
         if (normalized) {
           insertedMessages.push(normalized);
@@ -5275,7 +5284,9 @@ router.post("/conversations/load-more-from-meta", authenticateToken, async (req,
 
 // ==================== UPDATE: upsertMessage ====================
 
-async function upsertMessage(metaMsg, conversation, user) {
+async function upsertMessage(metaMsg, conversation, user, options = {}) {
+  const { isHydration = false } = options;
+
   if (!metaMsg?.id) return null;
 
   // ---------- Idempotency ----------
@@ -5354,12 +5365,13 @@ async function upsertMessage(metaMsg, conversation, user) {
   });
 
   // ---------- Update unread count ----------
-  if (sender === "them") {
-    await Conversation.updateOne(
-      { _id: conversation._id },
-      { $inc: { unreadCount: 1 } }
-    );
-  }
+if (sender === "them" && !isHydration) {
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    { $inc: { unreadCount: 1 } }
+  );
+}
+
 
   // ---------- Refresh profile if needed ----------
  if (sender === "them") {
