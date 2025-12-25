@@ -4677,18 +4677,28 @@ router.get("/conversations", authenticateToken, async (req, res) => {
     const userId = req.user.user_id;
 
     const limit = Math.min(Number(req.query.limit) || 10, 20);
-    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
-    const query = {
-      creatorId: userId,
-      ...(cursor && {
-        lastActivityAt: { $lt: cursor }
-      })
-    };
+    const cursor = req.query.cursor
+  ? JSON.parse(Buffer.from(req.query.cursor, "base64").toString())
+  : null;
+
+const query = {
+  creatorId: userId,
+  ...(cursor && {
+    $or: [
+      { lastActivityAt: { $lt: new Date(cursor.lastActivityAt) } },
+      {
+        lastActivityAt: new Date(cursor.lastActivityAt),
+        _id: { $lt: cursor._id }
+      }
+    ]
+  })
+};
+
 
     // 🔥 FIX #3: Fetch limit + 1 to detect if there are more
     const docs = await Conversation.find(query)
-      .sort({ lastActivityAt: -1 })  // ✅ Already correct - newest first
+    .sort({ lastActivityAt: -1, _id: -1 })
       .limit(limit + 1)
       .populate({
         path: "participantId",
@@ -4701,9 +4711,13 @@ router.get("/conversations", authenticateToken, async (req, res) => {
     const page = hasMore ? docs.slice(0, limit) : docs;
 
     // 🔥 FIX #2: Use the LAST item's timestamp as cursor (oldest in this batch)
-    const nextCursor = hasMore && page.length > 0
-      ? page[page.length - 1].lastActivityAt.toISOString()  // ✅ Convert to ISO string
-      : null;
+const nextCursor = hasMore
+  ? Buffer.from(JSON.stringify({
+      lastActivityAt: page[page.length - 1].lastActivityAt,
+      _id: page[page.length - 1]._id
+    })).toString("base64")
+  : null;
+
 
     const enriched = [];
     const WINDOW_MS = 24 * 60 * 60 * 1000;

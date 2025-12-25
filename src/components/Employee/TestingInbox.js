@@ -601,8 +601,9 @@ useEffect(() => {
 
 if (payload.type === "conversation:created") {
   setConversations(prev => {
-    const exists = prev.some(c => c._id === payload.data._id);
-    if (exists) return prev;
+    if (conversationIdSetRef.current.has(payload.data._id)) return prev;
+
+    conversationIdSetRef.current.add(payload.data._id);
     return [payload.data, ...prev];
   });
 
@@ -610,6 +611,7 @@ if (payload.type === "conversation:created") {
   setSelectedConversationId(payload.data._id);
   return;
 }
+
 
 
   };
@@ -683,8 +685,11 @@ conversationIdSetRef.current = new Set(data.map(c => c._id));
           const fresh = r.data?.data || [];
           if (fresh.length > 0) {
             setConversations(fresh);
-            setConvCursor(r.data.nextCursor);
-            setHasMoreConversations(r.data.hasMore);
+conversationIdSetRef.current = new Set(fresh.map(c => c._id));
+
+setConvCursor(r.data.nextCursor);
+setHasMoreConversations(r.data.hasMore);
+
             setSelectedConversation(fresh[0]);
             setSelectedConversationId(fresh[0]._id);
             setHydratingFromMeta(false);
@@ -1090,12 +1095,6 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
                         setSelectedConversation(conv);
                         setSelectedConversationId(conv._id);
                       }
-
-                      const res = await axios.get(`${baseUrl}/conversations`, {
-                        withCredentials: true,
-                      });
-                      const freshConvos = res.data?.data || [];
-                      setConversations(freshConvos);
 
                       setConversations((prev) =>
                         prev.map((c) =>
