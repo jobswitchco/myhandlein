@@ -4823,9 +4823,9 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
       const conversationId = req.params.id;
 
       const limit = Math.min(Number(req.query.limit) || 20, 50);
-      const cursor = req.query.cursor
-        ? new Date(req.query.cursor)
-        : null;
+    
+      const cursor = req.query.cursor ? JSON.parse(req.query.cursor) : null;
+
 
       if (!mongoose.Types.ObjectId.isValid(conversationId)) {
         return res
@@ -4847,13 +4847,24 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 
       /* ================= CURSOR PAGINATION ================= */
 
-      const query = {
-        conversationId,
-        isDeleted: false,
-        ...(cursor && {
-          createdAtPlatform: { $lt: cursor }, // 🔥 older messages only
-        }),
-      };
+   const query = {
+  conversationId,
+  isDeleted: false,
+  ...(cursor && {
+    $or: [
+      {
+        createdAtPlatform: {
+          $lt: new Date(cursor.createdAtPlatform),
+        },
+      },
+      {
+        createdAtPlatform: new Date(cursor.createdAtPlatform),
+        _id: { $lt: new mongoose.Types.ObjectId(cursor._id) },
+      },
+    ],
+  }),
+};
+
 
       // Fetch newest → oldest
       const docs = await Message.find(query)
@@ -4871,9 +4882,13 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
           new Date(b.createdAtPlatform)
       );
 
-      const nextCursor = hasMore
-        ? page[page.length - 1].createdAtPlatform
-        : null;
+    const nextCursor = hasMore
+  ? {
+      createdAtPlatform: page[page.length - 1].createdAtPlatform,
+      _id: page[page.length - 1]._id
+    }
+  : null;
+
 
       /* ================= READ SIDE EFFECTS ================= */
 

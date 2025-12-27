@@ -717,15 +717,14 @@ if (payload.type === "conversation:created") {
 
 if (payload.type === "older-messages:ready") {
   const { conversationId } = payload;
-
-  // Only act if this conversation is open
   if (conversationId !== selectedConversationId) return;
 
-  // 🔑 Retry DB fetch immediately
-  fetchMessages(selectedConversationId, cursor);
+  // 🔥 IMPORTANT: fetch more than UI page size
+  fetchMessages(selectedConversationId, cursor, { limit: 50 });
 
   return;
 }
+
 
 
 
@@ -860,7 +859,9 @@ useEffect(() => {
 
   /* ---------- FETCH MESSAGES ---------- */
 const fetchMessages = useCallback(
-  async (conversationId, cursorParam = null) => {
+
+  async (conversationId, cursorParam = null, opts = {}) => {
+    const limit = opts.limit || 20;
     try {
       setLoadingMessages(true);
 
@@ -869,13 +870,19 @@ const fetchMessages = useCallback(
           messagesContainerRef.current.scrollHeight;
       }
 
-      const res = await axios.get(
-        `${baseUrl}/conversations/${conversationId}/messages`,
-        {
-          withCredentials: true,
-          params: cursorParam ? { cursor: cursorParam, limit: 20 } : { limit: 20 },
-        }
-      );
+   const res = await axios.get(
+      `${baseUrl}/conversations/${conversationId}/messages`,
+      {
+        withCredentials: true,
+      params: cursorParam
+  ? {
+      cursor: JSON.stringify(cursorParam),
+      limit: 20,
+    }
+  : { limit: 20 },
+
+      }
+    );
 
       const payload = res.data?.data;
       if (!payload) return;
