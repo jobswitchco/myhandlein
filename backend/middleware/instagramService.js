@@ -53,7 +53,7 @@ async fetchOlderMessages({
           fields: "id,username,name,profile_pic,follower_count,is_user_follow_business,is_business_follow_user",
           access_token: accessToken,
         },
-        timeout: 10000, // 10 second timeout
+        timeout: 10000,
       });
 
       if (!response.data) {
@@ -61,7 +61,6 @@ async fetchOlderMessages({
         return null;
       }
 
-      // Return normalized profile
       return {
         id: response.data.id,
         username: response.data.username || null,
@@ -70,14 +69,13 @@ async fetchOlderMessages({
         follower_count: response.data.follower_count || 0,
         is_following_business: response.data.is_user_follow_business || false,
         is_followed_by_business: response.data.is_business_follow_user || false,
-        is_private: false, // Instagram Graph API doesn't expose this directly
+        is_private: false,
       };
     } catch (err) {
-      // Handle specific errors
       if (err.response?.status === 400) {
         console.error(`❌ Invalid Instagram User ID: ${igUserId}`);
       } else if (err.response?.status === 403) {
-        console.error(`❌ Access denied for user ${igUserId} - may be restricted`);
+        console.error(`❌ Access denied for user ${igUserId}`);
       } else if (err.code === "ECONNABORTED") {
         console.error(`❌ Timeout fetching profile for ${igUserId}`);
       } else {
@@ -88,8 +86,7 @@ async fetchOlderMessages({
     }
   }
 
-
- async sendMessage({ pageId, accessToken, payload }) {
+  async sendMessage({ pageId, accessToken, payload }) {
     try {
       const res = await axios.post(
         `https://graph.facebook.com/v24.0/${pageId}/messages`,
@@ -111,71 +108,71 @@ async fetchOlderMessages({
     }
   }
 
-async fetchConversations({
-  pageId,
-  accessToken,
-  limit = 10,
-  after = null,
-}) {
-  const url = `${GRAPH_API_BASE}/${pageId}/conversations`;
+  async fetchConversations({
+    pageId,
+    accessToken,
+    limit = 10,
+    after = null,
+  }) {
+    const url = `${GRAPH_API_BASE}/${pageId}/conversations`;
 
-  const params = {
-    access_token: accessToken,
-    platform: "instagram",
-    limit,
-    fields: "id,participants",
-  };
+    const params = {
+      access_token: accessToken,
+      platform: "instagram",
+      limit,
+      fields: "id,participants",
+    };
 
-  // 🔑 Cursor support
-  if (after) {
-    params.after = after;
+    if (after) {
+      params.after = after;
+    }
+
+    const res = await axios.get(url, { params });
+
+    return {
+      data: res.data?.data || [],
+      paging: res.data?.paging || null,
+    };
   }
 
-  const res = await axios.get(url, { params });
-
-  return {
-    data: res.data?.data || [],
-    paging: res.data?.paging || null,
-  };
-}
 
 
 async fetchLatestMessages({
-  igConversationId,
-  accessToken,
-  afterCursor = null,
-  limit = 25,
-}) {
-  try {
-    const params = {
-      access_token: accessToken,
-      limit,
-      fields:
-        "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
-    };
+    igConversationId,
+    accessToken,
+    afterCursor = null,
+    limit = 25,
+  }) {
+    try {
+      const params = {
+        access_token: accessToken,
+        limit,
+        fields:
+          "id,created_time,is_unsupported,from,to,message,attachments{mime_type,file_url,image_data,video_data}",
+      };
 
-    // 🔥 USE AFTER CURSOR FOR LATEST SYNC
-    if (afterCursor) {
-      params.after = afterCursor;
+      // ✅ Meta API: 'after' cursor points to OLDER messages
+      if (afterCursor) {
+        params.after = afterCursor;
+      }
+
+      const res = await axios.get(
+        `${GRAPH_API_BASE}/${igConversationId}/messages`,
+        { params }
+      );
+
+      return {
+        messages: res.data?.data || [],
+        paging: res.data?.paging || {},
+      };
+    } catch (err) {
+      console.error(
+        "Fetch IG messages failed:",
+        err.response?.data || err
+      );
+      throw err;
     }
-
-    const res = await axios.get(
-      `${GRAPH_API_BASE}/${igConversationId}/messages`,
-      { params }
-    );
-
-    return {
-      messages: res.data?.data || [],
-      paging: res.data?.paging || {},
-    };
-  } catch (err) {
-    console.error(
-      "Fetch latest IG messages failed:",
-      err.response?.data || err
-    );
-    throw err;
   }
-}
 
 
 
