@@ -991,25 +991,46 @@ useLayoutEffect(() => {
 }, [conversations, loadingOlderConversations]);
 
 
-
 const handleScroll = (e) => {
   const el = e.target;
 
-  // Only trigger when user reaches TOP
+  // Only when user reaches top
   if (el.scrollTop !== 0) return;
 
   // Prevent parallel fetches
-  if (loadingMessages) return;
+  if (loadingMessages || syncingOlderRef.current) return;
 
-  // 🚫 DB exhausted — do NOTHING
-  if (!hasMore) {
-    console.log("⛔ No more messages in DB");
+  /**
+   * 1️⃣ DB HAS MORE → paginate DB
+   */
+  if (hasMore) {
+    fetchMessages(selectedConversationId, cursor);
     return;
   }
 
-  // ✅ Safe to paginate
-  fetchMessages(selectedConversationId, cursor);
+  /**
+   * 2️⃣ DB EXHAUSTED → hydrate from Meta
+   */
+  console.log("🌐 DB exhausted → fetching older messages from Instagram");
+
+  syncingOlderRef.current = true;
+  setLoadingMessages(true);
+
+  axios
+    .post(
+      `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
+      {},
+      { withCredentials: true }
+    )
+    .finally(() => {
+      // release lock after cooldown
+      setTimeout(() => {
+        syncingOlderRef.current = false;
+        setLoadingMessages(false);
+      }, 800);
+    });
 };
+
 
 
 
