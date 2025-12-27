@@ -5368,12 +5368,20 @@ async function upsertMessage(metaMsg, conversation, user, options = {}) {
   });
 
   // ---------- Update unread count ----------
-if (sender === "them" && !isHydration) {
+if (
+  sender === "them" &&
+  !isHydration &&
+  (
+    !conversation.lastActivityAt ||
+    createdAtPlatform > new Date(conversation.lastActivityAt)
+  )
+) {
   await Conversation.updateOne(
     { _id: conversation._id },
     { $inc: { unreadCount: 1 } }
   );
 }
+
 
 
   // ---------- Refresh profile if needed ----------
@@ -5439,7 +5447,8 @@ async function syncOlderMessages({ userId, conversationId }) {
     let insertedAny = false;
 
     for (const msg of result.messages) {
-      const normalized = await upsertMessage(msg, conversation, user);
+      const normalized = await upsertMessage(msg, conversation, user, { isHydration: true } );
+
       if (normalized) insertedAny = true;
     }
 
