@@ -5483,14 +5483,22 @@ const normalized = await upsertMessage(
       if (normalized) insertedAny = true;
     }
 
-    const afterCursor = result.paging?.cursors?.after;
-
-if (afterCursor) {
+ // Update cursor ONLY if Meta returned a full page
+if (
+  result.messages.length === limit &&
+  result.paging?.cursors?.after
+) {
   await Conversation.updateOne(
     { _id: conversationId },
-    { $set: { lastMetaAfterCursor: afterCursor } }
+    {
+      $set: {
+        lastMetaAfterCursor: result.paging.cursors.after,
+        lastSyncedAt: new Date()
+      }
+    }
   );
 }
+
 
 // if (insertedAny) {
 //   await publishSocketEvent({
@@ -5507,11 +5515,12 @@ if (insertedAny) {
   await publishSocketEvent({
     conversationId,
     payload: {
-      type: "conversation:updated",
-      reason: "older-sync"
+      type: "older-messages:ready",
+      conversationId: conversationId.toString(),
     }
   });
 }
+
 
 
   } catch (err) {
