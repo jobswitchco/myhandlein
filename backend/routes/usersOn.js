@@ -5449,6 +5449,7 @@ if (
 // ==================== UPDATE: syncOlderMessages ====================
 
 async function syncOlderMessages({ userId, conversationId }) {
+  const limit = 25;
   const lockKey = `ig:sync:older:${conversationId}`;
   if (await redisGet(lockKey)) return;
 
