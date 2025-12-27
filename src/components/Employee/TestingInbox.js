@@ -1001,9 +1001,16 @@ const handleScroll = (e) => {
   // Prevent parallel fetches
   if (loadingMessages) return;
 
-  // 🔥 ALWAYS delegate to fetchMessages
+  // 🚫 DB exhausted — do NOTHING
+  if (!hasMore) {
+    console.log("⛔ No more messages in DB");
+    return;
+  }
+
+  // ✅ Safe to paginate
   fetchMessages(selectedConversationId, cursor);
 };
+
 
 
 
