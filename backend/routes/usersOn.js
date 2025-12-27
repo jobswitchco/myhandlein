@@ -4824,7 +4824,7 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 
       const limit = Math.min(Number(req.query.limit) || 20, 50);
     
-      const cursor = req.query.cursor ? JSON.parse(req.query.cursor) : null;
+      const cursor = req.query.cursor ? JSON.parse(req.query.cursor): null;
 
 
       if (!mongoose.Types.ObjectId.isValid(conversationId)) {
@@ -4960,14 +4960,12 @@ async function syncLatestConversation({ userId, conversationId }) {
   if (!user?.fbPageAccessToken || !user?.igUserId) return;
 
   /**
-   * ✅ Fetch latest messages (Meta returns newest first)
-   * Don't use cursor - we want the absolute newest messages
+   * 🔥 Fetch latest messages (Meta returns newest first)
    */
   const latestPage = await InstagramService.fetchLatestMessages({
     igConversationId: conversation.metaThreadId,
     accessToken: user.fbPageAccessToken,
-    afterCursor: null, // ✅ null = get newest messages
-    limit: 50,
+    limit: 50, // Meta max
   });
 
   if (!latestPage.messages.length) return;
@@ -4981,13 +4979,13 @@ async function syncLatestConversation({ userId, conversationId }) {
       ? new Date(msg.created_time)
       : new Date();
 
-    // Skip messages we already have
-    if (
-      conversation.lastActivityAt &&
-      createdAt <= new Date(conversation.lastActivityAt)
-    ) {
-      continue;
-    }
+  if (
+  conversation.lastActivityAt &&
+  createdAt <= new Date(conversation.lastActivityAt)
+) {
+  continue; // ✅ skip only this one
+}
+
 
     const inserted = await upsertMessage(msg, conversation, user);
 
@@ -5009,26 +5007,27 @@ async function syncLatestConversation({ userId, conversationId }) {
    * 🔥 Update conversation ONLY if we inserted new messages
    */
   if (latestInsertedMessage && hasNewMessages) {
-    const update = {
-      lastMessage: {
-        text: latestInsertedMessage.text,
-        type: latestInsertedMessage.type,
-        sender: latestInsertedMessage.sender,
-        timestamp: latestInsertedMessage.createdAtPlatform,
-      },
-      lastActivityAt: latestInsertedMessage.createdAtPlatform,
-    };
+   const update = {
+  lastMessage: {
+    text: latestInsertedMessage.text,
+    type: latestInsertedMessage.type,
+    sender: latestInsertedMessage.sender,
+    timestamp: latestInsertedMessage.createdAtPlatform,
+  },
+  lastActivityAt: latestInsertedMessage.createdAtPlatform,
+};
 
-    // 🔥 ONLY update this when the message is from the participant
-    if (latestInsertedMessage.sender === "them") {
-      update.lastParticipantMessageAt =
-        latestInsertedMessage.createdAtPlatform;
-    }
+// 🔥 ONLY update this when the message is from the participant
+if (latestInsertedMessage.sender === "them") {
+  update.lastParticipantMessageAt =
+    latestInsertedMessage.createdAtPlatform;
+}
 
-    await Conversation.updateOne(
-      { _id: conversation._id },
-      { $set: update }
-    );
+await Conversation.updateOne(
+  { _id: conversation._id },
+  { $set: update }
+);
+
   }
 
   // Return whether we found new messages (optional, for debugging)
@@ -5119,32 +5118,38 @@ async function syncInstagramConversations(userId) {
 
     if (!user?.fbPageId || !user?.fbPageAccessToken || !user?.igUserId) return;
 
-    const metaRes = await InstagramService.fetchConversations({
-      pageId: user.fbPageId,
-      accessToken: user.fbPageAccessToken,
-      limit: 10,
-      after: user.igConversationsSync?.afterCursor || null
-    });
 
-    if (!metaRes.data.length) {
-      console.log("ℹ️ No more Meta conversations to sync");
-      return;
+const metaRes = await InstagramService.fetchConversations({
+  pageId: user.fbPageId,
+  accessToken: user.fbPageAccessToken,
+  limit: 10,
+  after: user.igConversationsSync?.afterCursor || null
+});
+
+if (!metaRes.data.length) {
+  console.log("ℹ️ No more Meta conversations to sync");
+  return;
+}
+
+
+const metaConversations = metaRes.data;
+
+await USER.updateOne(
+  { _id: userId },
+  {
+    $set: {
+      "igConversationsSync.afterCursor":
+        metaRes.paging?.cursors?.after || null,
+
+      "igConversationsSync.hasMore":
+        Boolean(metaRes.paging?.next),
+
+      "igConversationsSync.lastSyncedAt": new Date()
     }
+  }
+);
 
-    const metaConversations = metaRes.data;
 
-    await USER.updateOne(
-      { _id: userId },
-      {
-        $set: {
-          "igConversationsSync.afterCursor":
-            metaRes.paging?.cursors?.after || null,
-          "igConversationsSync.hasMore":
-            Boolean(metaRes.paging?.next),
-          "igConversationsSync.lastSyncedAt": new Date()
-        }
-      }
-    );
 
     for (const conv of metaConversations) {
       const metaThreadId = conv.id;
@@ -5156,20 +5161,21 @@ async function syncInstagramConversations(userId) {
 
       const igConversationId = `igdm:${user.igUserId}:${participant.id}`;
 
-      const conversation = await Conversation.findOneAndUpdate(
-        { creatorId: userId, igConversationId },
-        {
-          creatorId: userId,
-          igConversationId,
-          metaThreadId,
-          participantId: await upsertParticipant(participant),
-          platform: "instagram",
-          $setOnInsert: {
-            unreadCount: 0
-          }
-        },
-        { upsert: true, new: true }
-      );
+    const conversation = await Conversation.findOneAndUpdate(
+  { creatorId: userId, igConversationId },
+  {
+    creatorId: userId,
+    igConversationId,
+    metaThreadId,
+    participantId: await upsertParticipant(participant),
+    platform: "instagram",
+    $setOnInsert: {
+      unreadCount: 0
+    }
+  },
+  { upsert: true, new: true }
+);
+
 
       /* ---------- Profile prefetch ---------- */
       const cached = await redisGet(`ig:user:${participant.id}`);
@@ -5183,23 +5189,22 @@ async function syncInstagramConversations(userId) {
       }
 
       /* ---------- LATEST MESSAGE SYNC ---------- */
-      // ✅ For initial sync, we DON'T use a cursor to get the newest messages
       const result = await InstagramService.fetchLatestMessages({
         igConversationId: metaThreadId,
         accessToken: user.fbPageAccessToken,
-        afterCursor: null, // ✅ null = fetch newest messages
+        afterCursor: conversation.lastMetaAfterCursor || null,
         limit: 20,
       });
 
       const insertedMessages = [];
 
       for (const msg of result.messages) {
-        const normalized = await upsertMessage(
-          msg,
-          conversation,
-          user,
-          { isHydration: true }
-        );
+const normalized = await upsertMessage(
+  msg,
+  conversation,
+  user,
+  { isHydration: true }
+);
 
         if (normalized) {
           insertedMessages.push(normalized);
@@ -5222,50 +5227,50 @@ async function syncInstagramConversations(userId) {
             : latest
         );
 
-        const update = {
-          lastMessage: {
-            text: latestMessage.text,
-            type: latestMessage.type,
-            sender: latestMessage.sender,
-            timestamp: latestMessage.createdAtPlatform,
-          },
-          lastActivityAt: latestMessage.createdAtPlatform,
-        };
+       const update = {
+  lastMessage: {
+    text: latestMessage.text,
+    type: latestMessage.type,
+    sender: latestMessage.sender,
+    timestamp: latestMessage.createdAtPlatform,
+  },
+  lastActivityAt: latestMessage.createdAtPlatform,
+};
 
-        // 🔑 CRITICAL: capture participant reply time
-        if (latestMessage.sender === "them") {
-          update.lastParticipantMessageAt =
-            latestMessage.createdAtPlatform;
-        }
+// 🔑 CRITICAL: capture participant reply time
+if (latestMessage.sender === "them") {
+  update.lastParticipantMessageAt =
+    latestMessage.createdAtPlatform;
+}
 
-        await Conversation.updateOne(
-          {
-            _id: conversation._id,
-            $or: [
-              { lastActivityAt: { $exists: false } },
-              { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
-            ],
-          },
-          { $set: update }
-        );
+await Conversation.updateOne(
+  {
+    _id: conversation._id,
+    $or: [
+      { lastActivityAt: { $exists: false } },
+      { lastActivityAt: { $lt: latestMessage.createdAtPlatform } },
+    ],
+  },
+  { $set: update }
+);
+
       }
 
       // ================= SAFETY: ensure lastActivityAt always exists =================
-      if (!conversation.lastActivityAt && insertedMessages.length === 0) {
-        await Conversation.updateOne(
-          { _id: conversation._id },
-          {
-            $set: {
-              lastActivityAt: new Date(0), // fallback for stable sorting
-            },
-          }
-        );
-      }
+if (!conversation.lastActivityAt && insertedMessages.length === 0) {
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    {
+      $set: {
+        lastActivityAt: new Date(0), // fallback for stable sorting
+      },
+    }
+  );
+}
 
-      /* ================= STORE CURSOR FOR PAGINATION ================= */
-      // ✅ Store the 'after' cursor which points to OLDER messages
+
+      /* ---------- Update AFTER cursor ONLY ---------- */
       const nextAfterCursor = result.paging?.cursors?.after;
-      
       if (nextAfterCursor) {
         await Conversation.updateOne(
           { _id: conversation._id },
@@ -5394,6 +5399,7 @@ if (
 
 
 
+
   // ---------- Refresh profile if needed ----------
  if (sender === "them") {
   fetchAndCacheProfileSafely({
@@ -5445,84 +5451,48 @@ async function syncOlderMessages({ userId, conversationId }) {
 
     if (!conversation?.metaThreadId) return;
 
-    /* ================= USE AFTER CURSOR FOR OLDER MESSAGES ================= */
-    // ✅ In Meta's API, the 'after' cursor points to OLDER messages
-    let afterCursor = conversation.lastMetaAfterCursor;
-
-    // If no cursor exists, initialize by fetching latest messages first
-    if (!afterCursor) {
-      console.log(`🔄 Initializing cursor for conversation ${conversationId}`);
-      
-      const initResult = await InstagramService.fetchLatestMessages({
-        igConversationId: conversation.metaThreadId,
-        accessToken: user.fbPageAccessToken,
-        afterCursor: null, // Get newest messages
-        limit: 1,
-      });
-
-      afterCursor = initResult.paging?.cursors?.after;
-
-      // Store the cursor for future use
-      if (afterCursor) {
-        await Conversation.updateOne(
-          { _id: conversationId },
-          { $set: { lastMetaAfterCursor: afterCursor } }
-        );
-      }
-
-      if (!afterCursor) {
-        console.log(`⚠️  No cursor available for conversation ${conversationId}`);
-        return;
-      }
-    }
-    /* ================= END INITIALIZATION ================= */
-
-    // Fetch older messages using the 'after' cursor
-    const result = await InstagramService.fetchLatestMessages({
+    const result = await InstagramService.fetchOlderMessages({
       igConversationId: conversation.metaThreadId,
-      accessToken: user.fbPageAccessToken,
-      afterCursor: afterCursor, // ✅ Use after cursor to go backwards
+      pageAccessToken: user.fbPageAccessToken,
+      afterCursor: conversation.lastMetaAfterCursor || null,
       limit: 25,
     });
 
-    if (!result.messages.length) {
-      console.log(`📭 No older messages for conversation ${conversationId}`);
-      return;
-    }
+    if (!result.messages.length) return;
 
     let insertedAny = false;
 
     for (const msg of result.messages) {
-      const normalized = await upsertMessage(
-        msg,
-        conversation,
-        user,
-        { isHydration: true }
-      );
+const normalized = await upsertMessage(
+  msg,
+  conversation,
+  user,
+  { isHydration: true } // 🔑 CRITICAL
+);
 
       if (normalized) insertedAny = true;
     }
 
-    // Update cursor for next pagination
-    const nextAfterCursor = result.paging?.cursors?.after;
+    const afterCursor = result.paging?.cursors?.after;
 
-    if (nextAfterCursor) {
-      await Conversation.updateOne(
-        { _id: conversationId },
-        { $set: { lastMetaAfterCursor: nextAfterCursor } }
-      );
-    }
+if (afterCursor) {
+  await Conversation.updateOne(
+    { _id: conversationId },
+    { $set: { lastMetaAfterCursor: afterCursor } }
+  );
+}
 
-    if (insertedAny) {
-      await publishSocketEvent({
-        conversationId,
-        payload: {
-          type: "older-messages:ready",
-          conversationId: conversationId.toString(),
-          inserted: true,
-        }
-      });
+if (insertedAny) {
+  await publishSocketEvent({
+    conversationId,
+    payload: {
+      type: "older-messages:ready",
+      conversationId: conversationId.toString(),
+      inserted: true,
     }
+  });
+}
+
   } catch (err) {
     console.error("❌ syncOlderMessages failed", err);
   } finally {
