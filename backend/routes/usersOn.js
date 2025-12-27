@@ -4896,14 +4896,16 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 
       /* ================= RESPONSE ================= */
 
-      res.json({
-        success: true,
-        data: {
-          messages,
-          nextCursor,
-          hasMore,
-        },
-      });
+     res.json({
+  success: true,
+  data: {
+    messages,
+    nextCursor,
+    hasMore,
+    dbExhausted: !hasMore && !cursor, 
+  },
+});
+
     } catch (err) {
       console.error("Fetch messages failed", err);
       res.status(500).json({ success: false });
@@ -5450,19 +5452,17 @@ if (prevCursor) {
   );
 }
 
-
-    if (insertedAny) {
-      // 🔥 FIX: Use helper function for socket events
-      await publishSocketEvent({
-        conversationId,
-        payload: {
-          type: "conversation:updated",
-          creatorId: userId.toString(),
-          conversationId: conversationId.toString(),
-          reason: "older-sync"
-        }
-      });
+if (insertedAny) {
+  await publishSocketEvent({
+    conversationId,
+    payload: {
+      type: "older-messages:ready",
+      conversationId: conversationId.toString(),
+      inserted: true,
     }
+  });
+}
+
   } catch (err) {
     console.error("❌ syncOlderMessages failed", err);
   } finally {

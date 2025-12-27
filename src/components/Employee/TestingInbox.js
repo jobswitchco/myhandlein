@@ -522,13 +522,17 @@ useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
-    if (
-      !["message:new", "conversation:updated", "participant:updated"].includes(
-        payload.type
-      )
-    ) {
-      return;
-    }
+  if (
+  ![
+    "message:new",
+    "conversation:updated",
+    "participant:updated",
+    "older-messages:ready",
+  ].includes(payload.type)
+) {
+  return;
+}
+
 
     /* ================= PARTICIPANT UPDATE ================= */
     if (payload.type === "participant:updated") {
@@ -710,6 +714,19 @@ if (payload.type === "conversation:created") {
   setSelectedConversationId(payload.data._id);
   return;
 }
+
+if (payload.type === "older-messages:ready") {
+  const { conversationId } = payload;
+
+  // Only act if this conversation is open
+  if (conversationId !== selectedConversationId) return;
+
+  // 🔑 Retry DB fetch immediately
+  fetchMessages(selectedConversationId, cursor);
+
+  return;
+}
+
 
 
 
@@ -944,27 +961,26 @@ const handleScroll = async (e) => {
 
   if (el.scrollTop !== 0 || loadingMessages) return;
 
-  // 1️⃣ Always paginate DB first
+  // 1️⃣ DB pagination first
   if (cursor) {
-    fetchMessages(selectedConversation._id, cursor);
+    fetchMessages(selectedConversationId, cursor);
     return;
   }
 
-  // 2️⃣ Only when DB is exhausted → sync Meta
+  // 2️⃣ DB exhausted → ask backend to hydrate
   if (!syncingOlderRef.current) {
     syncingOlderRef.current = true;
+    setLoadingMessages(true);
 
-    axios
-      .post(
-        `${baseUrl}/conversations/${selectedConversation._id}/sync-older`,
-        {},
-        { withCredentials: true }
-      )
-      .finally(() => {
-        syncingOlderRef.current = false;
-      });
+    axios.post(
+      `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
+      {},
+      { withCredentials: true }
+    );
   }
 };
+
+
 
 
 const saveNotes = async () => {
@@ -1665,11 +1681,22 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
                 gap: 0.5,
               }}
             >
-              {loadingMessages && hasMore && (
-                <Box textAlign="center" py={1}>
-                  <CircularProgress size={20} />
-                </Box>
-              )}
+{loadingMessages && (
+  <Box
+    display="flex"
+    justifyContent="center"
+    alignItems="center"
+    gap={1}
+    py={1}
+  >
+    <CircularProgress size={18} />
+    <Typography variant="caption" color="text.secondary">
+      Loading more messages…
+    </Typography>
+  </Box>
+)}
+
+
 
               {messages.map((msg, index) => {
                 const isMe = msg.sender === "me"; // ISSUE 1: Ensure backend returns 'me' correctly
