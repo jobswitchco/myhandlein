@@ -144,7 +144,7 @@ async fetchLatestMessages({
   igConversationId,
   accessToken,
   afterCursor = null,
-  limit = 50,
+  limit = 25,
 }) {
   try {
     const params = {
