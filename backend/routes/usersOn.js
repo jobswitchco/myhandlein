@@ -4748,6 +4748,7 @@ const nextCursor = hasMore
         lastParticipantMessageAt,
         canReply,
         replyDisabledReason,
+        notes: c.notes || { text: "", updatedAt: null },
         participant: {
           igUserId,
           username: c.participantId?.username || null,
