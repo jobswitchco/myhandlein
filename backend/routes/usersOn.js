@@ -5796,6 +5796,54 @@ router.post("/conversations/:id/mark-read", authenticateToken, async (req, res) 
   }
 );
 
+// routes/conversations.js
+router.patch(
+  "/conversations/:id/label",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { label } = req.body;
+      const creatorId = req.user.user_id;
+
+      if (!["Personal", "Lead", "General"].includes(label)) {
+        return res.status(400).json({ error: "Invalid label" });
+      }
+
+      const conversation = await Conversation.findOneAndUpdate(
+        { _id: id, creatorId },
+        {
+          label,
+          labelSource: "manual",
+        },
+        { new: true }
+      ).lean();
+
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      // 🔥 Emit socket update
+      req.io
+        .to(`creator:${creatorId}`)
+        .emit("inbox:event", {
+          type: "conversation:updated",
+          conversationId: conversation._id,
+          data: {
+            label: conversation.label,
+            labelSource: conversation.labelSource,
+          },
+        });
+
+      res.json({ success: true, conversation });
+    } catch (err) {
+      console.error("Label update failed", err);
+      res.status(500).json({ error: "Failed to update label" });
+    }
+  }
+);
+
+
 
 
 

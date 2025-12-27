@@ -967,13 +967,41 @@ const filteredConversations = sortedConversations
   );
 
 
-  const handleLabelChange = (label) => {
-    setConversations((prev) =>
-      prev.map((c) => (c._id === selectedConversation._id ? { ...c, label } : c))
+const handleLabelChange = async (label) => {
+  if (!selectedConversation) return;
+
+  const convId = selectedConversation._id;
+
+  // 🔥 Optimistic UI
+  setConversations((prev) =>
+    prev.map((c) =>
+      c._id === convId
+        ? { ...c, label, labelSource: "manual" }
+        : c
+    )
+  );
+
+  setSelectedConversation((prev) =>
+    prev
+      ? { ...prev, label, labelSource: "manual" }
+      : prev
+  );
+
+  setLabelAnchor(null);
+  setMenuAnchor(null);
+
+  try {
+    await axios.patch(
+      `${baseUrl}/conversations/${convId}/label`,
+      { label },
+      { withCredentials: true }
     );
-    setLabelAnchor(null);
-    setMenuAnchor(null);
-  };
+  } catch (err) {
+    console.error("Failed to save label", err);
+    alert("Failed to save label. Please retry.");
+  }
+};
+
 
 
 const displayName =
