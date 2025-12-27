@@ -992,29 +992,19 @@ useLayoutEffect(() => {
 
 
 
-const handleScroll = async (e) => {
+const handleScroll = (e) => {
   const el = e.target;
 
-  if (el.scrollTop !== 0 || loadingMessages) return;
+  // Only trigger when user reaches TOP
+  if (el.scrollTop !== 0) return;
 
-  // 1️⃣ DB pagination first
-  if (cursor) {
-    fetchMessages(selectedConversationId, cursor);
-    return;
-  }
+  // Prevent parallel fetches
+  if (loadingMessages) return;
 
-  // 2️⃣ DB exhausted → ask backend to hydrate
-  if (!syncingOlderRef.current) {
-    syncingOlderRef.current = true;
-    setLoadingMessages(true);
-
-    axios.post(
-      `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
-      {},
-      { withCredentials: true }
-    );
-  }
+  // 🔥 ALWAYS delegate to fetchMessages
+  fetchMessages(selectedConversationId, cursor);
 };
+
 
 
 
