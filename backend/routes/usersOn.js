@@ -5796,53 +5796,93 @@ router.post("/conversations/:id/mark-read", authenticateToken, async (req, res) 
   }
 );
 
-// routes/conversations.js
-router.patch(
-  "/conversations/:id/label",
-  authenticateToken,
-  async (req, res) => {
+
+router.patch("/conversations/:id/label", authenticateToken, async (req, res) => {
     try {
-      const { id } = req.params;
-      const { label } = req.body;
       const creatorId = req.user.user_id;
+      const conversationId = req.params.id;
+      const { label } = req.body;
 
       if (!["Personal", "Lead", "General"].includes(label)) {
-        return res.status(400).json({ error: "Invalid label" });
+        return res.status(400).json({
+          success: false,
+          error: "INVALID_LABEL",
+        });
       }
 
+      if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+        return res.status(400).json({
+          success: false,
+          error: "INVALID_CONVERSATION_ID",
+        });
+      }
+
+      /* ================= UPDATE DB ================= */
+
       const conversation = await Conversation.findOneAndUpdate(
-        { _id: id, creatorId },
+        { _id: conversationId, creatorId },
         {
-          label,
-          labelSource: "manual",
+          $set: {
+            label,
+            labelSource: "manual",
+          },
         },
         { new: true }
       ).lean();
 
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({
+          success: false,
+          error: "CONVERSATION_NOT_FOUND",
+        });
       }
 
-      // 🔥 Emit socket update
-      req.io
-        .to(`creator:${creatorId}`)
-        .emit("inbox:event", {
+      /* ================= REALTIME: CONVERSATION ================= */
+
+      await redis.publish(
+        `inbox:conversation:${conversationId}`,
+        JSON.stringify({
           type: "conversation:updated",
-          conversationId: conversation._id,
+          creatorId: creatorId.toString(),
+          conversationId: conversationId.toString(),
           data: {
             label: conversation.label,
             labelSource: conversation.labelSource,
           },
-        });
+        })
+      );
 
-      res.json({ success: true, conversation });
+      /* ================= REALTIME: CREATOR SIDEBAR ================= */
+
+      await redis.publish(
+        `inbox:creator:${creatorId}`,
+        JSON.stringify({
+          type: "conversation:updated",
+          conversationId: conversationId.toString(),
+          data: {
+            label: conversation.label,
+            labelSource: conversation.labelSource,
+          },
+        })
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          conversationId,
+          label: conversation.label,
+          labelSource: conversation.labelSource,
+        },
+      });
     } catch (err) {
-      console.error("Label update failed", err);
-      res.status(500).json({ error: "Failed to update label" });
+      console.error("❌ Update label failed:", err);
+      return res.status(500).json({
+        success: false,
+        error: "FAILED_TO_UPDATE_LABEL",
+      });
     }
   }
 );
-
 
 
 
