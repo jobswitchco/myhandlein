@@ -37,11 +37,11 @@ import { getSocket } from "../../realtime/socket";
 
 
 /* ---------- CONSTANTS ---------- */
-const LABELS = ["Personal", "Lead", "General"];
+const LABELS = ["Personal", "Leads", "General"];
 
 const LABEL_STYLES = {
   Personal: { bg: "#E6F4EA", text: "#137333" },
-  Lead: { bg: "#E8F0FE", text: "#1A56DB" },
+  Leads: { bg: "#E8F0FE", text: "#1A56DB" },
   General: { bg: "#F1F3F4", text: "#4B5563" },
 };
 
@@ -108,12 +108,75 @@ export default function InboxManagement() {
   const convListRef = useRef(null);
   const prevConvScrollHeightRef = useRef(null);
 
+
   const [loadingMetaConversations, setLoadingMetaConversations] = useState(false);
 
 const loadingConversationsRef = useRef(false); // 🔥 Prevent duplicate calls
 // 🔒 DEDUPE SET FOR CONVERSATIONS (CRITICAL)
 const conversationIdSetRef = useRef(new Set());
 const appendedInLastFetchRef = useRef(false);
+
+ const [notesOpen, setNotesOpen] = useState(false);
+  const [notesText, setNotesText] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [notesAnchor, setNotesAnchor] = useState({ x: 220, y: 800 });
+  const notesRef = useRef(null);
+
+const NOTES_WIDTH = 460;
+const NOTES_MARGIN = 16; // breathing room from screen edge
+
+const [notesHasPosition, setNotesHasPosition] = useState(false);
+const openNotesCentered = () => {
+  const x = Math.max(
+    (window.innerWidth - NOTES_WIDTH) / 2,
+    NOTES_MARGIN
+  );
+
+  const y = Math.max(
+    (window.innerHeight - 260) / 2, // ~notes height
+    NOTES_MARGIN
+  );
+
+  setNotesAnchor({ x, y });
+  setNotesHasPosition(true);
+  setNotesOpen(true);
+};
+
+const [initialNotesText, setInitialNotesText] = useState("");
+
+const isNotesDirty = notesText.trim() !== initialNotesText.trim();
+
+
+const handleDrag = (e) => {
+  if (!notesRef.current) return;
+
+  const startX = e.clientX;
+  const startY = e.clientY;
+
+  const { left, top } = notesRef.current.getBoundingClientRect();
+
+  const handleMouseMove = (ev) => {
+    if (!notesRef.current) return;
+
+    notesRef.current.style.left = `${left + ev.clientX - startX}px`;
+    notesRef.current.style.top = `${top + ev.clientY - startY}px`;
+  };
+
+  const handleMouseUp = () => {
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", handleMouseUp);
+  };
+
+  window.addEventListener("mousemove", handleMouseMove);
+  window.addEventListener("mouseup", handleMouseUp);
+};
+
+
+
+  const getNotesSnippet = (text, max = 70) => {
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max) + "…" : text;
+};
 
 
 
@@ -128,7 +191,7 @@ const appendedInLastFetchRef = useRef(false);
 const labelCounts = useMemo(() => {
   const counts = {
     Personal: 0,
-    Lead: 0,
+    Leads: 0,
     General: 0,
   };
 
@@ -381,6 +444,19 @@ console.log("🧩 Meta → DB returned:", {
   }
 };
 
+
+useEffect(() => {
+  if (!notesOpen) return;
+
+  const handleEsc = (e) => {
+    if (e.key === "Escape") {
+      setNotesOpen(false);
+    }
+  };
+
+  window.addEventListener("keydown", handleEsc);
+  return () => window.removeEventListener("keydown", handleEsc);
+}, [notesOpen]);
 
 
 useEffect(() => {
@@ -823,7 +899,10 @@ useEffect(() => {
   messageIdSetRef.current.clear();
   setCursor(null);
   setHasMore(true);
-  
+  setNotesText(selectedConversation.notes?.text || "");
+  setInitialNotesText(selectedConversation.notes?.text || ""); // 🔑 baseline
+  setNotesOpen(false);
+  setNotesHasPosition(false);
   fetchMessages(selectedConversation._id);
 }, [selectedConversation?._id, fetchMessages]);
 
@@ -884,6 +963,27 @@ const handleScroll = async (e) => {
       .finally(() => {
         syncingOlderRef.current = false;
       });
+  }
+};
+
+
+const saveNotes = async () => {
+  if (!selectedConversation || !isNotesDirty) return;
+
+  try {
+    setSavingNotes(true);
+
+    await axios.patch(
+      `${baseUrl}/conversations/${selectedConversation._id}/notes`,
+      { text: notesText },
+      { withCredentials: true }
+    );
+
+    setInitialNotesText(notesText); // 🔑 reset dirty state
+  } catch (e) {
+    console.error("Failed to save notes", e);
+  } finally {
+    setSavingNotes(false);
   }
 };
 
@@ -1076,32 +1176,48 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
     const count = label !== "All" ? labelCounts[label] || 0 : null;
 
     return (
-      <Chip
-        key={label}
-        clickable
-        size="small"
-        color={isActive ? "primary" : "default"}
-        onClick={() => setActiveLabel(label)}
-        label={
-          <Box display="flex" alignItems="center" gap={0.5}>
-            <span>{label}</span>
+    <Chip
+  key={label}
+  clickable
+  size="small"
+  onClick={() => setActiveLabel(label)}
+  sx={{
+    bgcolor: isActive ? "#4D2B8C" : "#F1F3F4",
+    color: isActive ? "#fff" : "#374151",
+    fontFamily: 'Inter',
+    "&:hover": {
+      bgcolor: isActive ? "#3E2271" : "#E5E7EB",
+    },
+  }}
+  label={
+    <Box display="flex" alignItems="center" gap={0.75}>
+      <span>{label}</span>
 
-            {label !== "All" && (
-              <Badge
-                color="secondary"
-                badgeContent={count}
-                sx={{
-                  "& .MuiBadge-badge": {
-                    fontSize: "0.65rem",
-                    height: 16,
-                    minWidth: 16,
-                  },
-                }}
-              />
-            )}
-          </Box>
-        }
-      />
+      {label !== "All" && count > 0 && (
+        <Badge
+          badgeContent={count}
+          overlap="circular"
+          sx={{
+            "& .MuiBadge-badge": {
+              position: "static", // 🔑 prevents overlap chaos
+              transform: "none",
+              bgcolor: isActive ? "#FFFFFF" : "#4D2B8C",
+              color: isActive ? "#4D2B8C" : "#FFFFFF",
+              fontSize: "0.65rem",
+              fontFamily: 'Inter',
+              fontWeight: 700,
+              height: 18,
+              minWidth: 18,
+              px: 0.75,
+              borderRadius: "999px",
+              lineHeight: 1,
+            },
+          }}
+        />
+      )}
+    </Box>
+  }
+/>
     );
   })}
 </Box>
@@ -1348,16 +1464,192 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
                 </Box>
               </Box>
 
-              <Box display="flex" gap={1} alignItems="center">
+             <Box display="flex" gap={1} alignItems="center">
                  {/* Simplified Header Actions */}
-                <Button variant="outlined" color="error" size="small" startIcon={<Block />} onClick={() => setBlockDialogOpen(true)}>
-                  Block
-                </Button>
+<Box display="flex" alignItems="center" gap={2}>
+  {selectedConversation?.notes?.text && (
+    <Typography
+      sx={{
+        fontSize: "0.8rem",
+        color: "#6B7280",
+        maxWidth: 280,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        cursor: "pointer",
+      }}
+     onClick={(e) => {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Prefer opening slightly left of click
+  let x = e.clientX - NOTES_WIDTH + 24;
+  let y = e.clientY + 12;
+
+  // Clamp horizontally
+  if (x + NOTES_WIDTH + NOTES_MARGIN > viewportWidth) {
+    x = viewportWidth - NOTES_WIDTH - NOTES_MARGIN;
+  }
+
+  if (x < NOTES_MARGIN) {
+    x = NOTES_MARGIN;
+  }
+
+  // Optional: clamp vertically (nice polish)
+  if (y + 220 > viewportHeight) {
+    y = viewportHeight - 220;
+  }
+
+  setNotesAnchor({ x, y });
+  setNotesOpen(true);
+}}
+
+    >
+      {getNotesSnippet(selectedConversation.notes.text)}
+    </Typography>
+  )}
+
+  <Typography
+    sx={{
+      fontSize: "0.85rem",
+      cursor: "pointer",
+      color: "#4D2B8C",
+      fontWeight: 500,
+    }}
+  onClick={() => {
+  openNotesCentered();
+}}
+
+  >
+    📝 {selectedConversation?.notes?.text ? "Edit notes" : "Notes"}
+  </Typography>
+</Box>
+
+
                 <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
                   <MoreVert />
                 </IconButton>
               </Box>
             </Box>
+
+{notesOpen && (
+  <Box
+  ref={notesRef}
+    sx={{
+      position: "fixed",
+     top: notesAnchor?.y ?? 120,
+    left: notesAnchor?.x ?? 800,
+      width: NOTES_WIDTH,
+      bgcolor: "#FFFFFF",
+      borderRadius: 2,
+      boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+      zIndex: 1300,
+      cursor: "move",
+    }}
+
+  >
+
+<Box
+  px={2}
+  py={1}
+  display="flex"
+  alignItems="flex-start"
+  justifyContent="space-between"
+  sx={{ cursor: "move", userSelect: "none", background: '#FFE4EF' }}
+  onMouseDown={handleDrag}
+>
+  <Box>
+    <Typography fontWeight={600} fontSize="0.85rem">
+      🧠 Private notes
+    </Typography>
+    <Typography variant="caption" color="text.secondary">
+      Only visible to you
+    </Typography>
+  </Box>
+
+  {/* CLOSE */}
+  <IconButton
+    size="small"
+    onClick={(e) => {
+      e.stopPropagation(); // ⛔ don't trigger drag
+      setNotesOpen(false);
+    }}
+    sx={{
+      color: "#9CA3AF",
+      "&:hover": {
+        color: "#374151",
+        bgcolor: "#F3F4F6",
+      },
+    }}
+  >
+    <CloseIcon fontSize="small" />
+  </IconButton>
+</Box>
+
+
+<Box position="relative" sx={{ background: '#E8F9FF'}}>
+  <TextField
+    fullWidth
+    multiline
+    minRows={6}
+    placeholder="Add a private note about this conversation or user."
+    value={notesText}
+    onChange={(e) => setNotesText(e.target.value)}
+    sx={{
+      "& .MuiInputBase-root": {
+        paddingBottom: "48px", // 👈 space for the button
+      },
+    }}
+  />
+
+  {/* Save button */}
+  {isNotesDirty && (
+    <Box
+      position="absolute"
+      bottom={12}
+      right={12}
+    >
+      <Button
+        size="small"
+        onClick={saveNotes}
+        disabled={savingNotes}
+        sx={{
+          textTransform: "none",
+          fontFamily: "Inter",
+          bgcolor: "#4D2B8C",
+          color: "#fff",
+          fontSize: "0.7rem",
+          px: 1.5,
+          "&:hover": { bgcolor: "#3E2271" },
+        }}
+      >
+        {savingNotes ? (
+          <CircularProgress size={14} sx={{ color: "#fff" }} />
+        ) : (
+          "Save notes"
+        )}
+      </Button>
+    </Box>
+  )}
+</Box>
+
+
+
+    {selectedConversation?.notes?.updatedAt && (
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        mt={0.5}
+        display="block"
+      >
+        Last updated ·{" "}
+        {new Date(
+          selectedConversation.notes.updatedAt
+        ).toLocaleString()}
+      </Typography>
+    )}
+  </Box>
+)}
 
             {/* MENUS */}
             <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
@@ -1636,15 +1928,7 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
         )}
       </Box>
 
-      {/* BLOCK DIALOG */}
-      <Dialog open={blockDialogOpen} onClose={() => setBlockDialogOpen(false)}>
-        <DialogTitle>Block User</DialogTitle>
-        <DialogContent>Are you sure you want to block this user?</DialogContent>
-        <DialogActions>
-          <Button onClick={() => setBlockDialogOpen(false)}>Cancel</Button>
-          <Button color="error" variant="contained">Block</Button>
-        </DialogActions>
-      </Dialog>
+
 
 {/* img/video on click full view  */}
       <Dialog

@@ -5884,6 +5884,54 @@ router.patch("/conversations/:id/label", authenticateToken, async (req, res) => 
   }
 );
 
+router.patch("/conversations/:id/notes", authenticateToken, async (req, res) => {
+    try {
+      const creatorId = req.user.user_id;
+      const conversationId = req.params.id;
+      const { text } = req.body;
+
+      if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+        return res.status(400).json({ success: false });
+      }
+
+      const conversation = await Conversation.findOneAndUpdate(
+        { _id: conversationId, creatorId },
+        {
+          $set: {
+            "notes.text": text || "",
+            "notes.updatedAt": new Date(),
+          },
+        },
+        { new: true }
+      ).lean();
+
+      if (!conversation) {
+        return res.status(404).json({ success: false });
+      }
+
+      // 🔁 Realtime update (conversation scoped)
+      await redis.publish(
+        `inbox:conversation:${conversationId}`,
+        JSON.stringify({
+          type: "conversation:updated",
+          conversationId,
+          data: {
+            notes: conversation.notes,
+          },
+        })
+      );
+
+      res.json({
+        success: true,
+        data: conversation.notes,
+      });
+    } catch (err) {
+      console.error("Update notes failed", err);
+      res.status(500).json({ success: false });
+    }
+  }
+);
+
 
 
 

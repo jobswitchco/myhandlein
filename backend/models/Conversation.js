@@ -28,7 +28,7 @@ const ConversationSchema = new Schema(
     // Labeling
     label: {
       type: String,
-      enum: ["Personal", "Lead", "General"],
+      enum: ["Personal", "Leads", "General"],
       default: "General",
     },
     labelSource: {
@@ -48,6 +48,11 @@ const ConversationSchema = new Schema(
     lastMetaAfterCursor: String,   // for latest sync
 lastMetaBeforeCursor: String,  // for older sync
 lastParticipantMessageAt: { type: Date },
+
+notes: {
+  text: { type: String, default: "" },
+  updatedAt: { type: Date }
+},
 
     // Sorting
     lastActivityAt: { type: Date, required: true },
