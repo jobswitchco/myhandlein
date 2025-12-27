@@ -1290,36 +1290,58 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
                   onClick={async () => {
                     const isSameConversation = selectedConversationId === conv._id;
 
-                    try {
-                      setSyncingConvId(conv._id);
+                  try {
+  setSyncingConvId(conv._id);
 
-                      await axios.post(
-                        `${baseUrl}/conversations/${conv._id}/sync-latest`,
-                        {},
-                        { withCredentials: true }
-                      );
+  // 1️⃣ Sync latest messages (blocking)
+  await axios.post(
+    `${baseUrl}/conversations/${conv._id}/sync-latest`,
+    {},
+    { withCredentials: true }
+  );
 
-                      if (isSameConversation) {
-                        setRawMessages([]);
-                        messageIdSetRef.current.clear();
-                        setCursor(null);
-                        setHasMore(true);
-                        await fetchMessages(conv._id);
-                      } else {
-                        setSelectedConversation(conv);
-                        setSelectedConversationId(conv._id);
-                      }
+  // 2️⃣ Fetch updated conversation snapshot
+  const refreshed = await axios.get(
+    `${baseUrl}/conversations`,
+    {
+      withCredentials: true,
+      params: { limit: 1 },
+    }
+  );
 
-                      setConversations((prev) =>
-                        prev.map((c) =>
-                          c._id === conv._id ? { ...c, unreadCount: 0 } : c
-                        )
-                      );
-                    } catch (err) {
-                      console.error("Sync failed:", err);
-                    } finally {
-                      setSyncingConvId(null);
-                    }
+  const updatedConv = refreshed.data?.data?.find(
+    c => c._id === conv._id
+  );
+
+  if (updatedConv) {
+    // 3️⃣ Sidebar update (single source of truth)
+    setConversations(prev =>
+      prev.map(c =>
+        c._id === conv._id
+          ? { ...updatedConv, unreadCount: 0 }
+          : c
+      )
+    );
+
+    // 4️⃣ Active conversation update
+    setSelectedConversation(updatedConv);
+    setSelectedConversationId(updatedConv._id);
+  }
+
+  // 5️⃣ If already open → refresh messages
+  if (isSameConversation) {
+    setRawMessages([]);
+    messageIdSetRef.current.clear();
+    setCursor(null);
+    setHasMore(true);
+    await fetchMessages(conv._id);
+  }
+
+} catch (err) {
+  console.error("Sync failed:", err);
+} finally {
+  setSyncingConvId(null);
+}
                   }}
                   sx={{
                     cursor: "pointer",

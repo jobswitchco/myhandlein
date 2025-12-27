@@ -5028,6 +5028,16 @@ await Conversation.updateOne(
   { $set: update }
 );
 
+await publishSocketEvent({
+  conversationId: conversation._id,
+  payload: {
+    type: "conversation:updated",
+    conversationId: conversation._id.toString(),
+    data: update
+  }
+});
+
+
   }
 
   // Return whether we found new messages (optional, for debugging)
