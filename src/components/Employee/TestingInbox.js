@@ -859,9 +859,7 @@ useEffect(() => {
 
   /* ---------- FETCH MESSAGES ---------- */
 const fetchMessages = useCallback(
-
   async (conversationId, cursorParam = null, opts = {}) => {
-
     try {
       setLoadingMessages(true);
 
@@ -870,41 +868,71 @@ const fetchMessages = useCallback(
           messagesContainerRef.current.scrollHeight;
       }
 
-   const res = await axios.get(
-      `${baseUrl}/conversations/${conversationId}/messages`,
-      {
-        withCredentials: true,
-      params: cursorParam
-  ? {
-      cursor: JSON.stringify(cursorParam),
-      limit: 25,
-    }
-  : { limit: 25 },
-
-      }
-    );
+      const res = await axios.get(
+        `${baseUrl}/conversations/${conversationId}/messages`,
+        {
+          withCredentials: true,
+          params: cursorParam
+            ? { cursor: JSON.stringify(cursorParam), limit: 25 }
+            : { limit: 25 },
+        }
+      );
 
       const payload = res.data?.data;
       if (!payload) return;
 
-      // 🔥 FIX: Add fetched messages to dedupe set
-      const newMessages = payload.messages.filter(msg => {
-        const msgId = typeof msg._id === 'object' ? msg._id.toString() : String(msg._id);
-        
-        if (messageIdSetRef.current.has(msgId)) {
-          return false; // Skip duplicate
+      /* =====================================================
+         🚨 ADD THE SYNC-OLDER LOGIC RIGHT HERE
+         ===================================================== */
+
+      if (
+        !payload.hasMore &&
+        payload.dbExhausted &&
+        cursorParam &&
+        !syncingOlderRef.current
+      ) {
+        syncingOlderRef.current = true;
+
+        try {
+          console.log("🔄 DB exhausted → syncing older messages");
+
+          await axios.post(
+            `${baseUrl}/conversations/${conversationId}/sync-older`,
+            {},
+            { withCredentials: true }
+          );
+
+          // 🔁 re-fetch AFTER sync (same cursor)
+          await fetchMessages(conversationId, cursorParam);
+          return; // 🚨 stop this execution
+        } finally {
+          syncingOlderRef.current = false;
         }
-        
+      }
+
+      /* =====================================================
+         NORMAL FLOW CONTINUES BELOW
+         ===================================================== */
+
+      const newMessages = payload.messages.filter(msg => {
+        const msgId =
+          typeof msg._id === "object"
+            ? msg._id.toString()
+            : String(msg._id);
+
+        if (messageIdSetRef.current.has(msgId)) return false;
+
         messageIdSetRef.current.add(msgId);
         return true;
       });
 
-      setRawMessages((prev) =>
+      setRawMessages(prev =>
         cursorParam ? [...newMessages, ...prev] : newMessages
       );
 
       setCursor(payload.nextCursor);
       setHasMore(payload.hasMore);
+
     } catch (err) {
       console.error("Message fetch failed", err);
     } finally {
@@ -913,6 +941,7 @@ const fetchMessages = useCallback(
   },
   []
 );
+
 
   /* ---------- RESET ON CONVERSATION CHANGE ---------- */
 useEffect(() => {
