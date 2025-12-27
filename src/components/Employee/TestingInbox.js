@@ -1287,69 +1287,76 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
                   px={2}
                   py={2}
                   borderBottom="1px solid #f1f1f1"
-                  onClick={async () => {
-                    const isSameConversation = selectedConversationId === conv._id;
+                 onClick={async () => {
+  const isSameConversation = selectedConversationId === conv._id;
 
-                  try {
-  setSyncingConvId(conv._id);
+  // 1️⃣ SELECT IMMEDIATELY (never block UI)
+  setSelectedConversation(conv);
+  setSelectedConversationId(conv._id);
 
-  // 1️⃣ Sync latest messages (blocking)
-  await axios.post(
-    `${baseUrl}/conversations/${conv._id}/sync-latest`,
-    {},
-    { withCredentials: true }
-  );
+  // If switching conversations, messages reset will happen
+  // automatically via your useEffect on selectedConversation
 
-  // 2️⃣ Fetch updated conversation snapshot
-  const refreshed = await axios.get(
-    `${baseUrl}/conversations`,
-    {
-      withCredentials: true,
-      params: { limit: 1 },
-    }
-  );
+  try {
+    setSyncingConvId(conv._id);
 
-  const updatedConv = refreshed.data?.data?.find(
-    c => c._id === conv._id
-  );
-
-  if (updatedConv) {
-    // 3️⃣ Sidebar update (single source of truth)
-    setConversations(prev =>
-      prev.map(c =>
-        c._id === conv._id
-          ? { ...updatedConv, unreadCount: 0 }
-          : c
-      )
+    // 2️⃣ Sync latest messages from Meta (blocking)
+    await axios.post(
+      `${baseUrl}/conversations/${conv._id}/sync-latest`,
+      {},
+      { withCredentials: true }
     );
 
-    // 4️⃣ Active conversation update
-    setSelectedConversation(updatedConv);
-    setSelectedConversationId(updatedConv._id);
-  }
+    // 3️⃣ Fetch UPDATED conversation snapshot
+    const refreshed = await axios.get(
+      `${baseUrl}/conversations`,
+      {
+        withCredentials: true,
+        params: { limit: 1 },
+      }
+    );
 
-  // 5️⃣ If already open → refresh messages
-  if (isSameConversation) {
-    setRawMessages([]);
-    messageIdSetRef.current.clear();
-    setCursor(null);
-    setHasMore(true);
-    await fetchMessages(conv._id);
-  }
+    const updatedConv = refreshed.data?.data?.find(
+      c => c._id === conv._id
+    );
 
-} catch (err) {
-  console.error("Sync failed:", err);
-} finally {
-  setSyncingConvId(null);
-}
-                  }}
+    if (updatedConv) {
+      // 4️⃣ Update sidebar (single source of truth)
+      setConversations(prev =>
+        prev.map(c =>
+          c._id === conv._id
+            ? { ...updatedConv, unreadCount: 0 }
+            : c
+        )
+      );
+
+      // 5️⃣ Update active conversation snapshot
+      setSelectedConversation(updatedConv);
+      setSelectedConversationId(updatedConv._id);
+    }
+
+    // 6️⃣ If same conversation, force message refresh
+    if (isSameConversation) {
+      setRawMessages([]);
+      messageIdSetRef.current.clear();
+      setCursor(null);
+      setHasMore(true);
+      await fetchMessages(conv._id);
+    }
+
+  } catch (err) {
+    console.error("Sync failed:", err);
+  } finally {
+    setSyncingConvId(null);
+  }
+}}
+
                   sx={{
                     cursor: "pointer",
                     bgcolor: isSelected ? "#EEF4FF" : "#fff",
                     transition: "0.2s",
                     "&:hover": { bgcolor: isSelected ? "#EEF4FF" : "#f9fafb" },
                     opacity: syncingConvId === conv._id ? 0.6 : 1,
-                    pointerEvents: syncingConvId === conv._id ? "none" : "auto",
                   }}
                 >
                   <Box display="flex" justifyContent="space-between">
