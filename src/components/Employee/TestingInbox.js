@@ -125,6 +125,23 @@ const appendedInLastFetchRef = useRef(false);
   display: "block",
 };
 
+const labelCounts = useMemo(() => {
+  const counts = {
+    Personal: 0,
+    Lead: 0,
+    General: 0,
+  };
+
+  for (const c of conversations) {
+    if (counts[c.label] !== undefined) {
+      counts[c.label]++;
+    }
+  }
+
+  return counts;
+}, [conversations]);
+
+
 
       /* ---------- SORT + DEDUPE ---------- */
 const messages = useMemo(
@@ -1053,18 +1070,42 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
             }}
           />
         </Box>
-        <Box px={2} pb={2} display="flex" gap={1} flexWrap="wrap">
-          {["All", ...LABELS].map((label) => (
-            <Chip
-              key={label}
-              label={label}
-              clickable
-              size="small"
-              color={activeLabel === label ? "primary" : "default"}
-              onClick={() => setActiveLabel(label)}
-            />
-          ))}
-        </Box>
+       <Box px={2} pb={2} display="flex" gap={1} flexWrap="wrap">
+  {["All", ...LABELS].map((label) => {
+    const isActive = activeLabel === label;
+    const count = label !== "All" ? labelCounts[label] || 0 : null;
+
+    return (
+      <Chip
+        key={label}
+        clickable
+        size="small"
+        color={isActive ? "primary" : "default"}
+        onClick={() => setActiveLabel(label)}
+        label={
+          <Box display="flex" alignItems="center" gap={0.5}>
+            <span>{label}</span>
+
+            {label !== "All" && (
+              <Badge
+                color="secondary"
+                badgeContent={count}
+                sx={{
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.65rem",
+                    height: 16,
+                    minWidth: 16,
+                  },
+                }}
+              />
+            )}
+          </Box>
+        }
+      />
+    );
+  })}
+</Box>
+
         {/* {isSyncing && (
   <Typography
     variant="caption"
