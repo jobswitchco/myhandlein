@@ -4965,7 +4965,7 @@ async function syncLatestConversation({ userId, conversationId }) {
   const latestPage = await InstagramService.fetchLatestMessages({
     igConversationId: conversation.metaThreadId,
     accessToken: user.fbPageAccessToken,
-    limit: 50, // Meta max
+    limit: 25, // Meta max
   });
 
   if (!latestPage.messages.length) return;
@@ -5203,7 +5203,7 @@ await USER.updateOne(
         igConversationId: metaThreadId,
         accessToken: user.fbPageAccessToken,
         afterCursor: conversation.lastMetaAfterCursor || null,
-        limit: 20,
+        limit: 25,
       });
 
       const insertedMessages = [];
@@ -5499,17 +5499,6 @@ if (
   );
 }
 
-
-// if (insertedAny) {
-//   await publishSocketEvent({
-//     conversationId,
-//     payload: {
-//       type: "older-messages:ready",
-//       conversationId: conversationId.toString(),
-//       inserted: true,
-//     }
-//   });
-// }
 
 if (insertedAny) {
   await publishSocketEvent({

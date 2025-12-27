@@ -12,7 +12,7 @@ class InstagramService {
 async fetchOlderMessages({
   igConversationId,
   pageAccessToken,
-  afterCursor = null,
+  afterCursor,
   limit = 25,
 }) {
   try {
@@ -144,7 +144,7 @@ async fetchLatestMessages({
   igConversationId,
   accessToken,
   afterCursor = null,
-  limit = 50,
+  limit = 25,
 }) {
   try {
     const params = {
