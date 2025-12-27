@@ -5482,16 +5482,27 @@ if (afterCursor) {
   );
 }
 
+// if (insertedAny) {
+//   await publishSocketEvent({
+//     conversationId,
+//     payload: {
+//       type: "older-messages:ready",
+//       conversationId: conversationId.toString(),
+//       inserted: true,
+//     }
+//   });
+// }
+
 if (insertedAny) {
   await publishSocketEvent({
     conversationId,
     payload: {
-      type: "older-messages:ready",
-      conversationId: conversationId.toString(),
-      inserted: true,
+      type: "conversation:updated",
+      reason: "older-sync"
     }
   });
 }
+
 
   } catch (err) {
     console.error("❌ syncOlderMessages failed", err);
