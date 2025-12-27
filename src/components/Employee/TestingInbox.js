@@ -720,7 +720,7 @@ if (payload.type === "older-messages:ready") {
   if (conversationId !== selectedConversationId) return;
 
   // 🔥 IMPORTANT: fetch more than UI page size
-  fetchMessages(selectedConversationId, cursor, { limit: 50 });
+  fetchMessages(selectedConversationId, cursor, { limit: 25 });
 
   return;
 }
@@ -861,7 +861,7 @@ useEffect(() => {
 const fetchMessages = useCallback(
 
   async (conversationId, cursorParam = null, opts = {}) => {
-    const limit = opts.limit || 20;
+
     try {
       setLoadingMessages(true);
 
@@ -877,9 +877,9 @@ const fetchMessages = useCallback(
       params: cursorParam
   ? {
       cursor: JSON.stringify(cursorParam),
-      limit: 20,
+      limit: 25,
     }
-  : { limit: 20 },
+  : { limit: 25 },
 
       }
     );

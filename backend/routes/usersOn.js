@@ -4801,6 +4801,8 @@ router.post("/conversations/:id/sync-older", authenticateToken, async (req, res)
   const conversationId = req.params.id;
   const userId = req.user.user_id;
 
+  console.log('SYNC OLDER HITTTTTTTTTTTTTT');
+
   process.nextTick(() => {
     syncOlderMessages({ userId, conversationId }).catch(console.error);
   });
@@ -4819,12 +4821,17 @@ router.get("/conversations/sync-status", authenticateToken, async (req, res) => 
 // GET /conversations/:id/messages (DB ONLY)
 router.get("/conversations/:id/messages", authenticateToken, async (req, res) => {
     try {
+  console.log('GET MESSAGES HITTTTTTTTTTTTTT');
+
+
       const userId = req.user.user_id;
       const conversationId = req.params.id;
 
-      const limit = Math.min(Number(req.query.limit) || 20, 50);
+      const limit = Math.min(Number(req.query.limit) || 25, 50);
     
       const cursor = req.query.cursor ? JSON.parse(req.query.cursor): null;
+
+  console.log('cursor : ', cursor);
 
 
       if (!mongoose.Types.ObjectId.isValid(conversationId)) {
