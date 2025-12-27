@@ -1635,19 +1635,6 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
 
 
 
-    {selectedConversation?.notes?.updatedAt && (
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        mt={0.5}
-        display="block"
-      >
-        Last updated ·{" "}
-        {new Date(
-          selectedConversation.notes.updatedAt
-        ).toLocaleString()}
-      </Typography>
-    )}
   </Box>
 )}
 

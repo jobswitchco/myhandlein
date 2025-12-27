@@ -5804,7 +5804,7 @@ router.patch("/conversations/:id/label", authenticateToken, async (req, res) => 
       const conversationId = req.params.id;
       const { label } = req.body;
 
-      if (!["Personal", "Lead", "General"].includes(label)) {
+      if (!["Personal", "Leads", "General"].includes(label)) {
         return res.status(400).json({
           success: false,
           error: "INVALID_LABEL",
