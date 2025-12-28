@@ -2,7 +2,8 @@ const { redisGet, redisSet, redisDel } = require("./redisBridge");
 const { acquireLock, releaseLock } = require("./redisLock");
 const axios = require("axios");
 
-const PROFILE_TTL = 120; // 2 minutes for testing
+const PROFILE_TTL = 23 * 60 * 60; // 82800 seconds (23 hours)
+
 const REDIS_BRIDGE_URL = "http://34.180.49.15:3000";
 
 async function getCachedProfile(igUserId) {
