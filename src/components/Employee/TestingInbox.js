@@ -862,10 +862,9 @@ const fetchMessages = useCallback(
   async (conversationId, cursorParam = null, opts = {}) => {
     try {
       setLoadingMessages(true);
-
-      if (cursorParam && messagesContainerRef.current) {
-        prevScrollHeightRef.current =
-          messagesContainerRef.current.scrollHeight;
+  if (cursorParam && messagesContainerRef.current) {
+        prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
+        console.log('📏 Captured scroll height:', prevScrollHeightRef.current);
       }
 
       const res = await axios.get(
@@ -926,6 +925,7 @@ const fetchMessages = useCallback(
         return true;
       });
 
+    // ✅ Prepend when paginating, replace on initial load
       setRawMessages(prev =>
         cursorParam ? [...newMessages, ...prev] : newMessages
       );
@@ -960,18 +960,33 @@ useEffect(() => {
 }, [selectedConversation?._id, fetchMessages]);
 
   /* ---------- SCROLL MANAGEMENT ---------- */
-  useLayoutEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
+useLayoutEffect(() => {
+  const container = messagesContainerRef.current;
+  if (!container) return;
 
-    if (!prevScrollHeightRef.current) {
-      container.scrollTop = container.scrollHeight;
-    } else {
-      const diff = container.scrollHeight - prevScrollHeightRef.current;
-      container.scrollTop = diff;
-      prevScrollHeightRef.current = null;
-    }
-  }, [messages]);
+  if (!prevScrollHeightRef.current) {
+    // ✅ New conversation - scroll to bottom
+    container.scrollTop = container.scrollHeight;
+  } else {
+    // ✅ FIX: Maintain scroll position when prepending messages
+    const newScrollHeight = container.scrollHeight;
+    const heightDiff = newScrollHeight - prevScrollHeightRef.current;
+    const currentScroll = container.scrollTop;
+    
+    // Add the height difference to current scroll position
+    container.scrollTop = currentScroll + heightDiff;
+    
+    console.log('📍 Scroll restored:', {
+      oldHeight: prevScrollHeightRef.current,
+      newHeight: newScrollHeight,
+      heightDiff,
+      oldScroll: currentScroll,
+      newScroll: container.scrollTop
+    });
+    
+    prevScrollHeightRef.current = null;
+  }
+}, [messages]);
 
 useLayoutEffect(() => {
   // 🔥 FIX #2: Restore scroll position after new conversations load
