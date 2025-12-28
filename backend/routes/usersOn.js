@@ -4671,6 +4671,54 @@ router.get("/influencer/:subdomain", async (req, res) => {
 
 
 
+// In your routes file
+router.post("/conversations/:id/refresh-profile", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const conversationId = req.params.id;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      creatorId: userId,
+    })
+      .populate("participantId")
+      .lean();
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: "Not found" });
+    }
+
+    const user = await USER.findById(userId)
+      .select("+fbPageAccessToken")
+      .lean();
+
+    if (!user?.fbPageAccessToken) {
+      return res.status(400).json({ success: false, error: "No access token" });
+    }
+
+    const igUserId = conversation.participantId?.igUserId;
+    if (!igUserId) {
+      return res.status(400).json({ success: false, error: "No participant" });
+    }
+
+    // 🔥 Force refresh by deleting cache first
+    await redisDel(`ig:user:${igUserId}`);
+
+    // Fetch fresh profile
+    const profile = await fetchAndCacheProfileSafely({
+      igUserId,
+      accessToken: user.fbPageAccessToken,
+      conversationId: conversation._id,
+      publishSocketEvent,
+    });
+
+    res.json({ success: true, profile });
+  } catch (err) {
+    console.error("Profile refresh failed:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ==================== FIXED: /conversations route ====================
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
