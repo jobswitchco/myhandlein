@@ -1,15 +1,21 @@
-const { redisGet, redisSet } = require("./redisBridge");
+const { redisGet, redisSet, redisDel } = require("./redisBridge");
 const { acquireLock, releaseLock } = require("./redisLock");
 
 const PROFILE_TTL = 3600; // 1 hour
-const MAX_LOCK_WAIT = 5000; // 5 seconds
 
-/**
- * READ-ONLY: Safe for UI
- */
 async function getCachedProfile(igUserId) {
   if (!igUserId) return null;
-  return await redisGet(`ig:user:${igUserId}`);
+  
+  const cached = await redisGet(`ig:user:${igUserId}`);
+  
+  if (cached) {
+    const age = cached.fetchedAt ? Date.now() - cached.fetchedAt : 0;
+    console.log(`📦 Cache hit for ${igUserId} (age: ${Math.floor(age / 1000)}s)`);
+  } else {
+    console.log(`📦 Cache miss for ${igUserId}`);
+  }
+  
+  return cached;
 }
 
 let InstagramService = null;
@@ -22,9 +28,6 @@ async function getInstagramService() {
   return InstagramService;
 }
 
-/**
- * WRITE: Background only - WITH RETRY
- */
 async function fetchAndCacheProfileSafely({
   igUserId,
   accessToken,
@@ -32,45 +35,27 @@ async function fetchAndCacheProfileSafely({
   publishSocketEvent,
 }) {
   const cacheKey = `ig:user:${igUserId}`;
+  const lockKey = `lock:${cacheKey}`;
 
-  // 🔥 FIX #1: Check cache with timestamp validation
-  const cached = await redisGet(cacheKey);
+  // Fast path - check cache
+  const cached = await getCachedProfile(igUserId);
   if (cached?.fetchedAt) {
     const age = Date.now() - cached.fetchedAt;
     if (age < PROFILE_TTL * 1000) {
-      console.log(`✅ Using cached profile for ${igUserId} (age: ${Math.floor(age / 1000)}s)`);
       return cached;
     }
-    console.log(`⏰ Cached profile expired for ${igUserId}, refreshing...`);
+    console.log(`⏰ Profile expired for ${igUserId}, refreshing...`);
   }
 
-  // 🔥 FIX #2: Try to acquire lock, with timeout
-  const lockKey = `lock:ig:user:${igUserId}`;
+  // Lock to prevent duplicate fetches
   const locked = await acquireLock(lockKey, 30);
-  
   if (!locked) {
-    console.log(`⏳ Lock busy for ${igUserId}, waiting for result...`);
-    
-    // Wait for the other process to finish and check cache again
-    let attempts = 0;
-    const maxAttempts = 10; // 5 seconds total
-    
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const nowCached = await redisGet(cacheKey);
-      if (nowCached?.fetchedAt && Date.now() - nowCached.fetchedAt < 10000) {
-        console.log(`✅ Got fresh profile from other process for ${igUserId}`);
-        return nowCached;
-      }
-      attempts++;
-    }
-    
-    console.log(`⚠️ Timeout waiting for lock, returning stale cache for ${igUserId}`);
-    return cached; // Return stale cache if available
+    console.log(`🔒 Failed to acquire lock for ${igUserId}, returning cached`);
+    return cached;
   }
 
   try {
-    console.log(`🔄 Fetching fresh profile for ${igUserId}...`);
+    console.log(`🔄 Fetching profile from Instagram for ${igUserId}...`);
     
     const InstagramService = await getInstagramService();
 
@@ -80,8 +65,8 @@ async function fetchAndCacheProfileSafely({
     });
 
     if (!profile) {
-      console.log(`⚠️ No profile returned for ${igUserId}`);
-      return null;
+      console.log(`⚠️ No profile data returned for ${igUserId}`);
+      return cached;
     }
 
     const payload = {
@@ -92,11 +77,25 @@ async function fetchAndCacheProfileSafely({
       fetchedAt: Date.now(),
     };
 
-    // 🔥 FIX #3: Ensure cache is set with proper TTL
-    await redisSet(cacheKey, payload, PROFILE_TTL);
-    console.log(`✅ Cached profile for ${igUserId} (TTL: ${PROFILE_TTL}s)`);
+    // 🔥 CRITICAL: Set cache with explicit logging
+    console.log(`💾 Setting cache for ${igUserId}:`, {
+      name: payload.name,
+      hasPic: !!payload.profilePic,
+      ttl: PROFILE_TTL,
+    });
 
-    // 🔥 Optional realtime update
+    console.log('payloadName : ', payload.name);
+    console.log('profilePic : ', payload.profilePic);
+    
+    const setResult = await redisSet(cacheKey, payload, PROFILE_TTL);
+    
+    if (!setResult) {
+      console.error(`❌ Failed to cache profile for ${igUserId}`);
+    } else {
+      console.log(`✅ Successfully cached profile for ${igUserId}`);
+    }
+
+    // Emit socket event
     if (conversationId && publishSocketEvent) {
       await publishSocketEvent({
         conversationId,
@@ -110,12 +109,13 @@ async function fetchAndCacheProfileSafely({
           },
         },
       });
+      console.log(`📡 Emitted profile update for conversation ${conversationId}`);
     }
 
     return payload;
   } catch (err) {
     console.error(`❌ Profile fetch failed for ${igUserId}:`, err.message);
-    return cached || null; // Return stale cache on error
+    return cached || null;
   } finally {
     await releaseLock(lockKey);
   }

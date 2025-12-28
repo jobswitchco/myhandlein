@@ -4774,6 +4774,7 @@ const nextCursor = hasMore
       const igUserId = c.participantId?.igUserId;
       const profile = igUserId ? await getCachedProfile(igUserId) : null;
 
+      console.log('Profile::::::::::::', profile);
       const lastParticipantMessageAt = c.lastParticipantMessageAt;
       let canReply = false;
       let replyDisabledReason = null;
