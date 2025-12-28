@@ -517,6 +517,74 @@ useEffect(() => {
 }, [creatorId]);
 
 
+useEffect(() => {
+  if (!creatorId) return;
+
+  const socket = getSocket();
+
+  const handleCreatorEvent = (payload) => {
+    console.log('📥 Creator-level event:', payload);
+
+    // Handle profile updates from cache refresh
+    if (payload.type === "participant:updated") {
+      const { igUserId, name, profilePic } = payload.data;
+
+      console.log(`🔄 Profile update for ${igUserId}:`, { name, profilePic });
+
+      // Update ALL conversations in sidebar
+      setConversations(prev =>
+        prev.map(c =>
+          c.participant?.igUserId === igUserId
+            ? {
+                ...c,
+                participant: {
+                  ...c.participant,
+                  name: name || c.participant.name,
+                  profilePic: profilePic || c.participant.profilePic,
+                },
+              }
+            : c
+        )
+      );
+
+      // Update active conversation if it matches
+      setSelectedConversation(prev =>
+        prev?.participant?.igUserId === igUserId
+          ? {
+              ...prev,
+              participant: {
+                ...prev.participant,
+                name: name || prev.participant.name,
+                profilePic: profilePic || prev.participant.profilePic,
+              },
+            }
+          : prev
+      );
+    }
+
+    // Handle conversation-level updates (for sidebar)
+    if (payload.type === "conversation:updated") {
+      const { conversationId, data } = payload;
+
+      setConversations(prev =>
+        prev.map(c =>
+          c._id === conversationId
+            ? { ...c, ...data }
+            : c
+        )
+      );
+    }
+  };
+
+  socket.on("inbox:event", handleCreatorEvent);
+
+  console.log(`🎧 Creator-level listener active`);
+
+  return () => {
+    socket.off("inbox:event", handleCreatorEvent);
+  };
+}, [creatorId]); 
+
 
 useEffect(() => {
   const socket = getSocket();
@@ -733,6 +801,8 @@ if (payload.type === "older-messages:ready") {
   socket.on("inbox:event", handler);
   return () => socket.off("inbox:event", handler);
 }, [selectedConversationId]);
+
+
 
 
 
