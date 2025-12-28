@@ -4798,12 +4798,14 @@ router.get("/conversations", authenticateToken, async (req, res) => {
 
         // 🔥 CACHE MISS → refresh async (do NOT block)
         if (!profile) {
-          fetchAndCacheProfileSafely({
-            igUserId,
-            accessToken: user.fbPageAccessToken,
-            conversationId: c._id,
-            publishSocketEvent,
-          }).catch(() => {});
+          // In your /conversations route, when calling fetchAndCacheProfileSafely:
+fetchAndCacheProfileSafely({
+  igUserId,
+  accessToken: user.fbPageAccessToken,
+  conversationId: c._id,
+  creatorId: userId,
+  publishSocketEvent,
+}).catch(() => {});
         }
       }
 
@@ -5198,6 +5200,23 @@ async function publishSocketEvent({ conversationId, payload }) {
   }
 }
 
+// Add this function to your backend routes file
+async function publishProfileUpdate({ creatorId, igUserId, name, profilePic }) {
+  try {
+    // Publish to creator room (for sidebar)
+    await redis.publish(
+      `inbox:creator:${creatorId}`,
+      JSON.stringify({
+        type: "participant:updated",
+        data: { igUserId, name, profilePic }
+      })
+    );
+    console.log(`✅ Published profile update to creator ${creatorId}`);
+  } catch (err) {
+    console.error('❌ Failed to publish profile update:', err.message);
+  }
+}
+
 // ==================== UPDATE: syncInstagramConversations ====================
 
 async function syncInstagramConversations(userId) {
@@ -5279,6 +5298,7 @@ await USER.updateOne(
           igUserId: participant.id,
           accessToken: user.fbPageAccessToken,
           conversationId: conversation._id,
+          creatorId: userId,
           publishSocketEvent,
         }).catch(() => {});
       }
@@ -5501,6 +5521,7 @@ if (
     igUserId: metaMsg.from.id,
     accessToken: user.fbPageAccessToken,
     conversationId: conversation._id,
+    creatorId: user._id,
     publishSocketEvent,
   }).catch(() => {});
 }

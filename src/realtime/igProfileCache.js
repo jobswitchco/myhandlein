@@ -1,7 +1,9 @@
 const { redisGet, redisSet, redisDel } = require("./redisBridge");
 const { acquireLock, releaseLock } = require("./redisLock");
+const axios = require("axios");
 
-const PROFILE_TTL = 60; // 1 hour
+const PROFILE_TTL = 120; // 2 minutes for testing
+const REDIS_BRIDGE_URL = "http://34.180.49.15:3000";
 
 async function getCachedProfile(igUserId) {
   if (!igUserId) return null;
@@ -28,10 +30,27 @@ async function getInstagramService() {
   return InstagramService;
 }
 
+// Helper function to publish profile updates to creator room
+async function publishProfileUpdateToCreator({ creatorId, igUserId, name, profilePic }) {
+  try {
+    await axios.post(`${REDIS_BRIDGE_URL}/publish/creator`, {
+      creatorId: creatorId.toString(),
+      event: {
+        type: "participant:updated",
+        data: { igUserId, name, profilePic }
+      }
+    });
+    console.log(`✅ Published profile update to creator ${creatorId}`);
+  } catch (err) {
+    console.error('❌ Failed to publish profile update to creator:', err.message);
+  }
+}
+
 async function fetchAndCacheProfileSafely({
   igUserId,
   accessToken,
-  conversationId,
+  conversationId, // 🔑 For conversation-specific events
+  creatorId, // 🔑 For creator-room events
   publishSocketEvent,
 }) {
   const cacheKey = `ig:user:${igUserId}`;
@@ -84,7 +103,6 @@ async function fetchAndCacheProfileSafely({
       ttl: PROFILE_TTL,
     });
 
-    
     const setResult = await redisSet(cacheKey, payload, PROFILE_TTL);
     
     if (!setResult) {
@@ -93,22 +111,32 @@ async function fetchAndCacheProfileSafely({
       console.log(`✅ Successfully cached profile for ${igUserId}`);
     }
 
-    // Emit socket event
-  if (publishSocketEvent) {
-  await publishSocketEvent({
-    payload: {
-      type: "participant:updated",
-      data: {
+    // 🔥 FIX #1: Emit to conversation room (for active chat)
+    if (publishSocketEvent && conversationId) {
+      await publishSocketEvent({
+        conversationId,
+        payload: {
+          type: "participant:updated",
+          data: {
+            igUserId,
+            name: payload.name,
+            profilePic: payload.profilePic,
+          },
+        },
+      });
+
+      console.log(`📡 Emitted profile update for conversation ${conversationId}`);
+    }
+    
+    // 🔥 FIX #2: Emit to creator room (for sidebar)
+    if (creatorId) {
+      await publishProfileUpdateToCreator({
+        creatorId,
         igUserId,
         name: payload.name,
         profilePic: payload.profilePic,
-      },
-    },
-  });
-
-  console.log(`📡 Emitted profile update for IG user ${igUserId}`);
-}
-
+      });
+    }
 
     return payload;
   } catch (err) {
