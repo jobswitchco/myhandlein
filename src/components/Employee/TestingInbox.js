@@ -1822,16 +1822,18 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
                       mb={showAvatar ? 1 : 0.2}
                     >
                       {/* Avatar for 'Them' */}
-                      {!isMe && (
-                          <Box width={32} mr={1}>
-                             {showAvatar && (
-                                <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.8rem" }}>
-                                    {!selectedConversation?.participant?.profilePic &&
-    displayName[0]?.toUpperCase()}
-                                </Avatar>
-                             )}
-                          </Box>
-                      )}
+                    {!isMe && (
+  <Box width={32} mr={1}>
+    {showAvatar && (
+      <Avatar 
+        src={selectedConversation?.participant?.profilePic || undefined}
+        sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.8rem" }}
+      >
+        {!selectedConversation?.participant?.profilePic && displayName[0]?.toUpperCase()}
+      </Avatar>
+    )}
+  </Box>
+)}
 
                       {/* Message Bubble */}
                       <Box
