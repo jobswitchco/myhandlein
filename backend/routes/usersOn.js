@@ -4720,67 +4720,100 @@ router.post("/conversations/:id/refresh-profile", authenticateToken, async (req,
 });
 
 // ==================== FIXED: /conversations route ====================
+// ==================== FIXED: /conversations ====================
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
-
     const limit = Math.min(Number(req.query.limit) || 10, 20);
 
     const cursor = req.query.cursor
-  ? JSON.parse(Buffer.from(req.query.cursor, "base64").toString())
-  : null;
+      ? JSON.parse(Buffer.from(req.query.cursor, "base64").toString())
+      : null;
 
-const query = {
-  creatorId: userId,
-  ...(cursor && {
-    $or: [
-      { lastActivityAt: { $lt: new Date(cursor.lastActivityAt) } },
-      {
-        lastActivityAt: new Date(cursor.lastActivityAt),
-        _id: { $lt: cursor._id }
-      }
-    ]
-  })
-};
+    /* =========================================================
+       1️⃣ Fetch creator ONCE (needed for profile refresh)
+       ========================================================= */
+    const user = await USER.findById(userId)
+      .select("+fbPageAccessToken")
+      .lean();
 
+    if (!user?.fbPageAccessToken) {
+      return res.status(400).json({
+        success: false,
+        error: "No Facebook Page access token",
+      });
+    }
 
-    // 🔥 FIX #3: Fetch limit + 1 to detect if there are more
+    /* =========================================================
+       2️⃣ Build pagination query
+       ========================================================= */
+    const query = {
+      creatorId: userId,
+      ...(cursor && {
+        $or: [
+          { lastActivityAt: { $lt: new Date(cursor.lastActivityAt) } },
+          {
+            lastActivityAt: new Date(cursor.lastActivityAt),
+            _id: { $lt: cursor._id },
+          },
+        ],
+      }),
+    };
+
     const docs = await Conversation.find(query)
-    .sort({ lastActivityAt: -1, _id: -1 })
+      .sort({ lastActivityAt: -1, _id: -1 })
       .limit(limit + 1)
       .populate({
         path: "participantId",
-        select: "igUserId username"
+        select: "igUserId username",
       })
       .lean();
 
-    // 🔥 FIX #2: Check if we got more than requested
     const hasMore = docs.length > limit;
     const page = hasMore ? docs.slice(0, limit) : docs;
 
-    // 🔥 FIX #2: Use the LAST item's timestamp as cursor (oldest in this batch)
-const nextCursor = hasMore
-  ? Buffer.from(JSON.stringify({
-      lastActivityAt: page[page.length - 1].lastActivityAt,
-      _id: page[page.length - 1]._id
-    })).toString("base64")
-  : null;
+    const nextCursor = hasMore
+      ? Buffer.from(
+          JSON.stringify({
+            lastActivityAt: page[page.length - 1].lastActivityAt,
+            _id: page[page.length - 1]._id,
+          })
+        ).toString("base64")
+      : null;
 
-
+    /* =========================================================
+       3️⃣ Enrich conversations (PROFILE FIX HERE)
+       ========================================================= */
     const enriched = [];
     const WINDOW_MS = 24 * 60 * 60 * 1000;
 
     for (const c of page) {
       const igUserId = c.participantId?.igUserId;
-      const profile = igUserId ? await getCachedProfile(igUserId) : null;
 
-      console.log('Profile::::::::::::', profile);
+      let profile = null;
+
+      if (igUserId) {
+        // 🔑 READ cache
+        profile = await getCachedProfile(igUserId);
+
+        // 🔥 CACHE MISS → refresh async (do NOT block)
+        if (!profile) {
+          fetchAndCacheProfileSafely({
+            igUserId,
+            accessToken: user.fbPageAccessToken,
+            conversationId: c._id,
+            publishSocketEvent,
+          }).catch(() => {});
+        }
+      }
+
       const lastParticipantMessageAt = c.lastParticipantMessageAt;
       let canReply = false;
       let replyDisabledReason = null;
 
       if (lastParticipantMessageAt) {
-        const diff = Date.now() - new Date(lastParticipantMessageAt).getTime();
+        const diff =
+          Date.now() - new Date(lastParticipantMessageAt).getTime();
         canReply = diff <= WINDOW_MS;
         if (!canReply) replyDisabledReason = "window_expired";
       } else {
@@ -4802,30 +4835,26 @@ const nextCursor = hasMore
           igUserId,
           username: c.participantId?.username || null,
           name: profile?.name || null,
-          profilePic: profile?.profilePic || null
-        }
+          profilePic: profile?.profilePic || null,
+        },
       });
     }
 
-    console.log('📤 Conversations response:', {
-      total: docs.length,
-      returned: enriched.length,
-      hasMore,
-      nextCursor,
-      query: cursor ? `cursor: ${cursor}` : 'initial load'
-    });
-
+    /* =========================================================
+       4️⃣ Response
+       ========================================================= */
     res.json({
       success: true,
       data: enriched,
       nextCursor,
-      hasMore
+      hasMore,
     });
   } catch (err) {
-    console.error("Fetch conversations error", err);
+    console.error("❌ Fetch conversations error:", err);
     res.status(500).json({ success: false });
   }
 });
+
 
 
 
