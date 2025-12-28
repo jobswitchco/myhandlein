@@ -97,18 +97,18 @@ async function fetchAndCacheProfileSafely({
 
     // Emit socket event
     if (conversationId && publishSocketEvent) {
-      await publishSocketEvent({
-        conversationId,
-        payload: {
-          type: "participant:updated",
-          conversationId: conversationId.toString(),
-          data: {
-            igUserId,
-            name: payload.name,
-            profilePic: payload.profilePic,
-          },
-        },
-      });
+     await publishSocketEvent({
+  conversationId,
+  payload: {
+    type: "participant:updated",
+    data: {
+      igUserId,
+      name: payload.name,
+      profilePic: payload.profilePic,
+    },
+  },
+});
+
       console.log(`📡 Emitted profile update for conversation ${conversationId}`);
     }
 

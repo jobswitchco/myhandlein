@@ -535,35 +535,34 @@ useEffect(() => {
 
 
     /* ================= PARTICIPANT UPDATE ================= */
-    if (payload.type === "participant:updated") {
-      setConversations((prev) =>
-        prev.map((c) =>
-          c._id === payload.conversationId
-            ? {
-                ...c,
-                participant: {
-                  ...c.participant,
-                  ...payload.data,
-                },
-              }
-            : c
-        )
-      );
+if (payload.type === "participant:updated") {
+  setConversations(prev =>
+    prev.map(c =>
+      c.participant?.igUserId === payload.data.igUserId
+        ? {
+            ...c,
+            participant: {
+              ...c.participant,
+              ...payload.data,
+            },
+          }
+        : c
+    )
+  );
 
-      setSelectedConversation((prev) =>
-        prev?._id === payload.conversationId
-          ? {
-              ...prev,
-              participant: {
-                ...prev.participant,
-                ...payload.data,
-              },
-            }
-          : prev
-      );
+  setSelectedConversation(prev =>
+    prev?.participant?.igUserId === payload.data.igUserId
+      ? {
+          ...prev,
+          participant: {
+            ...prev.participant,
+            ...payload.data,
+          },
+        }
+      : prev
+  );
+}
 
-      return;
-    }
 
     /* ================= CONVERSATION UPDATE ================= */
     if (payload.type === "conversation:updated") {
