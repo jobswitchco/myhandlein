@@ -1,7 +1,7 @@
 const { redisGet, redisSet, redisDel } = require("./redisBridge");
 const { acquireLock, releaseLock } = require("./redisLock");
 
-const PROFILE_TTL = 3600; // 1 hour
+const PROFILE_TTL = 120; // 1 hour
 
 async function getCachedProfile(igUserId) {
   if (!igUserId) return null;
