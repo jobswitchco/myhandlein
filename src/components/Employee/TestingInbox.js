@@ -1826,7 +1826,8 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
                           <Box width={32} mr={1}>
                              {showAvatar && (
                                 <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: "0.8rem" }}>
-                                    {displayName[0]?.toUpperCase()}
+                                    {!selectedConversation?.participant?.profilePic &&
+    displayName[0]?.toUpperCase()}
                                 </Avatar>
                              )}
                           </Box>
