@@ -740,6 +740,9 @@ useEffect(() => {
 // ==================== KEEP YOUR EXISTING fetchMessages UNCHANGED ====================
 // This should remain as is - no changes needed
 
+// ==================== FIXED: Socket Event Handler ====================
+// Remove fetchMessages from dependencies and call it directly
+
 useEffect(() => {
   const socket = getSocket();
 
@@ -944,15 +947,23 @@ useEffect(() => {
 
       console.log(`🎯 Batch ready: ${count} messages inserted, fetching from DB...`);
 
-      // 🔥 Fetch ALL newly inserted messages at once
-      fetchMessages(selectedConversationId, cursor, { limit: 50 })
-        .finally(() => {
+      // 🔥 FIX: Call fetchMessages directly without async/await
+      // Store current cursor value at the time of the event
+      const currentCursor = cursor;
+      
+      (async () => {
+        try {
+          await fetchMessages(selectedConversationId, currentCursor, { limit: 50 });
+        } catch (err) {
+          console.error('Failed to fetch batch:', err);
+        } finally {
           // Release lock after fetch completes
           setTimeout(() => {
             syncingOlderRef.current = false;
             setLoadingMessages(false);
           }, 300);
-        });
+        }
+      })();
 
       return;
     }
@@ -960,8 +971,7 @@ useEffect(() => {
 
   socket.on("inbox:event", handler);
   return () => socket.off("inbox:event", handler);
-}, [selectedConversationId, cursor, fetchMessages]);
-
+}, [selectedConversationId, cursor]); // 🔥 REMOVED fetchMessages from dependencies
 
 useEffect(() => {
   const i = setInterval(async () => {
