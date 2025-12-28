@@ -5448,87 +5448,6 @@ if (
 
 // ==================== UPDATE: syncOlderMessages ====================
 
-// async function syncOlderMessages({ userId, conversationId }) {
-//   const limit = 25;
-//   const lockKey = `ig:sync:older:${conversationId}`;
-//   if (await redisGet(lockKey)) return;
-
-//   await redisSet(lockKey, "1", 90);
-
-//   try {
-//     const user = await USER.findById(userId)
-//       .select("+fbPageAccessToken")
-//       .lean();
-
-//     if (!user?.fbPageAccessToken) return;
-
-//     const conversation = await Conversation.findOne({
-//       _id: conversationId,
-//       creatorId: userId,
-//     }).lean();
-
-//     if (!conversation?.metaThreadId) return;
-
-//     const result = await InstagramService.fetchOlderMessages({
-//       igConversationId: conversation.metaThreadId,
-//       pageAccessToken: user.fbPageAccessToken,
-//       afterCursor: conversation.lastMetaAfterCursor || null,
-//       limit: 25,
-//     });
-
-//     if (!result.messages.length) return;
-
-//     let insertedAny = false;
-
-//     for (const msg of result.messages) {
-// const normalized = await upsertMessage(
-//   msg,
-//   conversation,
-//   user,
-//   { isHydration: true } // 🔑 CRITICAL
-// );
-
-//       if (normalized) insertedAny = true;
-//     }
-
-//  // Update cursor ONLY if Meta returned a full page
-// if (
-//   result.messages.length === limit &&
-//   result.paging?.cursors?.after
-// ) {
-//   await Conversation.updateOne(
-//     { _id: conversationId },
-//     {
-//       $set: {
-//         lastMetaAfterCursor: result.paging.cursors.after,
-//         lastSyncedAt: new Date()
-//       }
-//     }
-//   );
-// }
-
-
-// if (insertedAny) {
-//   await publishSocketEvent({
-//     conversationId,
-//     payload: {
-//       type: "older-messages:ready",
-//       conversationId: conversationId.toString(),
-//     }
-//   });
-// }
-
-
-
-//   } catch (err) {
-//     console.error("❌ syncOlderMessages failed", err);
-//   } finally {
-//     await redisDel(lockKey);
-//   }
-// }
-
-// ==================== UPDATED: syncOlderMessages ====================
-
 async function syncOlderMessages({ userId, conversationId }) {
   const limit = 25;
   const lockKey = `ig:sync:older:${conversationId}`;
@@ -5557,60 +5476,49 @@ async function syncOlderMessages({ userId, conversationId }) {
       limit: 25,
     });
 
-    if (!result.messages.length) {
-      console.log('ℹ️ No more messages from Meta');
-      return;
-    }
+    if (!result.messages.length) return;
 
-    console.log(`📦 Fetched ${result.messages.length} messages from Meta, inserting to DB...`);
-
-    // 🔥 FIX: Collect all inserted messages WITHOUT publishing individually
-    const insertedMessages = [];
+    let insertedAny = false;
 
     for (const msg of result.messages) {
-      const normalized = await upsertMessage(
-        msg,
-        conversation,
-        user,
-        { isHydration: true } // 🔑 CRITICAL - prevents real-time broadcast
-      );
+const normalized = await upsertMessage(
+  msg,
+  conversation,
+  user,
+  { isHydration: true } // 🔑 CRITICAL
+);
 
-      if (normalized) {
-        insertedMessages.push(normalized);
+      if (normalized) insertedAny = true;
+    }
+
+ // Update cursor ONLY if Meta returned a full page
+if (
+  result.messages.length === limit &&
+  result.paging?.cursors?.after
+) {
+  await Conversation.updateOne(
+    { _id: conversationId },
+    {
+      $set: {
+        lastMetaAfterCursor: result.paging.cursors.after,
+        lastSyncedAt: new Date()
       }
     }
+  );
+}
 
-    console.log(`✅ Inserted ${insertedMessages.length} messages to DB`);
 
-    // Update cursor ONLY if Meta returned a full page
-    if (
-      result.messages.length === limit &&
-      result.paging?.cursors?.after
-    ) {
-      await Conversation.updateOne(
-        { _id: conversationId },
-        {
-          $set: {
-            lastMetaAfterCursor: result.paging.cursors.after,
-            lastSyncedAt: new Date()
-          }
-        }
-      );
+if (insertedAny) {
+  await publishSocketEvent({
+    conversationId,
+    payload: {
+      type: "older-messages:ready",
+      conversationId: conversationId.toString(),
     }
+  });
+}
 
-    // 🔥 FIX: Send ONE event with batch count
-    if (insertedMessages.length > 0) {
-      await publishSocketEvent({
-        conversationId,
-        payload: {
-          type: "older-messages:ready",
-          conversationId: conversationId.toString(),
-          count: insertedMessages.length, // ← Tell frontend how many were added
-        }
-      });
 
-      console.log(`🔔 Notified frontend: ${insertedMessages.length} messages ready`);
-    }
 
   } catch (err) {
     console.error("❌ syncOlderMessages failed", err);

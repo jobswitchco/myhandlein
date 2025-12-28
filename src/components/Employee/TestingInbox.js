@@ -518,245 +518,21 @@ useEffect(() => {
 
 
 
-// useEffect(() => {
-//   const socket = getSocket();
-
-//   const handler = (payload) => {
-//   if (
-//   ![
-//     "message:new",
-//     "conversation:updated",
-//     "participant:updated",
-//     "older-messages:ready",
-//   ].includes(payload.type)
-// ) {
-//   return;
-// }
-
-
-//     /* ================= PARTICIPANT UPDATE ================= */
-//     if (payload.type === "participant:updated") {
-//       setConversations((prev) =>
-//         prev.map((c) =>
-//           c._id === payload.conversationId
-//             ? {
-//                 ...c,
-//                 participant: {
-//                   ...c.participant,
-//                   ...payload.data,
-//                 },
-//               }
-//             : c
-//         )
-//       );
-
-//       setSelectedConversation((prev) =>
-//         prev?._id === payload.conversationId
-//           ? {
-//               ...prev,
-//               participant: {
-//                 ...prev.participant,
-//                 ...payload.data,
-//               },
-//             }
-//           : prev
-//       );
-
-//       return;
-//     }
-
-//     /* ================= CONVERSATION UPDATE ================= */
-//     if (payload.type === "conversation:updated") {
-//       const { conversationId, data, reason } = payload;
-
-//       if (reason === "older-sync") return;
-
-//       if (data) {
-//         setConversations((prev) =>
-//           prev.map((c) => {
-//             if (c._id !== conversationId) return c;
-
-//             const lastParticipantMessageAt =
-//               data.lastParticipantMessageAt ??
-//               c.lastParticipantMessageAt;
-
-//             const canReply = computeCanReply(lastParticipantMessageAt);
-
-//             return {
-//               ...c,
-//               ...data,
-//               lastParticipantMessageAt,
-//               canReply,
-//               replyDisabledReason: canReply
-//                 ? null
-//                 : "waiting_for_reply",
-//             };
-//           })
-//         );
-
-//         setSelectedConversation((prev) => {
-//           if (!prev || prev._id !== conversationId) return prev;
-
-//           const lastParticipantMessageAt =
-//             data.lastParticipantMessageAt ??
-//             prev.lastParticipantMessageAt;
-
-//           const canReply = computeCanReply(lastParticipantMessageAt);
-
-//           return {
-//             ...prev,
-//             ...data,
-//             lastParticipantMessageAt,
-//             canReply,
-//             replyDisabledReason: canReply
-//               ? null
-//               : "waiting_for_reply",
-//           };
-//         });
-//       }
-
-//       return;
-//     }
-
-//     /* ================= MESSAGE NEW ================= */
-//   if (payload.type === "message:new") {
-//   const { conversationId, data, conversation } = payload;
-
-//   const isActiveConversation =
-//     conversationId === selectedConversationId;
-
-//   const isFromThem = data?.sender === "them";
-
-//   /* =========================================================
-//      1️⃣ ACTIVE CHAT — APPEND MESSAGE
-//      ========================================================= */
-//   if (isActiveConversation) {
-//     const msgId = String(data._id);
-
-//     if (!messageIdSetRef.current.has(msgId)) {
-//       messageIdSetRef.current.add(msgId);
-//       setRawMessages((prev) => [...prev, data]);
-//     }
-//   }
-
-//   /* =========================================================
-//      2️⃣ AUTO MARK AS READ (CHAT IS OPEN)
-//      ========================================================= */
-//   if (isActiveConversation && isFromThem) {
-//     markConversationAsRead(conversationId); // 🔥 debounced fn
-//   }
-
-//   /* =========================================================
-//      3️⃣ SIDEBAR UPDATE (SOURCE OF TRUTH)
-//      ========================================================= */
-//   setConversations((prev) =>
-//     prev.map((c) => {
-//       if (c._id !== conversationId) return c;
-
-//       const lastParticipantMessageAt =
-//         conversation?.lastParticipantMessageAt ??
-//         (isFromThem ? data.createdAtPlatform : c.lastParticipantMessageAt);
-
-//       const canReply = computeCanReply(lastParticipantMessageAt);
-
-//       return {
-//         ...c,
-//         lastMessage: conversation?.lastMessage ?? c.lastMessage,
-//         lastActivityAt:
-//           conversation?.lastActivityAt ?? data.createdAtPlatform ?? c.lastActivityAt,
-
-//         unreadCount: isActiveConversation
-//           ? 0
-//           : conversation?.unreadCount ?? c.unreadCount,
-
-//         lastParticipantMessageAt,
-//         canReply,
-//         replyDisabledReason: canReply ? null : "waiting_for_reply",
-//       };
-//     })
-//   );
-
-//   /* =========================================================
-//      4️⃣ ACTIVE CONVERSATION SNAPSHOT
-//      ========================================================= */
-//   setSelectedConversation((prev) => {
-//     if (!prev || prev._id !== conversationId) return prev;
-
-//     const lastParticipantMessageAt =
-//       conversation?.lastParticipantMessageAt ??
-//       (isFromThem ? data.createdAtPlatform : prev.lastParticipantMessageAt);
-
-//     const canReply = computeCanReply(lastParticipantMessageAt);
-
-//     return {
-//       ...prev,
-//       lastMessage: conversation?.lastMessage ?? prev.lastMessage,
-//       lastActivityAt:
-//         conversation?.lastActivityAt ?? data.createdAtPlatform ?? prev.lastActivityAt,
-
-//       unreadCount: 0,
-//       lastParticipantMessageAt,
-//       canReply,
-//       replyDisabledReason: canReply ? null : "waiting_for_reply",
-//     };
-//   });
-// }
-
-// if (payload.type === "conversation:created") {
-//   setConversations(prev => {
-//     if (conversationIdSetRef.current.has(payload.data._id)) return prev;
-
-//     conversationIdSetRef.current.add(payload.data._id);
-//     return [payload.data, ...prev];
-//   });
-
-//   setSelectedConversation(payload.data);
-//   setSelectedConversationId(payload.data._id);
-//   return;
-// }
-
-// if (payload.type === "older-messages:ready") {
-//   const { conversationId } = payload;
-//   if (conversationId !== selectedConversationId) return;
-
-//   // 🔥 IMPORTANT: fetch more than UI page size
-//   fetchMessages(selectedConversationId, cursor, { limit: 25 });
-
-//   return;
-// }
-
-
-
-
-
-//   };
-
-//   socket.on("inbox:event", handler);
-//   return () => socket.off("inbox:event", handler);
-// }, [selectedConversationId]);
-
-
-
-// ==================== KEEP YOUR EXISTING fetchMessages UNCHANGED ====================
-// This should remain as is - no changes needed
-
-// ==================== FIXED: Socket Event Handler ====================
-// Remove fetchMessages from dependencies and call it directly
-
 useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
-    if (
-      ![
-        "message:new",
-        "conversation:updated",
-        "participant:updated",
-        "older-messages:ready",
-      ].includes(payload.type)
-    ) {
-      return;
-    }
+  if (
+  ![
+    "message:new",
+    "conversation:updated",
+    "participant:updated",
+    "older-messages:ready",
+  ].includes(payload.type)
+) {
+  return;
+}
+
 
     /* ================= PARTICIPANT UPDATE ================= */
     if (payload.type === "participant:updated") {
@@ -843,135 +619,126 @@ useEffect(() => {
     }
 
     /* ================= MESSAGE NEW ================= */
-    if (payload.type === "message:new") {
-      const { conversationId, data, conversation } = payload;
+  if (payload.type === "message:new") {
+  const { conversationId, data, conversation } = payload;
 
-      const isActiveConversation =
-        conversationId === selectedConversationId;
+  const isActiveConversation =
+    conversationId === selectedConversationId;
 
-      const isFromThem = data?.sender === "them";
+  const isFromThem = data?.sender === "them";
 
-      /* =========================================================
-         1️⃣ ACTIVE CHAT — APPEND MESSAGE
-         ========================================================= */
-      if (isActiveConversation) {
-        const msgId = String(data._id);
+  /* =========================================================
+     1️⃣ ACTIVE CHAT — APPEND MESSAGE
+     ========================================================= */
+  if (isActiveConversation) {
+    const msgId = String(data._id);
 
-        if (!messageIdSetRef.current.has(msgId)) {
-          messageIdSetRef.current.add(msgId);
-          setRawMessages((prev) => [...prev, data]);
-        }
-      }
-
-      /* =========================================================
-         2️⃣ AUTO MARK AS READ (CHAT IS OPEN)
-         ========================================================= */
-      if (isActiveConversation && isFromThem) {
-        markConversationAsRead(conversationId);
-      }
-
-      /* =========================================================
-         3️⃣ SIDEBAR UPDATE (SOURCE OF TRUTH)
-         ========================================================= */
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c._id !== conversationId) return c;
-
-          const lastParticipantMessageAt =
-            conversation?.lastParticipantMessageAt ??
-            (isFromThem ? data.createdAtPlatform : c.lastParticipantMessageAt);
-
-          const canReply = computeCanReply(lastParticipantMessageAt);
-
-          return {
-            ...c,
-            lastMessage: conversation?.lastMessage ?? c.lastMessage,
-            lastActivityAt:
-              conversation?.lastActivityAt ?? data.createdAtPlatform ?? c.lastActivityAt,
-
-            unreadCount: isActiveConversation
-              ? 0
-              : conversation?.unreadCount ?? c.unreadCount,
-
-            lastParticipantMessageAt,
-            canReply,
-            replyDisabledReason: canReply ? null : "waiting_for_reply",
-          };
-        })
-      );
-
-      /* =========================================================
-         4️⃣ ACTIVE CONVERSATION SNAPSHOT
-         ========================================================= */
-      setSelectedConversation((prev) => {
-        if (!prev || prev._id !== conversationId) return prev;
-
-        const lastParticipantMessageAt =
-          conversation?.lastParticipantMessageAt ??
-          (isFromThem ? data.createdAtPlatform : prev.lastParticipantMessageAt);
-
-        const canReply = computeCanReply(lastParticipantMessageAt);
-
-        return {
-          ...prev,
-          lastMessage: conversation?.lastMessage ?? prev.lastMessage,
-          lastActivityAt:
-            conversation?.lastActivityAt ?? data.createdAtPlatform ?? prev.lastActivityAt,
-
-          unreadCount: 0,
-          lastParticipantMessageAt,
-          canReply,
-          replyDisabledReason: canReply ? null : "waiting_for_reply",
-        };
-      });
+    if (!messageIdSetRef.current.has(msgId)) {
+      messageIdSetRef.current.add(msgId);
+      setRawMessages((prev) => [...prev, data]);
     }
+  }
 
-    if (payload.type === "conversation:created") {
-      setConversations(prev => {
-        if (conversationIdSetRef.current.has(payload.data._id)) return prev;
+  /* =========================================================
+     2️⃣ AUTO MARK AS READ (CHAT IS OPEN)
+     ========================================================= */
+  if (isActiveConversation && isFromThem) {
+    markConversationAsRead(conversationId); // 🔥 debounced fn
+  }
 
-        conversationIdSetRef.current.add(payload.data._id);
-        return [payload.data, ...prev];
-      });
+  /* =========================================================
+     3️⃣ SIDEBAR UPDATE (SOURCE OF TRUTH)
+     ========================================================= */
+  setConversations((prev) =>
+    prev.map((c) => {
+      if (c._id !== conversationId) return c;
 
-      setSelectedConversation(payload.data);
-      setSelectedConversationId(payload.data._id);
-      return;
-    }
+      const lastParticipantMessageAt =
+        conversation?.lastParticipantMessageAt ??
+        (isFromThem ? data.createdAtPlatform : c.lastParticipantMessageAt);
 
-    /* ================= 🔥 FIXED: OLDER MESSAGES READY ================= */
-    if (payload.type === "older-messages:ready") {
-      const { conversationId, count } = payload;
-      
-      if (conversationId !== selectedConversationId) return;
+      const canReply = computeCanReply(lastParticipantMessageAt);
 
-      console.log(`🎯 Batch ready: ${count} messages inserted, fetching from DB...`);
+      return {
+        ...c,
+        lastMessage: conversation?.lastMessage ?? c.lastMessage,
+        lastActivityAt:
+          conversation?.lastActivityAt ?? data.createdAtPlatform ?? c.lastActivityAt,
 
-      // 🔥 FIX: Call fetchMessages directly without async/await
-      // Store current cursor value at the time of the event
-      const currentCursor = cursor;
-      
-      (async () => {
-        try {
-          await fetchMessages(selectedConversationId, currentCursor, { limit: 50 });
-        } catch (err) {
-          console.error('Failed to fetch batch:', err);
-        } finally {
-          // Release lock after fetch completes
-          setTimeout(() => {
-            syncingOlderRef.current = false;
-            setLoadingMessages(false);
-          }, 300);
-        }
-      })();
+        unreadCount: isActiveConversation
+          ? 0
+          : conversation?.unreadCount ?? c.unreadCount,
 
-      return;
-    }
+        lastParticipantMessageAt,
+        canReply,
+        replyDisabledReason: canReply ? null : "waiting_for_reply",
+      };
+    })
+  );
+
+  /* =========================================================
+     4️⃣ ACTIVE CONVERSATION SNAPSHOT
+     ========================================================= */
+  setSelectedConversation((prev) => {
+    if (!prev || prev._id !== conversationId) return prev;
+
+    const lastParticipantMessageAt =
+      conversation?.lastParticipantMessageAt ??
+      (isFromThem ? data.createdAtPlatform : prev.lastParticipantMessageAt);
+
+    const canReply = computeCanReply(lastParticipantMessageAt);
+
+    return {
+      ...prev,
+      lastMessage: conversation?.lastMessage ?? prev.lastMessage,
+      lastActivityAt:
+        conversation?.lastActivityAt ?? data.createdAtPlatform ?? prev.lastActivityAt,
+
+      unreadCount: 0,
+      lastParticipantMessageAt,
+      canReply,
+      replyDisabledReason: canReply ? null : "waiting_for_reply",
+    };
+  });
+}
+
+if (payload.type === "conversation:created") {
+  setConversations(prev => {
+    if (conversationIdSetRef.current.has(payload.data._id)) return prev;
+
+    conversationIdSetRef.current.add(payload.data._id);
+    return [payload.data, ...prev];
+  });
+
+  setSelectedConversation(payload.data);
+  setSelectedConversationId(payload.data._id);
+  return;
+}
+
+if (payload.type === "older-messages:ready") {
+  const { conversationId } = payload;
+  if (conversationId !== selectedConversationId) return;
+
+  // 🔥 IMPORTANT: fetch more than UI page size
+  fetchMessages(selectedConversationId, cursor, { limit: 25 });
+
+  return;
+}
+
+
+
+
+
   };
 
   socket.on("inbox:event", handler);
   return () => socket.off("inbox:event", handler);
-}, [selectedConversationId, cursor]); // 🔥 REMOVED fetchMessages from dependencies
+}, [selectedConversationId]);
+
+
+
+// ==================== KEEP YOUR EXISTING fetchMessages UNCHANGED ====================
+// This should remain as is - no changes needed
 
 useEffect(() => {
   const i = setInterval(async () => {
@@ -1224,47 +991,6 @@ useLayoutEffect(() => {
 }, [conversations, loadingOlderConversations]);
 
 
-// const handleScroll = (e) => {
-//   const el = e.target;
-
-//   // Only when user reaches top
-//   if (el.scrollTop !== 0) return;
-
-//   // Prevent parallel fetches
-//   if (loadingMessages || syncingOlderRef.current) return;
-
-//   /**
-//    * 1️⃣ DB HAS MORE → paginate DB
-//    */
-//   if (hasMore) {
-//     fetchMessages(selectedConversationId, cursor);
-//     return;
-//   }
-
-//   /**
-//    * 2️⃣ DB EXHAUSTED → hydrate from Meta
-//    */
-//   console.log("🌐 DB exhausted → fetching older messages from Instagram");
-
-//   syncingOlderRef.current = true;
-//   setLoadingMessages(true);
-
-//   axios
-//     .post(
-//       `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
-//       {},
-//       { withCredentials: true }
-//     )
-//     .finally(() => {
-//       // release lock after cooldown
-//       setTimeout(() => {
-//         syncingOlderRef.current = false;
-//         setLoadingMessages(false);
-//       }, 800);
-//     });
-// };
-
-
 const handleScroll = (e) => {
   const el = e.target;
 
@@ -1272,24 +998,20 @@ const handleScroll = (e) => {
   if (el.scrollTop !== 0) return;
 
   // Prevent parallel fetches
-  if (loadingMessages || syncingOlderRef.current) {
-    console.log('⏭️ Scroll blocked: already loading');
-    return;
-  }
+  if (loadingMessages || syncingOlderRef.current) return;
 
   /**
    * 1️⃣ DB HAS MORE → paginate DB
    */
   if (hasMore) {
-    console.log('📖 Fetching from DB cursor...');
     fetchMessages(selectedConversationId, cursor);
     return;
   }
 
   /**
-   * 2️⃣ DB EXHAUSTED → hydrate from Meta (BLOCKING)
+   * 2️⃣ DB EXHAUSTED → hydrate from Meta
    */
-  console.log("🌐 DB exhausted → syncing older messages from Instagram");
+  console.log("🌐 DB exhausted → fetching older messages from Instagram");
 
   syncingOlderRef.current = true;
   setLoadingMessages(true);
@@ -1300,16 +1022,16 @@ const handleScroll = (e) => {
       {},
       { withCredentials: true }
     )
-    .then(() => {
-      console.log('✅ Meta sync completed, waiting for socket notification...');
-      // DON'T fetch here - wait for socket event
-    })
-    .catch(err => {
-      console.error('❌ Meta sync failed:', err);
-      setLoadingMessages(false);
-      syncingOlderRef.current = false;
+    .finally(() => {
+      // release lock after cooldown
+      setTimeout(() => {
+        syncingOlderRef.current = false;
+        setLoadingMessages(false);
+      }, 800);
     });
 };
+
+
 
 
 
