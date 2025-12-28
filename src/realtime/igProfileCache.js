@@ -1,7 +1,7 @@
 const { redisGet, redisSet, redisDel } = require("./redisBridge");
 const { acquireLock, releaseLock } = require("./redisLock");
 
-const PROFILE_TTL = 120; // 1 hour
+const PROFILE_TTL = 60; // 1 hour
 
 async function getCachedProfile(igUserId) {
   if (!igUserId) return null;
@@ -84,8 +84,6 @@ async function fetchAndCacheProfileSafely({
       ttl: PROFILE_TTL,
     });
 
-    console.log('payloadName : ', payload.name);
-    console.log('profilePic : ', payload.profilePic);
     
     const setResult = await redisSet(cacheKey, payload, PROFILE_TTL);
     
@@ -96,21 +94,21 @@ async function fetchAndCacheProfileSafely({
     }
 
     // Emit socket event
-    if (conversationId && publishSocketEvent) {
-     await publishSocketEvent({
-  conversationId,
-  payload: {
-    type: "participant:updated",
-    data: {
-      igUserId,
-      name: payload.name,
-      profilePic: payload.profilePic,
+  if (publishSocketEvent) {
+  await publishSocketEvent({
+    payload: {
+      type: "participant:updated",
+      data: {
+        igUserId,
+        name: payload.name,
+        profilePic: payload.profilePic,
+      },
     },
-  },
-});
+  });
 
-      console.log(`📡 Emitted profile update for conversation ${conversationId}`);
-    }
+  console.log(`📡 Emitted profile update for IG user ${igUserId}`);
+}
+
 
     return payload;
   } catch (err) {
