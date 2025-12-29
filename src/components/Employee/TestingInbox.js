@@ -117,6 +117,8 @@ const conversationIdSetRef = useRef(new Set());
 const appendedInLastFetchRef = useRef(false);
 const fetchModeRef = useRef("initial"); 
 const isFetchingMessagesRef = useRef(false);
+const didInitialScrollRef = useRef(false);
+
 
 
 
@@ -1003,20 +1005,37 @@ fetchMessages(selectedConversation._id);
 
 }, [selectedConversation?._id, fetchMessages]);
 
+useEffect(() => {
+  if (!selectedConversation?._id) return;
+
+  setRawMessages([]);
+  messageIdSetRef.current.clear();
+  setCursor(null);
+  setHasMore(true);
+
+  fetchModeRef.current = "initial";
+  didInitialScrollRef.current = false; // 🔑
+
+  fetchMessages(selectedConversation._id);
+}, [selectedConversation?._id]);
+
+
   /* ---------- SCROLL MANAGEMENT ---------- */
 useLayoutEffect(() => {
   const container = messagesContainerRef.current;
-  if (!container || prevScrollHeightRef.current == null) return;
+  if (!container) return;
+
+  // ✅ ONLY for first render of a conversation
+  if (fetchModeRef.current !== "initial") return;
+  if (didInitialScrollRef.current) return;
+  if (messages.length === 0) return;
 
   requestAnimationFrame(() => {
-    const newScrollHeight = container.scrollHeight;
-    const delta = newScrollHeight - prevScrollHeightRef.current;
-
-    container.scrollTop += delta; // ✅ anchor position
-
-    prevScrollHeightRef.current = null;
+    container.scrollTop = container.scrollHeight;
+    didInitialScrollRef.current = true;
   });
 }, [messages.length]);
+
 
 
 useLayoutEffect(() => {
