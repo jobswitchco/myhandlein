@@ -924,10 +924,14 @@ const fetchMessages = useCallback(
       setLoadingMessages(true);
       
       // 🔥 Capture scroll height BEFORE any changes
-      if (cursorParam && messagesContainerRef.current) {
-        prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
-        console.log('📏 Captured scroll height:', prevScrollHeightRef.current);
-      }
+   if (cursorParam && messagesContainerRef.current) {
+  prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
+
+  console.log("📏 Captured scroll height (pagination):",
+    prevScrollHeightRef.current
+  );
+}
+
 
       const res = await axios.get(
         `${baseUrl}/conversations/${conversationId}/messages`,
@@ -1044,12 +1048,13 @@ useLayoutEffect(() => {
   if (!container) return;
 
   // 🔥 FIX: Better scroll restoration logic
-  if (!prevScrollHeightRef.current) {
-    // ✅ New conversation - scroll to bottom
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-    });
-  } else {
+if (prevScrollHeightRef.current === null) {
+  // Only auto-scroll on FIRST load of conversation
+  requestAnimationFrame(() => {
+    container.scrollTop = container.scrollHeight;
+  });
+}
+ else {
     // ✅ Pagination - maintain EXACT position (don't jump to bottom)
     requestAnimationFrame(() => {
       const newScrollHeight = container.scrollHeight;
@@ -1060,15 +1065,6 @@ useLayoutEffect(() => {
       // If they were at scrollTop=0, after prepend they should be at scrollTop=heightDiff
       const oldScrollTop = container.scrollTop;
       container.scrollTop = oldScrollTop + heightDiff;
-      
-      console.log('📍 Scroll maintained:', {
-        oldHeight: oldScrollHeight,
-        newHeight: newScrollHeight,
-        heightDiff,
-        oldScrollTop,
-        newScrollTop: container.scrollTop,
-        scrollbarVisible: newScrollHeight > container.clientHeight
-      });
       
       prevScrollHeightRef.current = null;
     });
