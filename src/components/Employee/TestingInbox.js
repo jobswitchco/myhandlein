@@ -917,21 +917,16 @@ useEffect(() => {
 }, [selectedConversationId]);
 
 
-  /* ---------- FETCH MESSAGES ---------- */
 const fetchMessages = useCallback(
   async (conversationId, cursorParam = null, opts = {}) => {
     try {
       setLoadingMessages(true);
       
       // 🔥 Capture scroll height BEFORE any changes
-   if (cursorParam && messagesContainerRef.current) {
-  prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
-
-  console.log("📏 Captured scroll height (pagination):",
-    prevScrollHeightRef.current
-  );
-}
-
+      if (cursorParam && messagesContainerRef.current) {
+        prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
+        console.log("📏 Captured scroll height (pagination):", prevScrollHeightRef.current);
+      }
 
       const res = await axios.get(
         `${baseUrl}/conversations/${conversationId}/messages`,
@@ -944,7 +939,17 @@ const fetchMessages = useCallback(
       );
 
       const payload = res.data?.data;
-      if (!payload) return;
+      if (!payload) {
+        console.log('⚠️ No payload returned');
+        return;
+      }
+
+      console.log('📥 Received messages:', {
+        count: payload.messages?.length,
+        hasMore: payload.hasMore,
+        nextCursor: payload.nextCursor,
+        dbExhausted: payload.dbExhausted
+      });
 
       /* =====================================================
          🔥 BLOCKING SYNC: If DB exhausted, sync and get messages
@@ -970,22 +975,36 @@ const fetchMessages = useCallback(
 
           const { messages, hasMore, nextCursor } = syncRes.data.data;
 
-if (messages.length > 0) {
-  // 🔥 Prepend older messages
-  setRawMessages(prev => [...messages, ...prev]);
+          if (messages.length > 0) {
+            // 🔥 Add to dedupe set
+            messages.forEach(msg => {
+              const msgId = typeof msg._id === "object"
+                ? msg._id.toString()
+                : String(msg._id);
+              messageIdSetRef.current.add(msgId);
+            });
 
-  // 🔥 CRITICAL FIX: move cursor backward
-  if (nextCursor) {
-    setCursor(nextCursor);
-  }
+            // 🔥 Prepend older messages
+            setRawMessages(prev => [...messages, ...prev]);
 
-  setHasMore(hasMore);
-}
+            // 🔥 CRITICAL FIX: Update cursor and hasMore
+            setCursor(nextCursor);
+            setHasMore(hasMore);
+            
+            console.log('✅ Synced messages:', {
+              count: messages.length,
+              newCursor: nextCursor,
+              newHasMore: hasMore
+            });
+          } else {
+            console.log('ℹ️ No messages from sync-older');
+            setHasMore(false);
+          }
 
-          
           return; // ✅ Done - scroll restoration will happen automatically
         } catch (err) {
           console.error("❌ Sync failed:", err);
+          setHasMore(false); // Stop trying
         } finally {
           syncingOlderRef.current = false;
         }
@@ -1002,9 +1021,18 @@ if (messages.length > 0) {
           ? msg._id.toString()
           : String(msg._id);
 
-        if (messageIdSetRef.current.has(msgId)) return false;
+        if (messageIdSetRef.current.has(msgId)) {
+          console.log('⏭️ Skipping duplicate:', msgId);
+          return false;
+        }
         messageIdSetRef.current.add(msgId);
         return true;
+      });
+
+      console.log('📝 Processing messages:', {
+        total: payload.messages.length,
+        new: newMessages.length,
+        filtered: payload.messages.length - newMessages.length
       });
 
       // ✅ Prepend when paginating, replace on initial load
@@ -1012,8 +1040,15 @@ if (messages.length > 0) {
         cursorParam ? [...newMessages, ...prev] : newMessages
       );
 
+      // 🔥 CRITICAL: Always update cursor and hasMore
       setCursor(payload.nextCursor);
       setHasMore(payload.hasMore);
+
+      console.log('✅ Updated state:', {
+        newCursor: payload.nextCursor,
+        newHasMore: payload.hasMore,
+        messageCount: newMessages.length
+      });
 
     } catch (err) {
       console.error("Message fetch failed", err);
@@ -1047,24 +1082,36 @@ useLayoutEffect(() => {
   const container = messagesContainerRef.current;
   if (!container) return;
 
-  // 🔥 FIX: Better scroll restoration logic
-if (prevScrollHeightRef.current === null) {
-  // Only auto-scroll on FIRST load of conversation
-  requestAnimationFrame(() => {
-    container.scrollTop = container.scrollHeight;
+  console.log('📐 Scroll restoration check:', {
+    prevScrollHeight: prevScrollHeightRef.current,
+    currentScrollHeight: container.scrollHeight,
+    messageCount: messages.length
   });
-}
- else {
+
+  // 🔥 FIX: Better scroll restoration logic
+  if (prevScrollHeightRef.current === null) {
+    // Only auto-scroll on FIRST load of conversation
+    requestAnimationFrame(() => {
+      console.log('📍 Initial scroll to bottom');
+      container.scrollTop = container.scrollHeight;
+    });
+  } else {
     // ✅ Pagination - maintain EXACT position (don't jump to bottom)
     requestAnimationFrame(() => {
       const newScrollHeight = container.scrollHeight;
       const oldScrollHeight = prevScrollHeightRef.current;
       const heightDiff = newScrollHeight - oldScrollHeight;
       
-      // 🔥 FIX #1: Keep user at same visual position
-      // If they were at scrollTop=0, after prepend they should be at scrollTop=heightDiff
-      const oldScrollTop = container.scrollTop;
-      container.scrollTop = oldScrollTop + heightDiff;
+      console.log('📍 Restoring scroll position:', {
+        oldScrollHeight,
+        newScrollHeight,
+        heightDiff,
+        oldScrollTop: container.scrollTop,
+        newScrollTop: container.scrollTop + heightDiff
+      });
+      
+      // 🔥 FIX: Keep user at same visual position
+      container.scrollTop = container.scrollTop + heightDiff;
       
       prevScrollHeightRef.current = null;
     });
@@ -1093,18 +1140,44 @@ useLayoutEffect(() => {
 const handleScroll = (e) => {
   const el = e.target;
 
+  // 🔥 FIX: Check scroll at TOP (not bottom) since messages prepend upward
+  const atTop = el.scrollTop < 100; // Trigger when near top
+
+  console.log('📊 Message Scroll Debug:', {
+    scrollTop: el.scrollTop,
+    atTop,
+    loadingMessages,
+    syncingOlder: syncingOlderRef.current,
+    hasMore,
+    cursor: cursor ? 'exists' : 'null',
+    cursorValue: cursor
+  });
+
   // Only trigger at top
-  if (el.scrollTop > 50) return;
+  if (!atTop) return;
 
   // Prevent parallel fetches
-  if (loadingMessages || syncingOlderRef.current) return;
+  if (loadingMessages || syncingOlderRef.current) {
+    console.log('⏭️ Skipping: already loading');
+    return;
+  }
 
+  // Check if we have more messages to load
+  if (!hasMore) {
+    console.log('⏭️ No more messages to load');
+    return;
+  }
+
+  // 🔥 FIX: Ensure cursor exists before fetching
+  if (!cursor) {
+    console.log('⚠️ No cursor available, cannot paginate');
+    return;
+  }
+
+  console.log('✅ Fetching older messages with cursor:', cursor);
+  
   // 🔥 Simple: just call fetchMessages
-  // It will handle both DB pagination AND Meta sync internally
-if (hasMore && cursor) {
   fetchMessages(selectedConversationId, cursor);
-}
-
 };
 
 
