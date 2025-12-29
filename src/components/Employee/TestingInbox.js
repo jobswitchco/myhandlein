@@ -964,29 +964,20 @@ const fetchMessages = useCallback(
             { withCredentials: true }
           );
 
-          const syncedMessages = syncRes.data?.data?.messages || [];
-          
-          console.log(`✅ Got ${syncedMessages.length} messages from sync`);
+          const { messages, hasMore, nextCursor } = syncRes.data.data;
 
-          if (syncedMessages.length > 0) {
-            // 🔥 Filter out duplicates
-            const newMessages = syncedMessages.filter(msg => {
-              const msgId = typeof msg._id === "object"
-                ? msg._id.toString()
-                : String(msg._id);
+if (messages.length > 0) {
+  // 🔥 Prepend older messages
+  setRawMessages(prev => [...messages, ...prev]);
 
-              if (messageIdSetRef.current.has(msgId)) return false;
-              messageIdSetRef.current.add(msgId);
-              return true;
-            });
+  // 🔥 CRITICAL FIX: move cursor backward
+  if (nextCursor) {
+    setCursor(nextCursor);
+  }
 
-            // 🔥 Prepend synced messages
-            setRawMessages(prev => [...newMessages, ...prev]);
-            
-            // 🔥 Update pagination state
-            setHasMore(syncRes.data?.data?.hasMore || false);
-            // Note: nextCursor comes from DB query, not Meta sync
-          }
+  setHasMore(hasMore);
+}
+
           
           return; // ✅ Done - scroll restoration will happen automatically
         } catch (err) {

@@ -4975,23 +4975,32 @@ router.post("/conversations/:id/sync-older", authenticateToken, async (req, res)
   console.log('🔄 SYNC OLDER STARTED');
 
   try {
-    // 🔥 BLOCKING - wait for sync to complete
-    const result = await syncOlderMessages({ userId, conversationId });
-    
-    console.log('✅ SYNC OLDER COMPLETED:', {
-      fetchedCount: result.messages?.length || 0,
-      hasMore: result.hasMore
-    });
+  const result = await syncOlderMessages({ userId, conversationId });
 
-    // 🔥 Return the fetched messages directly
-    res.json({ 
-      success: true, 
-      data: {
-        messages: result.messages || [],
-        hasMore: result.hasMore,
-        nextCursor: result.nextCursor
-      }
-    });
+// 🔥 IMPORTANT: ensure messages are ordered oldest → newest
+const insertedMessages = result.messages || [];
+insertedMessages.sort(
+  (a, b) =>
+    new Date(a.createdAtPlatform) - new Date(b.createdAtPlatform)
+);
+
+// 🔥 Cursor MUST move backward
+const oldest = insertedMessages[0];
+
+res.json({
+  success: true,
+  data: {
+    messages: insertedMessages,
+    hasMore: result.hasMore,
+    nextCursor: oldest
+      ? {
+          createdAtPlatform: oldest.createdAtPlatform,
+          _id: oldest._id
+        }
+      : null
+  }
+});
+
   } catch (err) {
     console.error('❌ SYNC OLDER FAILED:', err);
     res.status(500).json({ 
