@@ -145,6 +145,17 @@ const openNotesCentered = () => {
 const [initialNotesText, setInitialNotesText] = useState("");
 
 const isNotesDirty = notesText.trim() !== initialNotesText.trim();
+const cursorRef = useRef(null);
+
+const isPaginatingRef = useRef(false);
+
+
+
+useEffect(() => {
+  cursorRef.current = cursor;
+}, [cursor]);
+
+
 
 
 const handleDrag = (e) => {
@@ -687,6 +698,7 @@ if (payload.type === "participant:updated") {
 
     /* ================= MESSAGE NEW ================= */
   if (payload.type === "message:new") {
+     if (isPaginatingRef.current) return;
   const { conversationId, data, conversation } = payload;
 
   const isActiveConversation =
@@ -783,14 +795,14 @@ if (payload.type === "conversation:created") {
 }
 
 if (payload.type === "older-messages:ready") {
-  const { conversationId } = payload;
-  if (conversationId !== selectedConversationId) return;
+  if (payload.conversationId !== selectedConversationId) return;
 
-  // 🔥 IMPORTANT: fetch more than UI page size
-  fetchMessages(selectedConversationId, cursor, { limit: 25 });
+  syncingOlderRef.current = false;
 
-  return;
+  // IMPORTANT: use CURRENT cursor state
+  fetchMessages(selectedConversationId, cursorRef.current);
 }
+
 
 
 
@@ -953,30 +965,25 @@ const fetchMessages = useCallback(
          🚨 ADD THE SYNC-OLDER LOGIC RIGHT HERE
          ===================================================== */
 
-      if (
-        !payload.hasMore &&
-        payload.dbExhausted &&
-        cursorParam &&
-        !syncingOlderRef.current
-      ) {
-        syncingOlderRef.current = true;
+    if (
+  !payload.hasMore &&
+  payload.dbExhausted &&
+  cursorParam &&
+  !syncingOlderRef.current
+) {
+  isPaginatingRef.current = true;
 
-        try {
-          console.log("🔄 DB exhausted → syncing older messages");
+  await axios.post(
+    `${baseUrl}/conversations/${conversationId}/sync-older`,
+    {},
+    { withCredentials: true }
+  );
 
-          await axios.post(
-            `${baseUrl}/conversations/${conversationId}/sync-older`,
-            {},
-            { withCredentials: true }
-          );
+  // ⛔ DO NOT refetch here
+  // wait for socket: older-messages:ready
+  return;
+}
 
-          // 🔁 re-fetch AFTER sync (same cursor)
-          await fetchMessages(conversationId, cursorParam);
-          return; // 🚨 stop this execution
-        } finally {
-          syncingOlderRef.current = false;
-        }
-      }
 
       /* =====================================================
          NORMAL FLOW CONTINUES BELOW
@@ -1006,6 +1013,7 @@ const fetchMessages = useCallback(
       console.error("Message fetch failed", err);
     } finally {
       setLoadingMessages(false);
+      isPaginatingRef.current = false;
     }
   },
   []
@@ -1040,7 +1048,8 @@ useLayoutEffect(() => {
     // ✅ FIX: Maintain scroll position when prepending messages
     const newScrollHeight = container.scrollHeight;
     const heightDiff = newScrollHeight - prevScrollHeightRef.current;
-    const currentScroll = container.scrollTop;
+    container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
+
     
     // Add the height difference to current scroll position
     container.scrollTop = currentScroll + heightDiff;

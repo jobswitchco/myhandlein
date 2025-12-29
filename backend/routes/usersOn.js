@@ -5200,22 +5200,6 @@ async function publishSocketEvent({ conversationId, payload }) {
   }
 }
 
-// Add this function to your backend routes file
-async function publishProfileUpdate({ creatorId, igUserId, name, profilePic }) {
-  try {
-    // Publish to creator room (for sidebar)
-    await redis.publish(
-      `inbox:creator:${creatorId}`,
-      JSON.stringify({
-        type: "participant:updated",
-        data: { igUserId, name, profilePic }
-      })
-    );
-    console.log(`✅ Published profile update to creator ${creatorId}`);
-  } catch (err) {
-    console.error('❌ Failed to publish profile update:', err.message);
-  }
-}
 
 // ==================== UPDATE: syncInstagramConversations ====================
 

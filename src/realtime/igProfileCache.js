@@ -2,7 +2,7 @@ const { redisGet, redisSet, redisDel } = require("./redisBridge");
 const { acquireLock, releaseLock } = require("./redisLock");
 const axios = require("axios");
 
-const PROFILE_TTL = 23 * 60 * 60; // 82800 seconds (23 hours)
+const PROFILE_TTL = 120;
 
 const REDIS_BRIDGE_URL = "http://34.180.49.15:3000";
 
@@ -69,10 +69,12 @@ async function fetchAndCacheProfileSafely({
 
   // Lock to prevent duplicate fetches
   const locked = await acquireLock(lockKey, 30);
-  if (!locked) {
-    console.log(`🔒 Failed to acquire lock for ${igUserId}, returning cached`);
-    return cached;
-  }
+ if (!locked) {
+  // wait briefly for cache to populate
+  await new Promise(r => setTimeout(r, 300));
+  return await getCachedProfile(igUserId);
+}
+
 
   try {
     console.log(`🔄 Fetching profile from Instagram for ${igUserId}...`);
