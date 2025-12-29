@@ -115,8 +115,6 @@ const loadingConversationsRef = useRef(false); // 🔥 Prevent duplicate calls
 // 🔒 DEDUPE SET FOR CONVERSATIONS (CRITICAL)
 const conversationIdSetRef = useRef(new Set());
 const appendedInLastFetchRef = useRef(false);
-const [hasMoreOnMeta, setHasMoreOnMeta] = useState(true);
-
 
  const [notesOpen, setNotesOpen] = useState(false);
   const [notesText, setNotesText] = useState("");
@@ -603,197 +601,218 @@ useEffect(() => {
   const socket = getSocket();
 
   const handler = (payload) => {
-    if (
-      ![
-        "message:new",
-        "conversation:updated",
-        "participant:updated",
-      ].includes(payload.type)
-    ) {
-      return;
-    }
+  if (
+  ![
+    "message:new",
+    "conversation:updated",
+    "participant:updated",
+    "older-messages:ready",
+  ].includes(payload.type)
+) {
+  return;
+}
+
 
     /* ================= PARTICIPANT UPDATE ================= */
-    if (payload.type === "participant:updated") {
-      setConversations(prev =>
-        prev.map(c =>
-          c.participant?.igUserId === payload.data.igUserId
-            ? {
-                ...c,
-                participant: {
-                  ...c.participant,
-                  ...payload.data,
-                },
-              }
-            : c
-        )
-      );
+if (payload.type === "participant:updated") {
+  setConversations(prev =>
+    prev.map(c =>
+      c.participant?.igUserId === payload.data.igUserId
+        ? {
+            ...c,
+            participant: {
+              ...c.participant,
+              ...payload.data,
+            },
+          }
+        : c
+    )
+  );
 
-      setSelectedConversation(prev =>
-        prev?.participant?.igUserId === payload.data.igUserId
-          ? {
-              ...prev,
-              participant: {
-                ...prev.participant,
-                ...payload.data,
-              },
-            }
-          : prev
-      );
-    }
+  setSelectedConversation(prev =>
+    prev?.participant?.igUserId === payload.data.igUserId
+      ? {
+          ...prev,
+          participant: {
+            ...prev.participant,
+            ...payload.data,
+          },
+        }
+      : prev
+  );
+}
+
 
     /* ================= CONVERSATION UPDATE ================= */
     if (payload.type === "conversation:updated") {
-      const { conversationId, data } = payload;
+      const { conversationId, data, reason } = payload;
 
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c._id !== conversationId) return c;
+      if (reason === "older-sync") return;
+
+      if (data) {
+        setConversations((prev) =>
+          prev.map((c) => {
+            if (c._id !== conversationId) return c;
+
+            const lastParticipantMessageAt =
+              data.lastParticipantMessageAt ??
+              c.lastParticipantMessageAt;
+
+            const canReply = computeCanReply(lastParticipantMessageAt);
+
+            return {
+              ...c,
+              ...data,
+              lastParticipantMessageAt,
+              canReply,
+              replyDisabledReason: canReply
+                ? null
+                : "waiting_for_reply",
+            };
+          })
+        );
+
+        setSelectedConversation((prev) => {
+          if (!prev || prev._id !== conversationId) return prev;
 
           const lastParticipantMessageAt =
-            data.lastParticipantMessageAt ?? c.lastParticipantMessageAt;
+            data.lastParticipantMessageAt ??
+            prev.lastParticipantMessageAt;
 
           const canReply = computeCanReply(lastParticipantMessageAt);
 
           return {
-            ...c,
+            ...prev,
             ...data,
             lastParticipantMessageAt,
             canReply,
-            replyDisabledReason: canReply ? null : "waiting_for_reply",
+            replyDisabledReason: canReply
+              ? null
+              : "waiting_for_reply",
           };
-        })
-      );
-
-      setSelectedConversation((prev) => {
-        if (!prev || prev._id !== conversationId) return prev;
-
-        const lastParticipantMessageAt =
-          data.lastParticipantMessageAt ?? prev.lastParticipantMessageAt;
-
-        const canReply = computeCanReply(lastParticipantMessageAt);
-
-        return {
-          ...prev,
-          ...data,
-          lastParticipantMessageAt,
-          canReply,
-          replyDisabledReason: canReply ? null : "waiting_for_reply",
-        };
-      });
+        });
+      }
 
       return;
     }
 
     /* ================= MESSAGE NEW ================= */
-    if (payload.type === "message:new") {
-      const { conversationId, data, conversation } = payload;
+  if (payload.type === "message:new") {
+     if (isPaginatingRef.current) return;
+  const { conversationId, data, conversation } = payload;
 
-      const isActiveConversation = conversationId === selectedConversationId;
-      const isFromThem = data?.sender === "them";
+  const isActiveConversation =
+    conversationId === selectedConversationId;
 
-      // 🔥 FIX: Handle older messages being emitted
-      const msgId = String(data._id);
-      
-      if (messageIdSetRef.current.has(msgId)) {
-        console.log(`⏭️ Skipping duplicate message: ${msgId}`);
-        return;
-      }
+  const isFromThem = data?.sender === "them";
 
-      /* =========================================================
-         1️⃣ ACTIVE CHAT — APPEND MESSAGE
-         ========================================================= */
-      if (isActiveConversation) {
-        messageIdSetRef.current.add(msgId);
-        
-        // 🔥 FIX: Determine if this is an older message or new message
-        const isOlderMessage = data.createdAtPlatform && 
-          rawMessages.length > 0 &&
-          new Date(data.createdAtPlatform) < new Date(rawMessages[0].createdAtPlatform);
+  /* =========================================================
+     1️⃣ ACTIVE CHAT — APPEND MESSAGE
+     ========================================================= */
+  if (isActiveConversation) {
+    const msgId = String(data._id);
 
-        if (isOlderMessage) {
-          // Prepend to start (older messages)
-          setRawMessages((prev) => [data, ...prev]);
-          console.log("📥 Prepended older message");
-          
-          // 🔥 FIX #2: Don't update sidebar when it's older messages from pagination
-          return; // ⛔ Skip sidebar update for historical messages
-        } else {
-          // Append to end (new messages)
-          setRawMessages((prev) => [...prev, data]);
-          console.log("📤 Appended new message");
-        }
-      }
-
-      /* =========================================================
-         2️⃣ AUTO MARK AS READ (CHAT IS OPEN)
-         ========================================================= */
-      if (isActiveConversation && isFromThem) {
-        markConversationAsRead(conversationId);
-      }
-
-      /* =========================================================
-         3️⃣ SIDEBAR UPDATE (SOURCE OF TRUTH)
-         🔥 ONLY for NEW messages, not historical pagination
-         ========================================================= */
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c._id !== conversationId) return c;
-
-          const lastParticipantMessageAt =
-            conversation?.lastParticipantMessageAt ??
-            (isFromThem ? data.createdAtPlatform : c.lastParticipantMessageAt);
-
-          const canReply = computeCanReply(lastParticipantMessageAt);
-
-          return {
-            ...c,
-            lastMessage: conversation?.lastMessage ?? c.lastMessage,
-            lastActivityAt:
-              conversation?.lastActivityAt ?? data.createdAtPlatform ?? c.lastActivityAt,
-
-            unreadCount: isActiveConversation
-              ? 0
-              : conversation?.unreadCount ?? c.unreadCount,
-
-            lastParticipantMessageAt,
-            canReply,
-            replyDisabledReason: canReply ? null : "waiting_for_reply",
-          };
-        })
-      );
-
-      /* =========================================================
-         4️⃣ ACTIVE CONVERSATION SNAPSHOT
-         ========================================================= */
-      setSelectedConversation((prev) => {
-        if (!prev || prev._id !== conversationId) return prev;
-
-        const lastParticipantMessageAt =
-          conversation?.lastParticipantMessageAt ??
-          (isFromThem ? data.createdAtPlatform : prev.lastParticipantMessageAt);
-
-        const canReply = computeCanReply(lastParticipantMessageAt);
-
-        return {
-          ...prev,
-          lastMessage: conversation?.lastMessage ?? prev.lastMessage,
-          lastActivityAt:
-            conversation?.lastActivityAt ?? data.createdAtPlatform ?? prev.lastActivityAt,
-
-          unreadCount: 0,
-          lastParticipantMessageAt,
-          canReply,
-          replyDisabledReason: canReply ? null : "waiting_for_reply",
-        };
-      });
+    if (!messageIdSetRef.current.has(msgId)) {
+      messageIdSetRef.current.add(msgId);
+      setRawMessages((prev) => [...prev, data]);
     }
+  }
+
+  /* =========================================================
+     2️⃣ AUTO MARK AS READ (CHAT IS OPEN)
+     ========================================================= */
+  if (isActiveConversation && isFromThem) {
+    markConversationAsRead(conversationId); // 🔥 debounced fn
+  }
+
+  /* =========================================================
+     3️⃣ SIDEBAR UPDATE (SOURCE OF TRUTH)
+     ========================================================= */
+  setConversations((prev) =>
+    prev.map((c) => {
+      if (c._id !== conversationId) return c;
+
+      const lastParticipantMessageAt =
+        conversation?.lastParticipantMessageAt ??
+        (isFromThem ? data.createdAtPlatform : c.lastParticipantMessageAt);
+
+      const canReply = computeCanReply(lastParticipantMessageAt);
+
+      return {
+        ...c,
+        lastMessage: conversation?.lastMessage ?? c.lastMessage,
+        lastActivityAt:
+          conversation?.lastActivityAt ?? data.createdAtPlatform ?? c.lastActivityAt,
+
+        unreadCount: isActiveConversation
+          ? 0
+          : conversation?.unreadCount ?? c.unreadCount,
+
+        lastParticipantMessageAt,
+        canReply,
+        replyDisabledReason: canReply ? null : "waiting_for_reply",
+      };
+    })
+  );
+
+  /* =========================================================
+     4️⃣ ACTIVE CONVERSATION SNAPSHOT
+     ========================================================= */
+  setSelectedConversation((prev) => {
+    if (!prev || prev._id !== conversationId) return prev;
+
+    const lastParticipantMessageAt =
+      conversation?.lastParticipantMessageAt ??
+      (isFromThem ? data.createdAtPlatform : prev.lastParticipantMessageAt);
+
+    const canReply = computeCanReply(lastParticipantMessageAt);
+
+    return {
+      ...prev,
+      lastMessage: conversation?.lastMessage ?? prev.lastMessage,
+      lastActivityAt:
+        conversation?.lastActivityAt ?? data.createdAtPlatform ?? prev.lastActivityAt,
+
+      unreadCount: 0,
+      lastParticipantMessageAt,
+      canReply,
+      replyDisabledReason: canReply ? null : "waiting_for_reply",
+    };
+  });
+}
+
+if (payload.type === "conversation:created") {
+  setConversations(prev => {
+    if (conversationIdSetRef.current.has(payload.data._id)) return prev;
+
+    conversationIdSetRef.current.add(payload.data._id);
+    return [payload.data, ...prev];
+  });
+
+  setSelectedConversation(payload.data);
+  setSelectedConversationId(payload.data._id);
+  return;
+}
+
+if (payload.type === "older-messages:ready") {
+  if (payload.conversationId !== selectedConversationId) return;
+
+  syncingOlderRef.current = false;
+
+  // IMPORTANT: use CURRENT cursor state
+  fetchMessages(selectedConversationId, cursorRef.current);
+}
+
+
+
+
+
+
   };
 
   socket.on("inbox:event", handler);
   return () => socket.off("inbox:event", handler);
-}, [selectedConversationId, rawMessages]);
-
+}, [selectedConversationId]);
 
 
 
@@ -919,22 +938,14 @@ useEffect(() => {
 }, [selectedConversationId]);
 
 
+  /* ---------- FETCH MESSAGES ---------- */
 const fetchMessages = useCallback(
   async (conversationId, cursorParam = null, opts = {}) => {
-    const { mode = "initial" } = opts;
-        // ✅ Prevent concurrent calls
-    if (loadingMessages) {
-      console.log("⏭️ fetchMessages: already loading");
-      return;
-    }
-
     try {
       setLoadingMessages(true);
-      
-      // 🔥 Capture scroll height BEFORE any changes
-      if (cursorParam && messagesContainerRef.current) {
+  if (cursorParam && messagesContainerRef.current) {
         prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
-        console.log("📏 Captured scroll height (pagination):", prevScrollHeightRef.current);
+        console.log('📏 Captured scroll height:', prevScrollHeightRef.current);
       }
 
       const res = await axios.get(
@@ -948,105 +959,53 @@ const fetchMessages = useCallback(
       );
 
       const payload = res.data?.data;
-      if (!payload) {
-        console.log('⚠️ No payload returned');
-        return;
-      }
-
-      setHasMoreOnMeta(payload.hasMoreOnMeta);
-
+      if (!payload) return;
 
       /* =====================================================
-         🔥 BLOCKING SYNC: If DB exhausted, sync and get messages
+         🚨 ADD THE SYNC-OLDER LOGIC RIGHT HERE
          ===================================================== */
 
-      if (
-        !payload.hasMore &&
-        payload.dbExhausted &&
-        cursorParam &&
-        !syncingOlderRef.current
-      ) {
-        syncingOlderRef.current = true;
+    if (
+  !payload.hasMore &&
+  payload.dbExhausted &&
+  cursorParam &&
+  !syncingOlderRef.current
+) {
+  isPaginatingRef.current = true;
 
-        try {
-          console.log("🔄 DB exhausted → syncing older messages (BLOCKING)");
+  await axios.post(
+    `${baseUrl}/conversations/${conversationId}/sync-older`,
+    {},
+    { withCredentials: true }
+  );
 
-          // 🔥 BLOCKING call - wait for response
-          const syncRes = await axios.post(
-            `${baseUrl}/conversations/${conversationId}/sync-older`,
-            {},
-            { withCredentials: true }
-          );
+  // ⛔ DO NOT refetch here
+  // wait for socket: older-messages:ready
+  return;
+}
 
-          const { messages, hasMore, nextCursor } = syncRes.data.data;
-
-          if (messages.length > 0) {
-            // 🔥 Add to dedupe set
-            messages.forEach(msg => {
-              const msgId = typeof msg._id === "object"
-                ? msg._id.toString()
-                : String(msg._id);
-              messageIdSetRef.current.add(msgId);
-            });
-
-            // 🔥 Prepend older messages
-            setRawMessages(prev => [...messages, ...prev]);
-
-            // 🔥 CRITICAL FIX: Update cursor and hasMore
-            setCursor(nextCursor);
-            setHasMore(hasMore);
-            
-            console.log('✅ Synced messages:', {
-              count: messages.length,
-              newCursor: nextCursor,
-              newHasMore: hasMore
-            });
-          } else {
-            console.log('ℹ️ No messages from sync-older');
-            setHasMore(false);
-          }
-
-          return; // ✅ Done - scroll restoration will happen automatically
-        } catch (err) {
-          console.error("❌ Sync failed:", err);
-          setHasMore(false); // Stop trying
-        } finally {
-          syncingOlderRef.current = false;
-        }
-        
-        return; // Exit early
-      }
 
       /* =====================================================
-         NORMAL FLOW - DB has more messages
+         NORMAL FLOW CONTINUES BELOW
          ===================================================== */
 
       const newMessages = payload.messages.filter(msg => {
-        const msgId = typeof msg._id === "object"
-          ? msg._id.toString()
-          : String(msg._id);
+        const msgId =
+          typeof msg._id === "object"
+            ? msg._id.toString()
+            : String(msg._id);
 
-        if (messageIdSetRef.current.has(msgId)) {
-          console.log('⏭️ Skipping duplicate:', msgId);
-          return false;
-        }
+        if (messageIdSetRef.current.has(msgId)) return false;
+
         messageIdSetRef.current.add(msgId);
         return true;
       });
 
+    // ✅ Prepend when paginating, replace on initial load
+      setRawMessages(prev =>
+        cursorParam ? [...newMessages, ...prev] : newMessages
+      );
 
-      // ✅ Prepend when paginating, replace on initial load
-      setRawMessages(prev => {
-  if (mode === "initial") {
-    return newMessages;
-  }
-
-  // paginate OR meta → always prepend
-  return [...newMessages, ...prev];
-});
-
-
-      // 🔥 CRITICAL: Always update cursor and hasMore
       setCursor(payload.nextCursor);
       setHasMore(payload.hasMore);
 
@@ -1054,11 +1013,11 @@ const fetchMessages = useCallback(
       console.error("Message fetch failed", err);
     } finally {
       setLoadingMessages(false);
+      isPaginatingRef.current = false;
     }
   },
   []
 );
-
 
 
   /* ---------- RESET ON CONVERSATION CHANGE ---------- */
@@ -1074,8 +1033,7 @@ useEffect(() => {
   setInitialNotesText(selectedConversation.notes?.text || ""); // 🔑 baseline
   setNotesOpen(false);
   setNotesHasPosition(false);
-  fetchMessages(selectedConversation._id, null, { mode: "initial" });
-
+  fetchMessages(selectedConversation._id);
 }, [selectedConversation?._id, fetchMessages]);
 
   /* ---------- SCROLL MANAGEMENT ---------- */
@@ -1083,36 +1041,27 @@ useLayoutEffect(() => {
   const container = messagesContainerRef.current;
   if (!container) return;
 
-  console.log('📐 Scroll restoration check:', {
-    prevScrollHeight: prevScrollHeightRef.current,
-    currentScrollHeight: container.scrollHeight,
-    messageCount: messages.length
-  });
-
   // 🔥 FIX: Better scroll restoration logic
-  if (prevScrollHeightRef.current === null) {
-    // Only auto-scroll on FIRST load of conversation
+  if (!prevScrollHeightRef.current) {
+    // ✅ New conversation - scroll to bottom
     requestAnimationFrame(() => {
-      console.log('📍 Initial scroll to bottom');
       container.scrollTop = container.scrollHeight;
     });
   } else {
-    // ✅ Pagination - maintain EXACT position (don't jump to bottom)
+    // ✅ Pagination - maintain position
     requestAnimationFrame(() => {
       const newScrollHeight = container.scrollHeight;
-      const oldScrollHeight = prevScrollHeightRef.current;
-      const heightDiff = newScrollHeight - oldScrollHeight;
+      const heightDiff = newScrollHeight - prevScrollHeightRef.current;
       
-      console.log('📍 Restoring scroll position:', {
-        oldScrollHeight,
-        newScrollHeight,
+      // Add the height difference to maintain relative position
+      container.scrollTop = heightDiff;
+      
+      console.log('📍 Scroll restored:', {
+        oldHeight: prevScrollHeightRef.current,
+        newHeight: newScrollHeight,
         heightDiff,
-        oldScrollTop: container.scrollTop,
-        newScrollTop: container.scrollTop + heightDiff
+        newScroll: container.scrollTop
       });
-      
-      // 🔥 FIX: Keep user at same visual position
-      container.scrollTop = container.scrollTop + heightDiff;
       
       prevScrollHeightRef.current = null;
     });
@@ -1140,36 +1089,51 @@ useLayoutEffect(() => {
 
 const handleScroll = (e) => {
   const el = e.target;
-  const atTop = el.scrollTop < 100;
 
-  if (!atTop) return;
+  // Only trigger at top (for loading older messages)
+  if (el.scrollTop > 50) return; // 🔥 50px threshold instead of 0
 
-  // Single check
-  if (loadingMessages) {
-    return; // Don't log - normal behavior
-  }
+  // Prevent parallel fetches
+  if (loadingMessages || syncingOlderRef.current) return;
 
   /**
-   * 1️⃣ DB PAGINATION
+   * 1️⃣ DB HAS MORE → paginate DB
    */
   if (hasMore && cursor) {
-    console.log("📥 Loading older messages from DB");
-    fetchMessages(selectedConversationId, cursor, { mode: "paginate" });
+    console.log("📄 Paginating from DB with cursor:", cursor);
+    fetchMessages(selectedConversationId, cursor);
     return;
   }
 
   /**
-   * 2️⃣ META PAGINATION
+   * 2️⃣ DB EXHAUSTED → hydrate from Meta
    */
-  if (!hasMore && hasMoreOnMeta) {
-    console.log("🔄 DB exhausted → syncing from Meta");
-    fetchMessages(selectedConversationId, cursorRef.current, { mode: "meta" });
-    return;
+  if (!hasMore && !syncingOlderRef.current) {
+    console.log("🌐 DB exhausted → fetching older messages from Instagram");
+
+    syncingOlderRef.current = true;
+    setLoadingMessages(true);
+
+    axios
+      .post(
+        `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
+        {},
+        { withCredentials: true }
+      )
+      .then(() => {
+        console.log("✅ Meta sync completed");
+      })
+      .catch((err) => {
+        console.error("❌ Meta sync failed:", err);
+      })
+      .finally(() => {
+        setTimeout(() => {
+          syncingOlderRef.current = false;
+          setLoadingMessages(false);
+        }, 800);
+      });
   }
-
-  console.log("⏭️ No more messages available");
 };
-
 
 
 
