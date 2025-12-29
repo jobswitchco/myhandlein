@@ -1061,10 +1061,7 @@ if (prevScrollHeightRef.current === null) {
       const oldScrollHeight = prevScrollHeightRef.current;
       const heightDiff = newScrollHeight - oldScrollHeight;
       
-      // 🔥 FIX #1: Keep user at same visual position
-      // If they were at scrollTop=0, after prepend they should be at scrollTop=heightDiff
-      const oldScrollTop = container.scrollTop;
-      container.scrollTop = oldScrollTop + heightDiff;
+container.scrollTop += heightDiff;
       
       prevScrollHeightRef.current = null;
     });
