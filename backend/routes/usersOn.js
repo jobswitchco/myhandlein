@@ -4816,9 +4816,6 @@ async function syncOlderMessages({ userId, conversationId }) {
 }
 
 
-
-// ==================== FIX #2: /conversations route ====================
-// Problem: Profile cache not populated on pagination
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -4954,8 +4951,6 @@ router.get("/conversations", authenticateToken, async (req, res) => {
 
 
 
-
-
 router.post("/conversations/sync", authenticateToken, async (req, res) => {
   const userId = req.user.user_id;
   const mode = req.query.mode || "blocking";
@@ -4971,19 +4966,6 @@ router.post("/conversations/sync", authenticateToken, async (req, res) => {
   res.json({ success: true, hydrated: true, data: conversations });
 });
 
-
-// router.post("/conversations/:id/sync-older", authenticateToken, async (req, res) => {
-//   const conversationId = req.params.id;
-//   const userId = req.user.user_id;
-
-//   console.log('SYNC OLDER HITTTTTTTTTTTTTT');
-
-//   process.nextTick(() => {
-//     syncOlderMessages({ userId, conversationId }).catch(console.error);
-//   });
-
-//   res.json({ success: true, started: true });
-// });
 
 
 router.post("/conversations/:id/sync-older", authenticateToken, async (req, res) => {
@@ -5134,7 +5116,7 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
     messages,
     nextCursor,
     hasMore,
-    dbExhausted: !hasMore && !cursor, 
+    dbExhausted: !hasMore 
   },
 });
 

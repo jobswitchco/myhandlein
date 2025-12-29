@@ -1114,10 +1114,10 @@ const handleScroll = (e) => {
 
   // 🔥 Simple: just call fetchMessages
   // It will handle both DB pagination AND Meta sync internally
-  if (hasMore || cursor) {
-    console.log("📄 Loading more messages...");
-    fetchMessages(selectedConversationId, cursor);
-  }
+if (hasMore && cursor) {
+  fetchMessages(selectedConversationId, cursor);
+}
+
 };
 
 
