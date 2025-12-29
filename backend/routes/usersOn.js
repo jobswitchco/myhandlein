@@ -4759,6 +4759,19 @@ async function syncOlderMessages({ userId, conversationId }) {
 
     if (!result.messages.length) {
       console.log("ℹ️ No more messages from Meta");
+      
+      // Mark as exhausted if no messages returned
+      await Conversation.updateOne(
+        { _id: conversationId },
+        {
+          $set: {
+            lastMetaAfterCursor: null,
+            metaSyncCompleted: true,
+            lastSyncedAt: new Date()
+          }
+        }
+      );
+      
       return { messages: [], hasMore: false };
     }
 
@@ -4778,13 +4791,11 @@ async function syncOlderMessages({ userId, conversationId }) {
       }
     }
 
-    // 🔥 Update cursor ONLY if Meta returned a full page
+    // 🔥 Update cursor based on Meta response
     let nextCursor = conversation.lastMetaAfterCursor;
     
-    if (
-      result.messages.length === limit &&
-      result.paging?.cursors?.after
-    ) {
+    if (result.paging?.cursors?.after) {
+      // More pages available - update cursor
       nextCursor = result.paging.cursors.after;
       
       await Conversation.updateOne(
@@ -4796,6 +4807,18 @@ async function syncOlderMessages({ userId, conversationId }) {
           }
         }
       );
+    } else {
+      // No more pages from Meta - mark as exhausted
+      await Conversation.updateOne(
+        { _id: conversationId },
+        {
+          $set: {
+            lastMetaAfterCursor: null,
+            metaSyncCompleted: true,
+            lastSyncedAt: new Date()
+          }
+        }
+      );
     }
 
     console.log(`✅ Inserted ${insertedMessages.length} older messages`);
@@ -4803,7 +4826,7 @@ async function syncOlderMessages({ userId, conversationId }) {
     // 🔥 Return messages to frontend
     return {
       messages: insertedMessages,
-      hasMore: result.messages.length === limit, // More pages available if we got full page
+      hasMore: Boolean(result.paging?.cursors?.after), // More pages available only if Meta provides cursor
       nextCursor
     };
 
@@ -5119,8 +5142,10 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 
       /* ================= RESPONSE ================= */
 
-const hasMoreOnMeta = Boolean(conversation.lastMetaAfterCursor);
-
+const hasMoreOnMeta = Boolean(
+  conversation.lastMetaAfterCursor || 
+  (!conversation.metaSyncCompleted && !conversation.lastMetaAfterCursor)
+);
 res.json({
   success: true,
   data: {
@@ -5494,18 +5519,30 @@ if (!conversation.lastActivityAt && insertedMessages.length === 0) {
 
 
       /* ---------- Update AFTER cursor ONLY ---------- */
-      const nextAfterCursor = result.paging?.cursors?.after;
-      if (nextAfterCursor) {
-        await Conversation.updateOne(
-          { _id: conversation._id },
-          {
-            $set: {
-              lastMetaAfterCursor: nextAfterCursor,
-              lastSyncedAt: new Date(),
-            },
-          }
-        );
-      }
+    // After fetching messages, ALWAYS update cursor if Meta provides one
+const nextAfterCursor = result.paging?.cursors?.after;
+if (nextAfterCursor) {
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    {
+      $set: {
+        lastMetaAfterCursor: nextAfterCursor,
+        lastSyncedAt: new Date(),
+      },
+    }
+  );
+} else if (result.messages.length < 25) {
+  // If less than full page AND no cursor, explicitly mark as exhausted
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    {
+      $set: {
+        lastMetaAfterCursor: null,  // Explicitly null = no more
+        lastSyncedAt: new Date(),
+      },
+    }
+  );
+}
     }
   } catch (err) {
     console.error("❌ syncInstagramConversations failed", err);

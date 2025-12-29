@@ -48,6 +48,7 @@ const ConversationSchema = new Schema(
     lastMetaAfterCursor: String,   // for latest sync
 lastMetaBeforeCursor: String,  // for older sync
 lastParticipantMessageAt: { type: Date },
+metaSyncCompleted: { type: Boolean, default: false },
 
 notes: {
   text: { type: String, default: "" },
