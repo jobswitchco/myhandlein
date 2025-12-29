@@ -713,6 +713,9 @@ useEffect(() => {
           // Prepend to start (older messages)
           setRawMessages((prev) => [data, ...prev]);
           console.log("📥 Prepended older message");
+          
+          // 🔥 FIX #2: Don't update sidebar when it's older messages from pagination
+          return; // ⛔ Skip sidebar update for historical messages
         } else {
           // Append to end (new messages)
           setRawMessages((prev) => [...prev, data]);
@@ -729,6 +732,7 @@ useEffect(() => {
 
       /* =========================================================
          3️⃣ SIDEBAR UPDATE (SOURCE OF TRUTH)
+         🔥 ONLY for NEW messages, not historical pagination
          ========================================================= */
       setConversations((prev) =>
         prev.map((c) => {
@@ -1023,19 +1027,24 @@ useLayoutEffect(() => {
       container.scrollTop = container.scrollHeight;
     });
   } else {
-    // ✅ Pagination - maintain position
+    // ✅ Pagination - maintain EXACT position (don't jump to bottom)
     requestAnimationFrame(() => {
       const newScrollHeight = container.scrollHeight;
-      const heightDiff = newScrollHeight - prevScrollHeightRef.current;
+      const oldScrollHeight = prevScrollHeightRef.current;
+      const heightDiff = newScrollHeight - oldScrollHeight;
       
-      // Add the height difference to maintain relative position
-      container.scrollTop = heightDiff;
+      // 🔥 FIX #1: Keep user at same visual position
+      // If they were at scrollTop=0, after prepend they should be at scrollTop=heightDiff
+      const oldScrollTop = container.scrollTop;
+      container.scrollTop = oldScrollTop + heightDiff;
       
-      console.log('📍 Scroll restored:', {
-        oldHeight: prevScrollHeightRef.current,
+      console.log('📍 Scroll maintained:', {
+        oldHeight: oldScrollHeight,
         newHeight: newScrollHeight,
         heightDiff,
-        newScroll: container.scrollTop
+        oldScrollTop,
+        newScrollTop: container.scrollTop,
+        scrollbarVisible: newScrollHeight > container.clientHeight
       });
       
       prevScrollHeightRef.current = null;
