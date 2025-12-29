@@ -4719,29 +4719,37 @@ router.post("/conversations/:id/refresh-profile", authenticateToken, async (req,
   }
 });
 
-// ==================== FIX #1: syncOlderMessages ====================
-// Problem: Messages fetched but not emitted to frontend
 async function syncOlderMessages({ userId, conversationId }) {
   const limit = 25;
   const lockKey = `ig:sync:older:${conversationId}`;
-  if (await redisGet(lockKey)) return;
+  
+  // 🔥 Check lock but don't hold it for long
+  if (await redisGet(lockKey)) {
+    console.log('⏭️ Sync already in progress');
+    return { messages: [], hasMore: false };
+  }
 
-  await redisSet(lockKey, "1", 90);
+  await redisSet(lockKey, "1", 30); // Shorter TTL since we're blocking
 
   try {
     const user = await USER.findById(userId)
       .select("+fbPageAccessToken")
       .lean();
 
-    if (!user?.fbPageAccessToken) return;
+    if (!user?.fbPageAccessToken) {
+      return { messages: [], hasMore: false };
+    }
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
       creatorId: userId,
     }).lean();
 
-    if (!conversation?.metaThreadId) return;
+    if (!conversation?.metaThreadId) {
+      return { messages: [], hasMore: false };
+    }
 
+    // 🔥 Fetch from Instagram
     const result = await InstagramService.fetchOlderMessages({
       igConversationId: conversation.metaThreadId,
       pageAccessToken: user.fbPageAccessToken,
@@ -4751,12 +4759,12 @@ async function syncOlderMessages({ userId, conversationId }) {
 
     if (!result.messages.length) {
       console.log("ℹ️ No more messages from Meta");
-      return;
+      return { messages: [], hasMore: false };
     }
 
-    let insertedAny = false;
-    const insertedMessages = []; // 🔥 Track what we insert
+    const insertedMessages = [];
 
+    // 🔥 Insert messages into DB
     for (const msg of result.messages) {
       const normalized = await upsertMessage(
         msg,
@@ -4766,46 +4774,47 @@ async function syncOlderMessages({ userId, conversationId }) {
       );
 
       if (normalized) {
-        insertedAny = true;
-        insertedMessages.push(normalized); // 🔥 Collect for emit
+        insertedMessages.push(normalized);
       }
     }
 
-    // Update cursor ONLY if Meta returned a full page
+    // 🔥 Update cursor ONLY if Meta returned a full page
+    let nextCursor = conversation.lastMetaAfterCursor;
+    
     if (
       result.messages.length === limit &&
       result.paging?.cursors?.after
     ) {
+      nextCursor = result.paging.cursors.after;
+      
       await Conversation.updateOne(
         { _id: conversationId },
         {
           $set: {
-            lastMetaAfterCursor: result.paging.cursors.after,
+            lastMetaAfterCursor: nextCursor,
             lastSyncedAt: new Date()
           }
         }
       );
     }
 
-    // 🔥 FIX: Emit EACH message individually (like realtime flow)
-    if (insertedAny) {
-      for (const msg of insertedMessages) {
-        await publishMessageEvent({
-          creatorId: userId,
-          conversationId,
-          message: msg,
-        });
-      }
+    console.log(`✅ Inserted ${insertedMessages.length} older messages`);
 
-      console.log(`✅ Emitted ${insertedMessages.length} older messages`);
-    }
+    // 🔥 Return messages to frontend
+    return {
+      messages: insertedMessages,
+      hasMore: result.messages.length === limit, // More pages available if we got full page
+      nextCursor
+    };
 
   } catch (err) {
     console.error("❌ syncOlderMessages failed", err);
+    throw err; // Propagate error to route handler
   } finally {
     await redisDel(lockKey);
   }
 }
+
 
 
 // ==================== FIX #2: /conversations route ====================
@@ -4963,18 +4972,53 @@ router.post("/conversations/sync", authenticateToken, async (req, res) => {
 });
 
 
+// router.post("/conversations/:id/sync-older", authenticateToken, async (req, res) => {
+//   const conversationId = req.params.id;
+//   const userId = req.user.user_id;
+
+//   console.log('SYNC OLDER HITTTTTTTTTTTTTT');
+
+//   process.nextTick(() => {
+//     syncOlderMessages({ userId, conversationId }).catch(console.error);
+//   });
+
+//   res.json({ success: true, started: true });
+// });
+
+
 router.post("/conversations/:id/sync-older", authenticateToken, async (req, res) => {
   const conversationId = req.params.id;
   const userId = req.user.user_id;
 
-  console.log('SYNC OLDER HITTTTTTTTTTTTTT');
+  console.log('🔄 SYNC OLDER STARTED');
 
-  process.nextTick(() => {
-    syncOlderMessages({ userId, conversationId }).catch(console.error);
-  });
+  try {
+    // 🔥 BLOCKING - wait for sync to complete
+    const result = await syncOlderMessages({ userId, conversationId });
+    
+    console.log('✅ SYNC OLDER COMPLETED:', {
+      fetchedCount: result.messages?.length || 0,
+      hasMore: result.hasMore
+    });
 
-  res.json({ success: true, started: true });
+    // 🔥 Return the fetched messages directly
+    res.json({ 
+      success: true, 
+      data: {
+        messages: result.messages || [],
+        hasMore: result.hasMore,
+        nextCursor: result.nextCursor
+      }
+    });
+  } catch (err) {
+    console.error('❌ SYNC OLDER FAILED:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message 
+    });
+  }
 });
+
 
 // GET /conversations/sync-status
 router.get("/conversations/sync-status", authenticateToken, async (req, res) => {
