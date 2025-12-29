@@ -115,6 +115,8 @@ const loadingConversationsRef = useRef(false); // 🔥 Prevent duplicate calls
 // 🔒 DEDUPE SET FOR CONVERSATIONS (CRITICAL)
 const conversationIdSetRef = useRef(new Set());
 const appendedInLastFetchRef = useRef(false);
+const [hasMoreOnMeta, setHasMoreOnMeta] = useState(true);
+
 
  const [notesOpen, setNotesOpen] = useState(false);
   const [notesText, setNotesText] = useState("");
@@ -944,12 +946,8 @@ const fetchMessages = useCallback(
         return;
       }
 
-      console.log('📥 Received messages:', {
-        count: payload.messages?.length,
-        hasMore: payload.hasMore,
-        nextCursor: payload.nextCursor,
-        dbExhausted: payload.dbExhausted
-      });
+      setHasMoreOnMeta(payload.hasMoreOnMeta);
+
 
       /* =====================================================
          🔥 BLOCKING SYNC: If DB exhausted, sync and get messages
@@ -1029,11 +1027,6 @@ const fetchMessages = useCallback(
         return true;
       });
 
-      console.log('📝 Processing messages:', {
-        total: payload.messages.length,
-        new: newMessages.length,
-        filtered: payload.messages.length - newMessages.length
-      });
 
       // ✅ Prepend when paginating, replace on initial load
       setRawMessages(prev =>
@@ -1043,12 +1036,6 @@ const fetchMessages = useCallback(
       // 🔥 CRITICAL: Always update cursor and hasMore
       setCursor(payload.nextCursor);
       setHasMore(payload.hasMore);
-
-      console.log('✅ Updated state:', {
-        newCursor: payload.nextCursor,
-        newHasMore: payload.hasMore,
-        messageCount: newMessages.length
-      });
 
     } catch (err) {
       console.error("Message fetch failed", err);
@@ -1140,49 +1127,66 @@ useLayoutEffect(() => {
 const handleScroll = (e) => {
   const el = e.target;
 
-  // 🔥 FIX: Check scroll at TOP (not bottom) since messages prepend upward
-  const atTop = el.scrollTop < 100; // Trigger when near top
+  // 🔥 Trigger when near top (older messages)
+  const atTop = el.scrollTop < 100;
 
-  console.log('📊 Message Scroll Debug:', {
-    scrollTop: el.scrollTop,
+  console.log("📊 Message Scroll Debug:", {
     atTop,
     loadingMessages,
     syncingOlder: syncingOlderRef.current,
-    hasMore,
-    cursor: cursor ? 'exists' : 'null',
-    cursorValue: cursor
+    hasMoreDB: hasMore,
+    hasMoreOnMeta,
+    cursor
   });
 
-  // Only trigger at top
   if (!atTop) return;
 
-  // Prevent parallel fetches
+  // Prevent parallel requests
   if (loadingMessages || syncingOlderRef.current) {
-    console.log('⏭️ Skipping: already loading');
+    console.log("⏭️ Skipping: already loading");
     return;
   }
 
-  // Check if we have more messages to load
-// DB exhausted → still allow Meta sync
-if (!hasMore && cursor) {
-  console.log('🟡 DB exhausted but cursor exists → allow Meta sync');
-} else if (!hasMore && !cursor) {
-  console.log('⏭️ No DB + no cursor → truly done');
-  return;
-}
-
-
-  // 🔥 FIX: Ensure cursor exists before fetching
-  if (!cursor) {
-    console.log('⚠️ No cursor available, cannot paginate');
+  /**
+   * =========================================================
+   * 1️⃣ DB PAGINATION (preferred)
+   * =========================================================
+   */
+  if (hasMore && cursor) {
+    console.log("📥 Loading older messages from DB");
+    fetchMessages(selectedConversationId, cursor);
     return;
   }
 
-  console.log('✅ Fetching older messages with cursor:', cursor);
-  
-  // 🔥 Simple: just call fetchMessages
-  fetchMessages(selectedConversationId, cursor);
+  /**
+   * =========================================================
+   * 2️⃣ DB EXHAUSTED → META PAGINATION
+   * =========================================================
+   */
+  if (!hasMore && hasMoreOnMeta) {
+    console.log("🔄 DB exhausted → syncing from Meta");
+
+    syncingOlderRef.current = true;
+
+    fetchMessages(selectedConversationId, cursorRef.current)
+      .finally(() => {
+        // Safety unlock (Meta may return empty)
+        setTimeout(() => {
+          syncingOlderRef.current = false;
+        }, 300);
+      });
+
+    return;
+  }
+
+  /**
+   * =========================================================
+   * 3️⃣ DB + META EXHAUSTED → STOP
+   * =========================================================
+   */
+  console.log("⏭️ No more messages (DB + Meta exhausted)");
 };
+
 
 
 

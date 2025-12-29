@@ -5119,15 +5119,19 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
 
       /* ================= RESPONSE ================= */
 
-     res.json({
+const hasMoreOnMeta = Boolean(conversation.lastMetaAfterCursor);
+
+res.json({
   success: true,
   data: {
     messages,
     nextCursor,
     hasMore,
-    dbExhausted: !hasMore && !cursor,
-  },
+    dbExhausted: !hasMore,
+    hasMoreOnMeta
+  }
 });
+
 
     } catch (err) {
       console.error("Fetch messages failed", err);
