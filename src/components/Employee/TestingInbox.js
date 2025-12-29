@@ -115,6 +115,10 @@ const loadingConversationsRef = useRef(false); // 🔥 Prevent duplicate calls
 // 🔒 DEDUPE SET FOR CONVERSATIONS (CRITICAL)
 const conversationIdSetRef = useRef(new Set());
 const appendedInLastFetchRef = useRef(false);
+const fetchModeRef = useRef("initial"); 
+const isFetchingMessagesRef = useRef(false);
+
+
 
  const [notesOpen, setNotesOpen] = useState(false);
   const [notesText, setNotesText] = useState("");
@@ -800,7 +804,9 @@ if (payload.type === "older-messages:ready") {
   syncingOlderRef.current = false;
 
   // IMPORTANT: use CURRENT cursor state
-  fetchMessages(selectedConversationId, cursorRef.current);
+fetchModeRef.current = "paginate";
+fetchMessages(selectedConversationId, cursorRef.current);
+
 }
 
 
@@ -940,7 +946,14 @@ useEffect(() => {
 
   /* ---------- FETCH MESSAGES ---------- */
 const fetchMessages = useCallback(
+
+  
   async (conversationId, cursorParam = null, opts = {}) => {
+
+    if (isFetchingMessagesRef.current) return;
+isFetchingMessagesRef.current = true;
+
+
     try {
       setLoadingMessages(true);
   if (cursorParam && messagesContainerRef.current) {
@@ -1003,9 +1016,13 @@ if (
       });
 
     // ✅ Prepend when paginating, replace on initial load
-      setRawMessages(prev =>
-        cursorParam ? [...newMessages, ...prev] : newMessages
-      );
+    setRawMessages(prev => {
+  if (fetchModeRef.current === "paginate") {
+    return [...newMessages, ...prev]; // prepend only
+  }
+  return newMessages; // initial load only
+});
+
 
       setCursor(payload.nextCursor);
       setHasMore(payload.hasMore);
@@ -1014,7 +1031,7 @@ if (
       console.error("Message fetch failed", err);
     } finally {
       setLoadingMessages(false);
-      isPaginatingRef.current = false;
+     isFetchingMessagesRef.current = false;
     }
   },
   []
@@ -1034,40 +1051,25 @@ useEffect(() => {
   setInitialNotesText(selectedConversation.notes?.text || ""); // 🔑 baseline
   setNotesOpen(false);
   setNotesHasPosition(false);
-  fetchMessages(selectedConversation._id);
+  fetchModeRef.current = "initial";
+fetchMessages(selectedConversation._id);
+
 }, [selectedConversation?._id, fetchMessages]);
 
   /* ---------- SCROLL MANAGEMENT ---------- */
 useLayoutEffect(() => {
   const container = messagesContainerRef.current;
-  if (!container) return;
+  if (!container || prevScrollHeightRef.current == null) return;
 
-  // 🔥 FIX: Better scroll restoration logic
-  if (!prevScrollHeightRef.current) {
-    // ✅ New conversation - scroll to bottom
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-    });
-  } else {
-    // ✅ Pagination - maintain position
-    requestAnimationFrame(() => {
-      const newScrollHeight = container.scrollHeight;
-      const heightDiff = newScrollHeight - prevScrollHeightRef.current;
-      
-      // Add the height difference to maintain relative position
-      container.scrollTop = heightDiff;
-      
-      console.log('📍 Scroll restored:', {
-        oldHeight: prevScrollHeightRef.current,
-        newHeight: newScrollHeight,
-        heightDiff,
-        newScroll: container.scrollTop
-      });
-      
-      prevScrollHeightRef.current = null;
-    });
-  }
-}, [messages.length]); // 🔥 Trigger on message count change
+  requestAnimationFrame(() => {
+    const newScrollHeight = container.scrollHeight;
+    const delta = newScrollHeight - prevScrollHeightRef.current;
+
+    container.scrollTop += delta; // ✅ anchor position
+
+    prevScrollHeightRef.current = null;
+  });
+}, [messages.length]);
 
 
 useLayoutEffect(() => {
@@ -1102,7 +1104,9 @@ const handleScroll = (e) => {
    */
   if (hasMore && cursor) {
     console.log("📄 Paginating from DB with cursor:", cursor);
-    fetchMessages(selectedConversationId, cursor);
+   fetchModeRef.current = "paginate";
+fetchMessages(selectedConversationId, cursor);
+
     return;
   }
 
