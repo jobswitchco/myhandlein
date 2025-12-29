@@ -118,6 +118,8 @@ const appendedInLastFetchRef = useRef(false);
 const fetchModeRef = useRef("initial"); 
 const isFetchingMessagesRef = useRef(false);
 const didInitialScrollRef = useRef(false);
+const isPaginatingConversationsRef = useRef(false);
+
 
 
 
@@ -369,11 +371,12 @@ const handleConvScroll = async (e) => {
    * =========================================================
    */
   if (hasMoreConversations && convCursor) {
-    console.log("✅ Paginating DB conversations");
-    prevConvScrollHeightRef.current = el.scrollHeight;
-    await loadOlderConversations();
-    return;
-  }
+      isPaginatingConversationsRef.current = true;
+   prevConvScrollHeightRef.current = el.scrollHeight;
+   await loadOlderConversations();
+    isPaginatingConversationsRef.current = false;
+   return;
+}
 
   /**
    * =========================================================
@@ -602,6 +605,9 @@ useEffect(() => {
   };
 }, [creatorId]); 
 
+const isSidebarLoading = loadingOlderConversations || loadingMetaConversations;
+
+
 
 useEffect(() => {
   const socket = getSocket();
@@ -614,6 +620,12 @@ useEffect(() => {
     "participant:updated",
     "older-messages:ready",
   ].includes(payload.type)
+) {
+  return;
+}
+
+// 🚫 Ignore sidebar mutations during pagination
+if (isPaginatingConversationsRef.current && payload.type === "conversation:updated"
 ) {
   return;
 }
@@ -1405,7 +1417,7 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
         sx={{ overflowY: "auto" }}
         onScroll={handleConvScroll}
       >
-        {loading || hydratingFromMeta ? (
+        {loading || hydratingFromMeta || isSidebarLoading ? (
           <Box px={2}>
             {[...Array(6)].map((_, i) => (
               <Box key={i} display="flex" gap={2} py={2}>

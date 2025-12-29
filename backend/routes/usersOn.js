@@ -5269,6 +5269,7 @@ await publishSocketEvent({
   payload: {
     type: "conversation:updated",
     conversationId: conversation._id.toString(),
+    reason: "pagination",
     data: update
   }
 });
