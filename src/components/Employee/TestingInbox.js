@@ -1008,15 +1008,15 @@ fetchMessages(selectedConversation._id);
 
 
 /* ---------- SCROLL MANAGEMENT ---------- */
+/* ---------- SCROLL MANAGEMENT ---------- */
 useLayoutEffect(() => {
   const container = messagesContainerRef.current;
-  if (!container) return;
+  if (!container || messages.length === 0) return;
 
   // ✅ Initial scroll to bottom when first loading a conversation
-  if (fetchModeRef.current === "initial" && messages.length > 0 && !loadingMessages) {
+  if (fetchModeRef.current === "initial" && !loadingMessages) {
     requestAnimationFrame(() => {
       container.scrollTop = container.scrollHeight;
-      didInitialScrollRef.current = true;
       fetchModeRef.current = "ready"; // Mark as ready after first scroll
     });
     return;
@@ -1029,10 +1029,10 @@ useLayoutEffect(() => {
       const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
       container.scrollTop = scrollDiff;
       prevScrollHeightRef.current = null;
+      fetchModeRef.current = "ready"; // Reset mode after restoration
     });
   }
 }, [messages.length, loadingMessages]);
-
 
 
 useLayoutEffect(() => {
