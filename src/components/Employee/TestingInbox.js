@@ -1163,10 +1163,14 @@ const handleScroll = (e) => {
   }
 
   // Check if we have more messages to load
-  if (!hasMore) {
-    console.log('⏭️ No more messages to load');
-    return;
-  }
+// DB exhausted → still allow Meta sync
+if (!hasMore && cursor) {
+  console.log('🟡 DB exhausted but cursor exists → allow Meta sync');
+} else if (!hasMore && !cursor) {
+  console.log('⏭️ No DB + no cursor → truly done');
+  return;
+}
+
 
   // 🔥 FIX: Ensure cursor exists before fetching
   if (!cursor) {
