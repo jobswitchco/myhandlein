@@ -1050,8 +1050,8 @@ useLayoutEffect(() => {
   const container = messagesContainerRef.current;
   if (!container) return;
 
-  // ✅ ONLY auto-scroll on first load
-  if (isInitialLoadRef.current) {
+  // ✅ ONLY auto-scroll on first load (scroll to bottom for newest messages)
+  if (isInitialLoadRef.current && messages.length > 0) {
     requestAnimationFrame(() => {
       container.scrollTop = container.scrollHeight;
       isInitialLoadRef.current = false; // 🔒 lock forever
@@ -1059,13 +1059,14 @@ useLayoutEffect(() => {
     return;
   }
 
-  // ✅ Pagination scroll restore
+  // ✅ Pagination scroll restore (maintain position when loading older messages)
   if (prevScrollHeightRef.current !== null) {
     requestAnimationFrame(() => {
       const newHeight = container.scrollHeight;
       const oldHeight = prevScrollHeightRef.current;
 
-      container.scrollTop += newHeight - oldHeight;
+      // Restore scroll position by adding the difference
+      container.scrollTop = newHeight - oldHeight;
       prevScrollHeightRef.current = null;
     });
   }
