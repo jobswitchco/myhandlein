@@ -4720,7 +4720,6 @@ router.post("/conversations/:id/refresh-profile", authenticateToken, async (req,
 });
 
 async function syncOlderMessages({ userId, conversationId }) {
-  const limit = 25;
   const lockKey = `ig:sync:older:${conversationId}`;
   
   // 🔥 Check lock but don't hold it for long
