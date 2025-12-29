@@ -921,6 +921,7 @@ useEffect(() => {
 
 const fetchMessages = useCallback(
   async (conversationId, cursorParam = null, opts = {}) => {
+    const { mode = "initial" } = opts;
     try {
       setLoadingMessages(true);
       
@@ -1029,9 +1030,15 @@ const fetchMessages = useCallback(
 
 
       // ✅ Prepend when paginating, replace on initial load
-      setRawMessages(prev =>
-        cursorParam ? [...newMessages, ...prev] : newMessages
-      );
+      setRawMessages(prev => {
+  if (mode === "initial") {
+    return newMessages;
+  }
+
+  // paginate OR meta → always prepend
+  return [...newMessages, ...prev];
+});
+
 
       // 🔥 CRITICAL: Always update cursor and hasMore
       setCursor(payload.nextCursor);
@@ -1061,7 +1068,8 @@ useEffect(() => {
   setInitialNotesText(selectedConversation.notes?.text || ""); // 🔑 baseline
   setNotesOpen(false);
   setNotesHasPosition(false);
-  fetchMessages(selectedConversation._id);
+  fetchMessages(selectedConversation._id, null, { mode: "initial" });
+
 }, [selectedConversation?._id, fetchMessages]);
 
   /* ---------- SCROLL MANAGEMENT ---------- */
@@ -1130,15 +1138,6 @@ const handleScroll = (e) => {
   // 🔥 Trigger when near top (older messages)
   const atTop = el.scrollTop < 100;
 
-  console.log("📊 Message Scroll Debug:", {
-    atTop,
-    loadingMessages,
-    syncingOlder: syncingOlderRef.current,
-    hasMoreDB: hasMore,
-    hasMoreOnMeta,
-    cursor
-  });
-
   if (!atTop) return;
 
   // Prevent parallel requests
@@ -1154,7 +1153,7 @@ const handleScroll = (e) => {
    */
   if (hasMore && cursor) {
     console.log("📥 Loading older messages from DB");
-    fetchMessages(selectedConversationId, cursor);
+    fetchMessages(selectedConversationId, cursor, { mode: "paginate" });
     return;
   }
 
@@ -1168,7 +1167,7 @@ const handleScroll = (e) => {
 
     syncingOlderRef.current = true;
 
-    fetchMessages(selectedConversationId, cursorRef.current)
+    fetchMessages(selectedConversationId, cursorRef.current, { mode: "meta" })
       .finally(() => {
         // Safety unlock (Meta may return empty)
         setTimeout(() => {
