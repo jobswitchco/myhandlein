@@ -107,6 +107,7 @@ export default function InboxManagement() {
 
   const convListRef = useRef(null);
   const prevConvScrollHeightRef = useRef(null);
+  const isInitialLoadRef = useRef(true);
 
 
   const [loadingMetaConversations, setLoadingMetaConversations] = useState(false);
@@ -1030,6 +1031,8 @@ if (messages.length > 0) {
 useEffect(() => {
   if (!selectedConversation?._id) return;
 
+    isInitialLoadRef.current = true; // 🔥 RESET ONLY HERE
+
   // 🔥 Clear messages and dedupe set
   setRawMessages([]);
   messageIdSetRef.current.clear();
@@ -1047,26 +1050,26 @@ useLayoutEffect(() => {
   const container = messagesContainerRef.current;
   if (!container) return;
 
-  // 🔥 FIX: Better scroll restoration logic
-if (prevScrollHeightRef.current === null) {
-  // Only auto-scroll on FIRST load of conversation
-  requestAnimationFrame(() => {
-    container.scrollTop = container.scrollHeight;
-  });
-}
- else {
-    // ✅ Pagination - maintain EXACT position (don't jump to bottom)
+  // ✅ ONLY auto-scroll on first load
+  if (isInitialLoadRef.current) {
     requestAnimationFrame(() => {
-      const newScrollHeight = container.scrollHeight;
-      const oldScrollHeight = prevScrollHeightRef.current;
-      const heightDiff = newScrollHeight - oldScrollHeight;
-      
-container.scrollTop += heightDiff;
-      
+      container.scrollTop = container.scrollHeight;
+      isInitialLoadRef.current = false; // 🔒 lock forever
+    });
+    return;
+  }
+
+  // ✅ Pagination scroll restore
+  if (prevScrollHeightRef.current !== null) {
+    requestAnimationFrame(() => {
+      const newHeight = container.scrollHeight;
+      const oldHeight = prevScrollHeightRef.current;
+
+      container.scrollTop += newHeight - oldHeight;
       prevScrollHeightRef.current = null;
     });
   }
-}, [messages.length]); // 🔥 Trigger on message count change
+}, [messages.length]);
 
 
 useLayoutEffect(() => {
