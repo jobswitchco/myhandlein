@@ -1104,10 +1104,15 @@ const handleScroll = (e) => {
   if (loadingMessages || syncingOlderRef.current) return;
 
   // 🔥 Single entry point
-  if (hasMore && cursor) {
-    console.log("⬆️ Near top → fetching older messages");
-    fetchMessages(selectedConversationId, cursor);
-  }
+ if (cursor) {
+  console.log("⬆️ Near top → attempting pagination", {
+    cursor,
+    hasMore,
+  });
+
+  fetchMessages(selectedConversationId, cursor);
+}
+
 };
 
 
