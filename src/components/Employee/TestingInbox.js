@@ -1005,36 +1005,33 @@ fetchMessages(selectedConversation._id);
 
 }, [selectedConversation?._id, fetchMessages]);
 
-useEffect(() => {
-  if (!selectedConversation?._id) return;
-
-  setRawMessages([]);
-  messageIdSetRef.current.clear();
-  setCursor(null);
-  setHasMore(true);
-
-  fetchModeRef.current = "initial";
-  didInitialScrollRef.current = false; // 🔑
-
-  fetchMessages(selectedConversation._id);
-}, [selectedConversation?._id]);
 
 
-  /* ---------- SCROLL MANAGEMENT ---------- */
+/* ---------- SCROLL MANAGEMENT ---------- */
 useLayoutEffect(() => {
   const container = messagesContainerRef.current;
   if (!container) return;
 
-  // ✅ ONLY for first render of a conversation
-  if (fetchModeRef.current !== "initial") return;
-  if (didInitialScrollRef.current) return;
-  if (messages.length === 0) return;
+  // ✅ Initial scroll to bottom when first loading a conversation
+  if (fetchModeRef.current === "initial" && messages.length > 0 && !loadingMessages) {
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+      didInitialScrollRef.current = true;
+      fetchModeRef.current = "ready"; // Mark as ready after first scroll
+    });
+    return;
+  }
 
-  requestAnimationFrame(() => {
-    container.scrollTop = container.scrollHeight;
-    didInitialScrollRef.current = true;
-  });
-}, [messages.length]);
+  // ✅ Restore scroll position after loading older messages (pagination)
+  if (fetchModeRef.current === "paginate" && prevScrollHeightRef.current && !loadingMessages) {
+    requestAnimationFrame(() => {
+      const newScrollHeight = container.scrollHeight;
+      const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
+      container.scrollTop = scrollDiff;
+      prevScrollHeightRef.current = null;
+    });
+  }
+}, [messages.length, loadingMessages]);
 
 
 
