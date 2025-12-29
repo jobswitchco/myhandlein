@@ -5125,7 +5125,7 @@ router.get("/conversations/:id/messages", authenticateToken, async (req, res) =>
     messages,
     nextCursor,
     hasMore,
-    dbExhausted: !hasMore 
+    dbExhausted: !hasMore && !cursor,
   },
 });
 
