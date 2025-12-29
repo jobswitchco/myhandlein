@@ -1091,22 +1091,25 @@ useLayoutEffect(() => {
 }, [conversations, loadingOlderConversations]);
 
 
+const TOP_THRESHOLD = 80;
+
 const handleScroll = (e) => {
   const el = e.target;
 
-  // Only trigger at top
-  if (el.scrollTop > 50) return;
+  const nearTop = el.scrollTop <= TOP_THRESHOLD;
 
-  // Prevent parallel fetches
+  if (!nearTop) return;
+
+  // prevent parallel fetches
   if (loadingMessages || syncingOlderRef.current) return;
 
-  // 🔥 Simple: just call fetchMessages
-  // It will handle both DB pagination AND Meta sync internally
-if (hasMore && cursor) {
-  fetchMessages(selectedConversationId, cursor);
-}
-
+  // 🔥 Single entry point
+  if (hasMore && cursor) {
+    console.log("⬆️ Near top → fetching older messages");
+    fetchMessages(selectedConversationId, cursor);
+  }
 };
+
 
 
 
