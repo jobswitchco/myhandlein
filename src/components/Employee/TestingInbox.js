@@ -1070,10 +1070,16 @@ if (!hasMore && !syncingOlderRef.current) {
   console.log("🌐 DB exhausted → fetching older messages from Instagram");
 
   syncingOlderRef.current = true;
-  fetchModeRef.current = "paginate"; // 🔑 CRITICAL
+  fetchModeRef.current = "paginate"; // 🔑 correct
   setLoadingMessages(true);
 
   try {
+    // 🔑 CAPTURE SCROLL HEIGHT BEFORE PREPEND
+    if (messagesContainerRef.current) {
+      prevScrollHeightRef.current =
+        messagesContainerRef.current.scrollHeight;
+    }
+
     const res = await axios.post(
       `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
       {},
@@ -1083,7 +1089,6 @@ if (!hasMore && !syncingOlderRef.current) {
     const older = res.data?.data?.messages || [];
 
     if (older.length > 0) {
-      // 🔥 DEDUPE + PREPEND (atomic)
       setRawMessages(prev => {
         const unique = [];
 
@@ -1095,17 +1100,11 @@ if (!hasMore && !syncingOlderRef.current) {
           }
         }
 
-        return [...unique, ...prev];
+        return [...unique, ...prev]; // prepend
       });
 
-      // 🔥 Move cursor backward (message cursor)
       setCursor(res.data.data.nextCursor);
-
-      // 🔑 IMPORTANT:
-      // DB may now have more messages again
       setHasMore(true);
-    } else {
-      console.log("ℹ️ Meta returned no older messages");
     }
   } catch (err) {
     console.error("❌ Meta sync failed:", err);
@@ -1114,6 +1113,7 @@ if (!hasMore && !syncingOlderRef.current) {
     setLoadingMessages(false);
   }
 }
+
 
 
 
