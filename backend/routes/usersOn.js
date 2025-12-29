@@ -4719,8 +4719,97 @@ router.post("/conversations/:id/refresh-profile", authenticateToken, async (req,
   }
 });
 
-// ==================== FIXED: /conversations route ====================
-// ==================== FIXED: /conversations ====================
+// ==================== FIX #1: syncOlderMessages ====================
+// Problem: Messages fetched but not emitted to frontend
+async function syncOlderMessages({ userId, conversationId }) {
+  const limit = 25;
+  const lockKey = `ig:sync:older:${conversationId}`;
+  if (await redisGet(lockKey)) return;
+
+  await redisSet(lockKey, "1", 90);
+
+  try {
+    const user = await USER.findById(userId)
+      .select("+fbPageAccessToken")
+      .lean();
+
+    if (!user?.fbPageAccessToken) return;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      creatorId: userId,
+    }).lean();
+
+    if (!conversation?.metaThreadId) return;
+
+    const result = await InstagramService.fetchOlderMessages({
+      igConversationId: conversation.metaThreadId,
+      pageAccessToken: user.fbPageAccessToken,
+      afterCursor: conversation.lastMetaAfterCursor || null,
+      limit: 25,
+    });
+
+    if (!result.messages.length) {
+      console.log("ℹ️ No more messages from Meta");
+      return;
+    }
+
+    let insertedAny = false;
+    const insertedMessages = []; // 🔥 Track what we insert
+
+    for (const msg of result.messages) {
+      const normalized = await upsertMessage(
+        msg,
+        conversation,
+        user,
+        { isHydration: true }
+      );
+
+      if (normalized) {
+        insertedAny = true;
+        insertedMessages.push(normalized); // 🔥 Collect for emit
+      }
+    }
+
+    // Update cursor ONLY if Meta returned a full page
+    if (
+      result.messages.length === limit &&
+      result.paging?.cursors?.after
+    ) {
+      await Conversation.updateOne(
+        { _id: conversationId },
+        {
+          $set: {
+            lastMetaAfterCursor: result.paging.cursors.after,
+            lastSyncedAt: new Date()
+          }
+        }
+      );
+    }
+
+    // 🔥 FIX: Emit EACH message individually (like realtime flow)
+    if (insertedAny) {
+      for (const msg of insertedMessages) {
+        await publishMessageEvent({
+          creatorId: userId,
+          conversationId,
+          message: msg,
+        });
+      }
+
+      console.log(`✅ Emitted ${insertedMessages.length} older messages`);
+    }
+
+  } catch (err) {
+    console.error("❌ syncOlderMessages failed", err);
+  } finally {
+    await redisDel(lockKey);
+  }
+}
+
+
+// ==================== FIX #2: /conversations route ====================
+// Problem: Profile cache not populated on pagination
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -4730,9 +4819,6 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       ? JSON.parse(Buffer.from(req.query.cursor, "base64").toString())
       : null;
 
-    /* =========================================================
-       1️⃣ Fetch creator ONCE (needed for profile refresh)
-       ========================================================= */
     const user = await USER.findById(userId)
       .select("+fbPageAccessToken")
       .lean();
@@ -4744,9 +4830,6 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       });
     }
 
-    /* =========================================================
-       2️⃣ Build pagination query
-       ========================================================= */
     const query = {
       creatorId: userId,
       ...(cursor && {
@@ -4781,31 +4864,38 @@ router.get("/conversations", authenticateToken, async (req, res) => {
         ).toString("base64")
       : null;
 
-    /* =========================================================
-       3️⃣ Enrich conversations (PROFILE FIX HERE)
-       ========================================================= */
     const enriched = [];
     const WINDOW_MS = 24 * 60 * 60 * 1000;
 
     for (const c of page) {
       const igUserId = c.participantId?.igUserId;
-
       let profile = null;
 
       if (igUserId) {
-        // 🔑 READ cache
+        // 🔥 FIX: Always try cache first
         profile = await getCachedProfile(igUserId);
 
-        // 🔥 CACHE MISS → refresh async (do NOT block)
-        if (!profile) {
-          // In your /conversations route, when calling fetchAndCacheProfileSafely:
-fetchAndCacheProfileSafely({
-  igUserId,
-  accessToken: user.fbPageAccessToken,
-  conversationId: c._id,
-  creatorId: userId,
-  publishSocketEvent,
-}).catch(() => {});
+        // 🔥 FIX: If cache miss, fetch SYNCHRONOUSLY on first page
+        // This ensures initial load has all profile pics
+        if (!profile && !cursor) {
+          console.log(`🔄 Blocking profile fetch for ${igUserId} (initial load)`);
+          profile = await fetchAndCacheProfileSafely({
+            igUserId,
+            accessToken: user.fbPageAccessToken,
+            conversationId: c._id,
+            creatorId: userId,
+            publishSocketEvent,
+          });
+        }
+        // On pagination, fetch async (don't block response)
+        else if (!profile && cursor) {
+          fetchAndCacheProfileSafely({
+            igUserId,
+            accessToken: user.fbPageAccessToken,
+            conversationId: c._id,
+            creatorId: userId,
+            publishSocketEvent,
+          }).catch(() => {});
         }
       }
 
@@ -4814,8 +4904,7 @@ fetchAndCacheProfileSafely({
       let replyDisabledReason = null;
 
       if (lastParticipantMessageAt) {
-        const diff =
-          Date.now() - new Date(lastParticipantMessageAt).getTime();
+        const diff = Date.now() - new Date(lastParticipantMessageAt).getTime();
         canReply = diff <= WINDOW_MS;
         if (!canReply) replyDisabledReason = "window_expired";
       } else {
@@ -4842,9 +4931,6 @@ fetchAndCacheProfileSafely({
       });
     }
 
-    /* =========================================================
-       4️⃣ Response
-       ========================================================= */
     res.json({
       success: true,
       data: enriched,
@@ -5529,86 +5615,7 @@ if (
   return normalizedMessage;
 }
 
-// ==================== UPDATE: syncOlderMessages ====================
 
-async function syncOlderMessages({ userId, conversationId }) {
-  const limit = 25;
-  const lockKey = `ig:sync:older:${conversationId}`;
-  if (await redisGet(lockKey)) return;
-
-  await redisSet(lockKey, "1", 90);
-
-  try {
-    const user = await USER.findById(userId)
-      .select("+fbPageAccessToken")
-      .lean();
-
-    if (!user?.fbPageAccessToken) return;
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      creatorId: userId,
-    }).lean();
-
-    if (!conversation?.metaThreadId) return;
-
-    const result = await InstagramService.fetchOlderMessages({
-      igConversationId: conversation.metaThreadId,
-      pageAccessToken: user.fbPageAccessToken,
-      afterCursor: conversation.lastMetaAfterCursor || null,
-      limit: 25,
-    });
-
-    if (!result.messages.length) return;
-
-    let insertedAny = false;
-
-    for (const msg of result.messages) {
-const normalized = await upsertMessage(
-  msg,
-  conversation,
-  user,
-  { isHydration: true } // 🔑 CRITICAL
-);
-
-      if (normalized) insertedAny = true;
-    }
-
- // Update cursor ONLY if Meta returned a full page
-if (
-  result.messages.length === limit &&
-  result.paging?.cursors?.after
-) {
-  await Conversation.updateOne(
-    { _id: conversationId },
-    {
-      $set: {
-        lastMetaAfterCursor: result.paging.cursors.after,
-        lastSyncedAt: new Date()
-      }
-    }
-  );
-}
-
-
-if (insertedAny) {
-  await publishSocketEvent({
-    conversationId,
-    payload: {
-      type: "older-messages:ready",
-      conversationId: conversationId.toString(),
-    }
-  });
-}
-
-
-
-  } catch (err) {
-    console.error("❌ syncOlderMessages failed", err);
-  } finally {
-    await redisDel(lockKey);
-  }
-}
 
 
 router.post("/conversations/:id/messages", authenticateToken, upload.single("file"), async (req, res) => {
