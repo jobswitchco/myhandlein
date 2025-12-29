@@ -107,7 +107,6 @@ export default function InboxManagement() {
 
   const convListRef = useRef(null);
   const prevConvScrollHeightRef = useRef(null);
-  const isInitialLoadRef = useRef(true);
 
 
   const [loadingMetaConversations, setLoadingMetaConversations] = useState(false);
@@ -1031,8 +1030,6 @@ if (messages.length > 0) {
 useEffect(() => {
   if (!selectedConversation?._id) return;
 
-    isInitialLoadRef.current = true; // 🔥 RESET ONLY HERE
-
   // 🔥 Clear messages and dedupe set
   setRawMessages([]);
   messageIdSetRef.current.clear();
@@ -1050,27 +1047,29 @@ useLayoutEffect(() => {
   const container = messagesContainerRef.current;
   if (!container) return;
 
-  // ✅ ONLY auto-scroll on first load (scroll to bottom for newest messages)
-  if (isInitialLoadRef.current && messages.length > 0) {
+  // 🔥 FIX: Better scroll restoration logic
+if (prevScrollHeightRef.current === null) {
+  // Only auto-scroll on FIRST load of conversation
+  requestAnimationFrame(() => {
+    container.scrollTop = container.scrollHeight;
+  });
+}
+ else {
+    // ✅ Pagination - maintain EXACT position (don't jump to bottom)
     requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
-      isInitialLoadRef.current = false; // 🔒 lock forever
-    });
-    return;
-  }
-
-  // ✅ Pagination scroll restore (maintain position when loading older messages)
-  if (prevScrollHeightRef.current !== null) {
-    requestAnimationFrame(() => {
-      const newHeight = container.scrollHeight;
-      const oldHeight = prevScrollHeightRef.current;
-
-      // Restore scroll position by adding the difference
-      container.scrollTop = newHeight - oldHeight;
+      const newScrollHeight = container.scrollHeight;
+      const oldScrollHeight = prevScrollHeightRef.current;
+      const heightDiff = newScrollHeight - oldScrollHeight;
+      
+      // 🔥 FIX #1: Keep user at same visual position
+      // If they were at scrollTop=0, after prepend they should be at scrollTop=heightDiff
+      const oldScrollTop = container.scrollTop;
+      container.scrollTop = oldScrollTop + heightDiff;
+      
       prevScrollHeightRef.current = null;
     });
   }
-}, [messages.length]);
+}, [messages.length]); // 🔥 Trigger on message count change
 
 
 useLayoutEffect(() => {
@@ -1091,25 +1090,22 @@ useLayoutEffect(() => {
 }, [conversations, loadingOlderConversations]);
 
 
-const TOP_THRESHOLD = 80;
-
 const handleScroll = (e) => {
   const el = e.target;
 
-  const nearTop = el.scrollTop <= TOP_THRESHOLD;
+  // Only trigger at top
+  if (el.scrollTop > 50) return;
 
-  if (!nearTop) return;
-
-  // prevent parallel fetches
+  // Prevent parallel fetches
   if (loadingMessages || syncingOlderRef.current) return;
 
-  // 🔥 Single entry point
-  if (hasMore || cursor) {
-    console.log("⬆️ Near top → fetching older messages");
-    fetchMessages(selectedConversationId, cursor);
-  }
-};
+  // 🔥 Simple: just call fetchMessages
+  // It will handle both DB pagination AND Meta sync internally
+if (hasMore && cursor) {
+  fetchMessages(selectedConversationId, cursor);
+}
 
+};
 
 
 
