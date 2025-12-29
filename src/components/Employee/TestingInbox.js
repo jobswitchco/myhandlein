@@ -1020,8 +1020,8 @@ useLayoutEffect(() => {
   if (fetchModeRef.current === "initial" && !loadingMessages) {
     requestAnimationFrame(() => {
       container.scrollTop = container.scrollHeight;
-      fetchModeRef.current = "ready"; // Mark as ready after first scroll
     });
+    fetchModeRef.current = "ready"; // Mark as ready after first scroll
     return;
   }
 
@@ -1035,7 +1035,7 @@ useLayoutEffect(() => {
       const newScrollHeight = container.scrollHeight;
       const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
       
-      // ✅ Add the difference to maintain position
+      // Add the difference to maintain position
       container.scrollTop = container.scrollTop + scrollDiff;
       
       // Clean up
@@ -1044,6 +1044,7 @@ useLayoutEffect(() => {
     });
   }
 }, [messages.length, loadingMessages]);
+
 
 
 useLayoutEffect(() => {
