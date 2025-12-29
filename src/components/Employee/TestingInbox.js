@@ -965,13 +965,13 @@ const fetchMessages = useCallback(
          🚨 ADD THE SYNC-OLDER LOGIC RIGHT HERE
          ===================================================== */
 
-    if (
-  !payload.hasMore &&
+if (
   payload.dbExhausted &&
+  payload.hasMoreOnMeta &&
   cursorParam &&
   !syncingOlderRef.current
 ) {
-  isPaginatingRef.current = true;
+  syncingOlderRef.current = true;
 
   await axios.post(
     `${baseUrl}/conversations/${conversationId}/sync-older`,
@@ -980,9 +980,10 @@ const fetchMessages = useCallback(
   );
 
   // ⛔ DO NOT refetch here
-  // wait for socket: older-messages:ready
+  // socket: older-messages:ready will handle it
   return;
 }
+
 
 
       /* =====================================================

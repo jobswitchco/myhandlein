@@ -4822,6 +4822,14 @@ async function syncOlderMessages({ userId, conversationId }) {
 
     console.log(`✅ Inserted ${insertedMessages.length} older messages`);
 
+    await publishSocketEvent({
+  conversationId,
+  payload: {
+    type: "older-messages:ready",
+    conversationId
+  }
+});
+
     // 🔥 Return messages to frontend
     return {
       messages: insertedMessages,
