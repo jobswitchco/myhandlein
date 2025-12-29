@@ -1048,11 +1048,8 @@ useLayoutEffect(() => {
     // ✅ FIX: Maintain scroll position when prepending messages
     const newScrollHeight = container.scrollHeight;
     const heightDiff = newScrollHeight - prevScrollHeightRef.current;
+    const currentScroll = container.scrollTop;
     container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
-
-    
-    // Add the height difference to current scroll position
-    container.scrollTop = currentScroll + heightDiff;
     
     console.log('📍 Scroll restored:', {
       oldHeight: prevScrollHeightRef.current,
