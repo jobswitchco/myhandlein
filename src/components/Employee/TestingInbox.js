@@ -932,19 +932,16 @@ useEffect(() => {
 
   /* ---------- FETCH MESSAGES ---------- */
 const fetchMessages = useCallback(
-
-  
-  async (conversationId, cursorParam = null, opts = {}) => {
-
+  async (conversationId, cursorParam = null) => {
     if (isFetchingMessagesRef.current) return;
-isFetchingMessagesRef.current = true;
-
+    isFetchingMessagesRef.current = true;
 
     try {
       setLoadingMessages(true);
-  if (cursorParam && messagesContainerRef.current) {
-        prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
-        console.log('📏 Captured scroll height:', prevScrollHeightRef.current);
+
+      if (cursorParam && messagesContainerRef.current) {
+        prevScrollHeightRef.current =
+          messagesContainerRef.current.scrollHeight;
       }
 
       const res = await axios.get(
@@ -960,87 +957,32 @@ isFetchingMessagesRef.current = true;
       const payload = res.data?.data;
       if (!payload) return;
 
-      /* =====================================================
-         🚨 ADD THE SYNC-OLDER LOGIC RIGHT HERE
-         ===================================================== */
-
-if (payload.dbExhausted &&
-  payload.hasMoreOnMeta &&
-  cursorParam &&
-  !syncingOlderRef.current
-) {
-  syncingOlderRef.current = true;
-  fetchModeRef.current = "paginate";
-
-  const res = await axios.post(
-    `${baseUrl}/conversations/${conversationId}/sync-older`,
-    {},
-    { withCredentials: true }
-  );
-
-  const older = res.data?.data?.messages || [];
-
-  if (older.length > 0) {
-    // 🔥 DEDUPE + PREPEND
-    setRawMessages(prev => {
-      const unique = [];
-
-      for (const msg of older) {
-        const id = String(msg._id);
-        if (!messageIdSetRef.current.has(id)) {
-          messageIdSetRef.current.add(id);
-          unique.push(msg);
-        }
-      }
-
-      return [...unique, ...prev];
-    });
-
-    // move cursor backward
-    setCursor(res.data.data.nextCursor);
-    setHasMore(true);
-  }
-
-  syncingOlderRef.current = false;
-}
-
-      /* =====================================================
-         NORMAL FLOW CONTINUES BELOW
-         ===================================================== */
-
       const newMessages = payload.messages.filter(msg => {
-        const msgId =
-          typeof msg._id === "object"
-            ? msg._id.toString()
-            : String(msg._id);
-
-        if (messageIdSetRef.current.has(msgId)) return false;
-
-        messageIdSetRef.current.add(msgId);
+        const id = String(msg._id);
+        if (messageIdSetRef.current.has(id)) return false;
+        messageIdSetRef.current.add(id);
         return true;
       });
 
-    // ✅ Prepend when paginating, replace on initial load
-    setRawMessages(prev => {
-  if (fetchModeRef.current === "paginate") {
-    return [...newMessages, ...prev]; // prepend only
-  }
-  return newMessages; // initial load only
-});
-
+      setRawMessages(prev => {
+        if (fetchModeRef.current === "paginate") {
+          return [...newMessages, ...prev]; // prepend
+        }
+        return newMessages; // initial load
+      });
 
       setCursor(payload.nextCursor);
       setHasMore(payload.hasMore);
-
     } catch (err) {
       console.error("Message fetch failed", err);
     } finally {
       setLoadingMessages(false);
-     isFetchingMessagesRef.current = false;
+      isFetchingMessagesRef.current = false;
     }
   },
   []
 );
+
 
 
   /* ---------- RESET ON CONVERSATION CHANGE ---------- */
@@ -1095,7 +1037,7 @@ useLayoutEffect(() => {
 }, [conversations, loadingOlderConversations]);
 
 
-const handleScroll = (e) => {
+const handleScroll = async (e) => {
   const el = e.target;
 
   // Only trigger at top (for loading older messages)
@@ -1107,6 +1049,58 @@ const handleScroll = (e) => {
   /**
    * 1️⃣ DB HAS MORE → paginate DB
    */
+
+if (!hasMore && !syncingOlderRef.current) {
+  console.log("🌐 DB exhausted → fetching older messages from Instagram");
+
+  syncingOlderRef.current = true;
+  fetchModeRef.current = "paginate"; // 🔑 CRITICAL
+  setLoadingMessages(true);
+
+  try {
+    const res = await axios.post(
+      `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
+      {},
+      { withCredentials: true }
+    );
+
+    const older = res.data?.data?.messages || [];
+
+    if (older.length > 0) {
+      // 🔥 DEDUPE + PREPEND (atomic)
+      setRawMessages(prev => {
+        const unique = [];
+
+        for (const msg of older) {
+          const id = String(msg._id);
+          if (!messageIdSetRef.current.has(id)) {
+            messageIdSetRef.current.add(id);
+            unique.push(msg);
+          }
+        }
+
+        return [...unique, ...prev];
+      });
+
+      // 🔥 Move cursor backward (message cursor)
+      setCursor(res.data.data.nextCursor);
+
+      // 🔑 IMPORTANT:
+      // DB may now have more messages again
+      setHasMore(true);
+    } else {
+      console.log("ℹ️ Meta returned no older messages");
+    }
+  } catch (err) {
+    console.error("❌ Meta sync failed:", err);
+  } finally {
+    syncingOlderRef.current = false;
+    setLoadingMessages(false);
+  }
+}
+
+
+
   if (hasMore && cursor) {
     console.log("📄 Paginating from DB with cursor:", cursor);
    fetchModeRef.current = "paginate";
