@@ -798,20 +798,6 @@ if (payload.type === "conversation:created") {
   return;
 }
 
-if (payload.type === "older-messages:ready") {
-  if (payload.conversationId !== selectedConversationId) return;
-
-  syncingOlderRef.current = false;
-
-  // IMPORTANT: use CURRENT cursor state
-fetchModeRef.current = "paginate";
-fetchMessages(selectedConversationId, cursorRef.current);
-
-}
-
-
-
-
 
 
   };
@@ -986,16 +972,39 @@ if (
 ) {
   syncingOlderRef.current = true;
 
-  await axios.post(
+  const res = await axios.post(
     `${baseUrl}/conversations/${conversationId}/sync-older`,
     {},
     { withCredentials: true }
   );
 
-  // ⛔ DO NOT refetch here
-  // socket: older-messages:ready will handle it
+  const older = res.data?.data?.messages || [];
+
+  if (older.length > 0) {
+    // 🔥 DEDUPE + PREPEND
+    setRawMessages(prev => {
+      const unique = [];
+
+      for (const msg of older) {
+        const id = String(msg._id);
+        if (!messageIdSetRef.current.has(id)) {
+          messageIdSetRef.current.add(id);
+          unique.push(msg);
+        }
+      }
+
+      return [...unique, ...prev];
+    });
+
+    // move cursor backward
+    setCursor(res.data.data.nextCursor);
+    setHasMore(res.data.data.hasMore);
+  }
+
+  syncingOlderRef.current = false;
   return;
 }
+
 
 
 
