@@ -1056,7 +1056,7 @@ const fetchMessages = useCallback(
       setLoadingMessages(false);
     }
   },
-  [loadingMessages]
+  []
 );
 
 
