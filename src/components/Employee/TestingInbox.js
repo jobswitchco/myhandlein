@@ -964,13 +964,13 @@ isFetchingMessagesRef.current = true;
          🚨 ADD THE SYNC-OLDER LOGIC RIGHT HERE
          ===================================================== */
 
-if (
-  payload.dbExhausted &&
+if (payload.dbExhausted &&
   payload.hasMoreOnMeta &&
   cursorParam &&
   !syncingOlderRef.current
 ) {
   syncingOlderRef.current = true;
+  fetchModeRef.current = "paginate";
 
   const res = await axios.post(
     `${baseUrl}/conversations/${conversationId}/sync-older`,
@@ -998,15 +998,11 @@ if (
 
     // move cursor backward
     setCursor(res.data.data.nextCursor);
-    setHasMore(res.data.data.hasMore);
+    setHasMore(true);
   }
 
   syncingOlderRef.current = false;
-  return;
 }
-
-
-
 
       /* =====================================================
          NORMAL FLOW CONTINUES BELOW
@@ -1119,34 +1115,6 @@ fetchMessages(selectedConversationId, cursor);
     return;
   }
 
-  /**
-   * 2️⃣ DB EXHAUSTED → hydrate from Meta
-   */
-  if (!hasMore && !syncingOlderRef.current) {
-    console.log("🌐 DB exhausted → fetching older messages from Instagram");
-
-    syncingOlderRef.current = true;
-    setLoadingMessages(true);
-
-    axios
-      .post(
-        `${baseUrl}/conversations/${selectedConversationId}/sync-older`,
-        {},
-        { withCredentials: true }
-      )
-      .then(() => {
-        console.log("✅ Meta sync completed");
-      })
-      .catch((err) => {
-        console.error("❌ Meta sync failed:", err);
-      })
-      .finally(() => {
-        setTimeout(() => {
-          syncingOlderRef.current = false;
-          setLoadingMessages(false);
-        }, 800);
-      });
-  }
 };
 
 
