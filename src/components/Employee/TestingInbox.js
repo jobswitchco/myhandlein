@@ -118,8 +118,6 @@ const appendedInLastFetchRef = useRef(false);
 const fetchModeRef = useRef("initial"); 
 const isFetchingMessagesRef = useRef(false);
 const didInitialScrollRef = useRef(false);
-const isPaginatingConversationsRef = useRef(false);
-
 
 
 
@@ -371,12 +369,11 @@ const handleConvScroll = async (e) => {
    * =========================================================
    */
   if (hasMoreConversations && convCursor) {
-      isPaginatingConversationsRef.current = true;
-   prevConvScrollHeightRef.current = el.scrollHeight;
-   await loadOlderConversations();
-    isPaginatingConversationsRef.current = false;
-   return;
-}
+    console.log("✅ Paginating DB conversations");
+    prevConvScrollHeightRef.current = el.scrollHeight;
+    await loadOlderConversations();
+    return;
+  }
 
   /**
    * =========================================================
@@ -605,9 +602,6 @@ useEffect(() => {
   };
 }, [creatorId]); 
 
-const isSidebarLoading = loadingOlderConversations || loadingMetaConversations;
-
-
 
 useEffect(() => {
   const socket = getSocket();
@@ -620,12 +614,6 @@ useEffect(() => {
     "participant:updated",
     "older-messages:ready",
   ].includes(payload.type)
-) {
-  return;
-}
-
-// 🚫 Ignore sidebar mutations during pagination
-if (isPaginatingConversationsRef.current && payload.type === "conversation:updated"
 ) {
   return;
 }
@@ -1024,23 +1012,45 @@ useLayoutEffect(() => {
   const container = messagesContainerRef.current;
   if (!container) return;
 
-  // ✅ Initial scroll to bottom when first loading a conversation
-  if (fetchModeRef.current === "initial" && messages.length > 0 && !loadingMessages) {
+  /**
+   * =========================================================
+   * 1️⃣ INITIAL LOAD → SCROLL TO BOTTOM (ONCE)
+   * =========================================================
+   */
+  if (
+    fetchModeRef.current === "initial" &&
+    messages.length > 0 &&
+    !loadingMessages
+  ) {
     requestAnimationFrame(() => {
       container.scrollTop = container.scrollHeight;
+
       didInitialScrollRef.current = true;
-      fetchModeRef.current = "ready"; // Mark as ready after first scroll
+      fetchModeRef.current = "ready"; // 🔑 IMPORTANT
     });
     return;
   }
 
-  // ✅ Restore scroll position after loading older messages (pagination)
-  if (fetchModeRef.current === "paginate" && prevScrollHeightRef.current && !loadingMessages) {
+  /**
+   * =========================================================
+   * 2️⃣ PAGINATION → RESTORE VISUAL POSITION
+   * =========================================================
+   */
+  if (
+    fetchModeRef.current === "paginate" &&
+    prevScrollHeightRef.current !== null &&
+    !loadingMessages
+  ) {
     requestAnimationFrame(() => {
       const newScrollHeight = container.scrollHeight;
-      const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
-      container.scrollTop = scrollDiff;
+      const heightDiff = newScrollHeight - prevScrollHeightRef.current;
+
+      // 🔥 CRITICAL: adjust, don't replace
+      container.scrollTop += heightDiff;
+
+      // cleanup
       prevScrollHeightRef.current = null;
+      fetchModeRef.current = "ready";
     });
   }
 }, [messages.length, loadingMessages]);
@@ -1081,9 +1091,16 @@ const handleScroll = async (e) => {
 if (!hasMore && !syncingOlderRef.current) {
   console.log("🌐 DB exhausted → fetching older messages from Instagram");
 
-  syncingOlderRef.current = true;
-  fetchModeRef.current = "paginate"; // 🔑 CRITICAL
-  setLoadingMessages(true);
+syncingOlderRef.current = true;
+fetchModeRef.current = "paginate"; // 🔑 CRITICAL
+
+if (messagesContainerRef.current) {
+  prevScrollHeightRef.current =
+    messagesContainerRef.current.scrollHeight; // 🔑 ADD THIS
+}
+
+setLoadingMessages(true);
+
 
   try {
     const res = await axios.post(
@@ -1129,13 +1146,20 @@ if (!hasMore && !syncingOlderRef.current) {
 
 
 
-  if (hasMore && cursor) {
-    console.log("📄 Paginating from DB with cursor:", cursor);
-   fetchModeRef.current = "paginate";
-fetchMessages(selectedConversationId, cursor);
+if (hasMore && cursor) {
+  console.log("📄 Paginating from DB with cursor:", cursor);
 
-    return;
+  fetchModeRef.current = "paginate"; // 🔑 must be BEFORE fetch
+
+  if (messagesContainerRef.current) {
+    prevScrollHeightRef.current =
+      messagesContainerRef.current.scrollHeight; // 🔑 CAPTURE HERE
   }
+
+  fetchMessages(selectedConversationId, cursor);
+  return;
+}
+
 
 };
 
@@ -1417,7 +1441,7 @@ const waitingMessage = `Waiting for reply from @${showUsername}`;
         sx={{ overflowY: "auto" }}
         onScroll={handleConvScroll}
       >
-        {loading || hydratingFromMeta || isSidebarLoading ? (
+        {loading || hydratingFromMeta ? (
           <Box px={2}>
             {[...Array(6)].map((_, i) => (
               <Box key={i} display="flex" gap={2} py={2}>
