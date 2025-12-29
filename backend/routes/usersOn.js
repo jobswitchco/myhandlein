@@ -4838,6 +4838,50 @@ async function syncOlderMessages({ userId, conversationId }) {
 }
 
 
+// utils/conversationStage1Scorer.js
+
+async function scoreConversationStage1(messages) {
+  let score = 0;
+
+  // 1️⃣ Message count
+  if (messages.length >= 4) score += 20;
+  else if (messages.length >= 2) score += 12;
+  else score += 5;
+
+  const text = messages
+    .map(m => m.text || "")
+    .join(" ")
+    .toLowerCase();
+
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+  // 2️⃣ Message length / intent density
+  if (wordCount >= 15) score += 30;
+  else if (wordCount >= 8) score += 20;
+  else if (wordCount >= 4) score += 10;
+
+  // 3️⃣ Intent keywords
+  if (/(price|cost|fees|program|plan|coaching|training|join|enroll)/.test(text)) {
+    score += 30;
+  }
+
+  if (/(urgent|today|now|asap)/.test(text)) {
+    score += 5;
+  }
+
+  // 4️⃣ Question signal
+  if (text.includes("?")) score += 10;
+
+  // 5️⃣ Non-English / Hinglish
+  if (/[^\x00-\x7F]/.test(text)) {
+    score += 15;
+  }
+
+  return Math.min(score, 100);
+}
+
+
+
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -5656,6 +5700,37 @@ if (
     { $inc: { unreadCount: 1 } }
   );
 }
+
+// ================= STAGE 1: CONVERSATION SCORING (TESTING) =================
+if (sender === "them" && !isHydration) {
+  try {
+    // Fetch last few participant messages (24h window enforced implicitly)
+    const recentMessages = await Message.find({
+      conversationId: conversation._id,
+      sender: "them",
+      isDeleted: false,
+    })
+      .sort({ createdAtPlatform: -1 })
+      .limit(5) // 🔑 small, cheap window
+      .lean();
+
+    // Order oldest → newest
+    recentMessages.reverse();
+
+    const stage1Score = await scoreConversationStage1(recentMessages);
+
+    console.log("🧠 STAGE-1 SCORE", {
+      conversationId: conversation._id.toString(),
+      score: stage1Score,
+      messageCount: recentMessages.length,
+      text: recentMessages.map(m => m.text).join(" | "),
+    });
+
+  } catch (err) {
+    console.error("❌ Stage-1 scoring failed:", err.message);
+  }
+}
+
 
 
 
