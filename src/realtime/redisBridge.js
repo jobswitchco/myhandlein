@@ -6,7 +6,7 @@ const redisGet = async (key) => {
     const res = await axios.post(`${REDIS_BRIDGE_URL}/cache/get`, { key });
     return res.data?.value || null;
   } catch (err) {
-    console.error(`❌ redisGet failed for ${key}:`, err.message);
+    // console.error(`❌ redisGet failed for ${key}:`, err.message);
     return null;
   }
 };
@@ -20,14 +20,14 @@ const redisSet = async (key, value, ttl = 86400) => {
     });
     
     if (!res.data?.ok) {
-      console.error(`❌ redisSet failed for ${key}:`, res.data);
+      // console.error(`❌ redisSet failed for ${key}:`, res.data);
       return false;
     }
     
-    console.log(`✅ redisSet success: ${key} (TTL: ${ttl}s)`);
+    // console.log(`✅ redisSet success: ${key} (TTL: ${ttl}s)`);
     return true;
   } catch (err) {
-    console.error(`❌ redisSet error for ${key}:`, err.message);
+    // console.error(`❌ redisSet error for ${key}:`, err.message);
     return false;
   }
 };
@@ -35,10 +35,10 @@ const redisSet = async (key, value, ttl = 86400) => {
 const redisDel = async (key) => {
   try {
     await axios.post(`${REDIS_BRIDGE_URL}/cache/del`, { key });
-    console.log(`✅ redisDel success: ${key}`);
+    // console.log(`✅ redisDel success: ${key}`);
     return true;
   } catch (err) {
-    console.error(`❌ redisDel error for ${key}:`, err.message);
+    // console.error(`❌ redisDel error for ${key}:`, err.message);
     return false;
   }
 };

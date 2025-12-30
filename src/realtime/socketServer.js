@@ -10,17 +10,17 @@ const initSocketServer = (httpServer) => {
     },
   });
 
-  console.log("🟢 Socket.IO initialized");
+  // console.log("🟢 Socket.IO initialized");
 
   // ---------- Socket connection ----------
   io.on("connection", (socket) => {
-    console.log("🔌 Client connected:", socket.id);
+    // console.log("🔌 Client connected:", socket.id);
 
     // Join conversation room
     socket.on("join_conversation", ({ conversationId }) => {
       if (!conversationId) return;
       socket.join(`conv:${conversationId}`);
-      console.log(`📥 ${socket.id} joined conv:${conversationId}`);
+      // console.log(`📥 ${socket.id} joined conv:${conversationId}`);
     });
 
     socket.on("leave_conversation", ({ conversationId }) => {
@@ -31,7 +31,7 @@ const initSocketServer = (httpServer) => {
 socket.on("join_creator", ({ creatorId }) => {
   if (!creatorId) return;
   socket.join(`creator:${creatorId}`);
-  console.log(`👤 ${socket.id} joined creator:${creatorId}`);
+  // console.log(`👤 ${socket.id} joined creator:${creatorId}`);
 });
 
 socket.on("leave_creator", ({ creatorId }) => {
@@ -42,7 +42,7 @@ socket.on("leave_creator", ({ creatorId }) => {
 
 
     socket.on("disconnect", () => {
-      console.log("❌ Client disconnected:", socket.id);
+      // console.log("❌ Client disconnected:", socket.id);
     });
   });
 
@@ -51,17 +51,17 @@ socket.on("leave_creator", ({ creatorId }) => {
 
   sub.psubscribe("inbox:conversation:*", (err) => {
     if (err) {
-      console.error("❌ Redis psubscribe failed", err);
+      // console.error("❌ Redis psubscribe failed", err);
     } else {
-      console.log("📡 Redis subscribed to inbox:conversation:*");
+      // console.log("📡 Redis subscribed to inbox:conversation:*");
     }
   });
 
   sub.psubscribe("inbox:creator:*", (err) => {
   if (err) {
-    console.error("❌ Redis psubscribe failed", err);
+    // console.error("❌ Redis psubscribe failed", err);
   } else {
-    console.log("📡 Redis subscribed to inbox:creator:*");
+    // console.log("📡 Redis subscribed to inbox:creator:*");
   }
 });
 
@@ -84,7 +84,7 @@ sub.on("pmessage", (_pattern, channel, message) => {
       return;
     }
   } catch (e) {
-    console.error("❌ Redis message parse failed", e.message);
+    // console.error("❌ Redis message parse failed", e.message);
   }
 });
 

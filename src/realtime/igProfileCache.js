@@ -13,9 +13,9 @@ async function getCachedProfile(igUserId) {
   
   if (cached) {
     const age = cached.fetchedAt ? Date.now() - cached.fetchedAt : 0;
-    console.log(`📦 Cache hit for ${igUserId} (age: ${Math.floor(age / 1000)}s)`);
+    // console.log(`📦 Cache hit for ${igUserId} (age: ${Math.floor(age / 1000)}s)`);
   } else {
-    console.log(`📦 Cache miss for ${igUserId}`);
+    // console.log(`📦 Cache miss for ${igUserId}`);
   }
   
   return cached;
@@ -41,9 +41,9 @@ async function publishProfileUpdateToCreator({ creatorId, igUserId, name, profil
         data: { igUserId, name, profilePic }
       }
     });
-    console.log(`✅ Published profile update to creator ${creatorId}`);
+    // console.log(`✅ Published profile update to creator ${creatorId}`);
   } catch (err) {
-    console.error('❌ Failed to publish profile update to creator:', err.message);
+    // console.error('❌ Failed to publish profile update to creator:', err.message);
   }
 }
 
@@ -64,7 +64,7 @@ async function fetchAndCacheProfileSafely({
     if (age < PROFILE_TTL * 1000) {
       return cached;
     }
-    console.log(`⏰ Profile expired for ${igUserId}, refreshing...`);
+    // console.log(`⏰ Profile expired for ${igUserId}, refreshing...`);
   }
 
   // Lock to prevent duplicate fetches
@@ -77,7 +77,7 @@ async function fetchAndCacheProfileSafely({
 
 
   try {
-    console.log(`🔄 Fetching profile from Instagram for ${igUserId}...`);
+    // console.log(`🔄 Fetching profile from Instagram for ${igUserId}...`);
     
     const InstagramService = await getInstagramService();
 
@@ -87,7 +87,7 @@ async function fetchAndCacheProfileSafely({
     });
 
     if (!profile) {
-      console.log(`⚠️ No profile data returned for ${igUserId}`);
+      // console.log(`⚠️ No profile data returned for ${igUserId}`);
       return cached;
     }
 
@@ -100,18 +100,18 @@ async function fetchAndCacheProfileSafely({
     };
 
     // 🔥 CRITICAL: Set cache with explicit logging
-    console.log(`💾 Setting cache for ${igUserId}:`, {
-      name: payload.name,
-      hasPic: !!payload.profilePic,
-      ttl: PROFILE_TTL,
-    });
+    // console.log(`💾 Setting cache for ${igUserId}:`, {
+    //   name: payload.name,
+    //   hasPic: !!payload.profilePic,
+    //   ttl: PROFILE_TTL,
+    // });
 
     const setResult = await redisSet(cacheKey, payload, PROFILE_TTL);
     
     if (!setResult) {
-      console.error(`❌ Failed to cache profile for ${igUserId}`);
+      // console.error(`❌ Failed to cache profile for ${igUserId}`);
     } else {
-      console.log(`✅ Successfully cached profile for ${igUserId}`);
+      // console.log(`✅ Successfully cached profile for ${igUserId}`);
     }
 
     // 🔥 FIX #1: Emit to conversation room (for active chat)
@@ -128,7 +128,7 @@ async function fetchAndCacheProfileSafely({
         },
       });
 
-      console.log(`📡 Emitted profile update for conversation ${conversationId}`);
+      // console.log(`📡 Emitted profile update for conversation ${conversationId}`);
     }
     
     // 🔥 FIX #2: Emit to creator room (for sidebar)
@@ -143,7 +143,7 @@ async function fetchAndCacheProfileSafely({
 
     return payload;
   } catch (err) {
-    console.error(`❌ Profile fetch failed for ${igUserId}:`, err.message);
+    // console.error(`❌ Profile fetch failed for ${igUserId}:`, err.message);
     return cached || null;
   } finally {
     await releaseLock(lockKey);

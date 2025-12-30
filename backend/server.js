@@ -8,7 +8,11 @@ import cors from 'cors';
 import usersOnBoard from "./routes/usersOn.js";
 import mongoose from 'mongoose';
 import  socketServer  from "../src/realtime/socketServer.js";
+import agenda from './utils/agenda.js';
+import { defineProcessActionLockJob } from './jobs/processActionLockJob.js';
 const { initSocketServer } = socketServer;
+
+defineProcessActionLockJob(agenda);
 
 
 dbConnection();
@@ -202,6 +206,11 @@ initSocketServer(server);
 
 server.listen(8001, () => {
   console.log('Server is running on port 8001');
+});
+
+agenda.on("ready", () => {
+  agenda.start();
+  console.log("✅ Agenda started");
 });
 
 
