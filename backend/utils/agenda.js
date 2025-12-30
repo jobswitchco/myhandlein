@@ -8,7 +8,7 @@ var MONGO_URI = 'mongodb+srv://'+username+':'+password+'@cluster0.itfkrwb.mongod
 const agenda = new Agenda({
   db: {
     address: MONGO_URI, // ✅ Your MongoDB connection string
-    collection: "agendaJobs",      // Collection where jobs will be stored
+    collection: "agenda_jobs",      // Collection where jobs will be stored
   },
   processEvery: "10 seconds", // How often it checks for due jobs
   maxConcurrency: 20,
