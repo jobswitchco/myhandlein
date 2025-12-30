@@ -1,6 +1,9 @@
 import ActionLock from "../models/ActionLock.js";
 import redis from "../../src/realtime/redis.js";
 import { replyToCommentPublic, sendInitialDM } from "../services/metaSender.js";
+import { ensureFreshPageTokenForUser } from "../services/tokenService.js";
+
+
 
 const MAX_ATTEMPTS = 5;
 const RATE_LIMIT_PER_HOUR = 700;
@@ -28,8 +31,16 @@ function randomRescheduleSeconds() {
 }
 
 export const defineProcessActionLockJob = (agenda) => {
+    console.log('Entered DefineProcess:::::::::::');
   agenda.define("process_action_lock", async (job) => {
+
+    console.log('Entered Agendaaa:::::::::::');
+
     const { actionLockId } = job.attrs.data;
+
+
+    console.log('actionLockId :::::::::::', actionLockId);
+
 
     const lock = await ActionLock.findById(actionLockId);
     if (!lock) return;
@@ -67,12 +78,16 @@ export const defineProcessActionLockJob = (agenda) => {
     }
 
     try {
+
+        const { fbPageAccessToken } = await ensureFreshPageTokenForUser(
+  lock.payload.pageId
+);
       // 🔥 EXECUTION
       if (lock.channel === "public") {
         await replyToCommentPublic(
           lock.commentId,
           lock.payload.replyText,
-          lock.payload.pageAccessToken
+          fbPageAccessToken
         );
       }
 
@@ -87,7 +102,7 @@ export const defineProcessActionLockJob = (agenda) => {
             userId: lock.payload.creatorId,
             _id: lock.payload.automationId,
           },
-          pageAccessToken: lock.payload.pageAccessToken,
+          pageAccessToken: fbPageAccessToken,
           igUserId: lock.payload.igUserId,
           igUsername: lock.payload.igUsername,
         });
