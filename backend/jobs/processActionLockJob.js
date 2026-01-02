@@ -56,8 +56,12 @@ export const defineProcessActionLockJob = (agenda) => {
       return;
     }
 
+    console.log('creatorId : ', lock.payload.creatorId);
+
     // 🔐 Rate limit check
     const allowed = await canSendNow(lock.payload.creatorId);
+    console.log('Allowed : ', allowed);
+
     if (!allowed) {
       const delaySec = randomRescheduleSeconds();
       const nextTime = new Date(Date.now() + delaySec * 1000);
