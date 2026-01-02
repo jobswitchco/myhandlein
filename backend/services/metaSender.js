@@ -65,55 +65,49 @@ export async function replyToCommentPublic(
 /* =========================================================
    PRIVATE DM (COMMENT_ID OR USER_ID)
    ========================================================= */
+
 export async function sendInitialDM({
   fbPageId,
   commentId,
   automation,
   pageAccessToken,
   igUserId,
+  igUsername,
 }) {
-  if (!fbPageId || !pageAccessToken || !automation) {
-    throw new Error("Missing required params for private DM");
-  }
+  try {
+    // ONLY send button DM, nothing else
+    const buttonPayload = {
+      type: "postback",
+      title: automation.buttonText,
+      payload: `FLOW_START_${automation._id}`,
+    };
 
-  // Prefer comment_id (private reply) if available
-  const recipient =
-    commentId != null
-      ? { comment_id: String(commentId) }
-      : { id: String(igUserId) };
-
-  const payload = {
-    recipient,
-    message: {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "button",
-          text: automation.dmMessage,
-         buttons: [
-  {
-    type: "postback",
-    title: automation.buttonText || "Continue",
-    payload: `FLOW_START_${automation._id}`,
-  },
-]
-
+    const url = `${FB_API}/${fbPageId}/messages`;
+    const buttonBody = {
+      recipient: { comment_id: String(commentId) },
+      message: {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "button",
+            text: automation.dmMessage,
+            buttons: [buttonPayload],
+          },
         },
       },
-    },
-  };
+    };
 
-  const url = `${FB_API}/${fbPageId}/messages`;
+    const { data: btnData, status: btnStatus } = await http.post(
+      url,
+      buttonBody,
+      { params: { access_token: pageAccessToken } }
+    );
 
-  const { data, status } = await http.post(url, payload, {
-    params: { access_token: pageAccessToken },
-  });
+    if (btnStatus >= 400) {
+      throw new Error(`Button send failed: ${JSON.stringify(btnData)}`);
+    }
 
-  if (status >= 400) {
-    const err = new Error("Private DM send failed");
-    err.details = data?.error || data;
-    throw err;
-  }
+    console.log("✅ Initial DM button sent");
 
     // Create ConversationState
     const firstNode = automation.flowNodes?.[0];
@@ -141,12 +135,11 @@ export async function sendInitialDM({
 
     console.log("✅ ConversationState created");
 
-  console.log("✅ Private DM sent:", {
-    igUserId,
-    commentId,
-  });
-
-  return data;
+    return { ok: true };
+  } catch (err) {
+    console.error("❌ Error in sendInitialDM:", err.message);
+    throw err;
+  }
 }
 
 /* =========================================================

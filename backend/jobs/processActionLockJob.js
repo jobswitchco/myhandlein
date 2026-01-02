@@ -2,6 +2,7 @@ import ActionLock from "../models/ActionLock.js";
 import redis from "../../src/realtime/redis.js";
 import { replyToCommentPublic, sendInitialDM } from "../services/metaSender.js";
 import { ensureFreshPageTokenForUser } from "../services/tokenService.js";
+import Automation from "../models/Automation.js";
 
 
 
@@ -31,15 +32,9 @@ function randomRescheduleSeconds() {
 }
 
 export const defineProcessActionLockJob = (agenda) => {
-    console.log('Entered DefineProcess:::::::::::');
   agenda.define("process_action_lock", async (job) => {
 
-    console.log('Entered Agendaaa:::::::::::');
-
     const { actionLockId } = job.attrs.data;
-
-
-    console.log('actionLockId :::::::::::', actionLockId);
 
 
     const lock = await ActionLock.findById(actionLockId);
@@ -55,8 +50,6 @@ export const defineProcessActionLockJob = (agenda) => {
       );
       return;
     }
-
-    console.log('creatorId : ', lock.payload.creatorId);
 
     // 🔐 Rate limit check
     const allowed = await canSendNow(lock.payload.creatorId);
@@ -96,16 +89,11 @@ export const defineProcessActionLockJob = (agenda) => {
       }
 
       if (lock.channel === "private") {
+        const automation = Automation.findById(lock.automationId)
         await sendInitialDM({
           fbPageId: lock.payload.pageId,
           commentId: lock.commentId,
-          automation: {
-            dmMessage: lock.payload.dmMessage,
-            buttonText: lock.payload.buttonText,
-            flowNodes: lock.payload.flowNodes,
-            userId: lock.payload.creatorId,
-            _id: lock.payload.automationId,
-          },
+          automation,
           pageAccessToken: fbPageAccessToken,
           igUserId: lock.payload.igUserId,
           igUsername: lock.payload.igUsername,
