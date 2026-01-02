@@ -89,7 +89,7 @@ export const defineProcessActionLockJob = (agenda) => {
       }
 
       if (lock.channel === "private") {
-        const automation = Automation.findById(lock.automationId)
+        const automation = await Automation.findById(lock.automationId)
         await sendInitialDM({
           fbPageId: lock.payload.pageId,
           commentId: lock.commentId,
