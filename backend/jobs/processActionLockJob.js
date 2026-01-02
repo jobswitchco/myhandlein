@@ -84,7 +84,7 @@ export const defineProcessActionLockJob = (agenda) => {
     try {
 
         const { fbPageAccessToken } = await ensureFreshPageTokenForUser(
-  lock.payload.pageId
+  lock.payload.creatorId
 );
       // 🔥 EXECUTION
       if (lock.channel === "public") {
