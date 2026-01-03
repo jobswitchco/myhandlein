@@ -59,13 +59,14 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import axios from "axios";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-
+import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import RotateLeftOutlinedIcon from '@mui/icons-material/RotateLeftOutlined';
 import LinearProgress from '@mui/material/LinearProgress';
 import PublicIcon from '@mui/icons-material/Public';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-
+import MessageIcon from '@mui/icons-material/MessageOutlined';
 
 // --- FINAL UPDATED PHONE SIMULATOR ---
 const PhoneSimulator = ({ 
@@ -103,10 +104,15 @@ const PhoneSimulator = ({
     }
   }
 
+
+  
+
   useEffect(() => {
     resetSimulation();
     fetchIgDetails();
   }, [dmMessage, buttonText]);
+
+
 
   const resetSimulation = () => {
     // CHANGE 1: Initialize history WITH the button inside the message object
@@ -191,6 +197,13 @@ const PhoneSimulator = ({
     else if (action.type === 'askToFollow') {
       newMessages.push({ type: 'system', text: `👤 Please follow @${action.config.instagramPage}` });
     }
+
+      else if (action.type === 'finishingMessage') {
+    newMessages.push({ 
+      type: 'system', 
+      text: action.config.finishingMessage || "Thank you!" 
+    });
+  }
 
     return newMessages;
   };
@@ -298,7 +311,7 @@ const PhoneSimulator = ({
       sx={{
         position: "absolute",
         right: 40,
-        top: "45vh",
+        top: "50vh",
         transform: "translateY(-50%)",
         width: '40vh',
         height: '80vh',
@@ -515,12 +528,6 @@ const ZoomControls = () => {
   );
 };
 
-function getAnchors(total) {
-  if (total === 1) return ["50%"];
-  if (total === 2) return ["15%", "85%"];
-  const step = 70 / (total - 1);
-  return Array.from({ length: total }, (_, i) => `${15 + step * i}%`);
-}
 
 
 
@@ -533,12 +540,17 @@ export default function SetupAutomation() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
+  const isEditMode = location.state?.isEditMode || false;
+  const [originalData, setOriginalData] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
   const { caption, thumbnail_url, id } = location.state || {};
   const [confDialogOpen, setConfDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-
+  const [isLoadingAutomation, setIsLoadingAutomation] = useState(false);
 
   const baseUrl = "/api/usersOn";
+  const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
 
   // State
   const [dmMessage, setDmMessage] = useState("Hey! Thanks for your interest 👋 Please click the below button to proceed.");
@@ -559,6 +571,8 @@ export default function SetupAutomation() {
   const [selectedNodeType, setSelectedNodeType] = useState(null);
  
  const [inputValue, setInputValue] = useState("");
+
+ const [showPhoneSimulator, setShowPhoneSimulator] = useState(true);
 
   const handleAddKeyword = () => {
     const newKeyword = inputValue.trim();
@@ -596,6 +610,7 @@ export default function SetupAutomation() {
     redirectUrl: "",
     downloadFile: null,
     instagramPage: "thisis.ram",
+    finishingMessage: ""
   });
 
   const data = {
@@ -603,6 +618,95 @@ export default function SetupAutomation() {
     thumbnail: thumbnail_url || "",
     caption: caption || "",
   };
+ const loadAutomationForEdit = async () => {
+    try {
+      setIsLoadingAutomation(true);
+      const response = await api.get(`/automation/config/${post_id}`);
+      
+      if (response.data.success && response.data.data) {
+        const automation = response.data.data;
+        
+        // Store original data for comparison
+        const originalState = {
+          dmMessage: automation.dmMessage || "",
+          buttonText: automation.buttonText || "Send Link",
+          flowNodes: JSON.parse(JSON.stringify(automation.flowNodes || [])), // Deep copy
+          keywords: [...(automation.keywords || ['Link'])],
+          isReplyAvailable: automation.hasReply || false,
+          replies: [...(automation.replyComments || [
+            "Thanks for the comment, Please check DM 🙂",
+            "Love this — thank you for sharing!",
+            "Great point — totally agree with you."
+          ])]
+        };
+        
+        setOriginalData(originalState);
+        
+        // Populate all fields
+        setDmMessage(originalState.dmMessage);
+        setButtonText(originalState.buttonText);
+        setFlowNodes(originalState.flowNodes);
+        setKeywords(originalState.keywords);
+        setIsReplyAvailable(originalState.isReplyAvailable);
+        setReplies(originalState.replies);
+        
+        // toast.success("Automation loaded for editing");
+      }
+    } catch (error) {
+      // console.error("Error loading automation:", error);
+      // toast.error("Failed to load automation data");
+    } finally {
+      setIsLoadingAutomation(false);
+    }
+  };
+
+  
+
+useEffect(() => {
+    if (!isEditMode || !originalData) {
+      setHasChanges(false);
+      return;
+    }
+
+    // Deep comparison function
+    const hasDataChanged = () => {
+      // Check simple fields
+      if (dmMessage !== originalData.dmMessage) return true;
+      if (buttonText !== originalData.buttonText) return true;
+      if (isReplyAvailable !== originalData.isReplyAvailable) return true;
+
+      // Check keywords array
+      if (keywords.length !== originalData.keywords.length) return true;
+      if (!keywords.every((kw, idx) => kw === originalData.keywords[idx])) return true;
+
+      // Check replies array
+      if (replies.length !== originalData.replies.length) return true;
+      if (!replies.every((reply, idx) => reply === originalData.replies[idx])) return true;
+
+      // Check flowNodes (deep comparison)
+      if (JSON.stringify(flowNodes) !== JSON.stringify(originalData.flowNodes)) return true;
+
+      return false;
+    };
+
+    setHasChanges(hasDataChanged());
+  }, [
+    dmMessage, 
+    buttonText, 
+    flowNodes, 
+    keywords, 
+    isReplyAvailable, 
+    replies, 
+    originalData, 
+    isEditMode
+  ]);
+
+
+     useEffect(() => {
+    if ( post_id) {
+      loadAutomationForEdit();
+    }
+  }, [isEditMode, post_id]);
 
   
 
@@ -641,6 +745,15 @@ export default function SetupAutomation() {
       color: "#F59E0B",
       bgColor: "#FFFBEB",
     },
+
+    {
+  type: "finishingMessage",
+  title: "Finishing Message",
+  description: "Send a final message to complete the conversation",
+  icon: <MessageIcon />,
+  color: "#EC4899",
+  bgColor: "#FCE7F3",
+}
   ];
 
   // Check if Follow Check is already used
@@ -733,6 +846,7 @@ const isFollowCheckUsedInContext = (nodes, context) => {
       redirectUrl: "",
       downloadFile: null,
       instagramPage: "thisis.ram",
+      finishingMessage: ""
     });
   };
 
@@ -1408,6 +1522,13 @@ const updateFlowNodesWithNewAction = (newAction) => {
         return;
       }
     }
+
+     if (type === "finishingMessage") {
+    if (!nodeConfig.finishingMessage.trim()) {
+      toast.error("Please enter a finishing message");
+      return;
+    }
+  }
 
     let finalConfig = { ...nodeConfig };
     let successMessage = "Action added!";
@@ -3040,6 +3161,16 @@ const renderQuickReplyOptionActions = (nodeId, option) => {
                         @{action.config.instagramPage}
                       </Typography>
                     </Stack>
+                  )}
+                  {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ color: "#64748B", fontSize: "11px", display: "block" }}
+    >
+      📩 {action.config.finishingMessage}
+    </Typography>
+  </Box>
                   )}
                 </Box>
               </Stack>
@@ -5269,6 +5400,17 @@ const leftPosition = stepPercent * (index + 1)
             </Typography>
           </Box>
         )}
+
+         {node.type === "finishingMessage" && (
+        <Box sx={{ mt: 2, pl: 8 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: "#EC4899" }}>
+            Final Message:
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5, color: "#64748B" }}>
+            {node.config.finishingMessage || "No message set"}
+          </Typography>
+        </Box>
+      )}
       </Card>
     );
   };
@@ -5415,14 +5557,58 @@ const leftPosition = stepPercent * (index + 1)
           </Stack>
         );
 
+      case "finishingMessage":
+      return (
+        <Stack spacing={3}>
+          <Alert severity="info">
+            This message will be sent as the final step in your automation. 
+            No buttons or further actions will be available after this message.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Final Message"
+            placeholder="Thank you for your interest! We'll be in touch soon 😊"
+            value={nodeConfig.finishingMessage}
+            onChange={(e) =>
+              setNodeConfig({ ...nodeConfig, finishingMessage: e.target.value })
+            }
+            helperText="This will be the last message the user receives"
+          />
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              bgcolor: "#FCE7F3",
+              border: "1px solid #EC4899",
+            }}
+          >
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <MessageIcon sx={{ color: "#EC4899", mt: 0.5 }} />
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  💡 Best Practices
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#64748B" }}>
+                  • Keep it friendly and professional<br />
+                  • Thank the user for their engagement<br />
+                  • Set clear expectations if needed<br />
+                  • Use emojis to add personality 😊
+                </Typography>
+              </Box>
+            </Stack>
+          </Box>
+        </Stack>
+      );
+
       default:
         return null;
     }
   };
 
-  const handleLaunchAutomation = async () => {
-
-    setConfDialogOpen(false); // Close dialog
+const handleLaunchAutomation = async () => {
+    setConfDialogOpen(false);
 
     if (!dmMessage.trim()) {
       toast.error("Please enter a DM message");
@@ -5438,44 +5624,227 @@ const leftPosition = stepPercent * (index + 1)
         caption: data.caption,
         thumbnail: data.thumbnail,
         keywords: keywords,
-        hasReply : isReplyAvailable,
-      replyComments: isReplyAvailable ? replies : []
-
+        hasReply: isReplyAvailable,
+        replyComments: isReplyAvailable ? replies : [],
+        isEdit: isEditMode, // NEW: Send edit flag
       };
-console.log('Automation Details: ', JSON.stringify(payload));
 
-      await axios.post(`${baseUrl}/automation/config`, payload, {
-        withCredentials: true,
-      });
+      await api.post("/automation/config", payload);
 
-      toast.success("Automation started successfully!");
+      toast.success(isEditMode ? "Automation updated successfully!" : "Automation started successfully!");
+      
       setTimeout(() => {
         navigate("/professional/automations");
       }, 1400);
     } catch (error) {
-      console.error("Error starting automation:", error);
-      toast.error("Error! Please Try Again");
+      console.error("Error saving automation:", error);
+      
+      // Handle specific error for active automation
+      if (error.response?.data?.message === "Please stop the automation before editing") {
+        toast.error("Please stop the automation before editing");
+      } else {
+        toast.error("Error! Please Try Again");
+      }
     }
   };
 
     return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#F8FAFC" }}>
+
       {/* Header */}
       <Box
         sx={{
           top: 0,
           zIndex: 1000,
+          p: 2,
+          borderBottom: "1px solid #E5E7EB",
         }}
       >
-       
-          <IconButton
-            onClick={() => navigate("/professional/fetch_media")}
-            size={isMobile ? "small" : "medium"}
-            sx={{ bgcolor: "#70B2B2", "&:hover": { bgcolor: "grey.200" } }}
-          >
-            <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
-          </IconButton>
-      
+        {isEditMode ? (
+          <>
+           {/* Phone Simulator Toggle Button - Fixed Position */}
+<Tooltip title={showPhoneSimulator ? "Hide Preview" : "Show Preview"} placement="left">
+  <IconButton
+    onClick={() => setShowPhoneSimulator(!showPhoneSimulator)}
+    sx={{
+      position: "fixed",
+      right: showPhoneSimulator ? 'calc(40vh + 56px)' : 24,
+      top: 100,
+      zIndex: 1200,
+      bgcolor: "white",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      transition: "all 0.3s ease",
+      "&:hover": {
+        bgcolor: "#F3F4F6",
+        transform: "scale(1.05)",
+      },
+    }}
+  >
+    {showPhoneSimulator ? <VisibilityOffIcon /> : <PhoneAndroidIcon />}
+  </IconButton>
+</Tooltip>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <IconButton
+                onClick={() => navigate("/professional/automations")}
+                size={isMobile ? "small" : "medium"}
+                sx={{ bgcolor: "#F3F4F6", "&:hover": { bgcolor: "#E5E7EB" } }}
+              >
+                <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
+              </IconButton>
+              <Typography sx={{ fontWeight: 600, fontSize: "18px", fontFamily: 'Inter' }}>
+                Automation Details
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={1}>
+              {/* Update Button */}
+             <Tooltip 
+          title={
+            isEditMode && !hasChanges 
+              ? "Make changes to update automation" 
+              : ""
+          }
+          arrow
+          placement="top"
+        >
+          <span style={{ display: 'block', width: '100%' }}>
+            <Button
+              variant="contained"
+              size="medium"
+              fullWidth
+              onClick={() => setConfDialogOpen(true)}
+              startIcon={isEditMode ? <CheckCircleIcon /> : <RocketLaunchIcon />}
+              disabled={!dmMessage.trim() || (isEditMode && !hasChanges)}
+              sx={{
+                textTransform: "none",
+                fontFamily: 'Inter',
+                fontSize: "14px",
+                fontWeight: 600,
+                borderRadius: 2,
+                background: dmMessage.trim() && (!isEditMode || hasChanges)
+                  ? isEditMode 
+                    ? "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)" 
+                    : "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                  : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                color: dmMessage.trim() && (!isEditMode || hasChanges) ? "white" : "#94A3B8",
+                cursor: (isEditMode && !hasChanges) ? "not-allowed" : "pointer",
+                "&:hover": {
+                  background: dmMessage.trim() && (!isEditMode || hasChanges)
+                    ? isEditMode
+                      ? "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)"
+                      : "linear-gradient(135deg, #059669 0%, #047857 100%)"
+                    : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                },
+                "&.Mui-disabled": {
+                  background: "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                  color: "#94A3B8",
+                }
+              }}
+            >
+              {isEditMode ? "Update Automation" : "Launch Automation"}
+            </Button>
+          </span>
+        </Tooltip>
+
+             
+            </Stack>
+          </Stack>
+          </>
+        ) : (
+           <>
+           {/* Phone Simulator Toggle Button - Fixed Position */}
+<Tooltip title={showPhoneSimulator ? "Hide Preview" : "Show Preview"} placement="left">
+  <IconButton
+    onClick={() => setShowPhoneSimulator(!showPhoneSimulator)}
+    sx={{
+      position: "fixed",
+      right: showPhoneSimulator ? 'calc(40vh + 56px)' : 24,
+      top: 100,
+      zIndex: 1200,
+      bgcolor: "white",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      transition: "all 0.3s ease",
+      "&:hover": {
+        bgcolor: "#F3F4F6",
+        transform: "scale(1.05)",
+      },
+    }}
+  >
+    {showPhoneSimulator ? <VisibilityOffIcon /> : <PhoneAndroidIcon />}
+  </IconButton>
+</Tooltip>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <IconButton
+                onClick={() => navigate("/professional/automations")}
+                size={isMobile ? "small" : "medium"}
+                sx={{ bgcolor: "#F3F4F6", "&:hover": { bgcolor: "#E5E7EB" } }}
+              >
+                <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
+              </IconButton>
+              <Typography sx={{ fontWeight: 600, fontSize: "18px", fontFamily: 'Inter' }}>
+                Setup Automation
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={1}>
+              {/* Update Button */}
+             <Tooltip 
+          title={
+            isEditMode && !hasChanges 
+              ? "Make changes to update automation" 
+              : ""
+          }
+          arrow
+          placement="top"
+        >
+          <span style={{ display: 'block', width: '100%' }}>
+            <Button
+              variant="contained"
+              size="medium"
+              fullWidth
+              onClick={() => setConfDialogOpen(true)}
+              startIcon={isEditMode ? <CheckCircleIcon /> : <RocketLaunchIcon />}
+              disabled={!dmMessage.trim() || (isEditMode && !hasChanges)}
+              sx={{
+                textTransform: "none",
+                fontFamily: 'Inter',
+                fontSize: "14px",
+                fontWeight: 600,
+                borderRadius: 2,
+                background: dmMessage.trim() && (!isEditMode || hasChanges)
+                  ? isEditMode 
+                    ? "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)" 
+                    : "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                  : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                color: dmMessage.trim() && (!isEditMode || hasChanges) ? "white" : "#94A3B8",
+                cursor: (isEditMode && !hasChanges) ? "not-allowed" : "pointer",
+                "&:hover": {
+                  background: dmMessage.trim() && (!isEditMode || hasChanges)
+                    ? isEditMode
+                      ? "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)"
+                      : "linear-gradient(135deg, #059669 0%, #047857 100%)"
+                    : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                },
+                "&.Mui-disabled": {
+                  background: "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                  color: "#94A3B8",
+                }
+              }}
+            >
+              {isEditMode ? "Update Automation" : "Launch Automation"}
+            </Button>
+          </span>
+        </Tooltip>
+
+             
+            </Stack>
+          </Stack>
+          </>
+
+
+        )}
       </Box>
 
       {/* ============ ZOOM/PAN WRAPPER STARTS ============ */}
@@ -5488,12 +5857,14 @@ console.log('Automation Details: ', JSON.stringify(payload));
   justifyContent: "center"
 }}>
 
-    <PhoneSimulator 
-         dmMessage={dmMessage}
-         buttonText={buttonText}
-         flowNodes={flowNodes}
-         theme={theme}
-      />
+   {showPhoneSimulator && (
+  <PhoneSimulator 
+    dmMessage={dmMessage}
+    buttonText={buttonText}
+    flowNodes={flowNodes}
+    theme={theme}
+  />
+)}
 
    <TransformWrapper
   initialScale={1}
@@ -5940,35 +6311,6 @@ console.log('Automation Details: ', JSON.stringify(payload));
 )}
 
 
-          {/* Launch Button */}
-          <Box sx={{ mt: 4, width: "100%", maxWidth: 600 }}>
-            <Button
-              variant="contained"
-              size="large"
-              fullWidth
-              onClick={() => setConfDialogOpen(true)}
-              startIcon={<RocketLaunchIcon />}
-              disabled={!dmMessage.trim()}
-              sx={{
-                height: 56,
-                textTransform: "none",
-                fontSize: "16px",
-                fontWeight: 700,
-                borderRadius: 3,
-                background: dmMessage.trim()
-                  ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
-                  : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
-                color: dmMessage.trim() ? "white" : "#94A3B8",
-                "&:hover": {
-                  background: dmMessage.trim()
-                    ? "linear-gradient(135deg, #059669 0%, #047857 100%)"
-                    : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
-                },
-              }}
-            >
-              Launch Automation
-            </Button>
-          </Box>
         </Stack>
                </Box>
           </TransformComponent>
@@ -6086,23 +6428,42 @@ console.log('Automation Details: ', JSON.stringify(payload));
 
 
        {/* CONFIRMATION DIALOG */}
-            <Dialog open={confDialogOpen} onClose={() => setConfDialogOpen(false)} maxWidth="sm" fullWidth>
-              <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Confirm Launch</DialogTitle>
-              <DialogContent>
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                      Once an automation is launched, it cannot be edited. You may only STOP or DELETE it.
-                  </Alert>
-                  <Typography variant="body2">
-                      Please review your automation flow and click ‘Launch Now’ to proceed, or go back to make changes.
-                  </Typography>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setConfDialogOpen(false)} color="inherit" sx={{ textTransform : 'none'}}>Cancel</Button>
-                <Button variant="contained" color="error" onClick={handleLaunchAutomation} startIcon={<RocketLaunchOutlinedIcon />} sx={{ textTransform : 'none'}}>
-                  Launch Now
-                </Button>
-              </DialogActions>
-            </Dialog>
+           <Dialog open={confDialogOpen} onClose={() => setConfDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: isEditMode ? 'primary.main' : 'error.main', fontWeight: 700 }}>
+          {isEditMode ? "Confirm Update" : "Confirm Launch"}
+        </DialogTitle>
+        <DialogContent>
+          {!isEditMode && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+            Once an automation is launched, it can be edited while active. You may stop or delete it at any time.
+            </Alert>
+          )}
+          {isEditMode && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Your automation will be updated with the new configuration. You may Edit, Stop or Delete any time.
+            </Alert>
+          )}
+          <Typography variant="body2">
+            {isEditMode 
+              ? "Please review your changes and click 'Update Now' to save, or go back to make more changes."
+              : "Please review your automation flow and click 'Launch Now' to proceed, or go back to make changes."}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfDialogOpen(false)} color="inherit" sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color={isEditMode ? "primary" : "error"} 
+            onClick={handleLaunchAutomation} 
+            startIcon={isEditMode ? <CheckCircleIcon /> : <RocketLaunchOutlinedIcon />} 
+            sx={{ textTransform: 'none' }}
+          >
+            {isEditMode ? "Update Now" : "Launch Now"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

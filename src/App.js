@@ -156,6 +156,7 @@ if (initialSubdomain) {
                 <Route path="fetch_media" element={<FetchInstagramMedia />} />
                 <Route path="automations" element={<AutomationList />} />
                 <Route path="automation/setup/:post_id" element={<SetupAutomation />} />
+                <Route path="setup-automation/:post_id" element={<SetupAutomation />} />
                 <Route path="automation/details/:postId" element={<AutomationDetails />} />
                 <Route path="autodm/automation" element={<SetupAutoDmAutomation />} />
                 <Route path="booking/sessions" element={<CreatorBookings />} />

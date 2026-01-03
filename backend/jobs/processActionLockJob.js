@@ -6,7 +6,7 @@ import Automation from "../models/Automation.js";
 
 
 
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 3;
 const RATE_LIMIT_PER_HOUR = 700;
 
 function getHourKey() {
@@ -16,7 +16,11 @@ function getHourKey() {
 
 async function canSendNow(creatorId) {
   const key = `rl:${creatorId}:${getHourKey()}`;
+  console.log('redis key: ', key);
   const count = await redis.incr(key);
+
+  console.log('count: ', count);
+
 
   if (count === 1) {
     await redis.expire(key, 3600);

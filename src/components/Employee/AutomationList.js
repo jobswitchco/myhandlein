@@ -633,29 +633,55 @@ const handleConnectInstagram = useCallback(async () => {
           );
         },
       },
-      {
-        field: "details",
-        headerName: "Details",
-        width: 140,
-        renderCell: (params) => {
-          const id = params.row?.postId;
-          const handleClick = (e) => {
-            e.stopPropagation();
-            if (id) navigate(`/professional/automation/details/${encodeURIComponent(id)}`);
-          };
-          return (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={handleClick}
-              disabled={!id}
-              sx={{ textTransform: "none", borderRadius: 2, px: 1.5 }}
-            >
-              Details
-            </Button>
-          );
-        },
+     {
+      field: "details",
+      headerName: "Details",
+      width: 140,
+      renderCell: (params) => {
+        const row = params.row;
+        
+        const handleClick = (e) => {
+          e.stopPropagation();
+          
+          if (!row?.postId) return;
+
+          // Navigate to setup page with edit mode enabled
+          navigate(`/professional/setup-automation/${encodeURIComponent(row.postId)}`, {
+            state: {
+              isEditMode: true,
+              editData: {
+                postId: row.postId,
+                dmMessage: row.dmMessage || "",
+                buttonText: row.buttonText || "Send Link",
+                flowNodes: row.flowNodes || [],
+                keywords: row.keywords || [],
+                hasReply: row.hasReply || false,
+                replyComments: row.replyComments || [],
+                caption: row.caption || "",
+                thumbnail: row.thumbnail || "",
+                status: row.status || "inactive"
+              },
+              post_id: row.postId,
+              id: row.postId,
+              caption: row.caption || "",
+              thumbnail_url: row.thumbnail || ""
+            }
+          });
+        };
+
+        return (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleClick}
+            disabled={!row?.postId}
+            sx={{ textTransform: "none", borderRadius: 2, px: 1.5 }}
+          >
+            Details
+          </Button>
+        );
       },
+    },
     ];
   }, [navigate]);
 
@@ -937,9 +963,32 @@ const handleConnectInstagram = useCallback(async () => {
               <AutomationCard
                 key={row.id}
                 row={row}
-                onDetails={(postId) =>
-                  postId && navigate(`/professional/automation/details/${encodeURIComponent(postId)}`)
-                }
+                onDetails={(rowData) => {
+        if (!rowData?.postId) return;
+        
+        // Navigate with edit mode enabled
+        navigate(`/professional/setup-automation/${encodeURIComponent(rowData.postId)}`, {
+          state: {
+            isEditMode: true,
+            editData: {
+              postId: rowData.postId,
+              dmMessage: rowData.dmMessage || "",
+              buttonText: rowData.buttonText || "Send Link",
+              flowNodes: rowData.flowNodes || [],
+              keywords: rowData.keywords || [],
+              hasReply: rowData.hasReply || false,
+              replyComments: rowData.replyComments || [],
+              caption: rowData.caption || "",
+              thumbnail: rowData.thumbnail || "",
+              status: rowData.status || "inactive"
+            },
+            post_id: rowData.postId,
+            id: rowData.postId,
+            caption: rowData.caption || "",
+            thumbnail_url: rowData.thumbnail || ""
+          }
+        });
+      }}
               />
             ))}
           </Box>

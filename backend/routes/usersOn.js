@@ -2286,6 +2286,43 @@ router.post("/automation/upload-asset", authenticateToken, upload.single("file")
 
 
 
+// GET automation by postId for editing
+router.get("/automation/config/:postId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    const { postId } = req.params;
+
+    if (!postId) {
+      return res.status(400).json({ success: false, message: "postId is required" });
+    }
+
+    const automation = await Automation.findOne({ 
+      userId, 
+      postId: String(postId) 
+    }).lean();
+
+    if (!automation) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Automation not found" 
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: automation
+    });
+  } catch (err) {
+    console.error("GET /automation/config/:postId error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch automation config",
+      error: err?.message || String(err),
+    });
+  }
+});
+
+// Update the existing POST endpoint to handle edit mode
 router.post("/automation/config", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id || req.user?._id;
@@ -2299,19 +2336,17 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       buttonText,
       caption,
       thumbnail,
-      status,
       flowNodes,
       keywords,
       hasReply,
-      replyComments
+      replyComments,
+      isEdit
     } = req.body || {};
 
-    // ===== BASIC VALIDATION =====
     if (!postId || !String(postId).trim()) {
       return res.status(400).json({ success: false, message: "postId is required" });
     }
 
-    // ===== PREPARE DOCUMENT FOR UPSERT =====
     const update = {
       platform: "instagram",
       caption,
@@ -2321,11 +2356,10 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       flowNodes,
       keywords,
       hasReply,
-     replyComments, 
-      ...(status ? { status } : {}),
+      replyComments,
+      updatedAt: new Date()
     };
 
-    // ===== UPSERT AUTOMATION =====
     const doc = await Automation.findOneAndUpdate(
       { userId, postId: String(postId) },
       { $set: update, $setOnInsert: { userId, postId: String(postId) } },
@@ -2334,13 +2368,12 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Automation configuration saved",
+      message: isEdit ? "Automation updated successfully" : "Automation configuration saved",
       data: doc
     });
   } catch (err) {
     console.error("POST /automation/config error:", err);
     
-    // Handle unique index race condition
     if (err?.code === 11000) {
       return res.status(409).json({
         success: false,
