@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
   Stack,
@@ -27,6 +27,9 @@ import {
   TableRow,
   TablePagination,
   Paper,
+  IconButton,
+  Menu,
+  MenuItem
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
@@ -41,6 +44,9 @@ import { useDispatch } from "react-redux";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { toast } from "react-toastify"; 
+import "react-toastify/dist/ReactToastify.css";
 
 /* ---------------- Small components ---------------- */
 function EmptyState({ onCreate }) {
@@ -108,7 +114,10 @@ function AutomationCard({ row, onDetails }) {
         opacity: row.postLive === false ? 0.6 : 1,
       }}
     >
-      <CardActionArea onClick={() => onDetails(row?.postId)} disableRipple>
+      <CardActionArea 
+        onClick={() => onDetails(row)} // Pass entire row object instead of just postId
+        disableRipple
+      >
         <Box sx={{ display: "flex", gap: 1.25, p: 1.25 }}>
           <Avatar
             variant="rounded"
@@ -216,7 +225,8 @@ export default function AutomationList() {
 
   /* ---- Meta app constants ---- */
   const FB_APP_ID = "1360956302356492";
-  const FB_LOGIN_CONFIG_ID = "1309356804298214";
+  const FB_LOGIN_CONFIG_ID = "2452082071860610";
+  const FB_BUSINESS_APP_ID = "1360956302356492";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
   /* ---- IG connect state ---- */
@@ -245,9 +255,13 @@ export default function AutomationList() {
   // NEW: Duplicate Dialog State
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [duplicateMessage, setDuplicateMessage] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const mobileInitialLoadedRef = useRef(false);
   const controllerRef = useRef(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const openMenu = Boolean(anchorEl);
 
   /* ---- Helpers ---- */
   function formatNumber(input, { digits = 1 } = {}) {
@@ -267,6 +281,160 @@ export default function AutomationList() {
     return sign + trimmed + units[u];
   }
 
+
+  const handleMenuClick = (event, row) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+    setSelectedRow(row);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedRow(null);
+  };
+
+  const handleEditAutomation = () => {
+  if (!selectedRow?.postId) return;
+  
+  navigate(`/professional/setup-automation/${encodeURIComponent(selectedRow.postId)}`, {
+    state: {
+      isEditMode: true,
+      editData: {
+        postId: selectedRow.postId,
+        dmMessage: selectedRow.dmMessage || "",
+        buttonText: selectedRow.buttonText || "Send Link",
+        flowNodes: selectedRow.flowNodes || [],
+        keywords: selectedRow.keywords || [],
+        hasReply: selectedRow.hasReply || false,
+        replyComments: selectedRow.replyComments || [],
+        caption: selectedRow.caption || "",
+        thumbnail: selectedRow.thumbnail || "",
+        status: selectedRow.status || "inactive"
+      },
+      post_id: selectedRow.postId,
+      id: selectedRow.postId,
+      caption: selectedRow.caption || "",
+      thumbnail_url: selectedRow.thumbnail || ""
+    }
+  });
+  
+  handleMenuClose();
+};
+
+const handleStopAutomation = async () => {
+  if (!selectedRow?.postId) return;
+  
+  const currentStatus = selectedRow.status;
+  const newStatus = currentStatus === "active" ? "inactive" : "active";
+  
+  try {
+    await axios.post(
+      `${baseUrl}/automation/stop`, 
+      { postId: selectedRow.postId, status: newStatus }, 
+      { withCredentials: true }
+    );
+    
+    // Show success message (toast would be better, but using alert for now)
+   // Show success toast with appropriate color
+if (newStatus === "active") {
+  toast.success(`Automation Resumed ✅`, {
+    position: "top-right",
+    autoClose: 3000,
+    hideProgressBar: false,
+    closeOnClick: true,
+    pauseOnHover: true,
+    draggable: true,
+    style: {
+      background: "#10b981", // green
+      color: "#ffffff",
+    },
+    progressStyle: {
+      background: "#059669",
+    },
+  });
+} else {
+  toast.warning(`Automation Stopped ⏸️`, {
+    position: "top-right",
+    autoClose: 3000,
+    hideProgressBar: false,
+    closeOnClick: true,
+    pauseOnHover: true,
+    draggable: true,
+    style: {
+      background: "#f97316", // orange
+      color: "#ffffff",
+    },
+    progressStyle: {
+      background: "#ea580c",
+    },
+  });
+}
+    // Refresh the data
+    if (isDesktop) {
+      await fetchPage(page, pageSize);
+    } else {
+      mobileInitialLoadedRef.current = false;
+      setMobilePage(0);
+      await fetchMobile(0);
+    }
+    
+    handleMenuClose();
+  } catch (error) {
+    console.error("Error changing automation status:", error);
+    alert("Failed to change automation status");
+    handleMenuClose();
+  }
+};
+
+const handleDeleteAutomation = async () => {
+  if (!selectedRow?.postId) return;
+  
+  // Show confirmation dialog first (DON'T close menu yet)
+  setDeleteDialogOpen(true);
+  // Keep selectedRow intact - don't call handleMenuClose() here
+};
+
+const confirmDeleteAutomation = async () => {
+  if (!selectedRow?.postId) return;
+  
+  setLoading(true);
+  setDeleteDialogOpen(false);
+  handleMenuClose(); // Close menu immediately when confirming
+  
+  try {
+    await axios.post(
+      `${baseUrl}/automation/delete`, 
+      { postId: selectedRow.postId }, 
+      { withCredentials: true }
+    );
+    
+    toast.success(`Automation deleted successfully! 🗑️`, {
+      position: "top-right",
+      autoClose: 3000,
+      style: {
+        background: "#10b981",
+        color: "#ffffff",
+      },
+    });
+    // Refresh the data
+    if (isDesktop) {
+      await fetchPage(page, pageSize);
+    } else {
+      mobileInitialLoadedRef.current = false;
+      setMobilePage(0);
+      await fetchMobile(0);
+    }
+  } catch (error) {
+    console.error("Error deleting automation:", error);
+    toast.error("Failed to delete automation", {
+      position: "top-right",
+      autoClose: 3000,
+    });
+  } finally {
+    setLoading(false);
+    setSelectedRow(null);
+  }
+};
 
 
   const openCenteredPopup = (url) => {
@@ -445,6 +613,7 @@ const checkIgConnection = useCallback(async () => {
   useEffect(() => {
     (async () => {
       const ok = await checkIgConnection();
+      console.log('ok? : ', ok);
       if (!ok) {
         setHasFetchedOnce(true);
         setInitializing(false);
@@ -478,23 +647,43 @@ const handleConnectInstagram = useCallback(async () => {
   setConnectLoading(true);
 
   try {
-    const { data: stateResp } = await axios.post(META_STATE_URL, {}, { withCredentials: true });
+    // 1. Ask backend for signed state (JWT)
+    const { data: stateResp } = await axios.post(
+      META_STATE_URL,
+      {},
+      { withCredentials: true }
+    );
     const state = stateResp?.state;
     if (!state) throw new Error("Unable to start Meta login");
 
-    const q = new URLSearchParams({
+    // 2. Build the INNER OAuth URL (same as before)
+    const innerParams = new URLSearchParams({
       client_id: FB_APP_ID,
       redirect_uri: REDIRECT_URI,
       state,
       response_type: "code",
       config_id: FB_LOGIN_CONFIG_ID,
     });
-    const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${q.toString()}`;
 
+    const innerOAuthUrl = `https://business.facebook.com/dialog/oauth?${innerParams.toString()}`;
+
+    // 3. Wrap it with the Business Login shell (ManyChat-style)
+    const outerParams = new URLSearchParams({
+      next: innerOAuthUrl,
+      "login_options[0]": "IG",
+      app: FB_BUSINESS_APP_ID,
+      is_ig_oidc_with_redirect: "1",
+      display: "popup",
+      full_page_redirect_experimental: "1",
+      show_back_button: "0",
+    });
+
+    const authUrl = `https://business.facebook.com/business/loginpage/?${outerParams.toString()}`;
+
+    // 4. Open centered popup and poll until closed (same as before)
     const popup = openCenteredPopup(authUrl);
     if (!popup) {
-      // fallback: we navigated current window, so message path won’t work
-      // you could optionally show a banner on the /meta-callback page instead
+      // we navigated current window, status will be checked on page load
       return;
     }
 
@@ -505,6 +694,7 @@ const handleConnectInstagram = useCallback(async () => {
         try {
           const ok = await checkIgConnection();
           if (ok) {
+            console.log("Instagram connected!");
             if (isDesktop) {
               await fetchPage(0, pageSize);
             } else {
@@ -519,6 +709,7 @@ const handleConnectInstagram = useCallback(async () => {
       }
     }, 500);
 
+    // safety-close popup after 5 minutes
     setTimeout(() => {
       try {
         if (!popup.closed) popup.close();
@@ -536,9 +727,11 @@ const handleConnectInstagram = useCallback(async () => {
   pageSize,
   isDesktop,
   FB_APP_ID,
+  FB_BUSINESS_APP_ID,
   FB_LOGIN_CONFIG_ID,
   REDIRECT_URI,
 ]);
+
 
 
   /* ---- Columns (desktop) ---- */
@@ -562,47 +755,80 @@ const handleConnectInstagram = useCallback(async () => {
           />
         ),
       },
-      {
-        field: "caption",
-        headerName: "Caption",
-        width: 300,
-        renderCell: ({ value, row }) => {
-          const full = (value || "").trim();
-          const text = full.length > 60 ? `${full.slice(0, 60)}…` : full;
-          return (
-            <Box sx={{ display: "flex", alignItems: "center", height: "100%", width: "100%" }}>
-              <Typography 
-                variant="body2" 
-                noWrap 
-                title={full} 
-                sx={{ 
-                  maxWidth: "100%",
-                  opacity: row.postLive === false ? 0.6 : 1,
-                }}
-              >
-                {text || "—"}
-              </Typography>
-            </Box>
-          );
-        },
-      },
+    {
+  field: "caption",
+  headerName: "Caption",
+  width: 180, // 🔑 increase width or 2 lines won’t be visible
+  renderCell: ({ value, row }) => {
+    const full = (value || "").trim();
+
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          height: "100%",
+          width: "100%",
+        }}
+      >
+        <Typography
+          variant="body2"
+          title={full}
+          sx={{
+            opacity: row.postLive === false ? 0.6 : 1,
+
+            display: "-webkit-box",
+            WebkitLineClamp: 2,          // 👈 EXACTLY 2 lines
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "normal",
+            lineHeight: 1.6,
+          }}
+        >
+          {full || "—"}
+        </Typography>
+      </Box>
+    );
+  },
+},
+
       {
         field: "status",
         headerName: "Status",
         width: 110,
         renderCell: (params) => (
-          <Chip
-            size="small"
-            label={String(params.value || "").toUpperCase()}
-            color={params.value === "active" ? "success" : "default"}
-            variant="outlined"
-          />
+         <Chip
+  size="small"
+  label={String(params.value || "").toUpperCase()}
+  variant="outlined"
+  sx={{
+    fontWeight: 600,
+    letterSpacing: "0.5px",
+    textTransform: "none",
+    fontFamily: 'Inter',
+    fontSize: '12px',
+
+    ...(params.value === "active"
+      ? {
+          backgroundColor: "#E6F4EA",   // light green bg
+          color: "#137333",             // dark green text
+          borderColor: "#34A853",
+        }
+      : {
+          backgroundColor: "#F1F3F4",   // light gray bg
+          color: "#5F6368",             // gray text
+          borderColor: "#DADCE0",
+        }),
+  }}
+/>
+
         ),
       },
       {
         field: "postLive",
         headerName: "Post Live",
-        width: 130,
+        width: 100,
         renderCell: (params) => (
           <Tooltip title={params.value ? "Post is live on Instagram" : "Post deleted from Instagram"}>
             <Chip
@@ -633,55 +859,26 @@ const handleConnectInstagram = useCallback(async () => {
           );
         },
       },
-     {
-      field: "details",
-      headerName: "Details",
-      width: 140,
+   
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 100,
+      align: "center",
       renderCell: (params) => {
         const row = params.row;
         
-        const handleClick = (e) => {
-          e.stopPropagation();
-          
-          if (!row?.postId) return;
-
-          // Navigate to setup page with edit mode enabled
-          navigate(`/professional/setup-automation/${encodeURIComponent(row.postId)}`, {
-            state: {
-              isEditMode: true,
-              editData: {
-                postId: row.postId,
-                dmMessage: row.dmMessage || "",
-                buttonText: row.buttonText || "Send Link",
-                flowNodes: row.flowNodes || [],
-                keywords: row.keywords || [],
-                hasReply: row.hasReply || false,
-                replyComments: row.replyComments || [],
-                caption: row.caption || "",
-                thumbnail: row.thumbnail || "",
-                status: row.status || "inactive"
-              },
-              post_id: row.postId,
-              id: row.postId,
-              caption: row.caption || "",
-              thumbnail_url: row.thumbnail || ""
-            }
-          });
-        };
-
         return (
-          <Button
+          <IconButton
+            onClick={(e) => handleMenuClick(e, row)}
             size="small"
-            variant="outlined"
-            onClick={handleClick}
-            disabled={!row?.postId}
-            sx={{ textTransform: "none", borderRadius: 2, px: 1.5 }}
+            aria-label="more actions"
           >
-            Details
-          </Button>
+            <MoreVertIcon />
+          </IconButton>
         );
       },
-    },
+    }
     ];
   }, [navigate]);
 
@@ -749,7 +946,7 @@ const handleConnectInstagram = useCallback(async () => {
                 startIcon={!connectLoading && <InstagramIcon />}
                 onClick={handleConnectInstagram}
                 disabled={connectLoading}
-                sx={{ 
+               sx={{ 
   textTransform: "none", 
   borderRadius: 2, 
   px: 2.5, 
@@ -914,7 +1111,7 @@ const handleConnectInstagram = useCallback(async () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-               <TablePagination
+             <TablePagination
                 rowsPerPageOptions={[]}         // <-- hide the select
                 component="div"
                 count={rowCount}
@@ -927,9 +1124,80 @@ const handleConnectInstagram = useCallback(async () => {
                 }}
                 labelRowsPerPage=""             // <-- hide the "Rows per page" label
               />
+
             </Paper>
           )}
         </div>
+
+        {/* Actions Menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={openMenu}
+          onClose={handleMenuClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+        <MenuItem onClick={handleEditAutomation}>
+  Edit Automation
+</MenuItem>
+
+<MenuItem onClick={handleStopAutomation}>
+  {selectedRow?.status === "active" ? "Stop Automation" : "Resume Automation"}
+</MenuItem>
+
+<MenuItem onClick={handleDeleteAutomation} sx={{ color: 'error.main' }}>
+  Delete Automation
+</MenuItem>
+
+         
+
+     </Menu>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog 
+          open={deleteDialogOpen} 
+          onClose={() => setDeleteDialogOpen(false)} 
+          maxWidth="xs" 
+          fullWidth
+        >
+          <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>
+            Confirm Deletion
+          </DialogTitle>
+          <DialogContent>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              This action cannot be undone. Are you sure you want to delete the automation for Post ID: <strong>{selectedRow?.postId}</strong>?
+            </Alert>
+            <Typography variant="body2">
+              Deleting the automation will immediately stop the service and remove all associated data and configurations.
+            </Typography>
+          </DialogContent>
+         <DialogActions>
+  <Button 
+    onClick={() => {
+      setDeleteDialogOpen(false);
+      handleMenuClose(); // Close menu when canceling
+    }} 
+    color="inherit"
+  >
+    Cancel
+  </Button>
+  <Button 
+    variant="contained" 
+    color="error" 
+    onClick={confirmDeleteAutomation}
+    sx={{ textTransform: 'none' }}
+  >
+    Yes, Delete Permanently
+  </Button>
+</DialogActions>
+        </Dialog>
+
       </Box>
     );
   }
@@ -963,7 +1231,7 @@ const handleConnectInstagram = useCallback(async () => {
               <AutomationCard
                 key={row.id}
                 row={row}
-                onDetails={(rowData) => {
+               onDetails={(rowData) => {
         if (!rowData?.postId) return;
         
         // Navigate with edit mode enabled
@@ -1017,6 +1285,8 @@ const handleConnectInstagram = useCallback(async () => {
           )}
         </>
       )}
+
+
     </Box>
   );
 }

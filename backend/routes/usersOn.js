@@ -2545,126 +2545,155 @@ router.get("/automations", authenticateToken, async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // 🔁 Check & refresh FB tokens if expiring in < 28 days (or missing)
+    /* ─────────────────────────────────────────────
+       1️⃣ Refresh Facebook tokens if needed
+    ───────────────────────────────────────────── */
     let user;
     try {
       user = await USER.findById(userId)
-        .select("_id fbLongLivedToken fbLongLivedTokenExpiry fbPageId fbPageAccessToken instagramConnected")
+        .select(
+          "_id fbLongLivedToken fbLongLivedTokenExpiry fbPageId fbPageAccessToken instagramConnected"
+        )
         .lean();
 
       if (user?.instagramConnected) {
         await refreshFacebookTokensIfNeeded(user);
-        // Refetch user to get updated tokens
         user = await USER.findById(userId)
-          .select("_id fbLongLivedToken fbLongLivedTokenExpiry fbPageId fbPageAccessToken instagramConnected")
+          .select(
+            "_id fbLongLivedToken fbLongLivedTokenExpiry fbPageId fbPageAccessToken instagramConnected"
+          )
           .lean();
       }
     } catch (e) {
-      console.error("FB token refresh check failed:", e?.response?.data || e.message || e);
+      console.error(
+        "FB token refresh check failed:",
+        e?.response?.data || e.message || e
+      );
     }
 
-    // ⬇️ Pagination + aggregation logic
+    /* ─────────────────────────────────────────────
+       2️⃣ Pagination
+    ───────────────────────────────────────────── */
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
-    const query = { 
-  userId, 
-  postType: { $ne: "autodm" } // <--- Filter out "autodm" types
-};
-    const projection = "postId status createdAt caption thumbnail postLive lastCheckedAt";
+    const query = {
+      userId,
+      postType: { $ne: "autodm" }, // exclude autodm
+    };
+
+    const projection =
+      "postId status createdAt caption thumbnail postLive lastCheckedAt";
     const sort = { createdAt: -1 };
 
     const [total, docs] = await Promise.all([
       Automation.countDocuments(query),
-      Automation.find(query).select(projection).sort(sort).skip(skip).limit(limit).lean(),
+      Automation.find(query)
+        .select(projection)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
     ]);
 
-    // Verify posts exist via batch request
+    /* ─────────────────────────────────────────────
+       3️⃣ Verify posts still exist on Instagram
+    ───────────────────────────────────────────── */
     const postIds = docs.map((d) => d.postId);
     let verificationResults = {};
-    
+
     if (user?.fbPageAccessToken && postIds.length > 0) {
-      verificationResults = await verifyPostsExist(postIds, user.fbPageAccessToken);
-      
-      // Update postLive and status in DB for posts that changed
+      verificationResults = await verifyPostsExist(
+        postIds,
+        user.fbPageAccessToken
+      );
+
       const bulkOps = [];
+
       docs.forEach((doc) => {
         const result = verificationResults[doc.postId];
-        if (result && result.exists !== null) {
-          const isLive = result.exists === true;
-          
-          // Only update if status changed
-          if (doc.postLive !== isLive) {
-            const updateFields = {
-              postLive: isLive,
-              lastCheckedAt: new Date(),
-            };
+        if (!result || result.exists === null) return;
 
-            // 🔥 If post is deleted, also set status to inactive
-            if (!isLive) {
-              updateFields.status = "inactive";
-            }
+        const isLive = result.exists === true;
 
-            // Update thumbnail/caption if post exists and data is available
-            if (isLive && result.data?.thumbnail) {
-              updateFields.thumbnail = result.data.thumbnail;
-            }
-            if (isLive && result.data?.caption) {
-              updateFields.caption = result.data.caption;
-            }
+        const updateFields = {
+          lastCheckedAt: new Date(),
+        };
 
-            bulkOps.push({
-              updateOne: {
-                filter: { _id: doc._id },
-                update: updateFields,
-              },
-            });
-          } else {
-            // Just update lastCheckedAt
-            bulkOps.push({
-              updateOne: {
-                filter: { _id: doc._id },
-                update: { lastCheckedAt: new Date() },
-              },
-            });
-          }
+        if (doc.postLive !== isLive) {
+          updateFields.postLive = isLive;
+          if (!isLive) updateFields.status = "inactive";
         }
+
+        if (isLive && result.data?.thumbnail) {
+          updateFields.thumbnail = result.data.thumbnail;
+        }
+
+        if (isLive && result.data?.caption) {
+          updateFields.caption = result.data.caption;
+        }
+
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: doc._id },
+            update: updateFields,
+          },
+        });
       });
-      
+
       if (bulkOps.length > 0) {
         await Automation.bulkWrite(bulkOps);
       }
     }
 
-    // Get reply counts
+    /* ─────────────────────────────────────────────
+       4️⃣ Count replies from ActionLock (SOURCE OF TRUTH)
+    ───────────────────────────────────────────── */
     const automationIds = docs.map((d) => d._id);
     let countsByAutomationId = {};
-    
+
     if (automationIds.length > 0) {
-      const counts = await RepliedComment.aggregate([
-        { $match: { automationId: { $in: automationIds } } },
-        { $group: { _id: { automationId: "$automationId", commentId: "$commentId" } } },
-        { $group: { _id: "$_id.automationId", totalReplies: { $sum: 1 } } },
+      const counts = await ActionLock.aggregate([
+        {
+          $match: {
+            automationId: { $in: automationIds },
+            channel: "public",
+            state: "sent",
+          },
+        },
+        {
+          $group: {
+            _id: "$automationId",
+            totalReplies: { $sum: 1 },
+          },
+        },
       ]);
 
       countsByAutomationId = counts.reduce((acc, row) => {
-        acc[String(row._id)] = row.totalReplies || 0;
+        acc[String(row._id)] = row.totalReplies;
         return acc;
       }, {});
     }
 
-    // Build response items with updated data
-    const items = (docs || []).map((d) => {
+    /* ─────────────────────────────────────────────
+       5️⃣ Build response
+    ───────────────────────────────────────────── */
+    const items = docs.map((d) => {
       const verifyResult = verificationResults[d.postId];
-      const isLive = verifyResult?.exists === true ? true : (verifyResult?.exists === false ? false : d.postLive);
-      
-      // 🔥 If post was just found to be deleted, status should be inactive
+
+      const isLive =
+        verifyResult?.exists === true
+          ? true
+          : verifyResult?.exists === false
+          ? false
+          : d.postLive;
+
       let finalStatus = d.status;
       if (verifyResult?.exists === false) {
         finalStatus = "inactive";
       }
-      
+
       return {
         _id: d._id,
         postId: d.postId,
@@ -2678,10 +2707,19 @@ router.get("/automations", authenticateToken, async (req, res) => {
       };
     });
 
-    return res.json({ success: true, items, total, page, limit });
+    return res.json({
+      success: true,
+      items,
+      total,
+      page,
+      limit,
+    });
   } catch (err) {
-    console.error("GET /usersOn/automations error:", err);
-    return res.status(500).json({ success: false, message: "Failed to fetch automations" });
+    console.error("GET /automations error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch automations",
+    });
   }
 });
 

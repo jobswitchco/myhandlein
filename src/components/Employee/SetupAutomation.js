@@ -1984,6 +1984,23 @@ const addActionToContext = (newAction) => {
                         </Typography>
                       </Stack>
                     )}
+                      {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
+    >
+    {action.config.finishingMessage}
+    </Typography>
+  </Box>
+                  )}
                   </Box>
                 </Stack>
               </Card>
@@ -3056,6 +3073,23 @@ const leftPosition = stepPercent * (index + 1)
                         </Typography>
                       </Stack>
                     )}
+                        {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
+    >
+    {action.config.finishingMessage}
+    </Typography>
+  </Box>
+                  )}
                   </Box>
                 </Stack>
               </Card>
@@ -3162,13 +3196,20 @@ const renderQuickReplyOptionActions = (nodeId, option) => {
                       </Typography>
                     </Stack>
                   )}
-                  {action.type === "finishingMessage" && (
+                 {action.type === "finishingMessage" && (
   <Box sx={{ mt: 1 }}>
     <Typography
       variant="caption"
-      sx={{ color: "#64748B", fontSize: "11px", display: "block" }}
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
     >
-      📩 {action.config.finishingMessage}
+    {action.config.finishingMessage}
     </Typography>
   </Box>
                   )}
@@ -3181,52 +3222,6 @@ const renderQuickReplyOptionActions = (nodeId, option) => {
     </Box>
   );
 };
-
-const isNotFollowingBranchVerification = (branchType) => {
-  return branchType === "notFollowing";
-};
-
-// const handleAddButton = (nodeId, branchType) => {
-//   // NEW CONSTRAINT: Prevent adding multiple buttons in "notFollowing" branch
-//   const node = flowNodes.find((n) => n.id === nodeId);
-//   if (node && node.type === "followCheck") {
-//     if (branchType === "notFollowing" && node.notFollowingButtons.length >= 1) {
-//       toast.warning(
-//         "Only one verification button allowed. User must follow to proceed."
-//       );
-//       return;
-//     }
-//   }
-
-//   const updatedNodes = flowNodes.map((node) => {
-//     if (node.id === nodeId && node.type === "followCheck") {
-//       const newButton = {
-//         id: Date.now(),
-//         text: `Button ${
-//           branchType === "following"
-//             ? node.followingButtons.length + 1
-//             : node.notFollowingButtons.length + 1
-//         }`,
-//         actions: [],
-//       };
-
-//       if (branchType === "following") {
-//         return {
-//           ...node,
-//           followingButtons: [...node.followingButtons, newButton],
-//         };
-//       } else {
-//         return {
-//           ...node,
-//           notFollowingButtons: [...node.notFollowingButtons, newButton],
-//         };
-//       }
-//     }
-//     return node;
-//   });
-//   setFlowNodes(updatedNodes);
-//   toast.success("Button added!");
-// };
 
 
 const renderButtonFlowNodes = (node, branchType, buttons, color) => {
@@ -3544,7 +3539,7 @@ const renderQuickReplyOptions = (node) => {
   );
 };
 
-// NEW: Render Follow Check inside Quick Reply option
+
 // NEW: Render Follow Check inside Quick Reply option with full button rendering
 const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
   const followCheckAction = option.actions?.find((action) => action.type === "followCheck");
@@ -4496,6 +4491,24 @@ const renderNestedQuickReplyOptionsForMainFlow = (nodeId, parentOptionId, quickR
                         </Typography>
                       </Stack>
                     )}
+
+                       {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
+    >
+    {action.config.finishingMessage}
+    </Typography>
+  </Box>
+                  )}
                   </Box>
                 </Stack>
               </Card>
