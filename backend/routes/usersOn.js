@@ -12,6 +12,7 @@ import Message from "../models/Message.js";
 import Participant from "../models/Participant.js"
 import Bookings from "../models/Bookings.js";
 import Block from "../models/Blocks.js";
+import ActionLock from "../models/ActionLock.js";
 import FormsData from "../models/FormsData.js";
 import BankDetails from "../models/BankDetails.js";
 import Transaction from "../models/Transaction.js";
