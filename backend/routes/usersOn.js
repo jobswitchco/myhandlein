@@ -2398,63 +2398,74 @@ router.post("/autodm/automation/config", authenticateToken, async (req, res) => 
     }
 
     const {
-      postType,
+      postType, // REQUIRED (e.g. "autodm")
       dmMessage,
       buttonText,
-      // caption,
-      // thumbnail,
       status,
       flowNodes,
       keywords,
-      // hasReply,
-      // replyComment
+      isEdit,
     } = req.body || {};
 
-  
+    if (!postType || !String(postType).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "postType is required for AutoDM automation",
+      });
+    }
 
-    // ===== PREPARE DOCUMENT FOR UPSERT =====
+    /* ─────────────────────────────────────────────
+       UPDATE PAYLOAD (NO IDENTITY FIELDS HERE)
+    ───────────────────────────────────────────── */
     const update = {
-      postType,
       platform: "instagram",
       dmMessage,
       buttonText,
       flowNodes,
       keywords,
       ...(status ? { status } : {}),
+      updatedAt: new Date(),
     };
 
-
-    const doc = await Automation.create({
-      userId,
-      postType,
-      platform: "instagram",
-      dmMessage,
-      buttonText,
-      flowNodes,
-      keywords,
-      ...(status ? { status } : {}),
-
-    })
+    /* ─────────────────────────────────────────────
+       UPSERT
+       Identity fields ONLY in $setOnInsert
+    ───────────────────────────────────────────── */
+    const doc = await Automation.findOneAndUpdate(
+      { userId, postType: String(postType) },
+      {
+        $set: update,
+        $setOnInsert: {
+          userId,
+          postType: String(postType),
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+      }
+    );
 
     return res.json({
       success: true,
-      message: "Automation configuration saved",
-      data: doc
+      message: isEdit
+        ? "Automation updated successfully"
+        : "Automation configuration saved",
+      data: doc,
     });
   } catch (err) {
-    console.error("POST /automation/config error:", err);
-    
-    // Handle unique index race condition
+    console.error("POST /autodm/automation/config error:", err);
+
     if (err?.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: "An automation for this post already exists for this user",
+        message: "An AutoDM automation already exists for this user",
       });
     }
-    
+
     return res.status(500).json({
       success: false,
-      message: "Failed to save automation config",
+      message: "Failed to save AutoDM automation config",
       error: err?.message || String(err),
     });
   }

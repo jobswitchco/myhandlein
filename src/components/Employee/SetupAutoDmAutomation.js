@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Avatar,
   Box,
   Card,
   CardContent,
@@ -20,14 +19,13 @@ import {
   Alert,
   Tooltip,
   InputAdornment,
-  Switch,
   Slide,
+  Switch,
+  Avatar,
+  Divider,
   Snackbar
-} from "@mui/material";
 
-import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'; // Add Icon
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'; // Add Icon
-import SaveIcon from '@mui/icons-material/Save'; // Add Icon
+} from "@mui/material";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SendIcon from "@mui/icons-material/Send";
@@ -53,14 +51,20 @@ import ZoomOutIcon from "@mui/icons-material/ZoomOut";
 import CenterFocusStrongIcon from "@mui/icons-material/CenterFocusStrong";
 import FitScreenIcon from "@mui/icons-material/FitScreen";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import axios from "axios";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import RotateLeftOutlinedIcon from '@mui/icons-material/RotateLeftOutlined';
 import LinearProgress from '@mui/material/LinearProgress';
-import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-
+import MessageIcon from '@mui/icons-material/MessageOutlined';
+import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'; // Add Icon
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'; // Add Icon
 
 // --- FINAL UPDATED PHONE SIMULATOR ---
 const PhoneSimulator = ({ 
@@ -98,10 +102,15 @@ const PhoneSimulator = ({
     }
   }
 
+
+  
+
   useEffect(() => {
     resetSimulation();
     fetchIgDetails();
   }, [dmMessage, buttonText]);
+
+
 
   const resetSimulation = () => {
     // CHANGE 1: Initialize history WITH the button inside the message object
@@ -186,6 +195,13 @@ const PhoneSimulator = ({
     else if (action.type === 'askToFollow') {
       newMessages.push({ type: 'system', text: `👤 Please follow @${action.config.instagramPage}` });
     }
+
+      else if (action.type === 'finishingMessage') {
+    newMessages.push({ 
+      type: 'system', 
+      text: action.config.finishingMessage || "Thank you!" 
+    });
+  }
 
     return newMessages;
   };
@@ -293,7 +309,7 @@ const PhoneSimulator = ({
       sx={{
         position: "absolute",
         right: 40,
-        top: "45vh",
+        top: "50vh",
         transform: "translateY(-50%)",
         width: '40vh',
         height: '80vh',
@@ -431,6 +447,7 @@ const PhoneSimulator = ({
     </Box>
   );
 };
+
 // Zoom Controls Component
 const ZoomControls = () => {
   const { zoomIn, zoomOut, resetTransform, centerView } = useControls();
@@ -509,12 +526,6 @@ const ZoomControls = () => {
   );
 };
 
-function getAnchors(total) {
-  if (total === 1) return ["50%"];
-  if (total === 2) return ["15%", "85%"];
-  const step = 70 / (total - 1);
-  return Array.from({ length: total }, (_, i) => `${15 + step * i}%`);
-}
 
 
 
@@ -527,24 +538,16 @@ export default function SetupAutoDmAutomation() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
+  const [originalData, setOriginalData] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
   const { caption, thumbnail_url, id } = location.state || {};
   const [confDialogOpen, setConfDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-  open: false,
-  message: "",
-  severity: "success",
-});
-
-
+  const [isLoadingAutomation, setIsLoadingAutomation] = useState(false);
 
   const baseUrl = "/api/usersOn";
-
-  // --- NEW STATES FOR EDIT/VIEW MODE ---
-  const [existingAutomation, setExistingAutomation] = useState(false);
-  const [isActive, setIsActive] = useState(true);
-  const [isLoadingData, setIsLoadingData] = useState(true); 
-  // -------------------------------------
+  const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
 
   // State
   const [dmMessage, setDmMessage] = useState("Hey! Thanks for your interest 👋 Please click the below button to proceed.");
@@ -552,9 +555,21 @@ export default function SetupAutoDmAutomation() {
   const [flowNodes, setFlowNodes] = useState([]);
   const [keywords, setKeywords] = useState(['Link']);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [existingAutomation, setExistingAutomation] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true); 
+  const [expanded, setExpanded] = useState(false);
   const [selectedNodeType, setSelectedNodeType] = useState(null);
  
  const [inputValue, setInputValue] = useState("");
+
+ const [showPhoneSimulator, setShowPhoneSimulator] = useState(true);
+   const [snackbar, setSnackbar] = useState({
+   open: false,
+   message: "",
+   severity: "success",
+ });
 
   const handleAddKeyword = () => {
     const newKeyword = inputValue.trim();
@@ -563,6 +578,7 @@ export default function SetupAutoDmAutomation() {
     }
     setInputValue("");
   };
+
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -584,6 +600,7 @@ export default function SetupAutoDmAutomation() {
     redirectUrl: "",
     downloadFile: null,
     instagramPage: "thisis.ram",
+    finishingMessage: ""
   });
 
   const data = {
@@ -592,74 +609,81 @@ export default function SetupAutoDmAutomation() {
     caption: caption || "",
   };
 
-  useEffect(() => {
-    const fetchAutomationConfig = async () => {
-      try {
-        setIsLoadingData(true);
-        const response = await axios.get(`${baseUrl}/autodm/automation/config`, {
-          withCredentials: true,
-        });
+    useEffect(() => {
+      const fetchAutomationConfig = async () => {
+        try {
+          setIsLoadingData(true);
+          const response = await axios.get(`${baseUrl}/autodm/automation/config`, {
+            withCredentials: true,
+          });
+  
+          if (response.data?.exists) {
 
-        if (response.data?.exists) {
-          const { data } = response.data;
-          setExistingAutomation(true);
-          setIsActive(data.status ==='active' ? true : false);
-          
-          // Populate fields from DB
-          setKeywords(data.keywords || []);
-          setDmMessage(data.dmMessage || "");
-          setButtonText(data.buttonText || "Send Link");
-          setFlowNodes(data.flowNodes || []);
-        } else {
-          setExistingAutomation(false);
+            const { data } = response.data;
+
+        // Store original data for comparison
+        const originalState = {
+          dmMessage: data.dmMessage || "",
+          buttonText: data.buttonText || "Send Link",
+          flowNodes: JSON.parse(JSON.stringify(data.flowNodes || [])), // Deep copy
+          keywords: [...(data.keywords || ['Link'])],
+        };
+        
+        setOriginalData(originalState);
+
+            setIsEditMode(true);
+            setExistingAutomation(true);
+            setIsActive(data.status ==='active' ? true : false);
+            setKeywords(data.keywords || []);
+            setDmMessage(data.dmMessage || "");
+            setButtonText(data.buttonText || "Send Link");
+            setFlowNodes(data.flowNodes || []);
+          } else {
+            setExistingAutomation(false);
+          }
+        } catch (error) {
+          console.error("Error fetching automation config:", error);
+          // Optional: toast.error("Could not load existing automation");
+        } finally {
+          setIsLoadingData(false);
         }
-      } catch (error) {
-        console.error("Error fetching automation config:", error);
-        // Optional: toast.error("Could not load existing automation");
-      } finally {
-        setIsLoadingData(false);
-      }
+      };
+  
+      fetchAutomationConfig();
+    }, []);
+
+  
+
+useEffect(() => {
+    if (!isEditMode || !originalData) {
+      setHasChanges(false);
+      return;
+    }
+
+    // Deep comparison function
+    const hasDataChanged = () => {
+      // Check simple fields
+      if (dmMessage !== originalData.dmMessage) return true;
+      if (buttonText !== originalData.buttonText) return true;
+      // Check keywords array
+      if (keywords.length !== originalData.keywords.length) return true;
+      if (!keywords.every((kw, idx) => kw === originalData.keywords[idx])) return true;
+
+      // Check flowNodes (deep comparison)
+      if (JSON.stringify(flowNodes) !== JSON.stringify(originalData.flowNodes)) return true;
+
+      return false;
     };
 
-    fetchAutomationConfig();
-  }, []);
-
-const handleUpdateAutomation = async () => {
-  if (!dmMessage.trim()) {
-    setSnackbar({
-      open: true,
-      message: "Please enter a DM message",
-      severity: "error",
-    });
-    return;
-  }
-
-  try {
-    const payload = {
-      keywords,
-      dmMessage,
-      buttonText,
-      flowNodes,
-    };
-
-    await axios.put(`${baseUrl}/autodm/automation/update`, payload, {
-      withCredentials: true,
-    });
-
-    setSnackbar({
-      open: true,
-      message: "Automation updated successfully!",
-      severity: "success",
-    });
-  } catch (error) {
-    console.error("Error updating automation:", error);
-    setSnackbar({
-      open: true,
-      message: "Failed to update automation.",
-      severity: "error",
-    });
-  }
-};
+    setHasChanges(hasDataChanged());
+  }, [
+    dmMessage, 
+    buttonText, 
+    flowNodes, 
+    keywords, 
+    originalData, 
+    isEditMode
+  ]);
 
 
  const handleToggleStatus = async () => {
@@ -691,6 +715,7 @@ const handleUpdateAutomation = async () => {
 };
 
 
+  
   
 
   // Action type configurations
@@ -728,6 +753,15 @@ const handleUpdateAutomation = async () => {
       color: "#F59E0B",
       bgColor: "#FFFBEB",
     },
+
+    {
+  type: "finishingMessage",
+  title: "Finishing Message",
+  description: "Send a final message to complete the conversation",
+  icon: <MessageIcon />,
+  color: "#EC4899",
+  bgColor: "#FCE7F3",
+}
   ];
 
   // Check if Follow Check is already used
@@ -820,6 +854,7 @@ const isFollowCheckUsedInContext = (nodes, context) => {
       redirectUrl: "",
       downloadFile: null,
       instagramPage: "thisis.ram",
+      finishingMessage: ""
     });
   };
 
@@ -1496,6 +1531,13 @@ const updateFlowNodesWithNewAction = (newAction) => {
       }
     }
 
+     if (type === "finishingMessage") {
+    if (!nodeConfig.finishingMessage.trim()) {
+      toast.error("Please enter a finishing message");
+      return;
+    }
+  }
+
     let finalConfig = { ...nodeConfig };
     let successMessage = "Action added!";
 
@@ -1950,6 +1992,23 @@ const addActionToContext = (newAction) => {
                         </Typography>
                       </Stack>
                     )}
+                      {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
+    >
+    {action.config.finishingMessage}
+    </Typography>
+  </Box>
+                  )}
                   </Box>
                 </Stack>
               </Card>
@@ -1963,10 +2022,10 @@ const addActionToContext = (newAction) => {
   // Render Quick Reply node for button actions
   const renderButtonQuickReply = (nodeId, branchType, button) => {
     const quickReplyAction = button.actions.find((action) => action.type === "quickReply");
-    // CHECK LIMIT
-    const isMaxReached = (quickReplyAction.replyOptions?.length || 0) >= 3;
     
     if (!quickReplyAction) return null;
+
+    const isMaxReached = (quickReplyAction.replyOptions?.length || 0) >= 3;
 
     return (
       <Box sx={{ width: "100%", mt: 3 }}>
@@ -2087,7 +2146,7 @@ const addActionToContext = (newAction) => {
               }}
             />
 
-        <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+         <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
               <span>
                 <Button
                   size="small"
@@ -2095,7 +2154,6 @@ const addActionToContext = (newAction) => {
                   startIcon={<AddIcon />}
                   disabled={isMaxReached}
                   onClick={() => {
-                    // ... (existing add logic) ...
                     const updatedNodes = flowNodes.map((node) => {
                       if (node.id === nodeId && node.type === "followCheck") {
                         const updateButtons = (buttons) =>
@@ -2109,7 +2167,11 @@ const addActionToContext = (newAction) => {
                                           ...action,
                                           replyOptions: [
                                             ...action.replyOptions,
-                                            { id: Date.now(), text: `Option ${action.replyOptions.length + 1}`, actions: [] },
+                                            {
+                                              id: Date.now(),
+                                              text: `Option ${action.replyOptions.length + 1}`,
+                                              actions: [],
+                                            },
                                           ],
                                         }
                                       : action
@@ -2117,8 +2179,18 @@ const addActionToContext = (newAction) => {
                                 }
                               : btn
                           );
-                        if (branchType === "following") return { ...node, followingButtons: updateButtons(node.followingButtons) };
-                        else return { ...node, notFollowingButtons: updateButtons(node.notFollowingButtons) };
+
+                        if (branchType === "following") {
+                          return {
+                            ...node,
+                            followingButtons: updateButtons(node.followingButtons),
+                          };
+                        } else {
+                          return {
+                            ...node,
+                            notFollowingButtons: updateButtons(node.notFollowingButtons),
+                          };
+                        }
                       }
                       return node;
                     });
@@ -2129,7 +2201,9 @@ const addActionToContext = (newAction) => {
                     textTransform: "none",
                     color: isMaxReached ? "grey.400" : "#F59E0B",
                     justifyContent: "flex-start",
-                    "&:hover": { bgcolor: "#FFFBEB" },
+                    "&:hover": {
+                      bgcolor: "#FFFBEB",
+                    },
                   }}
                 >
                   Add Option
@@ -2342,8 +2416,6 @@ const renderQuickReplyOptionsForButton = (nodeId, branchType, buttonId, quickRep
 const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, option) => {
   const nestedQR = option.actions.find((a) => a.type === "quickReply");
   if (!nestedQR) return null;
-
-  // CHECK LIMIT
   const isMaxReached = (nestedQR.replyOptions?.length || 0) >= 3;
 
   return (
@@ -2522,7 +2594,7 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
             }}
           />
 
-       <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+         <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
             <span>
               <Button
                 size="small"
@@ -2530,7 +2602,6 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
                 startIcon={<AddIcon />}
                 disabled={isMaxReached}
                 onClick={() => {
-                  /* ... add logic ... */
                   const updatedNodes = flowNodes.map((node) => {
                     if (node.id === nodeId && node.type === "followCheck") {
                       const updateButtons = (buttons) =>
@@ -2552,7 +2623,11 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
                                                         ...a,
                                                         replyOptions: [
                                                           ...(a.replyOptions || []),
-                                                          { id: Date.now(), text: `Option ${(a.replyOptions?.length || 0) + 1}`, actions: [] },
+                                                          {
+                                                            id: Date.now(),
+                                                            text: `Option ${(a.replyOptions?.length || 0) + 1}`,
+                                                            actions: [],
+                                                          },
                                                         ],
                                                       }
                                                     : a
@@ -2566,8 +2641,18 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
                               }
                             : btn
                         );
-                      if (branchType === "following") return { ...node, followingButtons: updateButtons(node.followingButtons) };
-                      else return { ...node, notFollowingButtons: updateButtons(node.notFollowingButtons) };
+
+                      if (branchType === "following") {
+                        return {
+                          ...node,
+                          followingButtons: updateButtons(node.followingButtons),
+                        };
+                      } else {
+                        return {
+                          ...node,
+                          notFollowingButtons: updateButtons(node.notFollowingButtons),
+                        };
+                      }
                     }
                     return node;
                   });
@@ -2578,7 +2663,9 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
                   textTransform: "none",
                   color: isMaxReached ? "grey.400" : "#F59E0B",
                   justifyContent: "flex-start",
-                  "&:hover": { bgcolor: "#FFFBEB" },
+                  "&:hover": {
+                    bgcolor: "#FFFBEB",
+                  },
                 }}
               >
                 Add Option
@@ -2994,6 +3081,23 @@ const leftPosition = stepPercent * (index + 1)
                         </Typography>
                       </Stack>
                     )}
+                        {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
+    >
+    {action.config.finishingMessage}
+    </Typography>
+  </Box>
+                  )}
                   </Box>
                 </Stack>
               </Card>
@@ -3100,6 +3204,23 @@ const renderQuickReplyOptionActions = (nodeId, option) => {
                       </Typography>
                     </Stack>
                   )}
+                 {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
+    >
+    {action.config.finishingMessage}
+    </Typography>
+  </Box>
+                  )}
                 </Box>
               </Stack>
             </Card>
@@ -3109,52 +3230,6 @@ const renderQuickReplyOptionActions = (nodeId, option) => {
     </Box>
   );
 };
-
-const isNotFollowingBranchVerification = (branchType) => {
-  return branchType === "notFollowing";
-};
-
-// const handleAddButton = (nodeId, branchType) => {
-//   // NEW CONSTRAINT: Prevent adding multiple buttons in "notFollowing" branch
-//   const node = flowNodes.find((n) => n.id === nodeId);
-//   if (node && node.type === "followCheck") {
-//     if (branchType === "notFollowing" && node.notFollowingButtons.length >= 1) {
-//       toast.warning(
-//         "Only one verification button allowed. User must follow to proceed."
-//       );
-//       return;
-//     }
-//   }
-
-//   const updatedNodes = flowNodes.map((node) => {
-//     if (node.id === nodeId && node.type === "followCheck") {
-//       const newButton = {
-//         id: Date.now(),
-//         text: `Button ${
-//           branchType === "following"
-//             ? node.followingButtons.length + 1
-//             : node.notFollowingButtons.length + 1
-//         }`,
-//         actions: [],
-//       };
-
-//       if (branchType === "following") {
-//         return {
-//           ...node,
-//           followingButtons: [...node.followingButtons, newButton],
-//         };
-//       } else {
-//         return {
-//           ...node,
-//           notFollowingButtons: [...node.notFollowingButtons, newButton],
-//         };
-//       }
-//     }
-//     return node;
-//   });
-//   setFlowNodes(updatedNodes);
-//   toast.success("Button added!");
-// };
 
 
 const renderButtonFlowNodes = (node, branchType, buttons, color) => {
@@ -3408,6 +3483,7 @@ const validateFollowCheckRules = (nodes) => {
 const renderQuickReplyOptions = (node) => {
   const options = node.replyOptions ?? [];
   const totalOptions = options.length;
+  
   const splitY = 40, downHeight = 60;
 
   let anchors = [];
@@ -3471,7 +3547,7 @@ const renderQuickReplyOptions = (node) => {
   );
 };
 
-// NEW: Render Follow Check inside Quick Reply option
+
 // NEW: Render Follow Check inside Quick Reply option with full button rendering
 const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
   const followCheckAction = option.actions?.find((action) => action.type === "followCheck");
@@ -3480,11 +3556,9 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
 
   // Helper function to render buttons for nested Follow Check
   const renderNestedFollowCheckButtons = (branchType, buttons, color) => {
+    
     const totalButtons = buttons.length;
     const splitY = 40, downHeight = 60;
-
-    // CHECK LIMIT
-      const isMaxReached = totalButtons >= 3;
 
     let anchors = [];
     if (totalButtons === 1) {
@@ -3784,48 +3858,56 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
                     setFlowNodes(updatedNodes);
                   }}
                 />
-<Tooltip title={followCheckAction.followingButtons?.length >= 3 ? "You can add max 3 options" : ""} arrow placement="top">
-                     <span>
-                       <Button
-                         size="small" variant="text" startIcon={<AddIcon />}
-                         disabled={followCheckAction.followingButtons?.length >= 3}
-                         onClick={() => {
-                            // ... add button logic for 'following' branch ...
-                            const updatedNodes = flowNodes.map((node) => {
-                              if (node.id === nodeId && node.type === "quickReply") {
-                                return {
-                                  ...node,
-                                  replyOptions: node.replyOptions.map((opt) =>
-                                    opt.id === option.id
+
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    const updatedNodes = flowNodes.map((node) => {
+                      if (node.id === nodeId && node.type === "quickReply") {
+                        return {
+                          ...node,
+                          replyOptions: node.replyOptions.map((opt) =>
+                            opt.id === option.id
+                              ? {
+                                  ...opt,
+                                  actions: opt.actions.map((action) =>
+                                    action.id === followCheckAction.id
                                       ? {
-                                          ...opt,
-                                          actions: opt.actions.map((action) =>
-                                            action.id === followCheckAction.id
-                                              ? {
-                                                  ...action,
-                                                  followingButtons: [
-                                                    ...(action.followingButtons || []),
-                                                    { id: Date.now(), text: `Button ${(action.followingButtons?.length || 0) + 1}`, actions: [] },
-                                                  ],
-                                                }
-                                              : action
-                                          ),
+                                          ...action,
+                                          followingButtons: [
+                                            ...(action.followingButtons || []),
+                                            {
+                                              id: Date.now(),
+                                              text: `Button ${(action.followingButtons?.length || 0) + 1}`,
+                                              actions: [],
+                                            },
+                                          ],
                                         }
-                                      : opt
+                                      : action
                                   ),
-                                };
-                              }
-                              return node;
-                            });
-                            setFlowNodes(updatedNodes);
-                            toast.success("Button added!");
-                         }}
-                         sx={{ textTransform: "none", color: followCheckAction.followingButtons?.length >= 3 ? "grey.400" : "#10B981", justifyContent: "flex-start", "&:hover": { bgcolor: "#F0FDF4" } }}
-                       >
-                         Add Button
-                       </Button>
-                     </span>
-                   </Tooltip>
+                                }
+                              : opt
+                          ),
+                        };
+                      }
+                      return node;
+                    });
+                    setFlowNodes(updatedNodes);
+                    toast.success("Button added!");
+                  }}
+                  sx={{
+                    textTransform: "none",
+                    color: "#10B981",
+                    justifyContent: "flex-start",
+                    "&:hover": {
+                      bgcolor: "#F0FDF4",
+                    },
+                  }}
+                >
+                  Add Button
+                </Button>
               </Stack>
             </Card>
 
@@ -3960,10 +4042,8 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
 const renderQuickReplyOptionQuickReply = (nodeId, option) => {
   const quickReplyAction = option.actions?.find(action => action.type === "quickReply");
   if (!quickReplyAction) return null;
-
-  // CHECK LIMIT
+  // Check limit
     const isMaxReached = (quickReplyAction.replyOptions?.length || 0) >= 3;
-
 
   return (
     <Box sx={{ width: "100%", mt: 3 }}>
@@ -4067,9 +4147,7 @@ const renderQuickReplyOptionQuickReply = (nodeId, option) => {
               setFlowNodes(updatedNodes);
             }}
           />
-        
-
-        <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+       <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
               <span>
                 <Button
                   size="small"
@@ -4077,7 +4155,6 @@ const renderQuickReplyOptionQuickReply = (nodeId, option) => {
                   startIcon={<AddIcon />}
                   disabled={isMaxReached}
                   onClick={() => {
-                    // ... (add logic)
                     const updatedNodes = flowNodes.map(node => {
                       if (node.id === nodeId && node.type === "quickReply") {
                         return {
@@ -4092,7 +4169,11 @@ const renderQuickReplyOptionQuickReply = (nodeId, option) => {
                                           ...action,
                                           replyOptions: [
                                             ...(action.replyOptions || []),
-                                            { id: Date.now(), text: `Option ${(action.replyOptions?.length || 0) + 1}`, actions: [] },
+                                            {
+                                              id: Date.now(),
+                                              text: `Option ${(action.replyOptions?.length || 0) + 1}`,
+                                              actions: [],
+                                            },
                                           ]
                                         }
                                       : action
@@ -4418,6 +4499,24 @@ const renderNestedQuickReplyOptionsForMainFlow = (nodeId, parentOptionId, quickR
                         </Typography>
                       </Stack>
                     )}
+
+                       {action.type === "finishingMessage" && (
+  <Box sx={{ mt: 1 }}>
+    <Typography
+      variant="caption"
+      sx={{ 
+        color: "#64748B", 
+        fontSize: "12px", 
+        display: "block",
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100%"
+      }}
+    >
+    {action.config.finishingMessage}
+    </Typography>
+  </Box>
+                  )}
                   </Box>
                 </Stack>
               </Card>
@@ -4434,8 +4533,6 @@ const renderDeepNestedQuickReply = (nodeId, parentOptionId, parentQRAction, opti
   const nestedQuickReply = option.actions?.find((action) => action.type === "quickReply");
   
   if (!nestedQuickReply) return null;
-  // CHECK LIMIT
-    const isMaxReached = (nestedQuickReply.replyOptions?.length || 0) >= 3;
 
   return (
     <Box sx={{ width: "100%", mt: 3 }}>
@@ -4593,69 +4690,69 @@ const renderDeepNestedQuickReply = (nodeId, parentOptionId, parentQRAction, opti
             }}
           />
 
-        <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
-              <span>
-                <Button
-                  size="small"
-                  variant="text"
-                  startIcon={<AddIcon />}
-                  disabled={isMaxReached}
-                  onClick={() => {
-                    // ... (add logic)
-                    const updatedNodes = flowNodes.map((node) => {
-                      if (node.id === nodeId && node.type === "quickReply") {
-                        return {
-                          ...node,
-                          replyOptions: node.replyOptions.map((parentOpt) =>
-                            parentOpt.id === parentOptionId
-                              ? {
-                                  ...parentOpt,
-                                  actions: parentOpt.actions.map((act) =>
-                                    act.id === parentQRAction.id
-                                      ? {
-                                          ...act,
-                                          replyOptions: act.replyOptions.map((opt) =>
-                                            opt.id === option.id
-                                              ? {
-                                                  ...opt,
-                                                  actions: opt.actions.map((a) =>
-                                                    a.id === nestedQuickReply.id
-                                                      ? {
-                                                          ...a,
-                                                          replyOptions: [
-                                                            ...(a.replyOptions || []),
-                                                            { id: Date.now(), text: `Option ${(a.replyOptions?.length || 0) + 1}`, actions: [] },
-                                                          ],
-                                                        }
-                                                      : a
-                                                  ),
-                                                }
-                                              : opt
-                                          ),
-                                        }
-                                      : act
-                                  ),
-                                }
-                              : parentOpt
-                          ),
-                        };
-                      }
-                      return node;
-                    });
-                    setFlowNodes(updatedNodes);
-                    toast.success("Option added!");
-                  }}
-                  sx={{
-                    textTransform: "none",
-                    color: isMaxReached ? "grey.400" : "#F59E0B",
-                    justifyContent: "flex-start",
-                    "&:hover": { bgcolor: "#FFFBEB" },
-                  }}
-                >
-                  Add Option
-                </Button>
-              </span>
-            </Tooltip>
+          <Button
+            size="small"
+            variant="text"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              const updatedNodes = flowNodes.map((node) => {
+                if (node.id === nodeId && node.type === "quickReply") {
+                  return {
+                    ...node,
+                    replyOptions: node.replyOptions.map((parentOpt) =>
+                      parentOpt.id === parentOptionId
+                        ? {
+                            ...parentOpt,
+                            actions: parentOpt.actions.map((act) =>
+                              act.id === parentQRAction.id
+                                ? {
+                                    ...act,
+                                    replyOptions: act.replyOptions.map((opt) =>
+                                      opt.id === option.id
+                                        ? {
+                                            ...opt,
+                                            actions: opt.actions.map((a) =>
+                                              a.id === nestedQuickReply.id
+                                                ? {
+                                                    ...a,
+                                                    replyOptions: [
+                                                      ...(a.replyOptions || []),
+                                                      {
+                                                        id: Date.now(),
+                                                        text: `Option ${(a.replyOptions?.length || 0) + 1}`,
+                                                        actions: [],
+                                                      },
+                                                    ],
+                                                  }
+                                                : a
+                                            ),
+                                          }
+                                        : opt
+                                    ),
+                                  }
+                                : act
+                            ),
+                          }
+                        : parentOpt
+                    ),
+                  };
+                }
+                return node;
+              });
+              setFlowNodes(updatedNodes);
+              toast.success("Option added!");
+            }}
+            sx={{
+              textTransform: "none",
+              color: "#F59E0B",
+              justifyContent: "flex-start",
+              "&:hover": {
+                bgcolor: "#FFFBEB",
+              },
+            }}
+          >
+            Add Option
+          </Button>
         </Stack>
       </Card>
 
@@ -4912,8 +5009,7 @@ const leftPosition = stepPercent * (index + 1)
   const renderFollowCheckBranch = (node) => {
   const splitY = 30, downHeight = 50;
   const anchors = ["25%", "75%"];
-  // CHECK LIMIT
-    const isFollowingMaxReached = node.followingButtons.length >= 3;
+  const isFollowingMaxReached = node.followingButtons.length >= 3;
   return (
     <Box sx={{ width: "100%", mt: 0 }}>
       <Box sx={{ position: "relative", height: splitY + downHeight, mb: 2 }}>
@@ -4966,7 +5062,8 @@ const leftPosition = stepPercent * (index + 1)
                   }}
                 />
 
-              <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+              {/* DISABLED LOGIC HERE */}
+                  <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
                     <span>
                       <Button
                         size="small"
@@ -5140,6 +5237,7 @@ const leftPosition = stepPercent * (index + 1)
 
     if (node.type === "quickReply") {
       const isMaxReached = (node.replyOptions?.length || 0) >= 3;
+
       return (
         <Box key={node.id} sx={{ width: "100%", position: "relative" }}>
           <Card
@@ -5218,7 +5316,8 @@ const leftPosition = stepPercent * (index + 1)
                 }}
               />
 
-             <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+           {/* DISABLED LOGIC HERE */}
+              <Tooltip title={isMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
                 <span>
                   <Button
                     size="small"
@@ -5322,6 +5421,17 @@ const leftPosition = stepPercent * (index + 1)
             </Typography>
           </Box>
         )}
+
+         {node.type === "finishingMessage" && (
+        <Box sx={{ mt: 2, pl: 8 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: "#EC4899" }}>
+            Final Message:
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5, color: "#64748B" }}>
+            {node.config.finishingMessage || "No message set"}
+          </Typography>
+        </Box>
+      )}
       </Card>
     );
   };
@@ -5468,13 +5578,58 @@ const leftPosition = stepPercent * (index + 1)
           </Stack>
         );
 
+      case "finishingMessage":
+      return (
+        <Stack spacing={3}>
+          <Alert severity="info">
+            This message will be sent as the final step in your automation. 
+            No buttons or further actions will be available after this message.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Final Message"
+            placeholder="Thank you for your interest! We'll be in touch soon 😊"
+            value={nodeConfig.finishingMessage}
+            onChange={(e) =>
+              setNodeConfig({ ...nodeConfig, finishingMessage: e.target.value })
+            }
+            helperText="This will be the last message the user receives"
+          />
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              bgcolor: "#FCE7F3",
+              border: "1px solid #EC4899",
+            }}
+          >
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <MessageIcon sx={{ color: "#EC4899", mt: 0.5 }} />
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  💡 Best Practices
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#64748B" }}>
+                  • Keep it friendly and professional<br />
+                  • Thank the user for their engagement<br />
+                  • Set clear expectations if needed<br />
+                  • Use emojis to add personality 😊
+                </Typography>
+              </Box>
+            </Stack>
+          </Box>
+        </Stack>
+      );
+
       default:
         return null;
     }
   };
 
 const handleLaunchAutomation = async () => {
-    setConfDialogOpen(false); 
+    setConfDialogOpen(false);
 
     if (!dmMessage.trim()) {
       toast.error("Please enter a DM message");
@@ -5488,29 +5643,274 @@ const handleLaunchAutomation = async () => {
         buttonText: buttonText.trim(),
         flowNodes,
         keywords: keywords,
+        isEdit: isEditMode,
       };
-      console.log('Automation Details: ', JSON.stringify(payload));
 
-      await axios.post(`${baseUrl}/autodm/automation/config`, payload, {
-        withCredentials: true,
-      });
+      await api.post("/autodm/automation/config", payload);
 
-      // After successful creation, switch to edit mode view locally
-      setExistingAutomation(true);
-      setIsActive(true);
-      toast.success("Automation started successfully!");
+      toast.success(isEditMode ? "Automation updated successfully!" : "Automation started successfully!");
       
-      // Optional: navigate away or stay here
-      // navigate("/professional/automations"); 
+         // ✅ Simple page reload
+    setTimeout(() => {
+      window.location.reload();
+    }, 1200);
     } catch (error) {
-      console.error("Error starting automation:", error);
-      toast.error("Error! Please Try Again");
+      console.error("Error saving automation:", error);
+      
+      // Handle specific error for active automation
+      if (error.response?.data?.message === "Please stop the automation before editing") {
+        toast.error("Please stop the automation before editing");
+      } else {
+        toast.error("Error! Please Try Again");
+      }
     }
   };
 
     return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#F8FAFC" }}>
-   
+
+      {/* Header */}
+      <Box
+        sx={{
+          top: 0,
+          zIndex: 1000,
+          p: 2,
+          borderBottom: "1px solid #E5E7EB",
+        }}
+      >
+        {isEditMode ? (
+          <>
+           {/* Phone Simulator Toggle Button - Fixed Position */}
+<Tooltip title={showPhoneSimulator ? "Hide Preview" : "Show Preview"} placement="left">
+  <IconButton
+    onClick={() => setShowPhoneSimulator(!showPhoneSimulator)}
+    sx={{
+      position: "fixed",
+      right: showPhoneSimulator ? 'calc(40vh + 56px)' : 24,
+      top: 100,
+      zIndex: 1200,
+      bgcolor: "white",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      transition: "all 0.3s ease",
+      "&:hover": {
+        bgcolor: "#F3F4F6",
+        transform: "scale(1.05)",
+      },
+    }}
+  >
+    {showPhoneSimulator ? <VisibilityOffIcon /> : <PhoneAndroidIcon />}
+  </IconButton>
+</Tooltip>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <IconButton
+                onClick={() => navigate("/professional/automations")}
+                size={isMobile ? "small" : "medium"}
+                sx={{ bgcolor: "#F3F4F6", "&:hover": { bgcolor: "#E5E7EB" } }}
+              >
+                <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
+              </IconButton>
+              <Typography sx={{ fontWeight: 600, fontSize: "18px", fontFamily: 'Inter' }}>
+               Auto DM Automation
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={1}>
+              {/* Update Button */}
+             <Tooltip 
+          title={
+            isEditMode && !hasChanges 
+              ? "Make changes to update automation" 
+              : ""
+          }
+          arrow
+          placement="top"
+        >
+          <Box sx={{ display: 'block', width: '100%' }}>
+          <Button
+  variant="contained"
+  size="small"
+  fullWidth
+  onClick={() => setConfDialogOpen(true)}
+  startIcon={isEditMode ? <CheckCircleIcon /> : <RocketLaunchIcon />}
+  disabled={!dmMessage.trim() || (isEditMode && !hasChanges)}
+  sx={{
+    textTransform: "none",
+    fontFamily: "Inter",
+    fontSize: "14px",
+    fontWeight: 600,
+    borderRadius: 2,
+
+    whiteSpace: "nowrap",   // 🔑
+    minHeight: 36,          // 🔑
+    px: 2,                  // 🔑
+
+    background: dmMessage.trim() && (!isEditMode || hasChanges)
+      ? isEditMode
+        ? "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)"
+        : "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+      : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+
+    color: dmMessage.trim() && (!isEditMode || hasChanges) ? "white" : "#94A3B8",
+
+    "&:hover": {
+      background: dmMessage.trim() && (!isEditMode || hasChanges)
+        ? isEditMode
+          ? "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)"
+          : "linear-gradient(135deg, #059669 0%, #047857 100%)"
+        : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+    },
+
+    "&.Mui-disabled": {
+      background: "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+      color: "#94A3B8",
+    },
+  }}
+>
+  {isEditMode ? "Update Automation" : "Launch Automation"}
+</Button>
+
+          </Box>
+        </Tooltip>
+
+        {isEditMode && (
+            <>
+
+             <Box sx={{ display: 'block', width: '100%' }}>
+       <Button
+  variant="outlined"
+  size="small"
+  fullWidth
+  onClick={handleToggleStatus}
+  startIcon={isActive ? <PauseCircleOutlineIcon /> : <PlayCircleOutlineIcon />}
+  sx={{
+    textTransform: "none",
+    fontSize: "14px",
+    fontWeight: 600,
+    borderRadius: 3,
+
+    whiteSpace: "nowrap",   // 🔑
+    minHeight: 36,          // 🔑
+    px: 2,                  // 🔑
+
+    borderWidth: 2,
+    color: isActive ? "#EF4444" : "#10B981",
+    borderColor: isActive ? "#EF4444" : "#10B981",
+
+    "&:hover": {
+      borderWidth: 2,
+      bgcolor: isActive ? "#FEF2F2" : "#F0FDF4",
+      borderColor: isActive ? "#EF4444" : "#10B981",
+    },
+  }}
+>
+  {isActive ? "Stop Automation" : "Resume Automation"}
+</Button>
+
+          </Box>
+
+            </>
+        )}
+
+             
+            </Stack>
+          </Stack>
+          </>
+        ) : (
+           <>
+           {/* Phone Simulator Toggle Button - Fixed Position */}
+<Tooltip title={showPhoneSimulator ? "Hide Preview" : "Show Preview"} placement="left">
+  <IconButton
+    onClick={() => setShowPhoneSimulator(!showPhoneSimulator)}
+    sx={{
+      position: "fixed",
+      right: showPhoneSimulator ? 'calc(40vh + 56px)' : 24,
+      top: 100,
+      zIndex: 1200,
+      bgcolor: "white",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      transition: "all 0.3s ease",
+      "&:hover": {
+        bgcolor: "#F3F4F6",
+        transform: "scale(1.05)",
+      },
+    }}
+  >
+    {showPhoneSimulator ? <VisibilityOffIcon /> : <PhoneAndroidIcon />}
+  </IconButton>
+</Tooltip>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <IconButton
+                onClick={() => navigate("/professional/automations")}
+                size={isMobile ? "small" : "medium"}
+                sx={{ bgcolor: "#F3F4F6", "&:hover": { bgcolor: "#E5E7EB" } }}
+              >
+                <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
+              </IconButton>
+              <Typography sx={{ fontWeight: 600, fontSize: "18px", fontFamily: 'Inter' }}>
+                Setup Auto DM Automation
+              </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={1}>
+              {/* Update Button */}
+             <Tooltip 
+          title={
+            isEditMode && !hasChanges 
+              ? "Make changes to update automation" 
+              : ""
+          }
+          arrow
+          placement="top"
+        >
+          <span style={{ display: 'block', width: '100%' }}>
+            <Button
+              variant="contained"
+              size="medium"
+              fullWidth
+              onClick={() => setConfDialogOpen(true)}
+              startIcon={isEditMode ? <CheckCircleIcon /> : <RocketLaunchIcon />}
+              disabled={!dmMessage.trim() || (isEditMode && !hasChanges)}
+              sx={{
+                textTransform: "none",
+                fontFamily: 'Inter',
+                fontSize: "14px",
+                fontWeight: 600,
+                borderRadius: 2,
+                background: dmMessage.trim() && (!isEditMode || hasChanges)
+                  ? isEditMode 
+                    ? "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)" 
+                    : "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                  : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                color: dmMessage.trim() && (!isEditMode || hasChanges) ? "white" : "#94A3B8",
+                cursor: (isEditMode && !hasChanges) ? "not-allowed" : "pointer",
+                "&:hover": {
+                  background: dmMessage.trim() && (!isEditMode || hasChanges)
+                    ? isEditMode
+                      ? "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)"
+                      : "linear-gradient(135deg, #059669 0%, #047857 100%)"
+                    : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                },
+                "&.Mui-disabled": {
+                  background: "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
+                  color: "#94A3B8",
+                }
+              }}
+            >
+              {isEditMode ? "Update Automation" : "Launch Automation"}
+            </Button>
+          </span>
+        </Tooltip>
+
+             
+            </Stack>
+          </Stack>
+          </>
+
+
+        )}
+      </Box>
 
       {/* ============ ZOOM/PAN WRAPPER STARTS ============ */}
 <Box sx={{
@@ -5521,12 +5921,16 @@ const handleLaunchAutomation = async () => {
   alignItems: "center",
   justifyContent: "center"
 }}>
+
+   {showPhoneSimulator && (
   <PhoneSimulator 
-         dmMessage={dmMessage}
-         buttonText={buttonText}
-         flowNodes={flowNodes}
-         theme={theme}
-      />
+    dmMessage={dmMessage}
+    buttonText={buttonText}
+    flowNodes={flowNodes}
+    theme={theme}
+  />
+)}
+
    <TransformWrapper
   initialScale={1}
   minScale={0.3}
@@ -5569,85 +5973,113 @@ const handleLaunchAutomation = async () => {
             >
 
         <Stack spacing={0} alignItems="center">
+          {/* 1. Post Thumbnail */}
+          {/* <Card
+            elevation={0}
+            sx={{
+              width: "100%",
+              maxWidth: 400,
+              borderRadius: 3,
+              overflow: "hidden",
+              border: "2px solid",
+              borderColor: "grey.200",
+            }}
+          >
+            <CardContent sx={{ p: 2 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "#475569",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {data.caption?.trim() || "No caption"}
+              </Typography>
+            </CardContent>
+          </Card> */}
+
 
        <Box sx={{ maxWidth: 600, mx: "auto", p: 3 }}>
       {/* Keywords Input */}
-     <Box
-           sx={{
-             p: 3,
-             borderRadius: "16px",
-             border: "2px solid #8B5CF6",
-             bgcolor: "rgba(139, 92, 246, 0.1)",
-             backdropFilter: "blur(10px)",
-             mb: 3,
-           }}
-         >
-           <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
-             Keywords
-           </Typography>
-           <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
-           The automation will trigger when a DM(Direct Message) includes the following specific keywords.
-           </Typography>
-           <TextField
-             fullWidth
-             size="small"
-             placeholder="Type a keyword and hit Enter"
-             value={inputValue}
-             onChange={(e) => setInputValue(e.target.value)}
-             onKeyDown={handleKeyDown}
-             InputProps={{
-               endAdornment: inputValue && (
-                 <InputAdornment position="end">
-                   <IconButton onClick={handleAddKeyword} edge="end" size="small" aria-label="add keyword">
-                     +
-                   </IconButton>
-                 </InputAdornment>
-               ),
-             }}
-           />
-   
-            <Typography
-         sx={{
-           fontFamily: "Inter",
-           fontSize: "14px",
-           color: "text.secondary",
-           opacity: 0.8,
-           mt: 0.5
-         }}
-       >
-         Keywords are not case-sensitive, e.g. "Hello" and "hello" are recognized as the same.
-       </Typography>
-   
-           <Stack direction="row" spacing={1} mt={2} flexWrap="wrap">
-           {keywords.map((keyword) => (
-     <Chip
-       key={keyword}
-       label={keyword}
-       onDelete={() => handleDeleteKeyword(keyword)}
-       sx={{
-         mb: 1,
-         backgroundColor: "#37353E",        // custom bg
-         color: "#FFFFFF",  
-         fontFamily: 'Inter',                // text color
-         fontWeight: 500,                   // bold
-         fontSize: "14px",                  // custom font size
-         padding: "6px 6px",               // 🔥 custom padding for bigger chip
-         borderRadius: "8px",               // smoother corners
-   
-         // delete (x) icon color
-         "& .MuiChip-deleteIcon": {
-           color: "#FFFFFF",
-           ml: 0.5,
-           "&:hover": {
-             color: "#E62727",
-           }
-         }
-       }}
-     />
-   ))}
-   
-           </Stack>
-         </Box>
+      <Box
+        sx={{
+          p: 3,
+          borderRadius: "16px",
+          border: "2px solid #8B5CF6",
+          bgcolor: "rgba(139, 92, 246, 0.1)",
+          backdropFilter: "blur(10px)",
+          mb: 3,
+        }}
+      >
+        <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
+          Keywords
+        </Typography>
+        <Typography color="textSecondary" mb={1} sx={{ fontFamily : 'Inter', fontSize : '14px'}}>
+        The automation will trigger when a DM following below specific keywords.
+        </Typography>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Type a keyword and hit Enter"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          InputProps={{
+            endAdornment: inputValue && (
+              <InputAdornment position="end">
+                <IconButton onClick={handleAddKeyword} edge="end" size="small" aria-label="add keyword">
+                  +
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+
+         <Typography
+      sx={{
+        fontFamily: "Inter",
+        fontSize: "14px",
+        color: "text.secondary",
+        opacity: 0.8,
+        mt: 0.5
+      }}
+    >
+      Keywords are not case-sensitive, e.g. "Hello" and "hello" are recognized as the same.
+    </Typography>
+
+        <Stack direction="row" spacing={1} mt={2} flexWrap="wrap">
+        {keywords.map((keyword) => (
+  <Chip
+    key={keyword}
+    label={keyword}
+    onDelete={() => handleDeleteKeyword(keyword)}
+    sx={{
+      mb: 1,
+      backgroundColor: "#37353E",        // custom bg
+      color: "#FFFFFF",  
+      fontFamily: 'Inter',                // text color
+      fontWeight: 500,                   // bold
+      fontSize: "14px",                  // custom font size
+      padding: "6px 6px",               // 🔥 custom padding for bigger chip
+      borderRadius: "8px",               // smoother corners
+
+      // delete (x) icon color
+      "& .MuiChip-deleteIcon": {
+        color: "#FFFFFF",
+        ml: 0.5,
+        "&:hover": {
+          color: "#E62727",
+        }
+      }
+    }}
+  />
+))}
+
+        </Stack>
+      </Box>
 
     
 
@@ -5660,6 +6092,7 @@ const handleLaunchAutomation = async () => {
 
       {/* Arrow Down to next block can be added similarly */}
     </Box>
+
 
           {/* 2. Initial DM */}
           <Card
@@ -5690,11 +6123,11 @@ const handleLaunchAutomation = async () => {
                 <SendIcon />
               </Box>
               <Box flex={1}>
-                <Typography sx={{fontFamily : 'Inter', fontWeight: 600, fontSize: 20, mb: 0.5 }}>
+                <Typography sx={{fontFamily: 'Inter', fontWeight: 600, fontSize: "20px", mb: 0.5 }}>
                   Initial DM Message
                 </Typography>
-                <Typography sx={{ fontFamily : 'Inter', fontSize : '14px', color: "#64748B"}}>
-                  This message will be sent to users who comment
+                <Typography sx={{ color: "#64748B", mb: 1, fontFamily : 'Inter', fontSize : '14px' }}>
+                  This message will be sent as a response to the users who DM'ed with keywords specified above.
                 </Typography>
               </Box>
             </Stack>
@@ -5815,100 +6248,6 @@ const handleLaunchAutomation = async () => {
 )}
 
 
-          <Box sx={{ mt: 10, width: "100%", maxWidth: 600, pb: 10 }}>
-                  {existingAutomation ? (
-                    // === SCENARIO: AUTOMATION EXISTS (SHOW EDIT & STOP) ===
-                    <Stack spacing={2}>
-                      {/* Status Indicator */}
-                      <Alert 
-                        severity={isActive ? "success" : "warning"}
-                        icon={isActive ? <PlayCircleOutlineIcon /> : <PauseCircleOutlineIcon />}
-                        sx={{ mb: 1 }}
-                      >
-                        Current Status: <strong>{isActive ? "Active & Running" : "Stopped"}</strong>
-                      </Alert>
-
-                      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                        {/* Update Button */}
-                        <Button
-                          variant="contained"
-                          size="large"
-                          fullWidth
-                          onClick={handleUpdateAutomation}
-                          startIcon={<SaveIcon />}
-                          disabled={!dmMessage.trim()}
-                          sx={{
-                            height: 56,
-                            textTransform: "none",
-                            fontSize: "16px",
-                            fontWeight: 700,
-                            borderRadius: 3,
-                            bgcolor: "#8B5CF6", // Purple for update
-                            "&:hover": { bgcolor: "#7C3AED" },
-                          }}
-                        >
-                          Update Automation
-                        </Button>
-
-                        {/* Stop/Resume Button */}
-                        <Button
-                          variant="outlined"
-                          size="large"
-                          fullWidth
-                          onClick={handleToggleStatus}
-                          startIcon={isActive ? <PauseCircleOutlineIcon /> : <PlayCircleOutlineIcon />}
-                          sx={{
-                            height: 56,
-                            textTransform: "none",
-                            fontSize: "16px",
-                            fontWeight: 700,
-                            borderRadius: 3,
-                            borderWidth: 2,
-                            color: isActive ? "#EF4444" : "#10B981", // Red for stop, Green for resume
-                            borderColor: isActive ? "#EF4444" : "#10B981",
-                            "&:hover": {
-                              borderWidth: 2,
-                              bgcolor: isActive ? "#FEF2F2" : "#F0FDF4",
-                              borderColor: isActive ? "#EF4444" : "#10B981",
-                            },
-                          }}
-                        >
-                          {isActive ? "Stop Automation" : "Resume Automation"}
-                        </Button>
-                      </Stack>
-                    </Stack>
-                  ) : (
-                    // === SCENARIO: NO AUTOMATION (SHOW LAUNCH) ===
-                    <Button
-                      variant="contained"
-                      size="large"
-                      fullWidth
-                      onClick={() => setConfDialogOpen(true)}
-                      startIcon={<RocketLaunchIcon />}
-                      disabled={!dmMessage.trim()}
-                      sx={{
-                        height: 56,
-                        textTransform: "none",
-                        fontSize: "16px",
-                        fontWeight: 700,
-                        borderRadius: 3,
-                        background: dmMessage.trim()
-                          ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
-                          : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
-                        color: dmMessage.trim() ? "white" : "#94A3B8",
-                        "&:hover": {
-                          background: dmMessage.trim()
-                            ? "linear-gradient(135deg, #059669 0%, #047857 100%)"
-                            : "linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%)",
-                        },
-                      }}
-                    >
-                      Launch Automation
-                    </Button>
-                  )}
-                </Box>
-
-
         </Stack>
                </Box>
           </TransformComponent>
@@ -6024,42 +6363,62 @@ const handleLaunchAutomation = async () => {
         )}
       </Dialog>
 
-      <Snackbar
-  open={snackbar.open}
-  autoHideDuration={3000}
-  onClose={() => setSnackbar({ ...snackbar, open: false })}
-  anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
->
-  <Alert
-    onClose={() => setSnackbar({ ...snackbar, open: false })}
-    severity={snackbar.severity}
-    variant="filled"
-    sx={{ width: "100%" }}
-  >
-    {snackbar.message}
-  </Alert>
-</Snackbar>
-
-
 
        {/* CONFIRMATION DIALOG */}
-            <Dialog open={confDialogOpen} onClose={() => setConfDialogOpen(false)} maxWidth="sm" fullWidth>
-              <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Confirm Launch</DialogTitle>
-              <DialogContent>
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                      Once an automation is launched, it cannot be edited. You may only STOP or DELETE it.
-                  </Alert>
-                  <Typography variant="body2">
-                      Please review your automation flow and click ‘Launch Now’ to proceed, or go back to make changes.
-                  </Typography>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setConfDialogOpen(false)} color="inherit" sx={{ textTransform : 'none'}}>Cancel</Button>
-                <Button variant="contained" color="error" onClick={handleLaunchAutomation} startIcon={<RocketLaunchOutlinedIcon />} sx={{ textTransform : 'none'}}>
-                  Launch Now
-                </Button>
-              </DialogActions>
-            </Dialog>
+           <Dialog open={confDialogOpen} onClose={() => setConfDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: isEditMode ? 'primary.main' : 'error.main', fontWeight: 700 }}>
+          {isEditMode ? "Confirm Update" : "Confirm Launch"}
+        </DialogTitle>
+        <DialogContent>
+          {!isEditMode && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+            Once an automation is launched, it can be edited while active. You may stop or delete it at any time.
+            </Alert>
+          )}
+          {isEditMode && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Your automation will be updated with the new configuration. You may Edit, Stop or Delete any time.
+            </Alert>
+          )}
+          <Typography variant="body2">
+            {isEditMode 
+              ? "Please review your changes and click 'Update Now' to save, or go back to make more changes."
+              : "Please review your automation flow and click 'Launch Now' to proceed, or go back to make changes."}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfDialogOpen(false)} color="inherit" sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color={isEditMode ? "primary" : "error"} 
+            onClick={handleLaunchAutomation} 
+            startIcon={isEditMode ? <CheckCircleIcon /> : <RocketLaunchOutlinedIcon />} 
+            sx={{ textTransform: 'none' }}
+          >
+            {isEditMode ? "Update Now" : "Launch Now"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+            <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+
     </Box>
   );
 }
