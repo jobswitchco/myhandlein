@@ -5703,13 +5703,13 @@ const handleLaunchAutomation = async () => {
 </Tooltip>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Stack direction="row" alignItems="center" spacing={2}>
-              <IconButton
+              {/* <IconButton
                 onClick={() => navigate("/professional/automations")}
                 size={isMobile ? "small" : "medium"}
                 sx={{ bgcolor: "#F3F4F6", "&:hover": { bgcolor: "#E5E7EB" } }}
               >
                 <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
-              </IconButton>
+              </IconButton> */}
               <Typography sx={{ fontWeight: 600, fontSize: "18px", fontFamily: 'Inter' }}>
                Auto DM Automation
               </Typography>
@@ -5841,13 +5841,13 @@ const handleLaunchAutomation = async () => {
 </Tooltip>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Stack direction="row" alignItems="center" spacing={2}>
-              <IconButton
+              {/* <IconButton
                 onClick={() => navigate("/professional/automations")}
                 size={isMobile ? "small" : "medium"}
                 sx={{ bgcolor: "#F3F4F6", "&:hover": { bgcolor: "#E5E7EB" } }}
               >
                 <KeyboardArrowLeftIcon fontSize={isMobile ? "small" : "medium"} />
-              </IconButton>
+              </IconButton> */}
               <Typography sx={{ fontWeight: 600, fontSize: "18px", fontFamily: 'Inter' }}>
                 Setup Auto DM Automation
               </Typography>
