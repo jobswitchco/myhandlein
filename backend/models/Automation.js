@@ -18,8 +18,8 @@ const AutomationSchema = new Schema(
     keywords: { type: Array, default: []},
     hasReply: { type: Boolean, default: false},
     replyComments: { type: [String], default: [] },
-
-
+    igUserId: {type: String},
+    clonedFrom: { type: Schema.Types.ObjectId, ref: "automations" },
     createdAt: { type: Date },
     status: {
       type: String,
@@ -33,7 +33,7 @@ const AutomationSchema = new Schema(
 );
 
 AutomationSchema.index({ userId: 1, postId: 1 });
-AutomationSchema.index({ platform: 1, postId: 1, status: 1 });
+AutomationSchema.index({ platform: 1, postId: 1, status: 1, igUserId: 1 });
 AutomationSchema.index({ postLive: 1, userId: 1 });
 
 const Automation =

@@ -2348,6 +2348,18 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: "postId is required" });
     }
 
+    // 🔹 Fetch fbPageId ONLY once
+    const user = await USER.findById(userId)
+      .select("igUserId")
+      .lean();
+
+    if (!user?.igUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Facebook Page not connected",
+      });
+    }
+
     const update = {
       platform: "instagram",
       caption,
@@ -2358,30 +2370,40 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
       keywords,
       hasReply,
       replyComments,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     const doc = await Automation.findOneAndUpdate(
       { userId, postId: String(postId) },
-      { $set: update, $setOnInsert: { userId, postId: String(postId) } },
+      {
+        $set: update,
+        $setOnInsert: {
+          userId,
+          postId: String(postId),
+          igUserId: user.igUserId, // ✅ INSERT ONLY
+          createdAt: new Date(),
+        },
+      },
       { upsert: true, new: true }
     );
 
     return res.json({
       success: true,
-      message: isEdit ? "Automation updated successfully" : "Automation configuration saved",
-      data: doc
+      message: isEdit
+        ? "Automation updated successfully"
+        : "Automation configuration saved",
+      data: doc,
     });
   } catch (err) {
     console.error("POST /automation/config error:", err);
-    
+
     if (err?.code === 11000) {
       return res.status(409).json({
         success: false,
         message: "An automation for this post already exists for this user",
       });
     }
-    
+
     return res.status(500).json({
       success: false,
       message: "Failed to save automation config",
@@ -2414,8 +2436,20 @@ router.post("/autodm/automation/config", authenticateToken, async (req, res) => 
       });
     }
 
+    // 🔹 Fetch fbPageId once
+    const user = await USER.findById(userId)
+      .select("igUserId")
+      .lean();
+
+    if (!user?.igUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Facebook Page not connected",
+      });
+    }
+
     /* ─────────────────────────────────────────────
-       UPDATE PAYLOAD (NO IDENTITY FIELDS HERE)
+       UPDATE PAYLOAD (NO IDENTITY FIELDS)
     ───────────────────────────────────────────── */
     const update = {
       platform: "instagram",
@@ -2429,7 +2463,7 @@ router.post("/autodm/automation/config", authenticateToken, async (req, res) => 
 
     /* ─────────────────────────────────────────────
        UPSERT
-       Identity fields ONLY in $setOnInsert
+       Identity fields ONLY on insert
     ───────────────────────────────────────────── */
     const doc = await Automation.findOneAndUpdate(
       { userId, postType: String(postType) },
@@ -2438,6 +2472,8 @@ router.post("/autodm/automation/config", authenticateToken, async (req, res) => 
         $setOnInsert: {
           userId,
           postType: String(postType),
+          igUserId: user.igUserId, // ✅ INSERT ONLY
+          createdAt: new Date(),
         },
       },
       {
@@ -2471,6 +2507,8 @@ router.post("/autodm/automation/config", authenticateToken, async (req, res) => 
   }
 });
 
+
+
 // GET: Check if automation exists and return config
 router.get('/autodm/automation/config', authenticateToken, async (req, res) => {
   
@@ -2499,29 +2537,6 @@ router.get('/autodm/automation/config', authenticateToken, async (req, res) => {
   }
 });
 
-// PUT: Update existing automation (Edit Mode)
-router.put('/autodm/automation/update', authenticateToken, async (req, res) => {
-  try {
-
-      const userId = req.user?.user_id || req.user?._id;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
-
-
-    const { keywords, dmMessage, buttonText, flowNodes } = req.body;
-    
-    const automation = await Automation.findOneAndUpdate(
-      { userId, postType: 'autodm' },
-      { keywords, dmMessage, buttonText, flowNodes },
-      { new: true }
-    );
-
-    res.status(200).json({ success: true, data: automation });
-  } catch (error) {
-    res.status(500).json({ message: "Update failed" });
-  }
-});
 
 // PATCH: Toggle Status (Stop/Resume)
 router.patch('/autodm/automation/status', authenticateToken, async (req, res) => {
@@ -2538,6 +2553,163 @@ router.patch('/autodm/automation/status', authenticateToken, async (req, res) =>
     
     const automation = await Automation.findOneAndUpdate(
       { userId, postType: 'autodm' },
+      { status: isActive ? 'active' : 'inactive' },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, isActive: automation.isActive });
+  } catch (error) {
+    res.status(500).json({ message: "Status change failed" });
+  }
+});
+
+
+
+// ------------------Automation for all future posts--------------
+
+router.post("/future/automation/config", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const {
+      postType,
+      dmMessage,
+      buttonText,
+      status,
+      flowNodes,
+      keywords,
+      hasReply,
+      replyComments,
+      isEdit,
+    } = req.body || {};
+
+    if (!postType || !String(postType).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "postType is required for AutoDM automation",
+      });
+    }
+
+    // 🔹 Fetch fbPageId once
+    const user = await USER.findById(userId)
+      .select("igUserId")
+      .lean();
+
+    if (!user?.igUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Facebook Page not connected",
+      });
+    }
+
+    /* ─────────────────────────────────────────────
+       UPDATE PAYLOAD (NO IDENTITY FIELDS)
+    ───────────────────────────────────────────── */
+    const update = {
+      platform: "instagram",
+      dmMessage,
+      buttonText,
+      flowNodes,
+      keywords,
+      hasReply,
+      replyComments,
+      ...(status ? { status } : {}),
+      updatedAt: new Date(),
+    };
+
+    /* ─────────────────────────────────────────────
+       UPSERT
+       Identity fields ONLY on insert
+    ───────────────────────────────────────────── */
+    const doc = await Automation.findOneAndUpdate(
+      { userId, postType: String(postType) },
+      {
+        $set: update,
+        $setOnInsert: {
+          userId,
+          postType: String(postType),
+          igUserId: user.igUserId, // ✅ INSERT ONLY
+          createdAt: new Date(),
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: isEdit
+        ? "Automation updated successfully"
+        : "Automation configuration saved",
+      data: doc,
+    });
+  } catch (err) {
+    console.error("POST /future/automation/config error:", err);
+
+    if (err?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "An automation already exists for this user",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save automation config",
+      error: err?.message || String(err),
+    });
+  }
+});
+
+
+// GET: Check if automation exists and return config
+router.get('/future/automation/config', authenticateToken, async (req, res) => {
+  
+    const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+  try {
+    const automation = await Automation.findOne({ 
+      userId, 
+      postType: 'futurepost' 
+    });
+
+    if (!automation) {
+      return res.status(200).json({ exists: false });
+    }
+
+    return res.status(200).json({ 
+      exists: true, 
+      data: automation 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// PATCH: Toggle Status (Stop/Resume)
+router.patch('/future/automation/status', authenticateToken, async (req, res) => {
+  try {
+
+      const userId = req.user?.user_id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { isActive } = req.body; // Expect boolean
+
+    console.log('isActive : ', isActive);
+    
+    const automation = await Automation.findOneAndUpdate(
+      { userId, postType: 'futurepost' },
       { status: isActive ? 'active' : 'inactive' },
       { new: true }
     );
@@ -2590,10 +2762,12 @@ router.get("/automations", authenticateToken, async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
+
     const query = {
-      userId,
-      postType: { $ne: "autodm" }, // exclude autodm
-    };
+  userId,
+  postType: { $nin: ["autodm", "futurepost"] }, // exclude both
+};
+
 
     const projection =
       "postId status createdAt caption thumbnail postLive lastCheckedAt";
