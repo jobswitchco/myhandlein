@@ -92,6 +92,8 @@ const [trialDays, setTrialDays] = useState(0);
   const automationRoutes = [
     "/professional/automations",
     "/professional/autodm/automation",
+    "/professional/automation/future/posts",
+    "/professional/dashboard/instagram",
   ];
 
   // Routes for Mentions (nested under Instagram)
@@ -303,25 +305,25 @@ const [trialDays, setTrialDays] = useState(0);
 
                  <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
-                  onClick={() => goTo("/professional/dashboard/analytics")}
-                  selected={location.pathname === "/professional/dashboard/analytics"}
+                  onClick={() => goTo("/professional/dashboard/instagram")}
+                  selected={location.pathname === "/professional/dashboard/instagram"}
                   sx={{
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/dashboard/analytics" ? "#6E8CFB" : "transparent",
+                    backgroundColor: location.pathname === "/professional/dashboard/instagram" ? "#F37199" : "transparent",
                     "&:hover": { 
-                      backgroundColor: "#6E8CFB",
+                      backgroundColor: "#F37199",
                       "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    "&.Mui-selected": { backgroundColor: "#F37199" },
                     transition: "all 0.2s ease",
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <InsertChartOutlinedIcon
                       sx={{
-                        color: location.pathname === "/professional/dashboard/analytics" ? "#FFFFFF" : "#9CA3AF",
+                        color: location.pathname === "/professional/dashboard/instagram" ? "#FFFFFF" : "#9CA3AF",
                         fontSize: "1.2rem",
                       }}
                     />
@@ -330,8 +332,8 @@ const [trialDays, setTrialDays] = useState(0);
                     primary="Analytics Dashboard"
                     primaryTypographyProps={{
                       sx: {
-                        color: location.pathname === "/professional/dashboard/analytics" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/dashboard/analytics" ? 500 : 400,
+                        color: location.pathname === "/professional/dashboard/instagram" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/dashboard/instagram" ? 500 : 400,
                         fontSize: "0.875rem",
                       },
                     }}
@@ -347,12 +349,12 @@ const [trialDays, setTrialDays] = useState(0);
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/autodm/automation" ? "#6E8CFB" : "transparent",
+                    backgroundColor: location.pathname === "/professional/autodm/automation" ? "#F37199" : "transparent",
                     "&:hover": { 
-                      backgroundColor: "#6E8CFB",
+                      backgroundColor: "#F37199",
                       "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    "&.Mui-selected": { backgroundColor: "#F37199" },
                     transition: "all 0.2s ease",
                   }}
                 >
@@ -385,12 +387,12 @@ const [trialDays, setTrialDays] = useState(0);
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/automations" ? "#6E8CFB" : "transparent",
+                    backgroundColor: location.pathname === "/professional/automations" ? "#F37199" : "transparent",
                     "&:hover": { 
-                      backgroundColor: "#6E8CFB",
+                      backgroundColor: "#F37199",
                       "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    "&.Mui-selected": { backgroundColor: "#F37199" },
                     transition: "all 0.2s ease",
                   }}
                 >
@@ -424,12 +426,12 @@ const [trialDays, setTrialDays] = useState(0);
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/automation/future/posts" ? "#6E8CFB" : "transparent",
+                    backgroundColor: location.pathname === "/professional/automation/future/posts" ? "#F37199" : "transparent",
                     "&:hover": { 
-                      backgroundColor: "#6E8CFB",
+                      backgroundColor: "#F37199",
                       "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    "&.Mui-selected": { backgroundColor: "#F37199" },
                     transition: "all 0.2s ease",
                   }}
                 >
@@ -465,12 +467,12 @@ const [trialDays, setTrialDays] = useState(0);
                     pl: 2,
                     borderRadius: "8px",
                     py: 0.75,
-                    backgroundColor: location.pathname === "/professional/contacts/replied" ? "#6E8CFB" : "transparent",
+                    backgroundColor: location.pathname === "/professional/contacts/replied" ? "#F37199" : "transparent",
                     "&:hover": { 
-                      backgroundColor: "#6E8CFB",
+                      backgroundColor: "#F37199",
                       "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
                     },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    "&.Mui-selected": { backgroundColor: "#F37199" },
                     transition: "all 0.2s ease",
                   }}
                 >
