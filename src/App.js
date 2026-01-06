@@ -48,6 +48,8 @@ import UpgradePlan from './components/Employee/UpgradePlan.js';
 import SetupAutoDmAutomation from './components/Employee/SetupAutoDmAutomation.js';
 import InboxManagement from './components/Employee/TestingInbox.js';
 import { getSocket } from "../src/realtime/socket.js";
+import AutomationAnalytics from './components/Employee/AutomationAnalytics.js';
+import FuturePostsAutomation from './components/Employee/FuturePostsAutomation.js';
 
 
 // very critial yes
@@ -164,6 +166,9 @@ if (initialSubdomain) {
                 <Route path="contacts/replied" element={<RepliedContacts />} />
                 <Route path="upgrade/plan" element={<UpgradePlan />} />
                 <Route path="business/inbox" element={<InboxManagement />} />
+                <Route path="dashboard/instagram" element={<AutomationAnalytics />} />
+                <Route path="automation/future/posts" element={<FuturePostsAutomation />} />
+
 
 
 

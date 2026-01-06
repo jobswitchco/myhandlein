@@ -13,6 +13,7 @@ import Participant from "../models/Participant.js"
 import Bookings from "../models/Bookings.js";
 import Block from "../models/Blocks.js";
 import ActionLock from "../models/ActionLock.js";
+import ConversationState from "../models/ConversationState.js";
 import FormsData from "../models/FormsData.js";
 import BankDetails from "../models/BankDetails.js";
 import Transaction from "../models/Transaction.js";
@@ -2717,6 +2718,372 @@ router.patch('/future/automation/status', authenticateToken, async (req, res) =>
     res.status(200).json({ success: true, isActive: automation.isActive });
   } catch (error) {
     res.status(500).json({ message: "Status change failed" });
+  }
+});
+
+router.post("/automation-analytics", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.user_id;
+    // const userId = "69209d811ead7fc0c348128f";
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { startDate, endDate } = req.body || {};
+    const now = new Date();
+
+    // Setup date range (default to last 28 days)
+    const start = startDate ? new Date(startDate) : new Date(now);
+    if (!startDate) start.setDate(start.getDate() - 27);
+    start.setHours(0, 0, 0, 0);
+
+    const end = endDate ? new Date(endDate) : new Date(now);
+    end.setHours(23, 59, 59, 999);
+
+    // Calculate previous period for comparison
+    const periodDuration = end - start;
+    const prevStart = new Date(start.getTime() - periodDuration);
+    const prevEnd = new Date(start.getTime() - 1);
+    prevEnd.setHours(23, 59, 59, 999);
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // ---------------------------
+    // Current Period Promises
+    // ---------------------------
+
+    // 1. Total DMs Sent
+    const totalDmsSentPromise = ActionLock.countDocuments({
+      "payload.creatorId": userObjectId,
+      channel: "private",
+      state: { $in: ["sent", "queued"] },
+      createdAt: { $gte: start, $lte: end },
+    });
+
+    // 2. Total Replies Sent
+    const totalRepliesSentPromise = ActionLock.countDocuments({
+      "payload.creatorId": userObjectId,
+      channel: "public",
+      state: { $in: ["sent", "queued"] },
+      createdAt: { $gte: start, $lte: end },
+    });
+
+    // 3a. Total DMs for CTR calculation
+    const totalDmsForCtrPromise = ActionLock.countDocuments({
+      "payload.creatorId": userObjectId,
+      channel: "private",
+      state: { $in: ["sent", "queued"] },
+      createdAt: { $gte: start, $lte: end },
+    });
+
+    // 3b. Total Clicks/Opens
+    const totalClicksPromise = ConversationState.countDocuments({
+      userId: userObjectId,
+      startedAt: { $gte: start, $lte: end },
+    });
+
+    // ---------------------------
+    // Previous Period Promises
+    // ---------------------------
+
+    const prevDmsSentPromise = ActionLock.countDocuments({
+      "payload.creatorId": userObjectId,
+      channel: "private",
+      state: { $in: ["sent", "queued"] },
+      createdAt: { $gte: prevStart, $lte: prevEnd },
+    });
+
+    const prevRepliesSentPromise = ActionLock.countDocuments({
+      "payload.creatorId": userObjectId,
+      channel: "public",
+      state: { $in: ["sent", "queued"] },
+      createdAt: { $gte: prevStart, $lte: prevEnd },
+    });
+
+    const prevDmsForCtrPromise = ActionLock.countDocuments({
+      "payload.creatorId": userObjectId,
+      channel: "private",
+      state: { $in: ["sent", "queued"] },
+      createdAt: { $gte: prevStart, $lte: prevEnd },
+    });
+
+    const prevClicksPromise = ConversationState.countDocuments({
+      userId: userObjectId,
+      startedAt: { $gte: prevStart, $lte: prevEnd },
+    });
+
+    // 4. Get user data
+    const userDataPromise = USER.findById(userObjectId).select(
+      "igFollowersCount igMediaCount igProfilePic igName igUsername"
+    );
+
+    // 5. Day-wise DMs sent for chart
+    const dmsByDayPromise = ActionLock.aggregate([
+      {
+        $match: {
+          "payload.creatorId": userObjectId,
+          channel: "private",
+          state: { $in: ["sent", "queued"] },
+          createdAt: { $gte: start, $lte: end },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            day: { $dayOfMonth: "$createdAt" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: {
+            $dateFromParts: {
+              year: "$_id.year",
+              month: "$_id.month",
+              day: "$_id.day",
+            },
+          },
+          count: 1,
+        },
+      },
+      { $sort: { date: 1 } },
+    ]);
+
+    // Run all in parallel
+    const [
+      totalDmsSent,
+      totalRepliesSent,
+      totalDmsForCtr,
+      totalClicks,
+      prevDmsSent,
+      prevRepliesSent,
+      prevDmsForCtr,
+      prevClicks,
+      userData,
+      dmsByDay,
+    ] = await Promise.all([
+      totalDmsSentPromise,
+      totalRepliesSentPromise,
+      totalDmsForCtrPromise,
+      totalClicksPromise,
+      prevDmsSentPromise,
+      prevRepliesSentPromise,
+      prevDmsForCtrPromise,
+      prevClicksPromise,
+      userDataPromise,
+      dmsByDayPromise,
+    ]);
+
+    // Calculate CTR
+    const ctr = totalDmsForCtr > 0 
+      ? ((totalClicks / totalDmsForCtr) * 100).toFixed(2) 
+      : 0;
+
+    const prevCtr = prevDmsForCtr > 0
+      ? ((prevClicks / prevDmsForCtr) * 100).toFixed(2)
+      : 0;
+
+    // Calculate percentage changes
+    const calculateChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return (((current - previous) / previous) * 100).toFixed(2);
+    };
+
+    // Format chart data - fill in missing dates with 0
+    const chartData = [];
+    const dateMap = new Map(dmsByDay.map(item => [
+      item.date.toISOString().split('T')[0],
+      item.count
+    ]));
+
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      chartData.push({
+        date: dateStr,
+        dmsSent: dateMap.get(dateStr) || 0,
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return res.json({
+      success: true,
+      dateRange: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+      },
+      creator: {
+        name: userData?.igName || "Unknown",
+        username: userData?.igUsername || "unknown",
+        profilePic: userData?.igProfilePic || "",
+      },
+      summary: {
+        totalDmsSent,
+        totalRepliesSent,
+        ctr: parseFloat(ctr),
+        totalClicks,
+        activeFollowers: userData?.igFollowersCount || 0,
+        totalPosts: userData?.igMediaCount || 0,
+      },
+      comparison: {
+        totalDmsSent: parseFloat(calculateChange(totalDmsSent, prevDmsSent)),
+        totalRepliesSent: parseFloat(calculateChange(totalRepliesSent, prevRepliesSent)),
+        ctr: parseFloat(calculateChange(parseFloat(ctr), parseFloat(prevCtr))),
+        totalClicks: parseFloat(calculateChange(totalClicks, prevClicks)),
+      },
+      chartData,
+    });
+
+  } catch (err) {
+    console.error("automation-analytics error:", err);
+    return res.status(500).json({ 
+      success: false,
+      message: "Failed to load Instagram analytics",
+      error: err.message 
+    });
+  }
+});
+
+
+router.post("/automation-performance", authenticateToken, async (req, res) => {
+  try {
+    // const userId = req.user?.user_id;
+    const userId = "69209d811ead7fc0c348128f";
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // 1️⃣ Fetch all automations (exclude future posts)
+    const automations = await Automation.find({
+      userId: userObjectId,
+      postType: { $ne: "futurepost" },
+    })
+      .select("_id caption thumbnail postType")
+      .lean();
+
+    if (!automations.length) {
+      return res.json({
+        success: true,
+        automationBreakdown: [],
+      });
+    }
+
+    const automationIds = automations.map(a => a._id);
+
+    // 2️⃣ Total DMs sent per automation
+    const dmsData = await ActionLock.aggregate([
+      {
+        $match: {
+          automationId: { $in: automationIds },
+          "payload.creatorId": userObjectId,
+          channel: "private",
+          state: { $in: ["sent", "queued"] },
+        },
+      },
+      {
+        $group: {
+          _id: "$automationId",
+          totalDms: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // 3️⃣ Total Replies sent per automation
+    const repliesData = await ActionLock.aggregate([
+      {
+        $match: {
+          automationId: { $in: automationIds },
+          "payload.creatorId": userObjectId,
+          channel: "public",
+          state: { $in: ["sent", "queued"] },
+        },
+      },
+      {
+        $group: {
+          _id: "$automationId",
+          totalReplies: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // 4️⃣ Total Clicks per automation
+    const clicksData = await ConversationState.aggregate([
+      {
+        $match: {
+          automationId: { $in: automationIds },
+          userId: userObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: "$automationId",
+          totalClicks: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // 5️⃣ Create lookup maps for fast access
+    const dmsMap = new Map(dmsData.map(d => [d._id.toString(), d.totalDms]));
+    const repliesMap = new Map(repliesData.map(r => [r._id.toString(), r.totalReplies]));
+    const clicksMap = new Map(clicksData.map(c => [c._id.toString(), c.totalClicks]));
+
+    // 6️⃣ Combine everything into final response
+    const automationBreakdown = automations
+      .map(automation => {
+        const id = automation._id.toString();
+
+        const totalDms = dmsMap.get(id) || 0;
+        const repliesSent =
+          automation.postType === "autodm"
+            ? 0
+            : repliesMap.get(id) || 0;
+
+        const totalClicks = clicksMap.get(id) || 0;
+        const ctr =
+          totalDms > 0
+            ? parseFloat(((totalClicks / totalDms) * 100).toFixed(2))
+            : 0;
+
+        return {
+          automationId: automation._id,
+          caption: automation.caption
+            ? automation.caption.length > 100
+              ? `${automation.caption.slice(0, 100)}...`
+              : automation.caption
+            : null,
+          thumbnail: automation.thumbnail || null,
+          postType: automation.postType,
+          repliesSent,
+          totalDms,
+          totalClicks,
+          ctr,
+        };
+      })
+      // show only automations that actually did something
+      .filter(a => a.totalDms > 0 || a.repliesSent > 0)
+      // rank by CTR
+      .sort((a, b) => b.ctr - a.ctr)
+      // top 10 only
+      .slice(0, 10);
+
+    return res.json({
+      success: true,
+      automationBreakdown,
+    });
+
+  } catch (err) {
+    console.error("automation-performance error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load automation performance",
+      error: err.message,
+    });
   }
 });
 

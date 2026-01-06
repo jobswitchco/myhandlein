@@ -40,10 +40,16 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import UpiMandateModern from "./UpiMandate";
 import "react-toastify/dist/ReactToastify.css";
 import PolylineOutlinedIcon from "@mui/icons-material/PolylineOutlined";
+import MarkChatReadOutlinedIcon from '@mui/icons-material/MarkChatReadOutlined';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
 import PermContactCalendarOutlinedIcon from '@mui/icons-material/PermContactCalendarOutlined';
 import { logout } from "../../store/professionalSlice";
+import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import FileOpenOutlinedIcon from '@mui/icons-material/FileOpenOutlined';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import { useDispatch } from "react-redux";
 const theme = createTheme({
   palette: {
@@ -166,9 +172,6 @@ const [trialDays, setTrialDays] = useState(0);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-
-
-
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
@@ -251,6 +254,293 @@ const [trialDays, setTrialDays] = useState(0);
         </Toolbar>
 
         <List sx={{ px: 2, pt: 1 }}>
+
+
+    {/* ===== INSTAGRAM MAIN MENU ===== */}
+          <ListItem disablePadding sx={{ mb: 0.5 }}>
+            <ListItemButton
+              onClick={() => setInstagramOpen((p) => !p)}
+              sx={{
+                borderRadius: "10px",
+                py: 1,
+                px: 1.5,
+                backgroundColor: isInstagramSection ? "#FF3F7F" : "transparent",
+                "&:hover": {
+                  backgroundColor: isInstagramSection ? "rgba(225, 48, 108, 0.12)" : "rgba(0,0,0,0.03)",
+                },
+                transition: "all 0.2s ease",
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <InstagramIcon
+                  sx={{
+                    color: isInstagramSection ? "#FFFFFF" : "#6B7280",
+                    fontSize: "1.3rem",
+                  }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary="Instagram"
+                primaryTypographyProps={{
+                  sx: {
+                    color: isInstagramSection ? "#FFFFFF" : "#374151",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                  },
+                }}
+              />
+              {instagramOpen ? (
+                <ExpandLessIcon sx={{ color: isInstagramSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
+              ) : (
+                <ExpandMoreIcon sx={{ color: isInstagramSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
+              )}
+            </ListItemButton>
+          </ListItem>
+
+          {/* Instagram Submenu */}
+          <Collapse in={instagramOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
+
+                 <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/dashboard/analytics")}
+                  selected={location.pathname === "/professional/dashboard/analytics"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/dashboard/analytics" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <InsertChartOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/dashboard/analytics" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Analytics Dashboard"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/dashboard/analytics" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/dashboard/analytics" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+
+                  <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/autodm/automation")}
+                  selected={location.pathname === "/professional/autodm/automation"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/autodm/automation" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <MarkChatReadOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/autodm/automation" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Auto DM"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/autodm/automation" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/autodm/automation" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+             
+               <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/automations")}
+                  selected={location.pathname === "/professional/automations"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/automations" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <PolylineOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/automations" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Post Wise Automation"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/automations" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/automations" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+
+
+                 <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/automation/future/posts")}
+                  selected={location.pathname === "/professional/automation/future/posts"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/automation/future/posts" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <UpdateOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/automation/future/posts" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Next Post Automation"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/automation/future/posts" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/automation/future/posts" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+
+             
+                {/* Contacts */}
+
+                <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/contacts/replied")}
+                  selected={location.pathname === "/professional/contacts/replied"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/contacts/replied" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ContactPageOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/contacts/replied" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Contacts"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/contacts/replied" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/contacts/replied" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+
+                  {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => goTo("/professional/inbox/creator")}
+                  selected={location.pathname === "/professional/inbox/creator"}
+                  sx={{
+                    pl: 2,
+                    borderRadius: "8px",
+                    py: 0.75,
+                    backgroundColor: location.pathname === "/professional/inbox/creator" ? "#6E8CFB" : "transparent",
+                    "&:hover": { 
+                      backgroundColor: "#6E8CFB",
+                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
+                    },
+                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <InboxOutlinedIcon
+                      sx={{
+                        color: location.pathname === "/professional/inbox/creator" ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: "1.2rem",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Business Inbox"
+                    primaryTypographyProps={{
+                      sx: {
+                        color: location.pathname === "/professional/inbox/creator" ? "#FFFFFF" : "#6B7280",
+                        fontWeight: location.pathname === "/professional/inbox/creator" ? 500 : 400,
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem> */}
+
+      
+            </List>
+          </Collapse>
+
+            {/* ===== DIVIDER ===== */}
+          <Divider sx={{ my: 2, mx: 1, borderColor: "#E5E7EB", borderWidth: 1 }} />
+
+
           {/* ===== LINK IN BIO MAIN MENU ===== */}
           <ListItem disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
@@ -354,7 +644,7 @@ const [trialDays, setTrialDays] = useState(0);
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <ContactPageOutlinedIcon
+                    <FileOpenOutlinedIcon
                       sx={{
                         color: location.pathname === "/professional/user/bio" ? "#FFFFFF" : "#9CA3AF",
                         fontSize: "1.2rem",
@@ -395,7 +685,7 @@ const [trialDays, setTrialDays] = useState(0);
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <GroupsOutlinedIcon
+                    <PeopleAltOutlinedIcon
                       sx={{
                         color: location.pathname === "/professional/booking/sessions" ? "#FFFFFF" : "#9CA3AF",
                         fontSize: "1.2rem",
@@ -671,210 +961,8 @@ const [trialDays, setTrialDays] = useState(0);
             </List>
           </Collapse>
 
-          {/* ===== DIVIDER ===== */}
-          <Divider sx={{ my: 2, mx: 1, borderColor: "#E5E7EB", borderWidth: 1 }} />
-
-          {/* ===== INSTAGRAM MAIN MENU ===== */}
-          <ListItem disablePadding sx={{ mb: 0.5 }}>
-            <ListItemButton
-              onClick={() => setInstagramOpen((p) => !p)}
-              sx={{
-                borderRadius: "10px",
-                py: 1,
-                px: 1.5,
-                backgroundColor: isInstagramSection ? "#FF3F7F" : "transparent",
-                "&:hover": {
-                  backgroundColor: isInstagramSection ? "rgba(225, 48, 108, 0.12)" : "rgba(0,0,0,0.03)",
-                },
-                transition: "all 0.2s ease",
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                <InstagramIcon
-                  sx={{
-                    color: isInstagramSection ? "#FFFFFF" : "#6B7280",
-                    fontSize: "1.3rem",
-                  }}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary="Instagram"
-                primaryTypographyProps={{
-                  sx: {
-                    color: isInstagramSection ? "#FFFFFF" : "#374151",
-                    fontWeight: 600,
-                    fontSize: "0.9rem",
-                  },
-                }}
-              />
-              {instagramOpen ? (
-                <ExpandLessIcon sx={{ color: isInstagramSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
-              ) : (
-                <ExpandMoreIcon sx={{ color: isInstagramSection ? "#FFFFFF" : "#9CA3AF", fontSize: "1.2rem" }} />
-              )}
-            </ListItemButton>
-          </ListItem>
-
-          {/* Instagram Submenu */}
-          <Collapse in={instagramOpen} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding sx={{ pl: 0.5, pr: 0 }}>
-             
-
-                 {/* Automation (nested) */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => setAutomationOpen((p) => !p)}
-                  selected={isAutomationRoute}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: isAutomationRoute ? "#F6B1CE" : "transparent",
-                    "&:hover": { 
-                      backgroundColor: "#F6B1CE",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#533B4D" }
-                    },
-                    "&.Mui-selected": { backgroundColor: "#F6B1CE" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <PolylineOutlinedIcon
-                      sx={{
-                        color: isAutomationRoute ? "#533B4D" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Automations"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: isAutomationRoute ? "#533B4D" : "#6B7280",
-                        fontWeight: isAutomationRoute ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                  {automationOpen ? (
-                    <ExpandLessIcon sx={{ color: isAutomationRoute ? "#533B4D" : "#9CA3AF", fontSize: "1rem" }} />
-                  ) : (
-                    <ExpandMoreIcon sx={{ color: isAutomationRoute ? "#533B4D" : "#9CA3AF", fontSize: "1rem" }} />
-                  )}
-                </ListItemButton>
-              </ListItem>
-
-              {/* Automation submenu */}
-              <Collapse in={automationOpen} timeout="auto" unmountOnExit>
-            
-                <List component="div" disablePadding>
-
-                  <ListItem disablePadding sx={{ mb: 0.5, pl: 4 }}>
-                    <ListItemButton
-                      onClick={() => goTo("/professional/automations")}
-                      selected={location.pathname === "/professional/automations"}
-                      sx={{
-                        borderRadius: "8px",
-                        py: 0.6,
-                        backgroundColor: location.pathname === "/professional/automations" ? "#533B4D" : "transparent",
-                        "&:hover": { 
-                          backgroundColor: "#533B4D",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
-                        },
-                        "&.Mui-selected": { backgroundColor: "#533B4D" },
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <ListItemText
-                        primary="Post Automation"
-                        primaryTypographyProps={{
-                          sx: {
-                            color: location.pathname === "/professional/automations" ? "#FFFFFF" : "#9CA3AF",
-                            fontWeight: 400,
-                            fontSize: "0.82rem",
-                          },
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-
-                  <ListItem disablePadding sx={{ mb: 0.5, pl: 4 }}>
-                    <ListItemButton
-                      onClick={() => goTo("/professional/autodm/automation")}
-                      selected={location.pathname === "/professional/autodm/automation"}
-                      sx={{
-                        borderRadius: "8px",
-                        py: 0.6,
-                        backgroundColor: location.pathname === "/professional/autodm/automation" ? "#533B4D" : "transparent",
-                        "&:hover": { 
-                          backgroundColor: "#533B4D",
-                          "& .MuiListItemText-primary": { color: "#FFFFFF" }
-                        },
-                        "&.Mui-selected": { backgroundColor: "#533B4D" },
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <ListItemText
-                        primary="Auto DM"
-                        primaryTypographyProps={{
-                          sx: {
-                            color: location.pathname === "/professional/autodm/automation" ? "#FFFFFF" : "#9CA3AF",
-                            fontWeight: 400,
-                            fontSize: "0.82rem",
-                          },
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-
-               
-                </List>
-              </Collapse>
-
-                {/* Contacts */}
-
-                <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/contacts/replied")}
-                  selected={location.pathname === "/professional/contacts/replied"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/contacts/replied" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
-                      backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
-                    },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <PermContactCalendarOutlinedIcon
-                      sx={{
-                        color: location.pathname === "/professional/contacts/replied" ? "#FFFFFF" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Contacts"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/contacts/replied" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/contacts/replied" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-              
-
+        
       
-            </List>
-          </Collapse>
 
           {/* ===== DIVIDER ===== */}
           <Divider sx={{ my: 2, mx: 1, borderColor: "#E5E7EB", borderWidth: 1 }} />
