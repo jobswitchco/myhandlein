@@ -2950,8 +2950,8 @@ router.post("/automation-analytics", authenticateToken, async (req, res) => {
 
 router.post("/automation-performance", authenticateToken, async (req, res) => {
   try {
-    // const userId = req.user?.user_id;
-    const userId = "69209d811ead7fc0c348128f";
+    const userId = req.user?.user_id;
+    // const userId = "69209d811ead7fc0c348128f";
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
