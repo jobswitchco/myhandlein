@@ -225,7 +225,7 @@ export default function AutomationList() {
 
   /* ---- Meta app constants ---- */
   const FB_APP_ID = "1360956302356492";
-  const FB_LOGIN_CONFIG_ID = "2452082071860610";
+  const FB_LOGIN_CONFIG_ID = "1309356804298214";
   const FB_BUSINESS_APP_ID = "1360956302356492";
   const REDIRECT_URI = "https://myhandle.in/api/usersOn/meta-callback";
 
@@ -642,6 +642,97 @@ const checkIgConnection = useCallback(async () => {
 
 
   /* ---- Business Login handler ---- */
+// const handleConnectInstagram = useCallback(async () => {
+//   setConnectError("");
+//   setConnectLoading(true);
+
+//   try {
+//     // 1. Ask backend for signed state (JWT)
+//     const { data: stateResp } = await axios.post(
+//       META_STATE_URL,
+//       {},
+//       { withCredentials: true }
+//     );
+//     const state = stateResp?.state;
+//     if (!state) throw new Error("Unable to start Meta login");
+
+//     // 2. Build the INNER OAuth URL (same as before)
+//     const innerParams = new URLSearchParams({
+//       client_id: FB_APP_ID,
+//       redirect_uri: REDIRECT_URI,
+//       state,
+//       response_type: "code",
+//       config_id: FB_LOGIN_CONFIG_ID,
+//     });
+
+//     const innerOAuthUrl = `https://business.facebook.com/dialog/oauth?${innerParams.toString()}`;
+
+//     // 3. Wrap it with the Business Login shell (ManyChat-style)
+//     const outerParams = new URLSearchParams({
+//       next: innerOAuthUrl,
+//       "login_options[0]": "IG",
+//       app: FB_BUSINESS_APP_ID,
+//       is_ig_oidc_with_redirect: "1",
+//       display: "popup",
+//       full_page_redirect_experimental: "1",
+//       show_back_button: "0",
+//     });
+
+//     const authUrl = `https://business.facebook.com/business/loginpage/?${outerParams.toString()}`;
+
+//     // 4. Open centered popup and poll until closed (same as before)
+//     const popup = openCenteredPopup(authUrl);
+//     if (!popup) {
+//       // we navigated current window, status will be checked on page load
+//       return;
+//     }
+
+//     const poll = setInterval(async () => {
+//       if (popup.closed) {
+//         clearInterval(poll);
+
+//         try {
+//           const ok = await checkIgConnection();
+//           if (ok) {
+//             console.log("Instagram connected!");
+//             if (isDesktop) {
+//               await fetchPage(0, pageSize);
+//             } else {
+//               mobileInitialLoadedRef.current = false;
+//               setMobilePage(0);
+//               await fetchMobile(0);
+//             }
+//           }
+//         } finally {
+//           setConnectLoading(false);
+//         }
+//       }
+//     }, 500);
+
+//     // safety-close popup after 5 minutes
+//     setTimeout(() => {
+//       try {
+//         if (!popup.closed) popup.close();
+//       } catch {}
+//     }, 5 * 60 * 1000);
+//   } catch (e) {
+//     setConnectError(e.message || "Failed to start Meta login");
+//     setConnectLoading(false);
+//   }
+// }, [
+//   META_STATE_URL,
+//   checkIgConnection,
+//   fetchPage,
+//   fetchMobile,
+//   pageSize,
+//   isDesktop,
+//   FB_APP_ID,
+//   FB_BUSINESS_APP_ID,
+//   FB_LOGIN_CONFIG_ID,
+//   REDIRECT_URI,
+// ]);
+
+
 const handleConnectInstagram = useCallback(async () => {
   setConnectError("");
   setConnectLoading(true);
@@ -656,53 +747,96 @@ const handleConnectInstagram = useCallback(async () => {
     const state = stateResp?.state;
     if (!state) throw new Error("Unable to start Meta login");
 
-    // 2. Build the INNER OAuth URL (same as before)
-    const innerParams = new URLSearchParams({
+    // 2. Build the Facebook OAuth URL with proper parameters
+    const params = new URLSearchParams({
       client_id: FB_APP_ID,
       redirect_uri: REDIRECT_URI,
       state,
       response_type: "code",
       config_id: FB_LOGIN_CONFIG_ID,
-    });
-
-    const innerOAuthUrl = `https://business.facebook.com/dialog/oauth?${innerParams.toString()}`;
-
-    // 3. Wrap it with the Business Login shell (ManyChat-style)
-    const outerParams = new URLSearchParams({
-      next: innerOAuthUrl,
-      "login_options[0]": "IG",
-      app: FB_BUSINESS_APP_ID,
-      is_ig_oidc_with_redirect: "1",
       display: "popup",
-      full_page_redirect_experimental: "1",
-      show_back_button: "0",
+      auth_type: "rerequest", // Force permission re-request
     });
 
-    const authUrl = `https://business.facebook.com/business/loginpage/?${outerParams.toString()}`;
+    // Use standard Facebook OAuth endpoint
+    const authUrl = `https://www.facebook.com/v24.0/dialog/oauth?${params.toString()}`;
 
-    // 4. Open centered popup and poll until closed (same as before)
+    console.log("🔗 Opening OAuth popup:", authUrl);
+
+    // 3. Open centered popup
     const popup = openCenteredPopup(authUrl);
     if (!popup) {
-      // we navigated current window, status will be checked on page load
+      // Navigated current window, status will be checked on page load
       return;
     }
 
+    // 4. Poll until popup closes
     const poll = setInterval(async () => {
       if (popup.closed) {
         clearInterval(poll);
 
+        // Add a delay to let backend process the callback
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
         try {
-          const ok = await checkIgConnection();
-          if (ok) {
-            console.log("Instagram connected!");
-            if (isDesktop) {
-              await fetchPage(0, pageSize);
-            } else {
-              mobileInitialLoadedRef.current = false;
-              setMobilePage(0);
-              await fetchMobile(0);
+          // Retry logic: check status up to 5 times with delays
+          let ok = false;
+          for (let attempt = 0; attempt < 5; attempt++) {
+            console.log(`🔍 Connection check attempt ${attempt + 1}/5`);
+            
+            // Force a fresh check by calling the API directly
+            try {
+              const res = await axios.get(STATUS_URL, { 
+                withCredentials: true,
+                headers: { 'Cache-Control': 'no-cache' }
+              });
+              
+              const { instagramConnected, duplicateExists } = res.data || {};
+              
+              console.log(`Attempt ${attempt + 1}: instagramConnected=${instagramConnected}, duplicateExists=${duplicateExists}`);
+              
+              if (duplicateExists) {
+                const { duplicateInfo } = res.data;
+                const { igUsername, maskedEmail } = duplicateInfo;
+                setDuplicateMessage(
+                  `This Instagram account (@${igUsername}) is already connected to ${maskedEmail}.`
+                );
+                setDuplicateDialogOpen(true);
+                setConnectLoading(false);
+                return; // Exit early - don't continue polling
+              }
+              
+              if (instagramConnected) {
+                ok = true;
+                console.log("✅ Instagram connected successfully!");
+                
+                // Update state
+                setIgConnected(true);
+                setIgCheckErr("");
+                
+                // Force page reload to reset all state
+                window.location.reload();
+                return;
+              }
+            } catch (e) {
+              console.error(`Attempt ${attempt + 1} error:`, e);
+            }
+            
+            // Wait before retrying (increasing delays)
+            if (attempt < 4) {
+              const delay = 2000 + (attempt * 1000); // 2s, 3s, 4s, 5s, 6s
+              console.log(`⏳ Waiting ${delay/1000}s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
+          
+          if (!ok) {
+            console.warn("❌ Instagram connection verification failed after 5 retries");
+            setConnectError("Connection verification failed. Please refresh the page and try again.");
+          }
+        } catch (error) {
+          console.error("Error during connection verification:", error);
+          setConnectError("Failed to verify connection. Please refresh and try again.");
         } finally {
           setConnectLoading(false);
         }
@@ -721,17 +855,11 @@ const handleConnectInstagram = useCallback(async () => {
   }
 }, [
   META_STATE_URL,
-  checkIgConnection,
-  fetchPage,
-  fetchMobile,
-  pageSize,
-  isDesktop,
+  STATUS_URL,
   FB_APP_ID,
-  FB_BUSINESS_APP_ID,
   FB_LOGIN_CONFIG_ID,
   REDIRECT_URI,
 ]);
-
 
 
   /* ---- Columns (desktop) ---- */

@@ -27,7 +27,8 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Collapse
+  Collapse,
+  CircularProgress
 
 } from "@mui/material";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
@@ -92,6 +93,7 @@ const PhoneSimulator = ({
   const [containerNode, setContainerNode] = useState(null);
   const baseUrl = "/api/usersOn";
   const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
+  
   
 
     async function fetchIgDetails() {
@@ -552,6 +554,8 @@ export default function FuturePostsAutomation() {
 
   const baseUrl = "/api/usersOn";
   const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
+  const [loading, setLoading] = useState(true);
+
 
   // State
   const [dmMessage, setDmMessage] = useState("Hey! Thanks for your interest 👋 Please click the below button to proceed.");
@@ -629,6 +633,27 @@ export default function FuturePostsAutomation() {
     thumbnail: thumbnail_url || "",
     caption: caption || "",
   };
+
+    const fetchIgConnectionStatus = async () => {
+        try {
+          setLoading(true);
+            const res = await axios.get(`${baseUrl}/instagram-status`, {
+            withCredentials: true,
+          });
+          if(!res.data.instagramConnected){
+            navigate('/professional/automations');
+    
+          }
+        } catch (error) {
+          console.error("Failed to fetch connection status:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+    
+      useEffect(() => {
+        fetchIgConnectionStatus();
+      }, []);
 
     useEffect(() => {
 
@@ -5712,6 +5737,14 @@ const handleLaunchAutomation = async () => {
       }
     }
   };
+
+    if (loading) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress size={60} />
+        </Box>
+      );
+    }
 
     return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#F8FAFC" }}>

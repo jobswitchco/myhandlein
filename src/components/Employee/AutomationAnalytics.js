@@ -43,6 +43,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import { useNavigate } from "react-router-dom";
+
+
 const RANGE_OPTIONS = {
   7: "Last 7 Days",
   28: "Last 28 Days",
@@ -66,6 +69,8 @@ export default function AutomationAnalytics() {
   const [automationData, setAutomationData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [automationLoading, setAutomationLoading] = useState(false);
+  const navigate = useNavigate();
+  
 
   const api = useMemo(() =>
     axios.create({
@@ -85,6 +90,8 @@ export default function AutomationAnalytics() {
       setLoading(false);
     }
   };
+
+
 
   const fetchAutomationPerformance = async (payload) => {
     try {
@@ -115,7 +122,26 @@ export default function AutomationAnalytics() {
     return sign + trimmed + units[u];
   }
 
+      const fetchIgConnectionStatus = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/instagram-status");
+      if(!res.data.instagramConnected){
+        navigate('/professional/automations');
+
+      }
+    } catch (error) {
+      console.error("Failed to fetch connection status:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    fetchIgConnectionStatus();
+  }, []);
+
+   useEffect(() => {
     if (range === "custom") return;
     const end = new Date();
     const start = new Date();

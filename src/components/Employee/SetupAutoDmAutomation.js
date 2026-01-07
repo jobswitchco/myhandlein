@@ -23,7 +23,8 @@ import {
   Switch,
   Avatar,
   Divider,
-  Snackbar
+  Snackbar,
+  CircularProgress
 
 } from "@mui/material";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
@@ -561,6 +562,8 @@ export default function SetupAutoDmAutomation() {
   const [isLoadingData, setIsLoadingData] = useState(true); 
   const [expanded, setExpanded] = useState(false);
   const [selectedNodeType, setSelectedNodeType] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
  
  const [inputValue, setInputValue] = useState("");
 
@@ -618,11 +621,9 @@ export default function SetupAutoDmAutomation() {
           });
   
           if (response.data?.exists) {
-
             const { data } = response.data;
 
-        // Store original data for comparison
-        const originalState = {
+            const originalState = {
           dmMessage: data.dmMessage || "",
           buttonText: data.buttonText || "Send Link",
           flowNodes: JSON.parse(JSON.stringify(data.flowNodes || [])), // Deep copy
@@ -653,6 +654,26 @@ export default function SetupAutoDmAutomation() {
     }, []);
 
   
+      const fetchIgConnectionStatus = async () => {
+      try {
+        setLoading(true);
+          const res = await axios.get(`${baseUrl}/instagram-status`, {
+          withCredentials: true,
+        });
+        if(!res.data.instagramConnected){
+          navigate('/professional/automations');
+  
+        }
+      } catch (error) {
+        console.error("Failed to fetch connection status:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    useEffect(() => {
+      fetchIgConnectionStatus();
+    }, []);
 
 useEffect(() => {
     if (!isEditMode || !originalData) {
@@ -5666,6 +5687,13 @@ const handleLaunchAutomation = async () => {
     }
   };
 
+   if (loading) {
+        return (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+            <CircularProgress size={60} />
+          </Box>
+        );
+      }
     return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#F8FAFC" }}>
 
