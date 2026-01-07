@@ -175,7 +175,7 @@ export default function AllFeatures() {
             fontFamily: "Inter",
           }}
         >
-          Powerful Featues
+          Powerful Features
         </Typography>
 
         <Typography
