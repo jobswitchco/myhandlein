@@ -10,6 +10,7 @@ import facebookLogo from "../images/facebook.png"
 import ThreeBlockPage from "./ThreeBlockPage.js";
 import AllFeatures1 from "./AllFeatures1.js";
 import AllFeatures2 from "./AllFeatures2.js";
+import AllFeatures from "./AllFeatures.js";
 
 // Lazy-loaded components
 const Footer = lazy(() => import("../components/Footer"));
@@ -19,10 +20,10 @@ export default function LandingPage() {
   return (
     <>
   <Helmet>
-  <title>Instagram Auto DM and Bio Tool for Creators under 50k Followers</title>
+  <title>Turn Instagram DMs into Paying Fitness Clients</title>
   <meta
     name="description"
-    content="Monthly 25,00,000 AutoDMs quota, Unlimited Contacts, Unlimited Bio Links & more for just ₹399."
+    content="Auto comment replies, safe DM automation, and a smart lead detection engine —built for fitness creators."
   />
   <link rel="canonical" href="https://myhandle.in/" />
 
@@ -30,12 +31,13 @@ export default function LandingPage() {
 
       <Navbar />
 <HeroSection logos={{ reddit: redditLogo, linkedin: linkedinLogo, twitter: twitterLogo, facebook: facebookLogo }} />
+      <ThreeBlockPage />
 
       {/* Lazy-loaded below pages */}
       <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>}>
-      <AllFeatures1 />
-      <AllFeatures2 />
-      <ThreeBlockPage />
+      {/* <AllFeatures1 /> */}
+      {/* <AllFeatures2 /> */}
+      <AllFeatures/>
       <FAQSection />
 
         <BannerLandpage />

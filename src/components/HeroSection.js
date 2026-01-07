@@ -4,7 +4,7 @@ import axios from "axios";
 import metaIcon from "../images/meta.png"
 
 export default function Hero({
-  heroImage = "https://storage.googleapis.com/myhandlebucket/Hero_IMG_MyHandle.mp4"
+  heroImage = "https://storage.googleapis.com/myhandlewebbucket/landingpage_imgs/Hero_Img.png"
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
@@ -34,31 +34,38 @@ export default function Hero({
   }, []);
 
 
-  // === Inline styles
-  const containerStyle = {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-padding: "clamp(100px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px) clamp(16px, 8vw, 86px)",
-    boxSizing: "border-box",
-    fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
-    color: "#0b1220",
-    overflowX: "hidden", 
-    background: '#f5f7f8'
-  };
+const containerStyle = {
+  minHeight: "100vh",
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding:
+    "clamp(100px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px)",
+  boxSizing: "border-box",
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
+  color: "#0b1220",
+  overflow: "hidden",
+  background: "#FFFFFF",
+};
 
-  const layoutStyle = {
-    width: "100%",
-    display: "flex",
-    flexDirection: isMobile ? "column" : "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: isMobile ? "24px" : "140px"
-  };
+
+
+const layoutStyle = {
+  width: "100%",
+  position: "relative",
+  zIndex: 2, // 👈 keeps content above grid
+  display: "flex",
+  flexDirection: isMobile ? "column" : "row",
+  justifyContent: "space-between",
+  gap: isMobile ? "24px" : "72px",
+};
+
+
 
 const leftColStyle = {
-  flex: isMobile ? "0 1 auto" : "1 1 70%",
+  flex: isMobile ? "0 1 auto" : "1 1 45%",
   display: "flex",
   flexDirection: "column",
   alignItems: isMobile ? "center" : "flex-start",
@@ -70,28 +77,21 @@ const leftColStyle = {
 
 
 const rightColStyle = {
-  flex: isMobile ? "0 1 auto" : "1 1 30%",
+  flex: isMobile ? "0 1 auto" : "1 1 55%",
   width: "100%",
   display: "flex",
-  alignItems: "center",
-  justifyContent: isMobile ? "center" : "flex-end",
+  justifyContent: "center",
+  alignItems: "flex-start",
   minWidth: 0,
-  // optional but safe:
-  backgroundColor: "#f5f7f8",
 };
 
-const videoWrapperStyle = {
-  width: "100%",
-  maxWidth: isMobile ? "360px" : "420px", // tweak as you like
-  borderRadius: "16px",
-  overflow: "hidden", // 🚀 clips that 1px edge
-};
+
 
 const heroImgStyle = {
   width: "100%",
   height: "auto",
   display: "block",
-  objectFit: "cover",
+  objectFit: "contain",
   transform: "scale(1.01)", // tiny zoom to kill any baked-in border
 };
 
@@ -133,18 +133,18 @@ const subStyleDataBlock = {
 
 
   const headlineStyle = {
-    fontSize: "clamp(2rem, 4vw, 3rem)",
-    fontWeight: 700,
+    fontSize: "clamp(2rem, 4vw, 3.5rem)",
+    fontWeight: 800,
     margin: "0 0 clamp(12px, 2vw, 16px) 0",
     fontFamily: "-apple-system, BlinkMacSystemFont, Inter, 'Helvetica Neue', Arial",
     textAlign: 'left',
-    lineHeight: 1.35,
-    color:'#44444E'
+    lineHeight: 1.25,
+    color:'#000957'
   };
 
   const mobileHeadlineStyle = {
     ...headlineStyle,
-    fontSize: "clamp(2rem, 4vw, 3.5rem)",
+    fontSize: "clamp(2.3rem, 4vw, 3.5rem)",
 
   };
 
@@ -241,8 +241,8 @@ const MetaVerifiedBlock = () => {
   };
 
   const metaIconStyle = {
-    width: isMobile ? "42px" : "60px",
-    height: isMobile ? "42px" : "60px",
+    width: isMobile ? "36px" : "46px",
+    height: isMobile ? "36px" : "46px",
     objectFit: "contain",
     flexShrink: 0
   };
@@ -262,7 +262,7 @@ const MetaVerifiedBlock = () => {
   };
 
   const metaTextStyle = {
-    fontSize: isMobile ? "20px" : "48px",
+    fontSize: isMobile ? "18px" : "36px",
     fontWeight: 600,
     color: "#000000",
     lineHeight: 1.2
@@ -313,7 +313,7 @@ const MetaVerifiedBlock = () => {
 
       {/* Right: Description */}
       <p style={descriptionStyle}>
-        MyHandle has been certified by Meta as a Verified Tech Provider.
+        MyHandle has been verified by Meta.
       </p>
     </div>
   );
@@ -322,24 +322,36 @@ const MetaVerifiedBlock = () => {
 
 
     const highlightText = {
-    color: "#001BB7",
+   
     display: "inline-flex",
-     fontSize: "clamp(2rem, 4vw, 3rem)",
-    fontWeight: 700,
+    fontSize: "clamp(2rem, 4vw, 3.5rem)",
+    fontWeight: 800,
     fontFamily: "-apple-system, BlinkMacSystemFont, Inter, 'Helvetica Neue', Arial",
- 
+   // Instagram-inspired gradient
+  background:
+    "linear-gradient(135deg, #F58529 0%, #DD2A7B 35%, #8134AF 70%, #515BD4 100%)",
+
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
 
   };
 
-     const highlightTextMobile = {
-    color: "#001BB7",
-    display: "inline-flex",
-     fontSize: "clamp(2rem, 4vw, 3.5rem)",
-    fontWeight: 700,
-    fontFamily: "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
- 
+const highlightTextMobile = {
+  display: "inline-flex",
+  fontSize: "clamp(2.2rem, 4vw, 3.5rem)",
+  fontWeight: 800,
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial",
+  lineHeight: 1.15,
 
-  };
+  // Instagram-inspired gradient
+  background:
+    "linear-gradient(135deg, #F58529 0%, #DD2A7B 35%, #8134AF 70%, #515BD4 100%)",
+
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+};
+
 
   // NEW: status row styles (inline, no external CSS)
   const statusRowStyle = {
@@ -516,6 +528,87 @@ const MetaVerifiedBlock = () => {
 
   return (
     <section style={containerStyle} aria-label="Hero">
+
+{/* ===== Gradient + Graph Sheet Background ===== */}
+<div
+  style={{
+    position: "absolute",
+    inset: 0,
+    zIndex: 0,
+    pointerEvents: "none",
+  }}
+>
+  {/* 1️⃣ Instagram-style gradient wash */}
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      background:
+        "radial-gradient(1200px 600px at 15% 20%, rgba(221,42,123,0.22), transparent 60%)," +
+        "radial-gradient(900px 500px at 70% 30%, rgba(245,133,41,0.18), transparent 60%)," +
+        "radial-gradient(1000px 600px at 40% 80%, rgba(129,52,175,0.18), transparent 65%)",
+    }}
+  />
+
+  {/* 2️⃣ Fine grid */}
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      backgroundImage: `
+        linear-gradient(
+          to right,
+          rgba(0,0,0,0.14) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(0,0,0,0.14) 1px,
+          transparent 1px
+        )
+      `,
+      backgroundSize: "48px 48px",
+      opacity: 0.45,
+    }}
+  />
+
+  {/* 3️⃣ Bold grid (every few cells) */}
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      backgroundImage: `
+        linear-gradient(
+          to right,
+          rgba(0,0,0,0.22) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(0,0,0,0.22) 1px,
+          transparent 1px
+        )
+      `,
+      backgroundSize: "240px 240px",
+      opacity: 0.35,
+    }}
+  />
+
+  {/* 4️⃣ Hard white mask for image side */}
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      background:
+        "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 55%, #FFFFFF 70%)",
+    }}
+  />
+</div>
+
+
+
+
+
       <div style={layoutStyle}>
         {/* LEFT: Content */}
         <div style={leftColStyle}>
@@ -524,9 +617,9 @@ const MetaVerifiedBlock = () => {
             style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}
             aria-hidden={isMobile}
           >
-            {"Instagram "}
-                 <div style={highlightText}>AutoDM and Bio</div>
-            {" Tool for Creators under 50k Followers."}
+            {"Turn your "}
+                 <div style={highlightText}>Instagram DMs</div>
+            {" into Paying Fitness Clients."}
           </h1>
 
           {/* Mobile headline */}
@@ -535,12 +628,12 @@ const MetaVerifiedBlock = () => {
             aria-hidden={!isMobile}
           >
             <span style={{ display: "block", lineHeight: 1.25 }}>
-              Instagram <div style={highlightTextMobile}>AutoDM and Bio</div> Tool for Creators under 50k Followers.
+              Turn your <div style={highlightTextMobile}>Instagram DMs</div> into Paying Fitness Clients.
             </span>
           </h1>
 
          <p style={subStyle}>
-  Monthly 25,00,000 AutoDMs quota, Unlimited Contacts, Unlimited Bio Links & more —all for just ₹399.
+  Auto comment replies, safe DM automation, and a smart lead detection engine —built for fitness creators.
   {isMobile ? (
     <>
       {" "}
@@ -572,7 +665,7 @@ const MetaVerifiedBlock = () => {
                   inputMode="latin"
                   autoComplete="off"
                   spellCheck="false"
-                  placeholder="Ex: mkbhd, mumbiker"
+                  placeholder="Ex: sid4real, harshalifts"
                   value={subdomain}
                   onChange={onSubdomainChange}
                   style={inputStyle}
@@ -594,10 +687,10 @@ const MetaVerifiedBlock = () => {
               style={{ ...startBtnStyle, ...startBtnHoverStyle }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
-              aria-label="Get started for free"
+              aria-label="Start for free"
               disabled={availability === "checking"}
             >
-              Get started for free
+              Start for free
             </button>
           </div>
 
@@ -613,19 +706,22 @@ const MetaVerifiedBlock = () => {
 
      {/* RIGHT: Video */}
 <div style={rightColStyle}>
-  {heroImage ? (
-    <div style={videoWrapperStyle}>
-      <video
-        src={heroImage}
-        style={heroImgStyle}
-        autoPlay
-        loop
-        muted
-        playsInline
-      />
-    </div>
-  ) : null}
+  <div
+    style={{
+      background: "#FFFFFF",
+      padding: "12px",
+      borderRadius: "16px",
+    }}
+  >
+    <img
+      src={heroImage}
+      alt="Hero"
+      style={heroImgStyle}
+    />
+  </div>
 </div>
+
+
 
 
       </div>

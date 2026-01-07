@@ -17,7 +17,7 @@ const faqs = [
   {
     question: "What exactly is myHandle?",
     answer: `
-Instagram AutoDM and Bio Tool for Creators under 50k Followers with Monthly 25,00,000 AutoDMs quota, Unlimited Contacts, Unlimited Bio Links & more —all for just ₹399.
+myHandle is a **Instagram Auto DM and Automation Tool**: built for Fitness Creators with one fast page with your links, actions (WhatsApp, Call, Maps), payments, and analytics — all on a **custom subdomain** like <strong>yourname.myhandle.in</strong>.
 
 - Built to be **mobile-first** and super quick to launch.
 - Great for Instagram, YouTube, LinkedIn bios, QR codes, and business cards.
@@ -50,7 +50,7 @@ Your dashboard shows **Visitors vs. Views**, **top links**, **CTR**, **referrers
     {
     question: "Is there a free plan? What's the pricing?",
     answer: `
-We're India-first and keep pricing simple: starting at **₹99/month**.
+We're India-first and keep pricing simple: starting at **₹699/month**.
 
 - Transparent pricing with **no hidden fees** from our side.
 - Payment gateway charges (if any) are as per **Razorpay/UPI**.

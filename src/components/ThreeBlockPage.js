@@ -35,7 +35,7 @@ const icons = {
 };
 
 const ShareIcon = (props) => <Icon d={icons.share} {...props} />;
-const TrendingUpIcon = (props) => <Icon d={icons.trendingUp} {...props} />;
+const TrendingUp = (props) => <Icon d={icons.trendingUp} {...props} />;
 const FlashOnIcon = (props) => <Icon d={icons.flash} {...props} />;
 const InstagramIcon = (props) => <Icon d={icons.instagram} {...props} />;
 const YouTubeIcon = (props) => <Icon d={icons.youtube} {...props} />;
@@ -45,10 +45,9 @@ const CreditCardIcon = (props) => <Icon d={icons.creditCard} {...props} />;
 const MailIcon = (props) => <Icon d={icons.mail} {...props} />;
 const LinkIcon = (props) => <Icon d={icons.link} {...props} />;
 const LanguageIcon = (props) => <Icon d={icons.globe} {...props} />;
-const BarChartIcon = (props) => <Icon d={icons.barChart} {...props} />;
-const AutoAwesomeIcon = (props) => <Icon d={icons.sparkles} {...props} />;
+const BarChart = (props) => <Icon d={icons.barChart} {...props} />;
+const Sparkles = (props) => <Icon d={icons.sparkles} {...props} />;
 const ArrowForwardIcon = (props) => <Icon d={icons.arrowRight} {...props} />;
-
 export default function ThreeBlockPage() {
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" && window.matchMedia("(max-width:900px)").matches
@@ -67,511 +66,1088 @@ export default function ThreeBlockPage() {
   }, []);
 
   // Section 1: Platform Showcase with animated cards
-  const Section1 = () => {
-    const platforms = [
-      { icon: InstagramIcon, name: "Instagram", users: "2B+", color: "#E1306C", gradient: "linear-gradient(45deg, #E1306C, #FD1D1D)" },
-      { icon: YouTubeIcon, name: "YouTube", users: "2B+", color: "#FF0000", gradient: "linear-gradient(45deg, #FF0000, #FF4500)" },
-      { icon: LinkedInIcon, name: "LinkedIn", users: "900M+", color: "#0A66C2", gradient: "linear-gradient(45deg, #0A66C2, #0077B5)" },
-      { icon: LanguageIcon, name: "Web", users: "∞", color: "#10B981", gradient: "linear-gradient(45deg, #10B981, #059669)" },
-    ];
 
-    return (
+
+const Section1 = () => {
+  const isMobile = window.innerWidth < 768;
+  
+  const stats = [
+    { label: "Comments Replied", value: "12.3k+", icon: TrendingUp, color: "#FF6B6B" },
+    { label: "DMs Sent", value: "12.3k+", icon: MailIcon, color: "#FFB84D" },
+    { label: "Link Click Rate", value: "93.6%", icon: BarChart, color: "#A78BFA" },
+  ];
+
+  return (
+    <div style={{
+      background: "linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%)",
+      padding: isMobile ? "80px 24px" : "140px 48px",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Subtle glow */}
       <div style={{
-        background: "linear-gradient(145deg, #6D0011 0%, #450009 50%, #1a0003 100%)",
-        padding: isMobile ? "80px 24px" : "120px 48px",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        {/* Animated background elements */}
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "radial-gradient(circle at 20% 50%, rgba(225, 48, 108, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(255, 0, 0, 0.15) 0%, transparent 50%)",
-          pointerEvents: "none",
-        }} />
+        position: "absolute",
+        top: "30%",
+        right: "15%",
+        width: 500,
+        height: 500,
+        background: "radial-gradient(circle, rgba(255,107,107,0.1) 0%, transparent 70%)",
+        borderRadius: "50%",
+        filter: "blur(80px)",
+        pointerEvents: "none",
+      }} />
 
-        <div style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          position: "relative",
-          zIndex: 2,
-        }}>
+      <div style={{
+        maxWidth: 1280,
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: "center",
+        gap: isMobile ? "48px" : "80px",
+        position: "relative",
+        zIndex: 1,
+      }}>
+        {/* Left: Stats Dashboard */}
+        <div style={{ flex: "1 1 50%", width: "100%" }}>
           <div style={{
-            textAlign: "center",
-            marginBottom: isMobile ? "48px" : "64px",
+            background: "linear-gradient(145deg, rgba(42, 42, 42, 0.9) 0%, rgba(50, 50, 50, 0.85) 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 24,
+            padding: isMobile ? "32px 24px" : "48px 40px",
+            boxShadow: "0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)",
+            position: "relative",
           }}>
             <div style={{
+              position: "absolute",
+              top: -12,
+              left: 40,
+              background: "linear-gradient(135deg, #FF6B6B 0%, #FFB84D 100%)",
+              padding: "8px 20px",
+              borderRadius: 100,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#FFF",
+              boxShadow: "0 8px 24px rgba(255, 107, 107, 0.4)",
+            }}>
+              Live Automation
+            </div>
+
+            <h3 style={{
+              fontSize: isMobile ? "1.6rem" : "2.4rem",
+              fontWeight: 700,
+              color: "#FFF",
+              marginTop: 24,
+              marginBottom: 32,
+              fontFamily: 'Inter'
+            }}>
+              Automation Performance
+            </h3>
+
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+            }}>
+              {stats.map((s, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    borderRadius: 16,
+                    padding: "20px 24px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "20px",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                    e.currentTarget.style.transform = "translateX(8px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                    e.currentTarget.style.transform = "translateX(0)";
+                  }}
+                >
+                  <div style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 14,
+                    background: `${s.color}22`,
+                    border: `2px solid ${s.color}44`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    <s.icon size={28} color={s.color} strokeWidth={2.5} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: "#FFF" }}>{s.value}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Content */}
+        <div style={{ flex: "1 1 50%" }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "rgba(255, 107, 107, 0.15)",
+            border: "1px solid rgba(255, 107, 107, 0.3)",
+            borderRadius: "100px",
+            padding: "8px 20px",
+            marginBottom: "24px",
+          }}>
+            <Sparkles size={16} color="#FF6B6B" />
+            <span style={{ fontFamily: 'Inter', fontSize: 14, fontWeight: 600, color: "#FF6B6B" }}>Smart Reply Engine</span>
+          </div>
+
+          <h2 style={{
+            fontSize: isMobile ? "clamp(2rem, 7vw, 3rem)" : "clamp(2.8rem, 5vw, 4rem)",
+            lineHeight: 1.15,
+            fontWeight: 900,
+            letterSpacing: "-0.03em",
+            margin: "0 0 24px 0",
+            background: "linear-gradient(135deg, #FFFFFF 0%, #FFB84D 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            fontFamily: 'Inter'
+          }}>
+            Turn engagement into real clicks.
+          </h2>
+
+          <p style={{
+            fontSize: isMobile ? "1.1rem" : "1.3rem",
+            lineHeight: 1.7,
+            color: "rgba(255,255,255,0.8)",
+            marginBottom: 32,
+            fontFamily: 'Inter'
+          }}>
+            Our smart engine replies to comments and DMs in a natural, human-like way—ensuring high inbox delivery and better conversations. The result? More opens, more clicks, and more clients.
+          </p>
+
+          <button
+            style={{
+              border: "none",
+              height: 58,
+              padding: "0 36px",
+              fontSize: 16,
+              fontWeight: 700,
+              borderRadius: 12,
+              cursor: "pointer",
+              background: "linear-gradient(135deg, #FF6B6B 0%, #FFB84D 100%)",
+              color: "#FFF",
+              boxShadow: "0 16px 40px rgba(255, 107, 107, 0.4)",
+              transition: "all 0.3s ease",
               display: "inline-flex",
               alignItems: "center",
-              gap: "8px",
-              background: "rgba(255,255,255,0.1)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "100px",
-              padding: "8px 20px",
-              marginBottom: "24px",
-            }}>
-              <AutoAwesomeIcon size={16} color="#FFF" />
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#FFF" }}>One Link, Infinite Reach</span>
-            </div>
-            
-            <h2 style={{
-              fontSize: isMobile ? "clamp(2rem, 8vw, 3.5rem)" : "clamp(3rem, 6vw, 4rem)",
-              lineHeight: 1.1,
-              fontWeight: 900,
-              letterSpacing: "-0.04em",
-              margin: "0 0 24px 0",
-              background: "linear-gradient(135deg, #FFFFFF 0%, #FFB6C1 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              textAlign: 'left'
-            }}>
-              Share everywhere,<br />manage from one place
-            </h2>
-            
-            <p style={{
-              fontSize: isMobile ? "1.15rem" : "1.4rem",
-              lineHeight: 1.6,
-              color: "rgba(255,255,255,0.8)",
-              maxWidth: 680,
-              margin: "0 auto 40px",
-              textAlign: 'left'
-
-            }}>
-              Drop your MyHandle link across every platform. Update once, it's live everywhere, from Instagram bios to YouTube descriptions to offline QR codes.
-            </p>
-
-           
-          </div>
-
-          {/* Platform cards */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
-            gap: isMobile ? "16px" : "24px",
-            marginTop: "64px",
-          }}>
-            {platforms.map((p, i) => (
-              <div
-                key={i}
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  backdropFilter: "blur(20px)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 20,
-                  padding: isMobile ? "24px 16px" : "32px 24px",
-                  textAlign: "center",
-                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.12)";
-                  e.currentTarget.style.transform = "translateY(-8px) rotate(1deg)";
-                  e.currentTarget.style.borderColor = p.color + "66";
-                  e.currentTarget.style.boxShadow = `0 20px 60px ${p.color}44`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                  e.currentTarget.style.transform = "translateY(0) rotate(0deg)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                <div style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 16,
-                  background: p.gradient,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 16px",
-                  boxShadow: `0 8px 32px ${p.color}44`,
-                }}>
-                  <p.icon size={32} color="white" strokeWidth={2} />
-                </div>
-                <h4 style={{ fontSize: 18, fontWeight: 700, color: "#FFF", margin: "0 0 8px" }}>{p.name}</h4>
-                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", margin: 0 }}>{p.users} users</p>
-              </div>
-            ))}
-          </div>
-
+              gap: "10px",
+              fontFamily: 'Inter'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
+              e.currentTarget.style.boxShadow = "0 20px 50px rgba(255, 107, 107, 0.5)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0) scale(1)";
+              e.currentTarget.style.boxShadow = "0 16px 40px rgba(255, 107, 107, 0.4)";
+            }}
+            onClick={() => window.location.href = '/professional/login'}
+          >
+            Try Free for 7 days
+            <TrendingUp size={18} strokeWidth={2.5} />
+          </button>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
-  // Section 2: Conversion Dashboard Preview
-  const Section2 = () => {
-    const stats = [
-      { label: "Payment Links", value: "350+", icon: CreditCardIcon, color: "#10B981" },
-      { label: "Email Captures", value: "12K", icon: MailIcon, color: "#F59E0B" },
-      { label: "Click Rate", value: "94%", icon: BarChartIcon, color: "#3B82F6" },
-    ];
-
-    return (
+const Section2 = () => {
+  return (
+    <div style={{
+      background: "linear-gradient(180deg, #020617 0%, #0F172A 100%)",
+      padding: isMobile ? "80px 24px" : "140px 48px",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Animated background elements */}
       <div style={{
-        background: "linear-gradient(180deg, #0F172A 0%, #1E293B 100%)",
-        padding: isMobile ? "80px 24px" : "140px 48px",
+        position: "absolute",
+        top: "20%",
+        left: "10%",
+        width: 400,
+        height: 400,
+        background: "radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)",
+        borderRadius: "50%",
+        filter: "blur(60px)",
+        pointerEvents: "none",
+      }} />
+      <div style={{
+        position: "absolute",
+        bottom: "10%",
+        right: "15%",
+        width: 300,
+        height: 300,
+        background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)",
+        borderRadius: "50%",
+        filter: "blur(50px)",
+        pointerEvents: "none",
+      }} />
+
+      <div style={{
+        maxWidth: 1280,
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row-reverse",
+        alignItems: "center",
+        gap: isMobile ? 48 : 80,
         position: "relative",
+        zIndex: 1,
       }}>
-        <div style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: "center",
-          gap: isMobile ? "48px" : "80px",
-        }}>
-          {/* Left: Stats Dashboard */}
-          <div style={{ flex: "1 1 50%", width: "100%" }}>
+
+        {/* Left: Capacity Visualization */}
+        <div style={{ flex: "1 1 50%", width: "100%" }}>
+          <div style={{
+            background: "linear-gradient(145deg, rgba(139,92,246,0.15), rgba(99,102,241,0.1))",
+            border: "2px solid rgba(139,92,246,0.4)",
+            borderRadius: 28,
+            padding: isMobile ? "40px 28px" : "56px 48px",
+            boxShadow: "0 40px 100px rgba(139,92,246,0.25), inset 0 1px 0 rgba(255,255,255,0.1)",
+            position: "relative",
+            overflow: "hidden",
+          }}>
+            {/* Glowing orb effect */}
             <div style={{
-              background: "linear-gradient(145deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
-              border: "1px solid rgba(59, 130, 246, 0.3)",
-              borderRadius: 24,
-              padding: isMobile ? "32px 24px" : "48px 40px",
-              boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
+              position: "absolute",
+              top: -50,
+              right: -50,
+              width: 200,
+              height: 200,
+              background: "radial-gradient(circle, rgba(167,139,250,0.3) 0%, transparent 70%)",
+              borderRadius: "50%",
+              filter: "blur(40px)",
+            }} />
+
+            {/* Main capacity display */}
+            <div style={{
+              textAlign: "center",
+              marginBottom: 36,
               position: "relative",
             }}>
               <div style={{
-                position: "absolute",
-                top: -12,
-                left: 40,
-                background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
-                padding: "8px 20px",
-                borderRadius: 100,
-                fontSize: 13,
+                fontSize: isMobile ? "3rem" : "5rem",
                 fontWeight: 700,
-                color: "#FFF",
-                boxShadow: "0 8px 24px rgba(59, 130, 246, 0.4)",
+                background: "linear-gradient(135deg, #A78BFA 0%, #8B5CF6 50%, #6366F1 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+                marginBottom: 12,
               }}>
-                Live Dashboard
+                25,00,000
               </div>
-
-              <h3 style={{
-                fontSize: isMobile ? "1.8rem" : "2.4rem",
-                fontWeight: 800,
-                color: "#FFF",
-                marginTop: 24,
-                marginBottom: 32,
+              <div style={{
+                fontSize: isMobile ? "0.9rem" : "1.35rem",
+                fontWeight: 700,
+                color: "#A78BFA",
+                letterSpacing: "0.05em",
+                // textTransform: "uppercase",
               }}>
-                Your Performance Hub
-              </h3>
+                Auto-Replies / Month
+              </div>
+            </div>
+
+            {/* Metric cards */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 16,
+              marginTop: 32,
+            }}>
+              <div style={{
+                background: "rgba(167,139,250,0.12)",
+                border: "1px solid rgba(167,139,250,0.3)",
+                borderRadius: 16,
+                padding: "20px 24px",
+                textAlign: "center",
+              }}>
+                <div style={{
+                  fontSize: isMobile ? "2rem" : "2.5rem",
+                  fontWeight: 900,
+                  color: "#FFF",
+                  marginBottom: 4,
+                }}>
+                  83,333
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.7)",
+                }}>
+                  Replies per day
+                </div>
+              </div>
 
               <div style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "16px",
+                background: "rgba(99,102,241,0.12)",
+                border: "1px solid rgba(99,102,241,0.3)",
+                borderRadius: 16,
+                padding: "20px 24px",
+                textAlign: "center",
               }}>
-                {stats.map((s, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      background: "rgba(255,255,255,0.05)",
-                      borderRadius: 16,
-                      padding: "20px 24px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "20px",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      transition: "all 0.3s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.1)";
-                      e.currentTarget.style.transform = "translateX(8px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                      e.currentTarget.style.transform = "translateX(0)";
-                    }}
-                  >
-                    <div style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 14,
-                      background: `${s.color}22`,
-                      border: `2px solid ${s.color}44`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                      <s.icon size={28} color={s.color} strokeWidth={2.5} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>{s.label}</div>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: "#FFF" }}>{s.value}</div>
-                    </div>
-                  </div>
-                ))}
+                <div style={{
+                  fontSize: isMobile ? "2rem" : "2.5rem",
+                  fontWeight: 900,
+                  color: "#FFF",
+                  marginBottom: 4,
+                }}>
+                  3,472
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.7)",
+                }}>
+                  Replies per hour
+                </div>
               </div>
             </div>
+
+            {/* Status indicator */}
+            <div style={{
+              marginTop: 32,
+              padding: "16px 24px",
+              background: "rgba(16,185,129,0.12)",
+              border: "1px solid rgba(16,185,129,0.3)",
+              borderRadius: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+            }}>
+              <div style={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: "#10B981",
+                boxShadow: "0 0 20px rgba(16,185,129,0.8)",
+                animation: "pulse 2s ease-in-out infinite",
+              }} />
+              <span style={{
+                fontSize: 15,
+                fontWeight: 700,
+                color: "#10B981",
+              }}>
+                Zero throttling. Ever.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Content */}
+        <div style={{ flex: "1 1 50%" }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            background: "rgba(139,92,246,0.15)",
+            border: "1px solid rgba(139,92,246,0.4)",
+            borderRadius: 100,
+            padding: "10px 24px",
+            marginBottom: 24,
+          }}>
+            <FlashOnIcon size={18} color="#A78BFA" strokeWidth={2.5} />
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#A78BFA" }}>
+              No Bottlenecks
+            </span>
           </div>
 
-          {/* Right: Content */}
-          <div style={{ flex: "1 1 50%" }}>
-            <div style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              background: "rgba(59, 130, 246, 0.15)",
-              border: "1px solid rgba(59, 130, 246, 0.3)",
-              borderRadius: "100px",
-              padding: "8px 20px",
-              marginBottom: "24px",
-            }}>
-              <TrendingUpIcon size={16} color="#3B82F6" />
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#3B82F6" }}>Conversion Engine</span>
-            </div>
+          <h2 style={{
+            fontSize: isMobile ? "clamp(2rem,7vw,3rem)" : "clamp(2.8rem,5vw,4rem)",
+            fontWeight: 900,
+            letterSpacing: "-0.03em",
+            marginBottom: 24,
+            lineHeight: 1.15,
+            background: "linear-gradient(135deg,#FFF 0%,#C4B5FD 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>
+            Never think about limits again.
+          </h2>
 
-            <h2 style={{
-              fontSize: isMobile ? "clamp(2rem, 7vw, 3rem)" : "clamp(2.8rem, 5vw, 4rem)",
-              lineHeight: 1.15,
-              fontWeight: 900,
-              letterSpacing: "-0.03em",
-              margin: "0 0 24px 0",
-              background: "linear-gradient(135deg, #FFFFFF 0%, #93C5FD 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}>
-              Turn followers into customers
-            </h2>
+          <p style={{ 
+            fontSize: isMobile ? "1.15rem" : "1.3rem", 
+            lineHeight: 1.7, 
+            color: "rgba(255,255,255,0.8)", 
+            marginBottom: 24 
+          }}>
+            Most tools force you to slow down when engagement spikes, cap your responses, or make you worry about exhausting quotas.
+          </p>
 
-            <p style={{
-              fontSize: isMobile ? "1.1rem" : "1.3rem",
-              lineHeight: 1.7,
-              color: "rgba(255,255,255,0.75)",
-              marginBottom: 32,
-            }}>
-              Accept payments instantly, capture emails effortlessly, and showcase your best content. Every click becomes an opportunity with built-in conversion tools that actually work.
-            </p>
+          <p style={{ 
+            fontSize: isMobile ? "1.15rem" : "1.3rem", 
+            lineHeight: 1.7, 
+            color: "rgba(255,255,255,0.8)", 
+            marginBottom: 32 
+          }}>
+            With <span style={{ fontWeight: 700, color: "#A78BFA" }}>25 lakh auto-replies per month</span>, MyHandle keeps your conversations flowing—so you never hesitate, throttle, or hold back while growing.
+          </p>
 
-            <button
-              style={{
-                border: "2px solid rgba(59, 130, 246, 0.5)",
-                height: 58,
-                padding: "0 36px",
-                fontSize: 16,
-                fontWeight: 700,
-                borderRadius: 12,
-                cursor: "pointer",
-                background: "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)",
-                color: "#FFF",
-                boxShadow: "0 16px 40px rgba(59, 130, 246, 0.4)",
-                transition: "all 0.3s ease",
-                display: "inline-flex",
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            padding: "24px 28px",
+            background: "rgba(139,92,246,0.08)",
+            border: "1px solid rgba(139,92,246,0.25)",
+            borderRadius: 16,
+          }}>
+            {[
+              "Handle viral moments without breaking a sweat",
+              "Scale across multiple platforms simultaneously",
+              "Never miss a lead during peak engagement"
+            ].map((text, i) => (
+              <div key={i} style={{
+                display: "flex",
                 alignItems: "center",
-                gap: "10px",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 20px 50px rgba(59, 130, 246, 0.5)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 16px 40px rgba(59, 130, 246, 0.4)";
-              }}
-              onClick={() => window.location.href = '/professional/login'}
-            >
-              Create your page
-              <TrendingUpIcon size={18} strokeWidth={2.5} />
-            </button>
+                gap: 12,
+              }}>
+                <div style={{
+                  minWidth: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #8B5CF6, #6366F1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  fontWeight: 900,
+                  color: "#FFF",
+                }}>
+                  ✓
+                </div>
+                <span style={{
+                  fontSize: isMobile ? "0.95rem" : "1.05rem",
+                  color: "rgba(255,255,255,0.9)",
+                  fontWeight: 500,
+                }}>
+                  {text}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
-  // Section 3: Growth Visualization with animated elements
-  const Section3 = () => {
-    const channels = [
-      { name: "Instagram", growth: "+127%", color: "#E1306C" },
-      { name: "YouTube", growth: "+94%", color: "#FF0000" },
-      { name: "LinkedIn", growth: "+156%", color: "#0A66C2" },
-      { name: "TikTok", growth: "+203%", color: "#00F2EA" },
-    ];
+const Section3 = () => {
+  const conversations = [
+    { 
+      name: "Sarah M.", 
+      message: "I'd love to book a consultation...",
+      tag: "High intent",
+      tagColor: "#10B981",
+      time: "2m ago",
+      unread: 3,
+    },
+    { 
+      name: "Mike T.", 
+      message: "What's your pricing for...",
+      tag: "Potential client",
+      tagColor: "#22C55E",
+      time: "15m ago",
+      unread: 1,
+    },
+    { 
+      name: "Lisa K.", 
+      message: "Thanks! Will get back to you...",
+      tag: "Follow up",
+      tagColor: "#F59E0B",
+      time: "1h ago",
+      unread: 0,
+    },
+    { 
+      name: "John D.", 
+      message: "Cool content!",
+      tag: "Low priority",
+      tagColor: "#64748B",
+      time: "3h ago",
+      unread: 0,
+    },
+  ];
 
-    return (
+  return (
+     <div style={{
+      background: "linear-gradient(180deg, #000000 0%, #0a0a0a 100%)",
+      padding: isMobile ? "80px 24px" : "140px 48px",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Decorative elements */}
       <div style={{
-        background: "linear-gradient(180deg, #052E2B 0%, #064E3B 50%, #022c22 100%)",
-        padding: isMobile ? "80px 24px 100px" : "140px 48px 160px",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        {/* Decorative grid */}
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "50px 50px",
-          pointerEvents: "none",
-        }} />
+        position: "absolute",
+        top: "15%",
+        right: "10%",
+        width: 350,
+        height: 350,
+        background: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)",
+        borderRadius: "50%",
+        filter: "blur(60px)",
+        pointerEvents: "none",
+      }} />
 
-        <div style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          position: "relative",
-          zIndex: 2,
-        }}>
+      <div style={{
+        maxWidth: 1280,
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: isMobile ? "column-reverse" : "row",
+        alignItems: "center",
+        gap: isMobile ? 48 : 80,
+        position: "relative",
+        zIndex: 1,
+      }}>
+
+        {/* Left: Content */}
+        <div style={{ flex: "1 1 50%" }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            background: "rgba(16,185,129,0.18)",
+            border: "1px solid rgba(16,185,129,0.4)",
+            borderRadius: 100,
+            padding: "10px 24px",
+            marginBottom: 24,
+          }}>
+            <MailIcon size={18} color="#10B981" strokeWidth={2.5} />
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#10B981" }}>
+              Clarity over chaos
+            </span>
+          </div>
+
+          <h2 style={{
+            fontSize: isMobile ? "clamp(2rem,7vw,3rem)" : "clamp(2.8rem,5vw,4rem)",
+            fontWeight: 900,
+            letterSpacing: "-0.03em",
+            marginBottom: 24,
+            lineHeight: 1.15,
+            background: "linear-gradient(135deg,#FFF 0%,#6EE7B7 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>
+            Stop scanning DMs. Start spotting clients.
+          </h2>
+
+          <p style={{ 
+            fontSize: isMobile ? "1.15rem" : "1.3rem", 
+            lineHeight: 1.7, 
+            color: "rgba(255,255,255,0.8)", 
+            marginBottom: 24 
+          }}>
+            When everything lands in one noisy inbox, you waste hours reading and guessing which conversations actually matter.
+          </p>
+
+          <p style={{ 
+            fontSize: isMobile ? "1.15rem" : "1.3rem", 
+            lineHeight: 1.7, 
+            color: "rgba(255,255,255,0.8)", 
+            marginBottom: 32 
+          }}>
+            MyHandle brings <span style={{ fontWeight: 700, color: "#10B981" }}>instant clarity</span>—so you focus only on messages that can turn into real clients.
+          </p>
+
           <div style={{
             display: "flex",
-            flexDirection: isMobile ? "column" : "row-reverse",
-            alignItems: "center",
-            gap: isMobile ? "48px" : "80px",
+            flexDirection: "column",
+            gap: 16,
+            padding: "24px 28px",
+            background: "rgba(16,185,129,0.08)",
+            border: "1px solid rgba(16,185,129,0.25)",
+            borderRadius: 16,
           }}>
-            {/* Left: Animated Growth Bars */}
-            <div style={{ flex: "1 1 50%", width: "100%" }}>
-              <div style={{
-                background: "rgba(16, 185, 129, 0.08)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(16, 185, 129, 0.2)",
-                borderRadius: 24,
-                padding: isMobile ? "32px 24px" : "48px 40px",
-                boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
+            {[
+              "AI categorizes every conversation instantly",
+              "See buyer intent before opening messages",
+              "Prioritize high-value leads automatically"
+            ].map((text, i) => (
+              <div key={i} style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
               }}>
                 <div style={{
+                  minWidth: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #10B981, #059669)",
                   display: "flex",
                   alignItems: "center",
-                  gap: "12px",
-                  marginBottom: 32,
+                  justifyContent: "center",
+                  fontSize: 14,
+                  fontWeight: 900,
+                  color: "#FFF",
                 }}>
-                  <FlashOnIcon size={28} color="#10B981" strokeWidth={2.5} />
-                  <h4 style={{ fontSize: 20, fontWeight: 800, color: "#10B981", margin: 0 }}>
-                    Multi-Channel Growth
-                  </h4>
+                  ✓
                 </div>
+                <span style={{
+                  fontSize: isMobile ? "0.95rem" : "1.05rem",
+                  color: "rgba(255,255,255,0.9)",
+                  fontWeight: 500,
+                }}>
+                  {text}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-                <div style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "24px",
+        {/* Right: Smart Inbox Visualization */}
+        <div style={{ flex: "1 1 50%", width: "100%" }}>
+          <div style={{
+            background: "linear-gradient(145deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.08) 100%)",
+            border: "2px solid rgba(16,185,129,0.35)",
+            borderRadius: 28,
+            padding: isMobile ? "32px 24px" : "40px 32px",
+            boxShadow: "0 40px 100px rgba(16,185,129,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
+            position: "relative",
+            overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 24,
+              paddingBottom: 16,
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}>
+                <MailIcon size={22} color="#10B981" strokeWidth={2.5} />
+                <span style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: "#FFF",
                 }}>
-                  {channels.map((c, i) => (
-                    <div key={i}>
-                      <div style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: 10,
-                      }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: "#FFF" }}>{c.name}</span>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: c.color }}>{c.growth}</span>
-                      </div>
-                      <div style={{
-                        width: "100%",
-                        height: 12,
-                        background: "rgba(255,255,255,0.1)",
-                        borderRadius: 100,
-                        overflow: "hidden",
-                      }}>
-                        <div
-                          style={{
-                            width: `${70 + i * 8}%`,
-                            height: "100%",
-                            background: `linear-gradient(90deg, ${c.color} 0%, ${c.color}AA 100%)`,
-                            borderRadius: 100,
-                            boxShadow: `0 0 20px ${c.color}66`,
-                            transition: "width 1s ease",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                  Smart Inbox
+                </span>
+              </div>
+              <div style={{
+                padding: "6px 14px",
+                background: "rgba(16,185,129,0.2)",
+                border: "1px solid rgba(16,185,129,0.4)",
+                borderRadius: 100,
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#10B981",
+              }}>
+                4 New
               </div>
             </div>
 
-            {/* Right: Content */}
-            <div style={{ flex: "1 1 50%" }}>
-              <div style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                background: "rgba(16, 185, 129, 0.15)",
-                border: "1px solid rgba(16, 185, 129, 0.3)",
-                borderRadius: "100px",
-                padding: "8px 20px",
-                marginBottom: "24px",
-              }}>
-                <AutoAwesomeIcon size={16} color="#10B981" />
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#10B981" }}>Exponential Growth</span>
+            {/* Conversation list */}
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}>
+              {conversations.map((conv, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: conv.unread > 0 
+                      ? "rgba(16,185,129,0.12)" 
+                      : "rgba(255,255,255,0.04)",
+                    border: conv.unread > 0 
+                      ? "1px solid rgba(16,185,129,0.3)" 
+                      : "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 16,
+                    padding: "16px 18px",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    position: "relative",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(16,185,129,0.18)";
+                    e.currentTarget.style.transform = "translateX(4px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = conv.unread > 0 
+                      ? "rgba(16,185,129,0.12)" 
+                      : "rgba(255,255,255,0.04)";
+                    e.currentTarget.style.transform = "translateX(0)";
+                  }}
+                >
+                  <div style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                  }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: "50%",
+                      background: `linear-gradient(135deg, ${conv.tagColor}, ${conv.tagColor}AA)`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "#FFF",
+                      flexShrink: 0,
+                    }}>
+                      {conv.name.charAt(0)}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Name and time */}
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}>
+                        <span style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: "#FFF",
+                        }}>
+                          {conv.name}
+                        </span>
+                        <span style={{
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.5)",
+                        }}>
+                          {conv.time}
+                        </span>
+                      </div>
+
+                      {/* Message preview */}
+                      <p style={{
+                        fontSize: 13,
+                        color: "rgba(255,255,255,0.7)",
+                        margin: "0 0 8px 0",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}>
+                        {conv.message}
+                      </p>
+
+                      {/* Tag */}
+                      <div style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "4px 12px",
+                        borderRadius: 100,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: conv.tagColor,
+                        background: `${conv.tagColor}22`,
+                        border: `1px solid ${conv.tagColor}44`,
+                      }}>
+                        {conv.tag}
+                      </div>
+                    </div>
+
+                    {/* Unread indicator */}
+                    {conv.unread > 0 && (
+                      <div style={{
+                        minWidth: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        background: conv.tagColor,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: "#FFF",
+                        boxShadow: `0 0 16px ${conv.tagColor}88`,
+                      }}>
+                        {conv.unread}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const Section4 = () => {
+  const bioStats = [
+    { label: "Profile Visitors", value: "12.6k", percent: 82, color: "#F472B6" },
+    { label: "Link Clicks", value: "4.3k", percent: 68, color: "#34D399" },
+    { label: "Click-Through Rate", value: "34.1%", percent: 74, color: "#A78BFA" },
+    { label: "Actions Taken", value: "1.8k", percent: 61, color: "#FB7185" },
+  ];
+
+  return (
+    <div
+      style={{
+        background:
+          "linear-gradient(180deg, #3B0764 0%, #065F46 55%, #022C22 100%)",
+        padding: isMobile ? "80px 24px 100px" : "140px 48px 160px",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* subtle grid */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ maxWidth: 1280, margin: "0 auto", position: "relative" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: "center",
+            gap: isMobile ? "56px" : "88px",
+          }}
+        >
+          {/* LEFT — Smart Bio Performance Card */}
+          <div style={{ flex: "1 1 50%", width: "100%" }}>
+            <div
+              style={{
+                background:
+                  "linear-gradient(160deg, rgba(236,72,153,0.15), rgba(52,211,153,0.12))",
+                backdropFilter: "blur(22px)",
+                border: "1px solid rgba(236,72,153,0.28)",
+                borderRadius: 26,
+                padding: isMobile ? "32px 24px" : "48px 42px",
+                boxShadow: "0 40px 90px rgba(0,0,0,0.45)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 30,
+                }}
+              >
+                <FlashOnIcon size={28} color="#F9A8D4" />
+                <h4
+                  style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 800,
+                    color: "#FBCFE8",
+                  }}
+                >
+                  Live Link-in-Bio Performance
+                </h4>
               </div>
 
-              <h2 style={{
-                fontSize: isMobile ? "clamp(2rem, 7vw, 3rem)" : "clamp(2.8rem, 5vw, 4rem)",
+              {bioStats.map((item, i) => (
+                <div key={i} style={{ marginBottom: 26 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: "#FFFFFF",
+                      }}
+                    >
+                      {item.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 800,
+                        color: item.color,
+                      }}
+                    >
+                      {item.value}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 11,
+                      background: "rgba(255,255,255,0.12)",
+                      borderRadius: 100,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${item.percent}%`,
+                        height: "100%",
+                        background: `linear-gradient(90deg, ${item.color}, ${item.color}AA)`,
+                        borderRadius: 100,
+                        boxShadow: `0 0 18px ${item.color}66`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* RIGHT — Content */}
+          <div style={{ flex: "1 1 50%" }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "rgba(236,72,153,0.18)",
+                border: "1px solid rgba(236,72,153,0.35)",
+                borderRadius: 100,
+                padding: "8px 18px",
+                marginBottom: 24,
+              }}
+            >
+              <Sparkles size={16} color="#F472B6" />
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#FBCFE8",
+                }}
+              >
+                Smart Link-in-Bio Engine
+              </span>
+            </div>
+
+            <h2
+              style={{
+                fontSize: isMobile
+                  ? "clamp(2rem, 7vw, 3rem)"
+                  : "clamp(2.8rem, 5vw, 4rem)",
                 lineHeight: 1.15,
                 fontWeight: 900,
                 letterSpacing: "-0.03em",
                 margin: "0 0 24px 0",
-                background: "linear-gradient(135deg, #FFFFFF 0%, #6EE7B7 100%)",
+                background:
+                  "linear-gradient(135deg, #FFFFFF 0%, #F9A8D4 50%, #6EE7B7 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
-              }}>
-              Scale without limits
-              </h2>
+              }}
+            >
+              Turn your bio link into a conversion engine
+            </h2>
 
-              <p style={{
+            <p
+              style={{
                 fontSize: isMobile ? "1.1rem" : "1.3rem",
                 lineHeight: 1.7,
-                color: "rgba(255,255,255,0.8)",
+                color: "rgba(255,255,255,0.85)",
                 marginBottom: 20,
-              }}>
-                One link. Every platform. Unlimited growth potential.
-              </p>
+              }}
+            >
+              MyHandle transforms your link-in-bio from a static page into a
+              smart, intent-driven landing experience that increases clicks,
+              captures attention, and drives action.
+            </p>
 
-              <p style={{
+            <p
+              style={{
                 fontSize: isMobile ? "1.1rem" : "1.3rem",
                 lineHeight: 1.7,
-                color: "rgba(255,255,255,0.8)",
-                marginBottom: 32,
-              }}>
-                Update your MyHandle once and watch it propagate instantly across Instagram, YouTube, LinkedIn, TikTok, and everywhere else your audience lives. No more updating dozens of bios manually.
-              </p>
+                color: "rgba(255,255,255,0.85)",
+                marginBottom: 36,
+              }}
+            >
+              Update once and let MyHandle intelligently route traffic across
+              Instagram, YouTube, LinkedIn, TikTok, and future platforms —
+              automatically optimized for higher click-through rates and
+              conversions.
+            </p>
 
-              <button
-                style={{
-                  border: "none",
-                  height: 58,
-                  padding: "0 36px",
-                  fontSize: 16,
-                  fontWeight: 700,
-                  borderRadius: 12,
-                  cursor: "pointer",
-                  background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                  color: "#FFF",
-                  boxShadow: "0 16px 40px rgba(16, 185, 129, 0.4)",
-                  transition: "all 0.3s ease",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
-                  e.currentTarget.style.boxShadow = "0 20px 50px rgba(16, 185, 129, 0.5)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0) scale(1)";
-                  e.currentTarget.style.boxShadow = "0 16px 40px rgba(16, 185, 129, 0.4)";
-                }}
-                onClick={() => window.location.href = '/professional/login'}
-              >
-                Start growing now
-                <FlashOnIcon size={18} strokeWidth={2.5} />
-              </button>
-            </div>
+            <button
+              style={{
+                border: "none",
+                height: 58,
+                padding: "0 38px",
+                fontSize: 16,
+                fontWeight: 700,
+                borderRadius: 14,
+                cursor: "pointer",
+                background:
+                  "linear-gradient(135deg, #F472B6 0%, #34D399 100%)",
+                color: "#FFFFFF",
+                boxShadow: "0 18px 46px rgba(236,72,153,0.45)",
+                transition: "all 0.3s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform =
+                  "translateY(-2px) scale(1.02)";
+                e.currentTarget.style.boxShadow =
+                  "0 22px 56px rgba(236,72,153,0.55)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform =
+                  "translateY(0) scale(1)";
+                e.currentTarget.style.boxShadow =
+                  "0 18px 46px rgba(236,72,153,0.45)";
+              }}
+              onClick={() =>
+                (window.location.href = "/professional/login")
+              }
+            >
+              Create your free bio link
+              <FlashOnIcon size={18} />
+            </button>
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
+
+
+
+
+
+
+
+
 
   return (
     <div style={{ width: "100%" }}>
+      <Section1 />
       <Section2 />
       <Section3 />
+      <Section4 />
     </div>
   );
 }
