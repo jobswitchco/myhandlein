@@ -69,25 +69,35 @@ export default function Navbar() {
   }, []);
 
   // --- Inline styles ---
-  const headerStyle = {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100%",
-    backgroundColor: "#f5f7f8",
-    // backgroundColor: "#FAB12F",
-    padding: "0px 15px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    zIndex: 200,
-    boxSizing: "border-box",
-    borderBottom: "1px solid rgba(15,23,42,0.04)",
-    // hide/show transition
-    transform: visible ? "translateY(0)" : "translateY(-120%)",
-    transition: "transform 240ms cubic-bezier(.2,.9,.2,1)",
-    pointerEvents: visible ? "auto" : "none",
-  };
+const headerStyle = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100%",
+
+  /* 👇 Matches hero gradient + grid tone */
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.85) 70%, rgba(255,255,255,0.7) 100%)",
+
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
+
+  padding: "0px 15px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  zIndex: 200,
+  boxSizing: "border-box",
+
+  /* Soft separation without a hard line */
+  borderBottom: "1px solid rgba(0,0,0,0.04)",
+
+  /* hide/show transition */
+  transform: visible ? "translateY(0)" : "translateY(-120%)",
+  transition: "transform 240ms cubic-bezier(.2,.9,.2,1)",
+  pointerEvents: visible ? "auto" : "none",
+};
+
 
   const leftStyle = {
     display: "flex",
@@ -212,7 +222,6 @@ export default function Navbar() {
     top: "100%",
     left: 0,
     right: 0,
-    // background: "#FAB12F",
     background: "#f5f7f8",
     borderTop: "1px solid rgba(15,23,42,0.04)",
     boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
@@ -271,6 +280,41 @@ export default function Navbar() {
   return (
     <header style={headerStyle}>
       {/* LEFT: Logo */}
+      {/* ===== Navbar Background Layer ===== */}
+<div
+  style={{
+    position: "absolute",
+    inset: 0,
+    zIndex: 0,
+    pointerEvents: "none",
+  }}
+>
+  {/* Instagram-style gradient wash */}
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      background:
+        "radial-gradient(600px 200px at 10% 0%, rgba(221,42,123,0.18), transparent 60%)," +
+        "radial-gradient(500px 180px at 80% 0%, rgba(245,133,41,0.16), transparent 0%)",
+    }}
+  />
+
+  {/* Very subtle grid hint */}
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      backgroundImage: `
+        linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px)
+      `,
+      backgroundSize: "80px 80px",
+      opacity: 0.35,
+    }}
+  />
+</div>
+
     <Link
   to="/"
   style={leftStyle}
