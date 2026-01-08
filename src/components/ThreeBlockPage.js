@@ -1134,6 +1134,684 @@ const Section4 = () => {
   );
 };
 
+const Section5 = () => {
+  return (
+    <div style={{
+      background: "linear-gradient(180deg, #020617 0%, #020617 100%)",
+      padding: "100px 36px",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Ambient glow */}
+      <div style={{
+        position: "absolute",
+        top: "20%",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: 600,
+        height: 600,
+        background: "radial-gradient(circle, rgba(239,68,68,0.18) 0%, transparent 70%)",
+        filter: "blur(80px)",
+        pointerEvents: "none",
+      }} />
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", textAlign: "center", position: "relative" }}>
+        <div style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 26px",
+          borderRadius: 100,
+          background: "rgba(239,68,68,0.15)",
+          border: "1px solid rgba(239,68,68,0.4)",
+          marginBottom: 28,
+        }}>
+          <span style={{ color: "#EF4444", fontWeight: isMobile? 700: 800, fontSize: 14, fontFamily: 'Inter' }}>
+            Revenue Leak
+          </span>
+        </div>
+
+        <h2 style={{
+          fontSize: "clamp(2.4rem,5vw,4rem)",
+          fontWeight: isMobile? 700 : 900,
+          fontFamily: 'Inter',
+          letterSpacing: "-0.03em",
+          marginBottom: 24,
+          background: "linear-gradient(135deg, #FFF 0%, #F87171 100%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          textAlign: isMobile? 'left' : 'center'
+        }}>
+          You’re losing clients without realizing it.
+        </h2>
+
+        <p style={{
+          maxWidth: 820,
+          margin: "0 auto 48px",
+          fontSize: isMobile ? "1.16rem" : "1.3rem",
+          lineHeight: 1.8,
+          color: "rgba(255,255,255,0.85)",
+          fontFamily: 'Inter',
+          textAlign: isMobile? 'left' : 'center'
+
+        }}>
+          Every fitness creator misses <strong style={{ color: "#F87171" }}>30–40 high-intent leads</strong> every month —
+          buried in comments, lost in DMs, or forgotten during busy days.
+        </p>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 28,
+        }}>
+          {[
+            "You cannot read all DMs",
+            "You reply too late",
+            "You miss buyer signals",
+            "You forget follow-ups",
+          ].map((text, i) => (
+            <div key={i} style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 20,
+              padding: "32px 28px",
+              fontSize: 18,
+              fontWeight: 600,
+              fontFamily: 'Inter',
+              color: "#FFF",
+            }}>
+              {text}
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          marginTop: 56,
+          padding: "28px 36px",
+          borderRadius: 20,
+          background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.08))",
+          border: "1px solid rgba(16,185,129,0.4)",
+          fontSize: 18,
+          fontWeight: isMobile? 600 : 700,
+          color: "#10B981",
+          fontFamily: 'Inter',
+          textAlign: isMobile? 'left' : 'center'
+
+          
+        }}>
+          MyHandle captures them, highlights buyers, and pushes them to WhatsApp —
+          so you close faster.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Section6 = () => {
+  const steps = [
+    { title: "Comment", desc: "A user engages on your post" },
+    { title: "Auto DM", desc: "Instant, human-like reply is sent" },
+    { title: "Lead Tag", desc: "Buyer intent is detected & labeled" },
+    { title: "WhatsApp", desc: "Hot leads are pushed instantly" },
+    { title: "Client", desc: "You close faster with clarity" },
+  ];
+
+  return (
+    <div style={{
+      background: "linear-gradient(180deg, #000 0%, #000 100%)",
+      padding: "140px 36px",
+    }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto", textAlign: "center" }}>
+        <h2 style={{
+          fontSize: "clamp(2.4rem,5vw,4rem)",
+          fontWeight: isMobile? 800 : 800,
+          fontFamily: 'Inter',
+          letterSpacing: "-0.03em",
+          marginBottom: 24,
+          background: "linear-gradient(135deg, #FFF 0%, #34D399 100%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          textAlign: isMobile? 'left' : 'center'
+        }}>
+          From comment to client — automatically.
+        </h2>
+
+        <p style={{
+          fontSize: "1.25rem",
+          color: "rgba(255,255,255,0.8)",
+          marginBottom: 72,
+          textAlign: isMobile? 'left' : 'center',
+          fontFamily: 'Inter'
+        }}>
+          A simple, proven flow used by high-converting fitness creators.
+        </p>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 28,
+        }}>
+          {steps.map((step, i) => (
+            <div key={i} style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 22,
+              padding: "36px 24px",
+              position: "relative",
+            }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #34D399, #10B981)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 900,
+                color: "#000",
+                margin: "0 auto 20px",
+              }}>
+                {i + 1}
+              </div>
+
+              <h4 style={{
+                fontSize: 20,
+                fontWeight: 800,
+                color: "#FFF",
+                marginBottom: 10,
+              }}>
+                {step.title}
+              </h4>
+
+              <p style={{
+                fontSize: 15,
+                color: "rgba(255,255,255,0.7)",
+                lineHeight: 1.6,
+              }}>
+                {step.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          marginTop: 72,
+          fontSize: 22,
+          fontWeight: 900,
+          color: "#34D399",
+          fontFamily: 'Inter'
+        }}>
+          One client closes your subscription for months.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Section7 = () => {
+  const trustItems = [
+    {
+      title: "Meta Verified",
+      desc: "Official APIs. Approved flows.",
+      color: "#60A5FA",
+      bg: "rgba(59,130,246,0.15)",
+    },
+    {
+      title: "No Shadow Bans",
+      desc: "Your reach stays protected.",
+      color: "#34D399",
+      bg: "rgba(16,185,129,0.15)",
+    },
+    {
+      title: "Feels Human",
+      desc: "Replies never sound automated.",
+      color: "#FBBF24",
+      bg: "rgba(251,191,36,0.15)",
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg, #020617 0%, #020617 100%)",
+        padding: "140px 48px",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Ambient gradient sweep */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 50% 30%, rgba(255,255,255,0.04), transparent 60%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", textAlign: "center" }}>
+        {/* Header */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 22px",
+            borderRadius: 100,
+            background: "rgba(59,130,246,0.15)",
+            border: "1px solid rgba(59,130,246,0.35)",
+            marginBottom: 28,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: "#60A5FA",
+            }}
+          >
+            Meta Tech Provider
+          </span>
+        </div>
+
+        <h2
+          style={{
+            fontSize: "clamp(2.4rem,5vw,3.6rem)",
+            fontWeight: 900,
+            letterSpacing: "-0.03em",
+            marginBottom: 64,
+            background: "linear-gradient(135deg, #FFF 0%, #93C5FD 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          Safe by design. Invisible in action.
+        </h2>
+
+        {/* Trust Cards */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 36,
+          }}
+        >
+          {trustItems.map((item, i) => (
+            <div
+              key={i}
+              style={{
+                background: item.bg,
+                border: `1px solid ${item.color}55`,
+                borderRadius: 22,
+                padding: "40px 32px",
+                textAlign: "left",
+                transition: "all 0.35s ease",
+                position: "relative",
+                overflow: "hidden",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-6px)";
+                e.currentTarget.style.boxShadow = `0 20px 60px ${item.color}33`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              {/* Glow orb */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: -30,
+                  right: -30,
+                  width: 120,
+                  height: 120,
+                  background: `radial-gradient(circle, ${item.color}44, transparent 70%)`,
+                  filter: "blur(30px)",
+                }}
+              />
+
+              <h4
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: "#FFF",
+                  marginBottom: 10,
+                }}
+              >
+                {item.title}
+              </h4>
+
+              <p
+                style={{
+                  fontSize: 16,
+                  color: "rgba(255,255,255,0.8)",
+                  lineHeight: 1.6,
+                }}
+              >
+                {item.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer reassurance */}
+        <div
+          style={{
+            marginTop: 72,
+            fontSize: 18,
+            fontWeight: 700,
+            color: "rgba(255,255,255,0.75)",
+          }}
+        >
+          Automation that protects your account — and your reputation.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+const Section8 = () => {
+  const personas = [
+    {
+      title: "Online Fitness Coach",
+      desc: "You sell programs, transformations, or 1:1 coaching through DMs.",
+    },
+    {
+      title: "Fitness Content Creator",
+      desc: "Your posts get comments, but DMs slip through the cracks.",
+    },
+    {
+      title: "Personal Trainer",
+      desc: "You rely on Instagram to book calls and onboard new clients.",
+    },
+    {
+      title: "Growing Influencer (15k–250k)",
+      desc: "You want systems — not more manual work — to scale.",
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        background: "#020617",
+        padding: "150px 32px",
+        position: "relative",
+      }}
+    >
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {/* Big statement */}
+        <h2
+          style={{
+            fontSize: "clamp(2.8rem,6vw,4.5rem)",
+            fontWeight: isMobile ? 900 : 900,
+            lineHeight: 1.1,
+            marginBottom: 32,
+            color: "#FFFFFF",
+            fontFamily: 'Inter'
+          }}
+        >
+          This isn’t for everyone.
+          <br />
+          <span style={{ color: "rgba(255,255,255,0.6)" }}>
+            It’s built for fitness creators who want clients.
+          </span>
+        </h2>
+
+        <p
+          style={{
+            maxWidth: 720,
+            fontSize: isMobile ? "0.96rem" : "1.25rem",
+            lineHeight: 1.8,
+            color: "rgba(255,255,255,0.75)",
+            marginBottom: 80,
+            fontFamily: 'Inter'
+          }}
+        >
+          MyHandle works best when Instagram is more than content for you.
+        </p>
+
+        {/* Persona tiles */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 32,
+          }}
+        >
+          {personas.map((p, i) => (
+            <div
+              key={i}
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 24,
+                padding: "36px 32px",
+                transition: "all 0.35s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                e.currentTarget.style.transform = "translateY(-6px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              <h4
+                style={{
+                  fontSize: isMobile? 20 : 22,
+                  fontWeight: 800,
+                  color: "#FFFFFF",
+                  marginBottom: 12,
+                  fontFamily: 'Inter'
+                }}
+              >
+                {p.title}
+              </h4>
+
+              <p
+                style={{
+                  fontSize: isMobile? 15: 16,
+                  lineHeight: 1.7,
+                  color: "rgba(255,255,255,0.75)",
+                  fontFamily: 'Inter'
+
+                }}
+              >
+                {p.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+const Section9 = () => {
+  const isMobile =
+    typeof window !== "undefined" && window.innerWidth < 768;
+
+  const resources = [
+    {
+      title: "7-Day Fat Loss Diet Plan",
+      type: "PDF",
+      tag: "Diet",
+      color: "#34D399",
+    },
+    {
+      title: "High-Protein Indian Recipes",
+      type: "PDF",
+      tag: "Recipes",
+      color: "#FBBF24",
+    },
+    {
+      title: "Beginner Home Workout Program",
+      type: "PDF",
+      tag: "Workout",
+      color: "#60A5FA",
+    },
+    {
+      title: "Mobility & Recovery Guide",
+      type: "PDF",
+      tag: "Recovery",
+      color: "#A78BFA",
+    },
+  ];
+
+  const ContentBlock = () => (
+    <>
+      <h2
+        style={{
+          fontSize: isMobile
+            ? "clamp(2rem, 7vw, 2.6rem)"
+            : "clamp(2.8rem, 5vw, 4rem)",
+          fontWeight: 900,
+          letterSpacing: "-0.03em",
+          lineHeight: 1.15,
+          marginBottom: 22,
+          background:
+            "linear-gradient(135deg, #FFFFFF 0%, #34D399 100%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          fontFamily: "Inter",
+        }}
+      >
+        Turn your knowledge into instant value.
+      </h2>
+
+      <p
+        style={{
+          fontSize: isMobile ? "1.05rem" : "1.25rem",
+          lineHeight: 1.75,
+          color: "rgba(255,255,255,0.85)",
+          marginBottom: 28,
+          maxWidth: 560,
+          fontFamily: "Inter",
+        }}
+      >
+        Share your diet plans, recipes, and workout programs to the right people —
+        exactly when they ask.
+      </p>
+
+    
+    </>
+  );
+
+  const CardsBlock = () => (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
+        gap: 20,
+      }}
+    >
+      {resources.map((item, i) => (
+        <div
+          key={i}
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 20,
+            padding: isMobile ? "22px 20px" : "28px 26px",
+            position: "relative",
+            fontFamily: "Inter",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: -18,
+              right: -18,
+              width: 110,
+              height: 110,
+              background: `radial-gradient(circle, ${item.color}55, transparent 70%)`,
+              filter: "blur(28px)",
+            }}
+          />
+
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "6px 14px",
+              borderRadius: 100,
+              fontSize: 12,
+              fontWeight: 700,
+              color: item.color,
+              background: `${item.color}22`,
+              border: `1px solid ${item.color}44`,
+              marginBottom: 14,
+            }}
+          >
+            {item.tag}
+          </div>
+
+          <h4
+            style={{
+              fontSize: isMobile ? 16 : 18,
+              fontWeight: 800,
+              color: "#FFFFFF",
+              marginBottom: 8,
+              lineHeight: 1.4,
+            }}
+          >
+            {item.title}
+          </h4>
+
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.6)",
+            }}
+          >
+            Instant download • {item.type}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg, #020617 0%, #020617 100%)",
+        padding: isMobile ? "96px 24px" : "160px 48px",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        {isMobile ? (
+          <>
+            <ContentBlock />
+            <CardsBlock />
+          </>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.1fr 1fr",
+              gap: 96,
+              alignItems: "center",
+            }}
+          >
+            <CardsBlock />
+            <ContentBlock />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 
 
 
@@ -1144,10 +1822,15 @@ const Section4 = () => {
 
   return (
     <div style={{ width: "100%" }}>
+      <Section5 />
       <Section1 />
       <Section2 />
       <Section3 />
+      <Section6 />
+      <Section7 />
       <Section4 />
+      <Section8 />
+      <Section9 />
     </div>
   );
 }
