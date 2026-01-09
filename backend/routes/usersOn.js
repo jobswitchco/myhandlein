@@ -2413,6 +2413,65 @@ router.post("/automation/config", authenticateToken, async (req, res) => {
   }
 });
 
+// Upload Quick Reply Image endpoint
+router.post("/automation/upload-quickreply-image", authenticateToken, upload.single("image"), async (req, res) => {
+    try {
+      const userId = req.user?.user_id || req.user?._id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const file = req.file;
+
+      if (!file || !file.buffer) {
+        return res.status(400).json({
+          success: false,
+          message: "No file uploaded. Ensure you send multipart/form-data with field name 'image'.",
+        });
+      }
+
+      // Validate file type
+      const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
+      if (!validTypes.includes(file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid file type. Only PNG, JPEG, GIF, and WebP images are allowed.",
+        });
+      }
+
+      // Upload to GCS
+      const { publicUrl, objectName } = await uploadBufferToGCS(
+        file.buffer,
+        file.originalname || `quickreply-${Date.now()}.jpg`,
+        file.mimetype
+      );
+
+      if (!publicUrl) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "Failed to upload to storage" 
+        });
+      }
+
+      console.log(`✅ Quick Reply image uploaded: ${publicUrl}`);
+
+      return res.json({
+        success: true,
+        publicUrl,
+        objectName,
+        message: "Image uploaded successfully"
+      });
+    } catch (err) {
+      console.error("upload-quickreply-image error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Upload failed",
+        error: err?.message || String(err),
+      });
+    }
+  }
+);
+
 router.post("/autodm/automation/config", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id || req.user?._id;

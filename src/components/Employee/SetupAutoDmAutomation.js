@@ -109,7 +109,7 @@ const PhoneSimulator = ({
   useEffect(() => {
     resetSimulation();
     fetchIgDetails();
-  }, [dmMessage, buttonText]);
+  }, [dmMessage, buttonText, flowNodes]);
 
 
 
@@ -138,7 +138,11 @@ const PhoneSimulator = ({
       newMessages.push({ type: 'system', text: `🔗 Opening Link...` });
       setTimeout(() => {
           let url = action.config.redirectUrl || "";
-          if (!url.startsWith('http')) url = `https://${url}`;
+          if (url.startsWith("wa:")) {
+  url = `https://wa.me/${url.replace("wa:", "")}`;
+} else if (!url.startsWith("http")) {
+  url = `https://${url}`;
+}
           setBrowserUrl(url);
       }, 1000);
     } 
@@ -189,6 +193,7 @@ const PhoneSimulator = ({
       newMessages.push({ 
           type: 'system', 
           text: action.config.quickReplyQuestion,
+          image: action.config.quickReplyImage,
           buttons: action.replyOptions 
       });
     }
@@ -366,8 +371,27 @@ const PhoneSimulator = ({
                 lineHeight: 1.4, 
                 mb: 0.5 
             }}>
+
+               {/* Image if exists */}
+        {msg.image && (
+          <Box sx={{ mb: 1.5, borderRadius: 2, overflow: "hidden" }}>
+            <img 
+              src={msg.image} 
+              alt="Message" 
+              style={{ 
+                width: "100%", 
+                maxHeight: "200px", 
+                objectFit: "cover",
+                display: "block",
+                borderRadius: "8px"
+              }} 
+            />
+          </Box>
+        )}
+
+
               {/* Message Text */}
-              <Box sx={{ mb: (msg.buttons && msg.buttons.length > 0) ? 1.5 : 0 }}>
+              <Box sx={{ mb: (msg.buttons && msg.buttons.length > 0) ? 1.5 : 0,  whiteSpace: "pre-line" }}>
                 {msg.text}
               </Box>
            
@@ -551,10 +575,10 @@ export default function SetupAutoDmAutomation() {
   const api = axios.create({ baseURL: baseUrl || "", withCredentials: true });
 
   // State
-  const [dmMessage, setDmMessage] = useState("Hey! Thanks for your interest 👋 Please click the below button to proceed.");
-  const [buttonText, setButtonText] = useState("Send Link");
+  const [dmMessage, setDmMessage] = useState("Hey! Thanks for reaching out 👍. Tap the button below to proceed.");
+  const [buttonText, setButtonText] = useState("Proceed ➡️");
   const [flowNodes, setFlowNodes] = useState([]);
-  const [keywords, setKeywords] = useState(['Link']);
+  const [keywords, setKeywords] = useState(['Transform', 'Diet', 'Fit', 'Fitness']);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [existingAutomation, setExistingAutomation] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -794,6 +818,30 @@ useEffect(() => {
   // Always allow Quick Reply in nested contexts
 
 
+  const hasAnyQuickReply = (nodes) => {
+  for (const node of nodes) {
+    if (node.type === "quickReply") return true;
+
+    // Check FollowCheck buttons
+    if (node.type === "followCheck") {
+      const allButtons = [
+        ...(node.followingButtons || []),
+        ...(node.notFollowingButtons || []),
+      ];
+
+      for (const btn of allButtons) {
+        if (btn.actions?.some((a) => a.type === "quickReply")) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+};
+
+const quickReplyAlreadyUsed = hasAnyQuickReply(flowNodes);
+
+
 const getAvailableActionTypes = () => {
     // Check if Follow Check is already used anywhere in the main flow.
     // This handles scenarios where a Follow Check node might have been added and later deleted,
@@ -806,26 +854,32 @@ const getAvailableActionTypes = () => {
     // --- Scenario 1: Initial Selection (Flow is empty) ---
     if (isInitialSelection) {
         // Show only Follow Check and Quick Replies for the very first step.
-        return actionTypes.filter(type => 
-            type.type === 'followCheck' || type.type === 'quickReply'
-        );
+      return actionTypes.filter(type =>
+  type.type === 'followCheck' ||
+  (!quickReplyAlreadyUsed && type.type === 'quickReply')
+);
+
     }
 
     // --- Scenario 2: Nested Selection (Inside a button or quick reply option) ---
     if (actionContext) {
         // Nested actions should only be non-structural elements (Links, Download, etc.).
         // Follow Check nodes are structural and should not be nested.
-        return actionTypes.filter(type => 
-            type.type !== 'followCheck'
-        );
+      return actionTypes.filter(type =>
+  type.type !== 'followCheck' &&
+  (!quickReplyAlreadyUsed || type.type !== 'quickReply')
+);
+
     }
 
     // --- Scenario 3: Subsequent Main Flow Selection (FlowNodes > 0, Context null) ---
     // User is adding an action *after* the initial node, at the main flow level.
     // We prevent adding Follow Check here, whether it was used or not.
-    return actionTypes.filter(type => 
-        type.type !== 'followCheck'
-    );
+ return actionTypes.filter(type =>
+  type.type !== 'followCheck' &&
+  (!quickReplyAlreadyUsed || type.type !== 'quickReply')
+);
+
 
     /* Note: The logic for Scenario 2 and 3 results in the same filter (excluding Follow Check), 
     meaning the use of the `isFollowCheckUsed` variable became redundant in this final design 
@@ -881,15 +935,24 @@ const isFollowCheckUsedInContext = (nodes, context) => {
 
   // UPDATED: Handle action selection with full recursive support
   const handleActionSelect = (type) => {
+
+    if (type === "quickReply" && hasAnyQuickReply(flowNodes)) {
+  toast.warning("Only one Quick Reply block is allowed per automation.");
+  return;
+}
+
+
+
     if (type === "followCheck") {
       const newNode = {
         id: Date.now(),
         type: "followCheck",
         config: {
-          followCheckYesMessage: "Thanks for following! 🎉",
-          followCheckNoMessage: "Please follow our page, and then click 'Following' button below to continue.",
+          followCheckYesMessage: "Thanks for following my page 🎉 \nTap the button below to explore my Fitness Programs.",
+          followCheckNoMessage: "Almost there! 💪 \n\nPlease Follow me first to explore my Fitness Programs and choose what suits you best."
+
         },
-        followingButtons: [{ id: Date.now(), text: "Continue", actions: [] }],
+        followingButtons: [{ id: Date.now(), text: "Continue ✅", actions: [] }],
         notFollowingButtons: [
           { id: Date.now() + 1, text: "Following", actions: [] },
         ],
@@ -904,7 +967,8 @@ const isFollowCheckUsedInContext = (nodes, context) => {
         id: Date.now(),
         type: "quickReply",
         config: {
-          quickReplyQuestion: "What would you like to do?",
+          quickReplyQuestion: "What’s your primary fitness goal right now?",
+          quickReplyImage: null,
         },
         replyOptions: [{ id: Date.now(), text: "Option 1", actions: [] }],
       };
@@ -924,6 +988,151 @@ const isFollowCheckUsedInContext = (nodes, context) => {
       setSelectedNodeType(type);
     }
   };
+
+const handleQuickReplyImageUpload = async (nodeId, file, context = null) => {
+  if (!file) return;
+
+  const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
+  if (!validTypes.includes(file.type)) {
+    toast.error("Please upload a valid image file");
+    return;
+  }
+
+  try {
+    // Show loading state
+    toast.info("Uploading image...");
+
+    // Create FormData
+    const formData = new FormData();
+    formData.append("image", file);
+
+    // Upload to backend
+    const response = await api.post("/automation/upload-quickreply-image", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    if (response.data?.success && response.data.publicUrl) {
+      const publicUrl = response.data.publicUrl;
+
+      if (context) {
+        // Handle nested Quick Reply image
+        updateNestedQuickReplyImage(nodeId, publicUrl, context);
+      } else {
+        // Handle main flow Quick Reply image
+        const updatedNodes = flowNodes.map((node) =>
+          node.id === nodeId && node.type === "quickReply"
+            ? {
+                ...node,
+                config: {
+                  ...node.config,
+                  quickReplyImage: publicUrl,
+                },
+              }
+            : node
+        );
+        setFlowNodes(updatedNodes);
+      }
+
+      toast.success("Image uploaded successfully!");
+    } else {
+      throw new Error("Upload failed");
+    }
+  } catch (error) {
+    console.error("Image upload error:", error);
+    toast.error("Failed to upload image. Please try again.");
+  }
+};
+
+const updateNestedQuickReplyImage = (nodeId, imageData, context) => {
+  const { buttonId, branchType, quickReplyActionId, parentOptionId } = context;
+  
+  const updatedNodes = flowNodes.map((node) => {
+    if (node.id === nodeId && node.type === "followCheck") {
+      const updateButtons = (buttons) =>
+        buttons.map((btn) =>
+          btn.id === buttonId
+            ? {
+                ...btn,
+                actions: btn.actions.map((action) =>
+                  action.id === quickReplyActionId
+                    ? {
+                        ...action,
+                        config: {
+                          ...action.config,
+                          quickReplyImage: imageData,
+                        },
+                      }
+                    : action
+                ),
+              }
+            : btn
+        );
+
+      if (branchType === "following") {
+        return {
+          ...node,
+          followingButtons: updateButtons(node.followingButtons),
+        };
+      } else {
+        return {
+          ...node,
+          notFollowingButtons: updateButtons(node.notFollowingButtons),
+        };
+      }
+    }
+    
+    // Handle main flow nested Quick Reply
+    if (node.id === nodeId && node.type === "quickReply" && parentOptionId) {
+      return {
+        ...node,
+        replyOptions: node.replyOptions.map((opt) =>
+          opt.id === parentOptionId
+            ? {
+                ...opt,
+                actions: opt.actions.map((action) =>
+                  action.id === quickReplyActionId
+                    ? {
+                        ...action,
+                        config: {
+                          ...action.config,
+                          quickReplyImage: imageData,
+                        },
+                      }
+                    : action
+                ),
+              }
+            : opt
+        ),
+      };
+    }
+    
+    return node;
+  });
+  
+  setFlowNodes(updatedNodes);
+};
+
+const handleRemoveQuickReplyImage = (nodeId, context = null) => {
+  if (context) {
+    updateNestedQuickReplyImage(nodeId, null, context);
+  } else {
+    const updatedNodes = flowNodes.map((node) =>
+      node.id === nodeId && node.type === "quickReply"
+        ? {
+            ...node,
+            config: {
+              ...node.config,
+              quickReplyImage: null,
+            },
+          }
+        : node
+    );
+    setFlowNodes(updatedNodes);
+  }
+  toast.info("Image removed");
+};
 
   // HELPER: Add Quick Reply to any context (recursive support)
 const addQuickReplyToContext = (newNode) => {
@@ -1541,7 +1750,7 @@ const updateFlowNodesWithNewAction = (newAction) => {
     // Validation
     if (type === "redirectLink") {
       if (!nodeConfig.redirectUrl.trim()) {
-        toast.error("Please enter a valid URL");
+        toast.error("Please enter a WhatsApp number or a redirect URL");
         return;
       }
       try {
@@ -2118,13 +2327,95 @@ const addActionToContext = (newAction) => {
           </Stack>
 
           <Stack spacing={2}>
+             <Box>
+            <Typography variant="caption" sx={{ color: "#64748B", fontWeight: 600, mb: 1, display: "block" }}>
+              Optional: Add Image
+            </Typography>
+            
+            {!quickReplyAction.config.quickReplyImage ? (
+              <Box
+                sx={{
+                  border: "2px dashed #FCD34D",
+                  borderRadius: 2,
+                  p: 2,
+                  textAlign: "center",
+                  bgcolor: "#FFFBEB",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": {
+                    borderColor: "#F59E0B",
+                    bgcolor: "#FEF3C7",
+                  },
+                }}
+                component="label"
+              >
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={(e) => 
+                    handleQuickReplyImageUpload(nodeId, e.target.files[0], {
+                      buttonId: button.id,
+                      branchType: branchType,
+                      quickReplyActionId: quickReplyAction.id
+                    })
+                  }
+                />
+                <CloudUploadIcon sx={{ fontSize: 32, color: "#F59E0B", mb: 0.5 }} />
+                <Typography sx={{ fontWeight: 600, fontSize: "13px" }}>
+                  Click to upload image
+                </Typography>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  position: "relative",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  border: "2px solid #F59E0B",
+                }}
+              >
+                <img
+                  src={quickReplyAction.config.quickReplyImage}
+                  alt="Quick Reply"
+                  style={{
+                    width: "100%",
+                    maxHeight: "200px",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemoveQuickReplyImage(nodeId, {
+                    buttonId: button.id,
+                    branchType: branchType,
+                    quickReplyActionId: quickReplyAction.id
+                  })}
+                  sx={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    bgcolor: "rgba(0,0,0,0.6)",
+                    color: "white",
+                    "&:hover": {
+                      bgcolor: "#EF4444",
+                    },
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            )}
+          </Box>
+
             <TextField
               fullWidth
               multiline
               rows={2}
               size="small"
               label="Question"
-              placeholder="What would you like to do?"
+              placeholder="What’s your primary fitness goal right now?"
               value={quickReplyAction.config.quickReplyQuestion}
               onChange={(e) => {
                 const updatedNodes = flowNodes.map((node) => {
@@ -2242,6 +2533,15 @@ const addActionToContext = (newAction) => {
 
   // Render Quick Reply options for button-based Quick Replies
   
+  const getMdSpan = (totalOptions) => {
+  if (totalOptions === 1) return 12;
+  if (totalOptions === 2) return 6;
+  if (totalOptions === 3) return 4;
+  return 4; // 4+ options → 3 per row
+};
+
+
+
 const renderQuickReplyOptionsForButton = (nodeId, branchType, buttonId, quickReplyAction) => {
   const options = quickReplyAction.replyOptions ?? [];
   const totalOptions = options.length;
@@ -2272,7 +2572,7 @@ const renderQuickReplyOptionsForButton = (nodeId, branchType, buttonId, quickRep
       </Box>
       <Grid container spacing={2} justifyContent="space-between">
         {options.map((opt) => (
-          <Grid item xs={12} md={totalOptions === 1 ? 12 : totalOptions === 2 ? 6 : 4} key={opt.id}>
+          <Grid size={{ xs :12, md : getMdSpan(totalOptions)}} key={opt.id}>
             <Card elevation={0} sx={{ p: 2, borderRadius: 2, border: "2px solid #F59E0B", bgcolor: "white", position: "relative" }}>
                 {options.length > 1 && (
                   <IconButton
@@ -2558,7 +2858,7 @@ const renderNestedQuickReplyInButton = (nodeId, branchType, buttonId, parentQR, 
             rows={2}
             size="small"
             label="Question"
-            placeholder="What would you like to do?"
+            placeholder="What’s your primary fitness goal right now?"
             value={nestedQR.config.quickReplyQuestion}
             onChange={(e) => {
               const updatedNodes = flowNodes.map((node) => {
@@ -3530,7 +3830,7 @@ const renderQuickReplyOptions = (node) => {
       </Box>
       <Grid container spacing={2} justifyContent="space-between">
         {options.map((opt) => (
-          <Grid item xs={12} md={totalOptions === 1 ? 12 : totalOptions === 2 ? 6 : 4} key={opt.id}>
+          <Grid size={{ xs: 12, md: totalOptions === 1 ? 12 : totalOptions === 2 ? 6 : totalOptions === 3 ? 4 : 4 }} key={opt.id}>
             <Card elevation={0} sx={{ p: 2, borderRadius: 2, border: "2px solid #F59E0B", bgcolor: "white", position: "relative" }}>
               {totalOptions > 1 && (
                 <IconButton size="small" onClick={() => handleDeleteQuickReplyOption(node.id, opt.id)}
@@ -3604,7 +3904,7 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
         </Box>
         <Grid container spacing={2} justifyContent="space-between">
           {buttons.map((btn) => (
-            <Grid item xs={12} md={totalButtons === 1 ? 12 : totalButtons === 2 ? 6 : 4} key={btn.id}>
+            <Grid size= {{ xs : 12, md: totalButtons === 1 ? 12 : totalButtons === 2 ? 6 : totalButtons === 3 ? 4 : 4 }} key={btn.id}>
               <Card elevation={0} sx={{ p: 2, borderRadius: 2, border: `2px solid ${color}`, bgcolor: "white", position: "relative" }}>
                 {buttons.length > 1 && (
                   <IconButton
@@ -3824,7 +4124,7 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
 
         <Grid container spacing={3}>
           {/* LEFT: User Following */}
-          <Grid item xs={12} md={6}>
+          <Grid size= {{ xs :12, md : 6}}>
             <Card
               elevation={0}
               sx={{
@@ -3845,7 +4145,7 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
                 <TextField
                   fullWidth
                   multiline
-                  rows={2}
+                  rows={4}
                   size="small"
                   label="Message"
                   value={followCheckAction.config?.followCheckYesMessage || ""}
@@ -3938,7 +4238,7 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
           </Grid>
 
           {/* RIGHT: User Not Following */}
-          <Grid item xs={12} md={6}>
+          <Grid size = {{ xs : 12, md : 6}}>
             <Card
               elevation={0}
               sx={{
@@ -3959,7 +4259,7 @@ const renderQuickReplyOptionFollowCheck = (nodeId, option) => {
                 <TextField
                   fullWidth
                   multiline
-                  rows={2}
+                  rows={4}
                   size="small"
                   label="Message"
                   value={followCheckAction.config?.followCheckNoMessage || ""}
@@ -4139,7 +4439,7 @@ const renderQuickReplyOptionQuickReply = (nodeId, option) => {
             rows={2}
             size="small"
             label="Question"
-            placeholder="What would you like to do?"
+            placeholder="What’s your primary fitness goal right now?"
             value={quickReplyAction.config.quickReplyQuestion}
             onChange={e => {
               const updatedNodes = flowNodes.map(node => {
@@ -4259,7 +4559,7 @@ const renderNestedQuickReplyOptionsForMainFlow = (nodeId, parentOptionId, quickR
       </Box>
       <Grid container spacing={2} justifyContent="space-between">
         {options.map((opt, idx) => (
-          <Grid item xs={12} md={totalOptions === 1 ? 12 : totalOptions === 2 ? 6 : 4} key={opt.id}>
+          <Grid size={{ xs: 12, md : getMdSpan(totalOptions) }} key={opt.id}>
             <Card elevation={0} sx={{ p: 2, borderRadius: 2, border: "2px solid #F59E0B", bgcolor: "white", position: "relative" }}>
               {totalOptions > 1 && (
                 <IconButton size="small" onClick={() => {
@@ -4664,7 +4964,7 @@ const renderDeepNestedQuickReply = (nodeId, parentOptionId, parentQRAction, opti
             rows={2}
             size="small"
             label="Question"
-            placeholder="What would you like to do?"
+            placeholder="What’s your primary fitness goal right now?"
             value={nestedQuickReply.config.quickReplyQuestion}
             onChange={(e) => {
               const updatedNodes = flowNodes.map((node) => {
@@ -4850,7 +5150,7 @@ const leftPosition = stepPercent * (index + 1)
           <Grid
             item
             xs={12}
-            md={options.length === 1 ? 12 : options.length === 2 ? 6 : 4}
+            md={getMdSpan(options.length)}
             key={opt.id}
           >
             <Card
@@ -5029,7 +5329,7 @@ const leftPosition = stepPercent * (index + 1)
   // Render Follow Check Branch
   const renderFollowCheckBranch = (node) => {
   const splitY = 30, downHeight = 50;
-  const anchors = ["25%", "75%"];
+  const anchors = ["10%", "90%"];
   const isFollowingMaxReached = node.followingButtons.length >= 3;
   return (
     <Box sx={{ width: "100%", mt: 0 }}>
@@ -5063,7 +5363,7 @@ const leftPosition = stepPercent * (index + 1)
                 <TextField
                   fullWidth
                   multiline
-                  rows={2}
+                  rows={4}
                   size="small"
                   label="Message"
                   value={node.config.followCheckYesMessage}
@@ -5139,7 +5439,7 @@ const leftPosition = stepPercent * (index + 1)
                 <TextField
                   fullWidth
                   multiline
-                  rows={2}
+                  rows={4}
                   size="small"
                   label="Message"
                   value={node.config.followCheckNoMessage}
@@ -5313,13 +5613,88 @@ const leftPosition = stepPercent * (index + 1)
             </Stack>
 
             <Stack spacing={2}>
+
+              <Box>
+            <Typography variant="caption" sx={{ color: "#64748B", fontWeight: 600, mb: 1, display: "block" }}>
+              Optional: Add Image
+            </Typography>
+            
+            {!node.config.quickReplyImage ? (
+              <Box
+                sx={{
+                  border: "2px dashed #FCD34D",
+                  borderRadius: 2,
+                  p: 2,
+                  textAlign: "center",
+                  bgcolor: "#FFFBEB",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": {
+                    borderColor: "#F59E0B",
+                    bgcolor: "#FEF3C7",
+                  },
+                }}
+                component="label"
+              >
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={(e) => handleQuickReplyImageUpload(node.id, e.target.files[0])}
+                />
+                <CloudUploadIcon sx={{ fontSize: 32, color: "#F59E0B", mb: 0.5 }} />
+                <Typography sx={{ fontWeight: 600, fontSize: "13px" }}>
+                  Click to upload image
+                </Typography>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  position: "relative",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  border: "2px solid #F59E0B",
+                }}
+              >
+                <img
+                  src={node.config.quickReplyImage}
+                  alt="Quick Reply"
+                  style={{
+                    width: "100%",
+                    maxHeight: "200px",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemoveQuickReplyImage(node.id)}
+                  sx={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    bgcolor: "rgba(0,0,0,0.6)",
+                    color: "white",
+                    "&:hover": {
+                      bgcolor: "#EF4444",
+                    },
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            )}
+          </Box>
+
+
+
               <TextField
                 fullWidth
                 multiline
                 rows={2}
                 size="small"
                 label="Question"
-                placeholder="What would you like to do?"
+                placeholder="What’s your primary fitness goal right now?"
                 value={node.config.quickReplyQuestion}
                 onChange={(e) => {
                   const updatedNodes = flowNodes.map((n) =>
@@ -5462,25 +5837,162 @@ const leftPosition = stepPercent * (index + 1)
     if (!selectedNodeType) return null;
 
     switch (selectedNodeType) {
-      case "redirectLink":
-        return (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              Enter the URL where you want to redirect the user. Make sure it starts
-              with https://
-            </Alert>
+   case "redirectLink":
+  const isWhatsapp = nodeConfig.redirectUrl.startsWith("https://wa.me/");
+
+  const whatsappNumber = isWhatsapp
+    ? nodeConfig.redirectUrl.replace("https://wa.me/", "")
+    : "";
+
+  const websiteUrl = !isWhatsapp
+    ? nodeConfig.redirectUrl.replace(/^https?:\/\//, "")
+    : "";
+
+  const finalUrl = whatsappNumber.length === 10
+    ? `https://wa.me/${whatsappNumber}`
+    : websiteUrl
+    ? `https://${websiteUrl.replace(/^https?:\/\//, "")}`
+    : "";
+
+  return (
+    <Stack spacing={3}>
+      {/* Header */}
+      <Box>
+        <Typography fontWeight={600} fontSize={16}>
+          Redirect user to
+        </Typography>
+        <Typography fontSize={13} color="text.secondary">
+          Choose one destination. The user will be redirected automatically.
+        </Typography>
+      </Box>
+
+      {/* WhatsApp */}
+      <Card
+        variant="outlined"
+        sx={{
+          borderRadius: 2,
+          borderColor: isWhatsapp ? "success.main" : "divider",
+          bgcolor: isWhatsapp ? "#F0FDF4" : "transparent",
+        }}
+      >
+        <CardContent>
+          <Stack spacing={1.5}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Avatar
+                sx={{ width: 28, height: 28, bgcolor: "#22C55E" }}
+              >
+                <PhoneAndroidIcon sx={{ fontSize: 16 }} />
+              </Avatar>
+              <Typography fontWeight={600}>WhatsApp</Typography>
+            </Stack>
+
             <TextField
               fullWidth
-              label="Redirect URL"
-              placeholder="https://example.com"
-              value={nodeConfig.redirectUrl}
-              onChange={(e) =>
-                setNodeConfig({ ...nodeConfig, redirectUrl: e.target.value })
-              }
-              helperText="Example: https://mywebsite.com/download"
+              placeholder="9000090000"
+              value={whatsappNumber}
+              onChange={(e) => {
+                const digits = e.target.value
+                  .replace(/\D/g, "")
+                  .slice(0, 10);
+
+                setNodeConfig({
+                  ...nodeConfig,
+                  redirectUrl: digits
+                    ? `https://wa.me/${digits}`
+                    : "",
+                });
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    wa.me/
+                  </InputAdornment>
+                ),
+              }}
+              helperText="Enter 10-digit WhatsApp number"
+              error={whatsappNumber.length > 0 && whatsappNumber.length < 10}
             />
           </Stack>
-        );
+        </CardContent>
+      </Card>
+
+      {/* OR */}
+      <Divider
+        sx={{
+          fontSize: 14,
+          fontWeight: 700,
+          fontFamily: "Inter",
+          color: "#000",
+        }}
+      >
+        OR
+      </Divider>
+
+      {/* Website */}
+      <Card
+        variant="outlined"
+        sx={{
+          borderRadius: 2,
+          borderColor: !isWhatsapp && websiteUrl ? "primary.main" : "divider",
+          bgcolor: !isWhatsapp && websiteUrl ? "#EFF6FF" : "transparent",
+        }}
+      >
+        <CardContent>
+          <Stack spacing={1.5}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Avatar
+                sx={{ width: 28, height: 28, bgcolor: "#3B82F6" }}
+              >
+                <PublicIcon sx={{ fontSize: 16 }} />
+              </Avatar>
+              <Typography fontWeight={600}>Website</Typography>
+            </Stack>
+
+            <TextField
+              fullWidth
+              placeholder="example.com or www.example.com"
+              value={websiteUrl}
+              onChange={(e) =>
+                setNodeConfig({
+                  ...nodeConfig,
+                  redirectUrl: e.target.value
+                    ? `https://${e.target.value.replace(/^https?:\/\//, "")}`
+                    : "",
+                })
+              }
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    https://
+                  </InputAdornment>
+                ),
+              }}
+              helperText="https:// will be added automatically"
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Preview */}
+      {finalUrl && (
+        <Box
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            bgcolor: "#F9FAFB",
+            border: "1px solid #E5E7EB",
+          }}
+        >
+          <Typography fontSize={12} color="text.secondary" mb={0.5}>
+            Redirect preview
+          </Typography>
+          <Typography fontSize={13} fontWeight={600} noWrap>
+            {finalUrl}
+          </Typography>
+        </Box>
+      )}
+    </Stack>
+  );
 
       case "downloadFile":
         return (
@@ -5650,42 +6162,40 @@ const leftPosition = stepPercent * (index + 1)
   };
 
 const handleLaunchAutomation = async () => {
-    setConfDialogOpen(false);
+  setConfDialogOpen(false);
 
-    if (!dmMessage.trim()) {
-      toast.error("Please enter a DM message");
-      return;
-    }
+  if (!dmMessage.trim()) {
+    toast.error("Please enter a DM message");
+    return;
+  }
 
-    try {
-      const payload = {
-        postType: 'autodm',
-        dmMessage: dmMessage.trim(),
-        buttonText: buttonText.trim(),
-        flowNodes,
-        keywords: keywords,
-        isEdit: isEditMode,
-      };
+  try {
+    const payload = {
+      postType: 'autodm',
+      dmMessage: dmMessage.trim(),
+      buttonText: buttonText.trim(),
+      flowNodes, // ✅ Already contains GCS URLs
+      keywords: keywords,
+      isEdit: isEditMode,
+    };
 
-      await api.post("/autodm/automation/config", payload);
+    await api.post("/autodm/automation/config", payload);
 
-      toast.success(isEditMode ? "Automation updated successfully!" : "Automation started successfully!");
-      
-         // ✅ Simple page reload
+    toast.success(isEditMode ? "Automation updated successfully!" : "Automation started successfully!");
+    
     setTimeout(() => {
       window.location.reload();
     }, 1200);
-    } catch (error) {
-      console.error("Error saving automation:", error);
-      
-      // Handle specific error for active automation
-      if (error.response?.data?.message === "Please stop the automation before editing") {
-        toast.error("Please stop the automation before editing");
-      } else {
-        toast.error("Error! Please Try Again");
-      }
+  } catch (error) {
+    console.error("Error saving automation:", error);
+    
+    if (error.response?.data?.message === "Please stop the automation before editing") {
+      toast.error("Please stop the automation before editing");
+    } else {
+      toast.error("Error! Please Try Again");
     }
-  };
+  }
+};
 
    if (loading) {
         return (
@@ -6400,7 +6910,7 @@ const handleLaunchAutomation = async () => {
         <DialogContent>
           {!isEditMode && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-            Once an automation is launched, it can be edited while active. You may stop or delete it at any time.
+            Once an automation is launched, it CAN be edited while active. You may STOP or DELETE it at any time.
             </Alert>
           )}
           {isEditMode && (
