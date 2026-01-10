@@ -364,7 +364,7 @@ const subStyle = {
 
   // === CTA row with subdomain input + button (no external CSS)
   const ctaRowStyle = {
-    width: "100%",
+    width: isMobile ? "100%" : "75%",
     display: "flex",
     flexDirection: isMobile ? "column" : "row",
     gap: isMobile ? "0px" : "16px",
@@ -416,12 +416,12 @@ const inputWrapStyle = {
   const startBtnStyle = {
     appearance: "none",
     border: "none",
-    height: isMobile ? "60px" : "52px",
+    height: isMobile ? "52px" : "52px",
     width: "100%",
     padding: "0 28px",
     fontSize: "16px",
-    fontWeight: 700,
-    borderRadius: "16px",
+    fontWeight: 600,
+    borderRadius: "8px",
     cursor: "pointer",
     background: "#37353E",
     color: "#FFFFFF",
@@ -852,7 +852,7 @@ const highlightTextMobile = {
 
           {/* Subdomain input + CTA */}
           <div style={ctaRowStyle}>
-            <label
+            {/* <label
               htmlFor="subdomain"
               style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
             >
@@ -876,22 +876,21 @@ const highlightTextMobile = {
                 <span style={suffixStyle}>.myhandle.in</span>
               </div>
 
-              {/* NEW: status row */}
               <div id="availability-msg" style={{ ...statusRowStyle, color: statusColor }}>
                 <StatusIcon />
                 <span>{message}</span>
               </div>
-            </div>
+            </div> */}
 
             <button
             onClick={()=> navigate('/professional/login')}
               style={{ ...startBtnStyle, ...startBtnHoverStyle }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
-              aria-label="Start for free"
+              aria-label="Try for free"
               disabled={availability === "checking"}
             >
-              Start for free
+              Try for free →
             </button>
           </div>
 
