@@ -21,6 +21,230 @@ export default function Hero({
     typeof window !== "undefined" && window.matchMedia("(max-width:600px)").matches
   );
 
+  
+const getCardAnimation = (index, existingTransform) => {
+  const delay = index * 150; // Stagger entrance
+  const bounceDelay = index * 0.3; // Stagger continuous bounce
+  
+  return {
+    // Entrance animation
+    opacity: animateIn ? 1 : 0,
+    transform: animateIn 
+      ? existingTransform || ''
+      : `${existingTransform || ''} translateY(60px) scale(0.8)`,
+    transition: `
+      opacity 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}ms,
+      transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}ms
+    `,
+    // Continuous bounce animation
+    animation: animateIn ? `cardBounce 3s ease-in-out ${bounceDelay}s infinite` : 'none',
+  };
+};
+
+const SmartInboxCard = ({ isMobile }) => {
+  // Fixed, intentional mobile scramble (no randomness)
+  const mobileTransforms = [
+    { x: 0,  y: 0,  r: -1 },
+    { x: 6,  y: -10, r: 1 },
+    { x: -6, y: -20, r: -1.5 },
+    { x: 4,  y: -30, r: 1.2 },
+  ];
+
+  const baseCardStyle = {
+    position: isMobile ? "relative" : "absolute",
+    width: isMobile ? "92%" : 320,
+    padding: "16px 18px",
+    borderRadius: 20,
+    background: "#FFFFFF",
+    color: "#0b1220",
+    boxShadow: "0 18px 50px rgba(0,0,0,0.14)",
+    transition: "transform 0.35s ease, opacity 0.35s ease",
+    willChange: "transform",
+  };
+
+  const nameStyle = {
+    fontWeight: 700,
+    fontSize: 16,
+    marginBottom: 4,
+  };
+
+  const messageStyle = {
+    fontSize: 14,
+    marginBottom: 10,
+    color: "#334155",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
+
+  const tagStyle = (color) => ({
+    display: "inline-block",
+    padding: "4px 12px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    color,
+    background: `${color}22`,
+    border: `1px solid ${color}55`,
+  });
+
+  const applyMobileScramble = (index) => {
+    if (!isMobile) return {};
+    const t = mobileTransforms[index] || {};
+    return {
+      transform: `translate(${t.x || 0}px, ${t.y || 0}px) rotate(${t.r || 0}deg)`,
+      zIndex: 10 - index,
+      opacity: 1 - index * 0.06,
+    };
+  };
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: 600,
+        height: isMobile ? "auto" : 520,
+        display: "flex",
+        flexDirection: isMobile ? "column" : "block",
+        gap: isMobile ? 28 : 0,
+        paddingTop: isMobile ? 12 : 0,
+      }}
+    >
+      {/* Sarah */}
+      <div
+        style={{
+          ...baseCardStyle,
+          top: 0,
+          right: 0,
+          transform: isMobile ? undefined : "rotate(10deg)",
+          zIndex: 4,
+          ...applyMobileScramble(0),
+         ...getCardAnimation(0, isMobile ? applyMobileScramble(0).transform : "rotate(10deg)"),
+
+        }}
+      >
+        <div style={nameStyle}>Susmitha.</div>
+        <div style={messageStyle}>
+          Do you offer 1-on-1 online fitness coaching?
+        </div>
+        <span style={tagStyle("#10B981")}>High intent</span>
+      </div>
+
+      {/* Mike */}
+      <div
+        style={{
+          ...baseCardStyle,
+          top: isMobile ? 0 : 130,
+          left: isMobile ? "10%" : "30%",
+          transform: isMobile
+            ? undefined
+            : "translateX(-50%) rotate(-2deg)",
+          zIndex: 3,
+          ...applyMobileScramble(1),
+            ...getCardAnimation(1, isMobile ? applyMobileScramble(1).transform : "translateX(-50%) rotate(-2deg)"),
+
+        }}
+      >
+        <div style={nameStyle}>Ajay Krishna</div>
+        <div style={messageStyle}>
+         Charges for weight loss coaching?
+        </div>
+        <span style={tagStyle("#22C55E")}>Potential client</span>
+      </div>
+
+      {/* Lisa */}
+      <div
+        style={{
+          ...baseCardStyle,
+          top: isMobile ? 0 : "80%",
+          left: isMobile ? 0 : 20,
+          transform: isMobile ? undefined : "rotate(-6deg)",
+          zIndex: 2,
+          ...applyMobileScramble(2),
+         ...getCardAnimation(2, isMobile ? applyMobileScramble(2).transform : "rotate(-6deg)"),
+
+        }}
+      >
+        <div style={nameStyle}>Lavannya__</div>
+        <div style={messageStyle}>
+          Post delivery, I’ve gained a lot of weight and I’m struggling to lose it.
+        </div>
+        <span style={tagStyle("#F59E0B")}>Follow up</span>
+      </div>
+
+      {/* John */}
+      <div
+        style={{
+          ...baseCardStyle,
+          bottom: isMobile ? 0 : 130,
+          right: isMobile ? -12 : 0,
+          transform: isMobile ? undefined : "rotate(4deg)",
+          zIndex: 1,
+          opacity: isMobile ? undefined : 0.95,
+          ...applyMobileScramble(3),
+           ...getCardAnimation(3, isMobile ? applyMobileScramble(3).transform : "rotate(4deg)"),  // ← PASS TRANSFORM
+
+        }}
+      >
+        <div style={nameStyle}>Varun_Red</div>
+        <div style={messageStyle}>Good fitness content, keep it up!</div>
+        <span style={tagStyle("#64748B")}>Low priority</span>
+      </div>
+    </div>
+  );
+};
+
+const [animateIn, setAnimateIn] = useState(false);
+
+useEffect(() => {
+  const t = setTimeout(() => setAnimateIn(true), 50);
+  return () => clearTimeout(t);
+}, []);
+
+useEffect(() => {
+  // Inject keyframes into document
+  if (typeof document === 'undefined') return;
+  
+  const styleId = 'card-bounce-keyframes';
+  if (document.getElementById(styleId)) return;
+  
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    @keyframes cardBounce {
+      0%, 100% { 
+        transform: translateY(0) scale(1);
+      }
+      50% { 
+        transform: translateY(-12px) scale(1.02);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  return () => {
+    const el = document.getElementById(styleId);
+    if (el) el.remove();
+  };
+}, []);
+
+
+const entranceStyle = (index) => ({
+  opacity: animateIn ? 1 : 0,
+  transform: animateIn
+    ? undefined
+    : "translateY(24px)",
+  transition:
+    "opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
+  transitionDelay: `${index * 120}ms`,
+});
+
+
+
+
+
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(max-width:600px)");
@@ -95,6 +319,15 @@ const heroImgStyle = {
   transform: "scale(1.01)", // tiny zoom to kill any baked-in border
 };
 
+const highlightPill = {
+  display: "inline-block",
+  padding: "0.08em 0.35em",
+  fontWeight: 800,
+background: "linear-gradient(135deg, #F58529 0%, #DD2A7B 35%, #8134AF 70%, #515BD4 100%)",
+color: "#F8FAFC",
+  lineHeight: 1.1,
+  whiteSpace: "nowrap",
+};
 
 
 
@@ -109,25 +342,6 @@ const subStyle = {
   textAlign: "left",
   fontWeight: 500
 
-};
-
-// inline version for mobile
-const subStyleDataInline = {
-  display: "block",
-  fontSize: "clamp(1rem, 1.6vw, 1.25rem)",
-  fontWeight: 500,
-  color: "#001BB7",
-  marginTop: '8px'
-};
-
-// block version for desktop/tablet
-const subStyleDataBlock = {
-  fontSize: "clamp(0.9rem, 1.6vw, 1.12rem)",
-  lineHeight: 1.6,
-  color: "#001BB7",
-  maxWidth: 760,
-  margin: "0 0 clamp(18px, 2.5vw, 24px) 0",
-  fontWeight: 500
 };
 
 
@@ -544,8 +758,8 @@ const highlightTextMobile = {
       position: "absolute",
       inset: 0,
       background:
-        "radial-gradient(1200px 600px at 15% 20%, rgba(221,42,123,0.22), transparent 60%)," +
-        "radial-gradient(900px 500px at 70% 30%, rgba(245,133,41,0.18), transparent 60%)," +
+        "radial-gradient(1200px 600px at 15% 20%, rgba(221,42,123,0.22), transparent 100%)," +
+        "radial-gradient(900px 500px at 70% 30%, rgba(245,133,41,0.18), transparent 100%)," +
         "radial-gradient(1000px 600px at 40% 80%, rgba(129,52,175,0.18), transparent 65%)",
     }}
   />
@@ -568,7 +782,7 @@ const highlightTextMobile = {
         )
       `,
       backgroundSize: "48px 48px",
-      opacity: 0.45,
+      opacity: 0.35,
     }}
   />
 
@@ -613,40 +827,27 @@ const highlightTextMobile = {
         {/* LEFT: Content */}
         <div style={leftColStyle}>
           {/* Desktop headline */}
-          <h1
-            style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}
-            aria-hidden={isMobile}
-          >
-            {"Turn your "}
-                 <div style={highlightText}>Instagram DMs</div>
-            {" into Paying Fitness Clients."}
-          </h1>
+        <h1 style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}>
+  Convert{" "}
+  <span style={highlightPill}>Instagram DMs</span>{" "}
+  into Paying Fitness Clients.
+</h1>
+
 
           {/* Mobile headline */}
-          <h1
-            style={{ ...mobileHeadlineStyle, display: isMobile ? "block" : "none", margin: 0 }}
-            aria-hidden={!isMobile}
-          >
-            <span style={{ display: "block", lineHeight: 1.25 }}>
-              Turn your <div style={highlightTextMobile}>Instagram DMs</div> into Paying Fitness Clients.
-            </span>
-          </h1>
+        <h1
+  style={{ ...mobileHeadlineStyle, display: isMobile ? "block" : "none", margin: 0 }}
+>
+  Convert{" "}
+  <span style={highlightPill}>Instagram DMs</span>{" "}
+  into Paying Fitness Clients.
+</h1>
+
 
          <p style={subStyle}>
-  Auto comment replies, safe DM automation, and a smart lead detection engine —built for fitness creators.
-  {isMobile ? (
-    <>
-      {" "}
-      {/* <span style={subStyleDataInline}>Built in India, your data stays in India.</span> */}
-    </>
-  ) : null}
+  Stop chasing messages. Get serious leads sent to your WhatsApp —instantly.
 </p>
 
-{/* {!isMobile && (
-  <p style={subStyleDataBlock}>
-    Built in India, your data stays in India.
-  </p>
-)} */}
 
 
           {/* Subdomain input + CTA */}
@@ -706,19 +907,7 @@ const highlightTextMobile = {
 
      {/* RIGHT: Video */}
 <div style={rightColStyle}>
-  <div
-    style={{
-      background: "#FFFFFF",
-      padding: "12px",
-      borderRadius: "16px",
-    }}
-  >
-    <img
-      src={heroImage}
-      alt="Hero"
-      style={heroImgStyle}
-    />
-  </div>
+  <SmartInboxCard isMobile={isMobile} />
 </div>
 
 

@@ -177,16 +177,16 @@ export default function CreatorUserLogin() {
           />
 
           <Typography variant="h3" sx={{ fontWeight: 700, lineHeight: 1.1, mb: 2, fontFamily : 'Inter', color: '#450693' }}>
-            Ultimate Link-in-Bio & Instagram automation platform.
+            Turn conversations into conversions.
           </Typography>
           <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400, mb: 4, fontFamily : 'Inter', color: '#44444E' }}>
-            Power your creator journey with smart automations and a beautiful bio page, all in one place.
+            Smart DM and comment automation that feels human — plus a powerful bio page to capture clicks, leads, and sales..
           </Typography>
 
           <Stack direction="row" spacing={3} sx={{ opacity: 0.9 }}>
             <Stack>
               <Typography variant="h4" fontWeight={800}>10k+</Typography>
-              <Typography variant="body2">Creators Onboard</Typography>
+              <Typography variant="body2">Leads Captured</Typography>
             </Stack>
             <Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(255,255,255,0.2)" }} />
             <Stack>
@@ -217,7 +217,7 @@ export default function CreatorUserLogin() {
           <Stack spacing={2.5}>
             <Box>
               <Typography variant="overline" sx={{ color: "text.secondary", fontWeight: 700, letterSpacing: 1.6, fontFamily : 'Inter', fontSize : isSmallScreen ? '10px' : '16px' }}>
-                Creator — Brand
+                Fitness — Creators
               </Typography>
               <Typography variant="h4" sx={{fontFamily : 'Inter', fontSize : isSmallScreen ? '22px' : '36px', fontWeight: 700, mt: 0.5, mb: 3 }}>
                 Sign in or create your account

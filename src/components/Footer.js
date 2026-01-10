@@ -232,7 +232,7 @@ export default function Footer() {
           <Box display="flex" justifyContent="flex-start" gap={2}>
            
             <IconButton
-              href="https://www.linkedin.com/company/postln"
+              href="https://www.linkedin.com/company/myhandle-in/"
               target="_blank"
               color="inherit"
               sx={{ "&:hover": { color: "#E4405F" } }}
