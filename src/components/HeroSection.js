@@ -11,6 +11,7 @@ export default function Hero({
   heroImage = "https://storage.googleapis.com/myhandlewebbucket/landingpage_imgs/Hero_Img.png"
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isLoginHovered, setIsLoginHovered] = useState(false);
   const [subdomain, setSubdomain] = useState("");
   const navigate = useNavigate();
   const [availability, setAvailability] = useState("idle");
@@ -480,7 +481,7 @@ const inputWrapStyle = {
 
   };
 
-  const loginBtnHoverStyle = isHovered
+  const loginBtnHoverStyle = isLoginHovered
     ? { boxShadow: "0 10px 18px rgba(0,0,0,0.16)", background: "#37353E", color : '#FFFFFF'}
     : {};
 
@@ -955,8 +956,8 @@ const highlightTextMobile = {
             <button
             onClick={()=> navigate('/professional/login')}
               style={{ ...loginBtnStyle, ...loginBtnHoverStyle }}
-              onMouseEnter={() => setIsHovered(true)}
-              onMouseLeave={() => setIsHovered(false)}
+              onMouseEnter={() => setIsLoginHovered(true)}
+              onMouseLeave={() => setIsLoginHovered(false)}
               aria-label="Sign In"
               disabled={availability === "checking"}
             >

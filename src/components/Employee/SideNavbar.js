@@ -282,7 +282,7 @@ const [trialDays, setTrialDays] = useState(0);
                 />
               </ListItemIcon>
               <ListItemText
-                primary="Instagram"
+                primary="Automation"
                 primaryTypographyProps={{
                   sx: {
                     color: isInstagramSection ? "#FFFFFF" : "#374151",
@@ -329,7 +329,7 @@ const [trialDays, setTrialDays] = useState(0);
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Analytics Dashboard"
+                    primary="Analytics"
                     primaryTypographyProps={{
                       sx: {
                         color: location.pathname === "/professional/dashboard/instagram" ? "#FFFFFF" : "#6B7280",
@@ -459,7 +459,7 @@ const [trialDays, setTrialDays] = useState(0);
              
                 {/* Contacts */}
 
-                <ListItem disablePadding sx={{ mb: 0.5 }}>
+                {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   onClick={() => goTo("/professional/contacts/replied")}
                   selected={location.pathname === "/professional/contacts/replied"}
@@ -495,7 +495,7 @@ const [trialDays, setTrialDays] = useState(0);
                     }}
                   />
                 </ListItemButton>
-              </ListItem>
+              </ListItem> */}
 
                   {/* <ListItem disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
