@@ -12,7 +12,7 @@ function GoogleApiDisclosure() {
             window.dataLayer.push(arguments);
           }
           gtag('js', new Date());
-          gtag('config', 'G-D1X0WBG5EL');
+          gtag('config', 'G-7YCB9J8HTQ');
         }, []);
 
   return (
@@ -22,7 +22,7 @@ function GoogleApiDisclosure() {
         <title>Security and Data Protection | PostLn</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-D1X0WBG5EL"></script>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-7YCB9J8HTQ"></script>
 
       </header>
    <Navbar />
