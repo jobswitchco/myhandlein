@@ -268,7 +268,7 @@ const containerStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: "clamp(140px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px)",
+  padding: "clamp(120px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px)",
   boxSizing: "border-box",
   fontFamily:
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
@@ -482,6 +482,7 @@ const MetaVerifiedBlock = () => {
     // border: "1px solid #C8E6C9",
     // borderRadius: "12px",
     marginTop: "12px",
+    marginBottom: isMobile ? '66px' : "0px",
     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     maxWidth: isMobile ? "100%" : "580px"
   };
