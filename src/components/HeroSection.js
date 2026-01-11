@@ -274,7 +274,6 @@ const containerStyle = {
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
   color: "#0b1220",
   overflow: "hidden",
-  background: "#FFFFFF",
 };
 
 
@@ -399,7 +398,7 @@ const happyUsersTextStyle = {
     width: isMobile ? "100%" : "75%",
     display: "flex",
     flexDirection: isMobile ? "column" : "row",
-    gap: isMobile ? "0px" : "16px",
+    gap: isMobile ? "12px" : "8px",
     justifyContent: isMobile ? "center" : "flex-start",
     alignItems: "stretch",
     marginTop: "clamp(8px, 2vw, 16px)",
@@ -463,7 +462,29 @@ const inputWrapStyle = {
 
   };
 
-  const startBtnHoverStyle = isHovered
+    const loginBtnStyle = {
+    // appearance: "none",
+    background: "none",
+    border: "1px solid #37353E",
+    height: isMobile ? "52px" : "52px",
+    width: isMobile ? "100%" : "80%",
+    padding: "0 28px",
+    fontSize: "16px",
+    fontWeight: 600,
+    borderRadius: "8px",
+    cursor: "pointer",
+    color: "#37353E",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+    alignSelf: isMobile ? "stretch" : "auto"
+
+  };
+
+  const loginBtnHoverStyle = isHovered
+    ? { boxShadow: "0 10px 18px rgba(0,0,0,0.16)", background: "#37353E", color : '#FFFFFF'}
+    : {};
+
+     const startBtnHoverStyle = isHovered
     ? { transform: "translateY(-1px)", boxShadow: "0 10px 18px rgba(0,0,0,0.16)" }
     : {};
 
@@ -933,6 +954,17 @@ const highlightTextMobile = {
 
             <button
             onClick={()=> navigate('/professional/login')}
+              style={{ ...loginBtnStyle, ...loginBtnHoverStyle }}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              aria-label="Sign In"
+              disabled={availability === "checking"}
+            >
+              Sign In
+            </button>
+
+              <button
+            onClick={()=> navigate('/professional/login')}
               style={{ ...startBtnStyle, ...startBtnHoverStyle }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
@@ -941,6 +973,7 @@ const highlightTextMobile = {
             >
               Try for free →
             </button>
+
           </div>
 
 
