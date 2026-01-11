@@ -30,6 +30,7 @@ import {
   Divider
 
 } from "@mui/material";
+import { useSnackbar } from "./SnackbarProvider";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SendIcon from "@mui/icons-material/Send";
@@ -577,6 +578,7 @@ export default function SetupAutomation() {
   const [flowNodes, setFlowNodes] = useState([]);
   const [keywords, setKeywords] = useState(['Diet', 'Link']);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const showSnackbar = useSnackbar();
 
   // three replies (prefilled)
   const [replies, setReplies] = useState([
@@ -5297,7 +5299,7 @@ const leftPosition = stepPercent * (index + 1)
 
   // Render Follow Check Branch
   const renderFollowCheckBranch = (node) => {
-  const splitY = 30, downHeight = 50;
+  const splitY = 60, downHeight = 60;
   const anchors = ["10%", "90%"];
   const isFollowingMaxReached = node.followingButtons.length >= 3;
   return (
@@ -5319,6 +5321,8 @@ const leftPosition = stepPercent * (index + 1)
                 borderRadius: 3,
                 border: "2px solid #10B981",
                 bgcolor: "#F0FDF4",
+                pb: 8.25,
+
               }}
             >
               <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
@@ -5353,7 +5357,7 @@ const leftPosition = stepPercent * (index + 1)
                 />
 
               {/* DISABLED LOGIC HERE */}
-                  <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+                  {/* <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
                     <span>
                       <Button
                         size="small"
@@ -5373,7 +5377,7 @@ const leftPosition = stepPercent * (index + 1)
                         Add Button
                       </Button>
                     </span>
-                  </Tooltip>
+                  </Tooltip> */}
               </Stack>
             </Card>
 
@@ -6132,9 +6136,23 @@ const handleLaunchAutomation = async () => {
     setConfDialogOpen(false);
 
     if (!dmMessage.trim()) {
-      toast.error("Please enter a DM message");
+      showSnackbar("Please enter a DM message", "error");
       return;
     }
+
+     if (!keywords || keywords.length === 0) {
+    showSnackbar("At least one keyword is mandatory", "error");
+    return;
+  }
+
+  if (
+  !replies ||
+  replies.length !== 3 ||
+  replies.some((reply) => !reply || !reply.trim())
+) {
+  showSnackbar("Please add all 3 reply messages", "error");
+  return;
+}
 
     try {
       const payload = {

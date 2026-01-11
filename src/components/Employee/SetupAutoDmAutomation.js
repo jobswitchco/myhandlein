@@ -66,6 +66,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import MessageIcon from '@mui/icons-material/MessageOutlined';
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'; // Add Icon
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'; // Add Icon
+import { useSnackbar } from "./SnackbarProvider";
 
 // --- FINAL UPDATED PHONE SIMULATOR ---
 const PhoneSimulator = ({ 
@@ -587,6 +588,7 @@ export default function SetupAutoDmAutomation() {
   const [expanded, setExpanded] = useState(false);
   const [selectedNodeType, setSelectedNodeType] = useState(null);
   const [loading, setLoading] = useState(true);
+    const showSnackbar = useSnackbar();
   
  
  const [inputValue, setInputValue] = useState("");
@@ -5384,7 +5386,7 @@ const leftPosition = stepPercent * (index + 1)
                 />
 
               {/* DISABLED LOGIC HERE */}
-                  <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+                  {/* <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
                     <span>
                       <Button
                         size="small"
@@ -5404,7 +5406,7 @@ const leftPosition = stepPercent * (index + 1)
                         Add Button
                       </Button>
                     </span>
-                  </Tooltip>
+                  </Tooltip> */}
               </Stack>
             </Card>
 
@@ -6164,8 +6166,13 @@ const leftPosition = stepPercent * (index + 1)
 const handleLaunchAutomation = async () => {
   setConfDialogOpen(false);
 
-  if (!dmMessage.trim()) {
-    toast.error("Please enter a DM message");
+ if (!dmMessage.trim()) {
+      showSnackbar("Please enter a DM message", "error");
+      return;
+    }
+
+      if (!keywords || keywords.length === 0) {
+    showSnackbar("At least one keyword is mandatory", "error");
     return;
   }
 

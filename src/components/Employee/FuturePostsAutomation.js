@@ -70,7 +70,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import MessageIcon from '@mui/icons-material/MessageOutlined';
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'; // Add Icon
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'; // Add Icon
-
+import { useSnackbar } from "./SnackbarProvider";
 // --- FINAL UPDATED PHONE SIMULATOR ---
 const PhoneSimulator = ({ 
   dmMessage, 
@@ -587,6 +587,8 @@ export default function FuturePostsAutomation() {
      "Please check DMs!",
      "Thank you! Please check DM"
    ]);
+  const showSnackbar = useSnackbar();
+   
 
   const [existingAutomation, setExistingAutomation] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -5425,7 +5427,7 @@ const leftPosition = stepPercent * (index + 1)
                 />
 
               {/* DISABLED LOGIC HERE */}
-                  <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
+                  {/* <Tooltip title={isFollowingMaxReached ? "You can add max 3 options" : ""} arrow placement="top">
                     <span>
                       <Button
                         size="small"
@@ -5445,7 +5447,7 @@ const leftPosition = stepPercent * (index + 1)
                         Add Button
                       </Button>
                     </span>
-                  </Tooltip>
+                  </Tooltip> */}
               </Stack>
             </Card>
 
@@ -6201,10 +6203,24 @@ const leftPosition = stepPercent * (index + 1)
 const handleLaunchAutomation = async () => {
     setConfDialogOpen(false);
 
-    if (!dmMessage.trim()) {
-      toast.error("Please enter a DM message");
+  if (!dmMessage.trim()) {
+      showSnackbar("Please enter a DM message", "error");
       return;
     }
+
+     if (!keywords || keywords.length === 0) {
+    showSnackbar("At least one keyword is mandatory", "error");
+    return;
+  }
+
+  if (
+  !replies ||
+  replies.length !== 3 ||
+  replies.some((reply) => !reply || !reply.trim())
+) {
+  showSnackbar("Please add all 3 reply messages", "error");
+  return;
+}
 
     try {
       const payload = {

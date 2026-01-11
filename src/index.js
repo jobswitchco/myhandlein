@@ -6,6 +6,7 @@ import store from './store/store.js';
 import reportWebVitals from './reportWebVitals.js';
 import { Provider } from 'react-redux';
 import getSubdomain from './Utils/getSubdomain.js';
+import { SnackbarProvider } from './components/Employee/SnackbarProvider.js';
 
 // Read server-injected initial profile if present
 let initialProfile = null;
@@ -29,7 +30,10 @@ const rootElement = document.getElementById('root');
 
 const AppTree = (
   <Provider store={store}>
+    <SnackbarProvider>
     <App initialSubdomain={initialSubdomain} initialProfile={initialProfile} />
+  </SnackbarProvider>
+
   </Provider>
 );
 
