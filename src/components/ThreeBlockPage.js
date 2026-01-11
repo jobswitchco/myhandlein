@@ -108,7 +108,14 @@ const Section1 = () => {
         zIndex: 1,
       }}>
         {/* Left: Stats Dashboard */}
-        <div style={{ flex: "1 1 50%", width: "100%" }}>
+        <div
+  style={{
+    flex: "1 1 50%",
+    width: "100%",
+    order: isMobile ? 2 : 1,
+  }}
+>
+
           <div style={{
             background: "linear-gradient(145deg, rgba(42, 42, 42, 0.9) 0%, rgba(50, 50, 50, 0.85) 100%)",
             border: "1px solid rgba(255, 255, 255, 0.12)",
@@ -193,7 +200,13 @@ const Section1 = () => {
         </div>
 
         {/* Right: Content */}
-        <div style={{ flex: "1 1 50%" }}>
+      <div
+  style={{
+    flex: "1 1 50%",
+    order: isMobile ? 1 : 2,
+  }}
+>
+
           <div style={{
             display: "inline-flex",
             alignItems: "center",
@@ -313,7 +326,14 @@ const Section2 = () => {
       }}>
 
         {/* Left: Capacity Visualization */}
-        <div style={{ flex: "1 1 50%", width: "100%" }}>
+        <div
+  style={{
+    flex: "1 1 50%",
+    width: "100%",
+    order: isMobile ? 2 : 1,
+  }}
+>
+
           <div style={{
             background: "linear-gradient(145deg, rgba(139,92,246,0.15), rgba(99,102,241,0.1))",
             border: "2px solid rgba(139,92,246,0.4)",
@@ -452,7 +472,13 @@ const Section2 = () => {
         </div>
 
         {/* Right: Content */}
-        <div style={{ flex: "1 1 50%" }}>
+        <div
+  style={{
+    flex: "1 1 50%",
+    order: isMobile ? 1 : 2,
+  }}
+>
+
           <div style={{
             display: "inline-flex",
             alignItems: "center",
@@ -482,14 +508,7 @@ const Section2 = () => {
             Never think about limits again.
           </h2>
 
-          <p style={{ 
-            fontSize: isMobile ? "1.15rem" : "1.3rem", 
-            lineHeight: 1.7, 
-            color: "rgba(255,255,255,0.8)", 
-            marginBottom: 24 
-          }}>
-            Most tools force you to slow down when engagement spikes, cap your responses, or make you worry about exhausting quotas.
-          </p>
+        
 
           <p style={{ 
             fontSize: isMobile ? "1.15rem" : "1.3rem", 
@@ -497,7 +516,7 @@ const Section2 = () => {
             color: "rgba(255,255,255,0.8)", 
             marginBottom: 32 
           }}>
-            With <span style={{ fontWeight: 700, color: "#A78BFA" }}>25 lakh auto-replies per month</span>, MyHandle keeps your conversations flowing—so you never hesitate, throttle, or hold back while growing.
+            Most tools force you to slow down when engagement spikes. With <span style={{ fontWeight: 700, color: "#A78BFA" }}>25 lakh auto-replies per month</span>, MyHandle keeps your conversations flowing.
           </p>
 
           <div style={{
@@ -616,101 +635,7 @@ const Section3 = () => {
         zIndex: 1,
       }}>
 
-        {/* Left: Content */}
-        <div style={{ flex: "1 1 50%" }}>
-          <div style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            background: "rgba(16,185,129,0.18)",
-            border: "1px solid rgba(16,185,129,0.4)",
-            borderRadius: 100,
-            padding: "10px 24px",
-            marginBottom: 24,
-          }}>
-            <MailIcon size={18} color="#10B981" strokeWidth={2.5} />
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#10B981" }}>
-              Clarity over chaos
-            </span>
-          </div>
-
-          <h2 style={{
-            fontSize: isMobile ? "clamp(2rem,7vw,3rem)" : "clamp(2.8rem,5vw,4rem)",
-            fontWeight: 900,
-            letterSpacing: "-0.03em",
-            marginBottom: 24,
-            lineHeight: 1.15,
-            background: "linear-gradient(135deg,#FFF 0%,#6EE7B7 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}>
-            Stop scanning DMs. Start spotting clients.
-          </h2>
-
-          <p style={{ 
-            fontSize: isMobile ? "1.15rem" : "1.3rem", 
-            lineHeight: 1.7, 
-            color: "rgba(255,255,255,0.8)", 
-            marginBottom: 24 
-          }}>
-            When everything lands in one noisy inbox, you waste hours reading and guessing which conversations actually matter.
-          </p>
-
-          <p style={{ 
-            fontSize: isMobile ? "1.15rem" : "1.3rem", 
-            lineHeight: 1.7, 
-            color: "rgba(255,255,255,0.8)", 
-            marginBottom: 32 
-          }}>
-            MyHandle brings <span style={{ fontWeight: 700, color: "#10B981" }}>instant clarity</span>—so you focus only on messages that can turn into real clients.
-          </p>
-
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            padding: "24px 28px",
-            background: "rgba(16,185,129,0.08)",
-            border: "1px solid rgba(16,185,129,0.25)",
-            borderRadius: 16,
-          }}>
-            {[
-              "AI categorizes every conversation instantly",
-              "See buyer intent before opening messages",
-              "Prioritize high-value leads automatically"
-            ].map((text, i) => (
-              <div key={i} style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}>
-                <div style={{
-                  minWidth: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  background: "linear-gradient(135deg, #10B981, #059669)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 14,
-                  fontWeight: 900,
-                  color: "#FFF",
-                }}>
-                  ✓
-                </div>
-                <span style={{
-                  fontSize: isMobile ? "0.95rem" : "1.05rem",
-                  color: "rgba(255,255,255,0.9)",
-                  fontWeight: 500,
-                }}>
-                  {text}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right: Smart Inbox Visualization */}
+         {/* Right: Smart Inbox Visualization */}
         <div style={{ flex: "1 1 50%", width: "100%" }}>
           <div style={{
             background: "linear-gradient(145deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.08) 100%)",
@@ -887,6 +812,94 @@ const Section3 = () => {
             </div>
           </div>
         </div>
+
+        {/* Left: Content */}
+        <div style={{ flex: "1 1 50%" }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            background: "rgba(16,185,129,0.18)",
+            border: "1px solid rgba(16,185,129,0.4)",
+            borderRadius: 100,
+            padding: "10px 24px",
+            marginBottom: 24,
+          }}>
+            <MailIcon size={18} color="#10B981" strokeWidth={2.5} />
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#10B981" }}>
+              Clarity over chaos
+            </span>
+          </div>
+
+          <h2 style={{
+            fontSize: isMobile ? "clamp(2rem,7vw,3rem)" : "clamp(2.8rem,5vw,4rem)",
+            fontWeight: 900,
+            letterSpacing: "-0.03em",
+            marginBottom: 24,
+            lineHeight: 1.15,
+            background: "linear-gradient(135deg,#FFF 0%,#6EE7B7 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>
+            Stop scanning DMs. Start spotting clients.
+          </h2>
+
+          <p style={{ 
+            fontSize: isMobile ? "1.15rem" : "1.3rem", 
+            lineHeight: 1.7, 
+            color: "rgba(255,255,255,0.8)", 
+            marginBottom: 24 
+          }}>
+            When everything lands in one noisy inbox, you waste hours reading and guessing which conversations actually matter.
+          </p>
+
+
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            padding: "24px 28px",
+            background: "rgba(16,185,129,0.08)",
+            border: "1px solid rgba(16,185,129,0.25)",
+            borderRadius: 16,
+          }}>
+            {[
+              "MyHandle categorizes every conversation instantly",
+              "See buyer intent before opening messages",
+              "Prioritize high-value leads automatically"
+            ].map((text, i) => (
+              <div key={i} style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}>
+                <div style={{
+                  minWidth: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #10B981, #059669)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  fontWeight: 900,
+                  color: "#FFF",
+                }}>
+                  ✓
+                </div>
+                <span style={{
+                  fontSize: isMobile ? "0.95rem" : "1.05rem",
+                  color: "rgba(255,255,255,0.9)",
+                  fontWeight: 500,
+                }}>
+                  {text}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+       
       </div>
     </div>
   );
@@ -1251,8 +1264,7 @@ const Section6 = () => {
   const steps = [
     { title: "Comment", desc: "A user engages on your post" },
     { title: "Auto DM", desc: "Instant, human-like reply is sent" },
-    { title: "Lead Tag", desc: "Buyer intent is detected & labeled" },
-    { title: "WhatsApp", desc: "Hot leads are pushed instantly" },
+    { title: "WhatsApp", desc: "Buyer intent is detected & pushed instantly" },
     { title: "Client", desc: "You close faster with clarity" },
   ];
 

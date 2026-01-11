@@ -15,13 +15,13 @@ import { styled } from "@mui/material/styles";
 
 const faqs = [
   {
-    question: "What exactly is myHandle?",
+    question: "What exactly is MyHandle?",
     answer: `
-myHandle is a **Instagram Auto DM and Automation Tool**: built for Fitness Creators with one fast page with your links, actions (WhatsApp, Call, Maps), payments, and analytics — all on a **custom subdomain** like <strong>yourname.myhandle.in</strong>.
-
-- Built to be **mobile-first** and super quick to launch.
+MyHandle is an **Instagram DM automation and lead conversion platform** built specifically for fitness creators and coaches.
+- It captures high-intent Instagram DMs, identifies serious buyers, and sends qualified leads directly to WhatsApp—so fitness professionals close clients faster without manual follow-ups.
+- MyHandle also gives you a high-converting bio link with WhatsApp, call, payment, and action buttons, plus real-time analytics to track clicks and conversions—all on a fast, mobile-first page like yourname.myhandle.in.
 - Great for Instagram, YouTube, LinkedIn bios, QR codes, and business cards.
-- If you need multi-page content or blogs, you can still link out to your main site from myHandle.
+
     `,
   },
 

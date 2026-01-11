@@ -175,7 +175,7 @@ export default function AllFeatures() {
             fontFamily: "Inter",
           }}
         >
-          Powerful Features
+          Powerful Featues
         </Typography>
 
         <Typography
@@ -196,7 +196,7 @@ export default function AllFeatures() {
             WebkitTextFillColor: "transparent",
           }}
         >
-          Everything you need to turn engagement into action
+          Everything you need to turn engagement into action.
         </Typography>
 
         <Typography
@@ -213,8 +213,7 @@ export default function AllFeatures() {
             fontFamily: "Inter",
           }}
         >
-          Automate conversations, respond instantly, and stay consistent —
-          without sounding robotic or losing control.
+          Automate conversations, respond instantly, and stay consistent.
         </Typography>
       </Box>
 
