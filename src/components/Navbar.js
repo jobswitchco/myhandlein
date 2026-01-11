@@ -217,6 +217,24 @@ const headerStyle = {
     whiteSpace: "nowrap",
   };
 
+    const startBtnStyle = {
+    appearance: "none",
+    border: "none",
+    height: isMobile ? "52px" : "46px",
+    width: "100%",
+    padding: "0 28px",
+    fontSize: "16px",
+    fontWeight: 600,
+    borderRadius: "8px",
+    cursor: "pointer",
+    background: "#37353E",
+    color: "#FFFFFF",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+    alignSelf: isMobile ? "stretch" : "auto"
+
+  };
+
   const mobileMenuStyle = {
     position: "absolute",
     top: "100%",
@@ -394,37 +412,55 @@ const headerStyle = {
             )}
           </div> */}
 
-          <Link to="/pricing" style={navItemStyle}>Pricing</Link>
+          {/* <Link to="/pricing" style={navItemStyle}>Pricing</Link>
           <Link to="/trust-center" style={navItemStyle}>Trust Center</Link>
-        
+         */}
         </nav>
       </div>
 
       {/* RIGHT: Join Waitlist (desktop only) and mobile hamburger */}
-      <div style={rightStyle}>
+    <div style={rightStyle}>
 
-        {/* hamburger visible only on mobile */}
-        <button
-          onClick={() => setMobileOpen((s) => !s)}
-          aria-label="Toggle menu"
-          aria-expanded={mobileOpen}
-          style={{
-            marginLeft: 6,
-            border: "none",
-            background: "transparent",
-            padding: 8,
-            display: isMobile ? "inline-flex" : "none",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            borderRadius: 8,
-          }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
-            <path d="M3 6h18M3 12h18M3 18h18" stroke="#0f1724" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </div>
+  {/* Try for Free — desktop only */}
+  {/* {!isMobile && (
+    <button
+      style={startBtnStyle}
+      onClick={() => navigate("/professional/login")}
+    >
+      Try for Free →
+    </button>
+  )} */}
+
+  {/* hamburger visible only on mobile */}
+  <button
+    onClick={() => setMobileOpen((s) => !s)}
+    aria-label="Toggle menu"
+    aria-expanded={mobileOpen}
+    style={{
+      marginLeft: 6,
+      border: "none",
+      background: "transparent",
+      padding: 8,
+      display: isMobile ? "inline-flex" : "none",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      borderRadius: 8,
+    }}
+  >
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M3 6h18M3 12h18M3 18h18"
+        stroke="#0f1724"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </button>
+
+</div>
+
 
       {/* MOBILE MENU */}
       {isMobile && (

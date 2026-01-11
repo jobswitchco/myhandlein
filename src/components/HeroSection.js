@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import metaIcon from "../images/meta.png"
+import avatar1 from "../images/IMG_8696.jpeg";
+import avatar2 from "../images/IMG_8697.jpeg";
+import avatar3 from "../images/IMG_8699.jpeg";
+import avatar4 from "../images/IMG_8698.jpeg";
 
 export default function Hero({
   heroImage = "https://storage.googleapis.com/myhandlewebbucket/landingpage_imgs/Hero_Img.png"
@@ -120,7 +124,7 @@ const SmartInboxCard = ({ isMobile }) => {
           transform: isMobile ? undefined : "rotate(10deg)",
           zIndex: 4,
           ...applyMobileScramble(0),
-         ...getCardAnimation(0, isMobile ? applyMobileScramble(0).transform : "rotate(10deg)"),
+        //  ...getCardAnimation(0, isMobile ? applyMobileScramble(0).transform : "rotate(10deg)"),
 
         }}
       >
@@ -142,7 +146,7 @@ const SmartInboxCard = ({ isMobile }) => {
             : "translateX(-50%) rotate(-2deg)",
           zIndex: 3,
           ...applyMobileScramble(1),
-            ...getCardAnimation(1, isMobile ? applyMobileScramble(1).transform : "translateX(-50%) rotate(-2deg)"),
+            // ...getCardAnimation(1, isMobile ? applyMobileScramble(1).transform : "translateX(-50%) rotate(-2deg)"),
 
         }}
       >
@@ -162,7 +166,7 @@ const SmartInboxCard = ({ isMobile }) => {
           transform: isMobile ? undefined : "rotate(-6deg)",
           zIndex: 2,
           ...applyMobileScramble(2),
-         ...getCardAnimation(2, isMobile ? applyMobileScramble(2).transform : "rotate(-6deg)"),
+        //  ...getCardAnimation(2, isMobile ? applyMobileScramble(2).transform : "rotate(-6deg)"),
 
         }}
       >
@@ -183,7 +187,7 @@ const SmartInboxCard = ({ isMobile }) => {
           zIndex: 1,
           opacity: isMobile ? undefined : 0.95,
           ...applyMobileScramble(3),
-           ...getCardAnimation(3, isMobile ? applyMobileScramble(3).transform : "rotate(4deg)"),  // ← PASS TRANSFORM
+          //  ...getCardAnimation(3, isMobile ? applyMobileScramble(3).transform : "rotate(4deg)"),  // ← PASS TRANSFORM
 
         }}
       >
@@ -264,8 +268,7 @@ const containerStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding:
-    "clamp(100px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px)",
+  padding: "clamp(140px, 10vh, 160px) clamp(16px, 8vw, 86px) clamp(24px, 8vh, 120px)",
   boxSizing: "border-box",
   fontFamily:
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
@@ -289,10 +292,10 @@ const layoutStyle = {
 
 
 const leftColStyle = {
-  flex: isMobile ? "0 1 auto" : "1 1 45%",
+  flex: isMobile ? "0 1 auto" : "1 1 50%",
   display: "flex",
   flexDirection: "column",
-  alignItems: isMobile ? "center" : "flex-start",
+  alignItems: isMobile ? "flex-start" : "flex-start",
   textAlign: isMobile ? "center" : "left",
   minWidth: 0,
   width: "100%", // ✅ ADD THIS - ensures full width control
@@ -301,7 +304,7 @@ const leftColStyle = {
 
 
 const rightColStyle = {
-  flex: isMobile ? "0 1 auto" : "1 1 55%",
+  flex: isMobile ? "0 1 auto" : "1 1 50%",
   width: "100%",
   display: "flex",
   justifyContent: "center",
@@ -361,6 +364,35 @@ const subStyle = {
     fontSize: "clamp(2.3rem, 4vw, 3.5rem)",
 
   };
+
+  const happyUsersRowStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  marginBottom: "2%",
+};
+
+const avatarStackStyle = {
+  display: "flex",
+  alignItems: "center",
+};
+
+const avatarStyle = (index) => ({
+  width: isMobile ? 28 : 30,
+  height: isMobile ? 28 : 30,
+  borderRadius: "50%",
+  objectFit: "cover",
+  marginLeft: index === 0 ? 0 : -12, // 👈 overlap
+  boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+});
+
+const happyUsersTextStyle = {
+  fontSize: isMobile ? "12px" : "15px",
+  fontWeight: 600,
+  color: "#0b1220",
+  whiteSpace: "nowrap",
+};
+
 
   // === CTA row with subdomain input + button (no external CSS)
   const ctaRowStyle = {
@@ -826,6 +858,22 @@ const highlightTextMobile = {
       <div style={layoutStyle}>
         {/* LEFT: Content */}
         <div style={leftColStyle}>
+
+          {/* Happy Users */}
+<div style={happyUsersRowStyle}>
+  <div style={avatarStackStyle}>
+    <img src={avatar1} alt="User 1" style={avatarStyle(0)} />
+    <img src={avatar2} alt="User 2" style={avatarStyle(1)} />
+    <img src={avatar3} alt="User 3" style={avatarStyle(2)} />
+    <img src={avatar4} alt="User 4" style={avatarStyle(3)} />
+  </div>
+
+  <span style={happyUsersTextStyle}>
+    12,635 Happy Creators
+  </span>
+</div>
+
+
           {/* Desktop headline */}
         <h1 style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}>
   Convert{" "}
