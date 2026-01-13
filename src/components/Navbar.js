@@ -180,7 +180,6 @@ const headerStyle = {
     borderRadius: "8px",
     cursor: "pointer",
     background: "none",
-    border: "1px solid #37353E",
     color: "#37353E",
     boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
     transition: "transform 0.15s ease, box-shadow 0.15s ease",

@@ -5565,14 +5565,143 @@ async function scoreConversationStage1(messages) {
 
 
 
+// router.get("/conversations", authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user.user_id;
+//     const limit = Math.min(Number(req.query.limit) || 10, 20);
+
+//     const cursor = req.query.cursor
+//       ? JSON.parse(Buffer.from(req.query.cursor, "base64").toString())
+//       : null;
+
+//     const user = await USER.findById(userId)
+//       .select("+fbPageAccessToken")
+//       .lean();
+
+//     if (!user?.fbPageAccessToken) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "No Facebook Page access token",
+//       });
+//     }
+
+//     const query = {
+//       creatorId: userId,
+//       ...(cursor && {
+//         $or: [
+//           { lastActivityAt: { $lt: new Date(cursor.lastActivityAt) } },
+//           {
+//             lastActivityAt: new Date(cursor.lastActivityAt),
+//             _id: { $lt: cursor._id },
+//           },
+//         ],
+//       }),
+//     };
+
+//     const docs = await Conversation.find(query)
+//       .sort({ lastActivityAt: -1, _id: -1 })
+//       .limit(limit + 1)
+//       .populate({
+//         path: "participantId",
+//         select: "igUserId username",
+//       })
+//       .lean();
+
+//     const hasMore = docs.length > limit;
+//     const page = hasMore ? docs.slice(0, limit) : docs;
+
+//     const nextCursor = hasMore
+//       ? Buffer.from(
+//           JSON.stringify({
+//             lastActivityAt: page[page.length - 1].lastActivityAt,
+//             _id: page[page.length - 1]._id,
+//           })
+//         ).toString("base64")
+//       : null;
+
+//     const enriched = [];
+//     const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+//     for (const c of page) {
+//       const igUserId = c.participantId?.igUserId;
+//       let profile = null;
+
+//       if (igUserId) {
+//         // 🔥 FIX: Always try cache first
+//         profile = await getCachedProfile(igUserId);
+
+//         // 🔥 FIX: If cache miss, fetch SYNCHRONOUSLY on first page
+//         // This ensures initial load has all profile pics
+//         if (!profile && !cursor) {
+//           console.log(`🔄 Blocking profile fetch for ${igUserId} (initial load)`);
+//           profile = await fetchAndCacheProfileSafely({
+//             igUserId,
+//             accessToken: user.fbPageAccessToken,
+//             conversationId: c._id,
+//             creatorId: userId,
+//             publishSocketEvent,
+//           });
+//         }
+//         // On pagination, fetch async (don't block response)
+//         else if (!profile && cursor) {
+//           fetchAndCacheProfileSafely({
+//             igUserId,
+//             accessToken: user.fbPageAccessToken,
+//             conversationId: c._id,
+//             creatorId: userId,
+//             publishSocketEvent,
+//           }).catch(() => {});
+//         }
+//       }
+
+//       const lastParticipantMessageAt = c.lastParticipantMessageAt;
+//       let canReply = false;
+//       let replyDisabledReason = null;
+
+//       if (lastParticipantMessageAt) {
+//         const diff = Date.now() - new Date(lastParticipantMessageAt).getTime();
+//         canReply = diff <= WINDOW_MS;
+//         if (!canReply) replyDisabledReason = "window_expired";
+//       } else {
+//         replyDisabledReason = "waiting_for_reply";
+//       }
+
+//       enriched.push({
+//         _id: c._id,
+//         igConversationId: c.igConversationId,
+//         label: c.label,
+//         unreadCount: c.unreadCount,
+//         lastMessage: c.lastMessage,
+//         lastActivityAt: c.lastActivityAt,
+//         lastParticipantMessageAt,
+//         canReply,
+//         replyDisabledReason,
+//         notes: c.notes || { text: "", updatedAt: null },
+//         participant: {
+//           igUserId,
+//           username: c.participantId?.username || null,
+//           name: profile?.name || null,
+//           profilePic: profile?.profilePic || null,
+//         },
+//       });
+//     }
+
+//     res.json({
+//       success: true,
+//       data: enriched,
+//       nextCursor,
+//       hasMore,
+//     });
+//   } catch (err) {
+//     console.error("❌ Fetch conversations error:", err);
+//     res.status(500).json({ success: false });
+//   }
+// });
+
+
 router.get("/conversations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.user_id;
-    const limit = Math.min(Number(req.query.limit) || 10, 20);
-
-    const cursor = req.query.cursor
-      ? JSON.parse(Buffer.from(req.query.cursor, "base64").toString())
-      : null;
 
     const user = await USER.findById(userId)
       .select("+fbPageAccessToken")
@@ -5585,55 +5714,29 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       });
     }
 
-    const query = {
+    // 🔥 FETCH ALL CONVERSATIONS FROM DB (NO PAGINATION)
+    const docs = await Conversation.find({
       creatorId: userId,
-      ...(cursor && {
-        $or: [
-          { lastActivityAt: { $lt: new Date(cursor.lastActivityAt) } },
-          {
-            lastActivityAt: new Date(cursor.lastActivityAt),
-            _id: { $lt: cursor._id },
-          },
-        ],
-      }),
-    };
-
-    const docs = await Conversation.find(query)
+    })
       .sort({ lastActivityAt: -1, _id: -1 })
-      .limit(limit + 1)
       .populate({
         path: "participantId",
         select: "igUserId username",
       })
       .lean();
 
-    const hasMore = docs.length > limit;
-    const page = hasMore ? docs.slice(0, limit) : docs;
-
-    const nextCursor = hasMore
-      ? Buffer.from(
-          JSON.stringify({
-            lastActivityAt: page[page.length - 1].lastActivityAt,
-            _id: page[page.length - 1]._id,
-          })
-        ).toString("base64")
-      : null;
-
     const enriched = [];
     const WINDOW_MS = 24 * 60 * 60 * 1000;
 
-    for (const c of page) {
+    for (const c of docs) {
       const igUserId = c.participantId?.igUserId;
       let profile = null;
 
       if (igUserId) {
-        // 🔥 FIX: Always try cache first
         profile = await getCachedProfile(igUserId);
 
-        // 🔥 FIX: If cache miss, fetch SYNCHRONOUSLY on first page
-        // This ensures initial load has all profile pics
-        if (!profile && !cursor) {
-          console.log(`🔄 Blocking profile fetch for ${igUserId} (initial load)`);
+        // Blocking is OK: ≤100 conversations
+        if (!profile) {
           profile = await fetchAndCacheProfileSafely({
             igUserId,
             accessToken: user.fbPageAccessToken,
@@ -5641,16 +5744,6 @@ router.get("/conversations", authenticateToken, async (req, res) => {
             creatorId: userId,
             publishSocketEvent,
           });
-        }
-        // On pagination, fetch async (don't block response)
-        else if (!profile && cursor) {
-          fetchAndCacheProfileSafely({
-            igUserId,
-            accessToken: user.fbPageAccessToken,
-            conversationId: c._id,
-            creatorId: userId,
-            publishSocketEvent,
-          }).catch(() => {});
         }
       }
 
@@ -5686,11 +5779,12 @@ router.get("/conversations", authenticateToken, async (req, res) => {
       });
     }
 
+    // 🔑 Important: DB phase is COMPLETE
     res.json({
       success: true,
       data: enriched,
-      nextCursor,
-      hasMore,
+      hasMore: false,      // DB exhausted
+      nextCursor: null,    // Cursor now belongs to META fetch flow
     });
   } catch (err) {
     console.error("❌ Fetch conversations error:", err);
