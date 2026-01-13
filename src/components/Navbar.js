@@ -76,12 +76,12 @@ const headerStyle = {
   width: "100%",
 
   /* 👇 Matches hero gradient + grid tone */
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.85) 70%, rgba(255,255,255,0.7) 100%)",
-
+    background:
+        "radial-gradient(1200px 600px at 15% 20%, #C7C8CC, transparent 100%)," +
+        "radial-gradient(1000px 600px at 40% 80%, #FCF8F8, transparent 65%)",
+  
   backdropFilter: "blur(10px)",
   WebkitBackdropFilter: "blur(10px)",
-
   padding: "0px 15px",
   display: "flex",
   alignItems: "center",
@@ -105,14 +105,6 @@ const headerStyle = {
     textDecoration: "none",
     color: "inherit",
     minWidth: 0,
-  };
-
-  const brandTextStyle = {
-    fontWeight: 600,
-    fontSize: "1.25rem",
-    color: "#0b1220",
-    whiteSpace: "nowrap",
-    marginLeft : '12px'
   };
 
   const centerWrapStyle = {
@@ -142,14 +134,6 @@ const headerStyle = {
     fontWeight: 400
   };
 
-  const featuresBtnStyle = {
-    ...navItemStyle,
-    display: "inline-flex",
-    gap: 8,
-    alignItems: "center",
-    position: "relative",
-  };
-
   const arrowStyle = (open) => ({
     display: "inline-block",
     transition: "transform 170ms ease",
@@ -158,43 +142,6 @@ const headerStyle = {
     height: 14,
   });
 
-  const dropdownStyle = {
-    position: "absolute",
-    top: "calc(100% + 8px)",
-    left: "50%",
-    transform: "translateX(-50%)",
-    minWidth: 360,
-    maxWidth: 420,
-    background: "white",
-    borderRadius: 10,
-    boxShadow: "0 12px 32px rgba(2,6,23,0.12)",
-    padding: "12px",
-    border: "1px solid rgba(15,23,42,0.04)",
-    zIndex: 90,
-  };
-
-  const dropdownItemStyle = {
-    display: "flex",
-    gap: 12,
-    alignItems: "flex-start",
-    padding: "12px 10px",
-    borderRadius: 8,
-    textDecoration: "none",
-    color: "#0f1724",
-    cursor: "pointer",
-  };
-
-  const itemTitleStyle = {
-    fontWeight: 700,
-    fontSize: "0.98rem",
-    marginBottom: 4,
-  };
-
-  const itemDescStyle = {
-    fontSize: "0.88rem",
-    color: "#6b7280",
-    lineHeight: 1.35,
-  };
 
   const rightStyle = {
     display: "flex",
@@ -203,19 +150,6 @@ const headerStyle = {
     marginLeft: '10%',
   };
 
-  const joinBtnStyle = {
-    padding: "10px 16px",
-    borderRadius: 999,
-    background:
-      "linear-gradient(90deg, #2563eb 0%, #3b82f6 40%, #60a5fa 100%)",
-    color: "white",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 700,
-    fontSize: "0.95rem",
-    boxShadow: "0 6px 18px rgba(43,108,255,0.12)",
-    whiteSpace: "nowrap",
-  };
 
     const startBtnStyle = {
     appearance: "none",
@@ -235,18 +169,42 @@ const headerStyle = {
 
   };
 
-  const mobileMenuStyle = {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
-    background: "#f5f7f8",
-    borderTop: "1px solid rgba(15,23,42,0.04)",
-    boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
-    padding: 12,
-    display: mobileOpen ? "block" : "none",
-    zIndex: 80,
+  const leftSignInBtnStyle = {
+    appearance: "none",
+    border: "none",
+    height: isMobile ? "52px" : "46px",
+    width: "100%",
+    padding: "0 56px",
+    fontSize: "16px",
+    fontWeight: 600,
+    borderRadius: "8px",
+    cursor: "pointer",
+    background: "none",
+    border: "1px solid #37353E",
+    color: "#37353E",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+    alignSelf: isMobile ? "stretch" : "auto"
+
   };
+
+
+const mobileMenuStyle = {
+  position: "absolute",
+  top: "100%",
+  left: 0,
+  right: 0,
+  borderTop: "1px solid rgba(15,23,42,0.04)",
+  boxShadow: "0 10px 30px rgba(2,6,23,0.06)",
+  padding: 12,
+  display: mobileOpen ? "block" : "none",
+  zIndex: 80,
+  overflow: "hidden", // 👈 IMPORTANT for gradients
+  background: "rgba(255,255,255,0.85)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+};
+
 
   const mobileLinkStyle = {
     padding: "12px 10px",
@@ -256,7 +214,9 @@ const headerStyle = {
     textDecoration: "none",
     color: "#0f1724",
     borderRadius: 8,
-    fontSize : "1rem"
+    fontSize : "1rem",
+    fontWeight: 600
+
   };
 
   // simple inline icons
@@ -311,10 +271,7 @@ const headerStyle = {
   <div
     style={{
       position: "absolute",
-      inset: 0,
-      background:
-        "radial-gradient(600px 200px at 10% 0%, rgba(221,42,123,0.18), transparent 60%)," +
-        "radial-gradient(500px 180px at 80% 0%, rgba(245,133,41,0.16), transparent 0%)",
+       background:'#C7C8CC'
     }}
   />
 
@@ -422,14 +379,14 @@ const headerStyle = {
     <div style={rightStyle}>
 
   {/* Try for Free — desktop only */}
-  {/* {!isMobile && (
+  {!isMobile && (
     <button
-      style={startBtnStyle}
+      style={leftSignInBtnStyle}
       onClick={() => navigate("/professional/login")}
     >
-      Try for Free →
+      Sign In
     </button>
-  )} */}
+  )}
 
   {/* hamburger visible only on mobile */}
   <button
@@ -462,40 +419,83 @@ const headerStyle = {
 </div>
 
 
-      {/* MOBILE MENU */}
-      {isMobile && (
-        <div style={mobileMenuStyle}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {/* <button onClick={() => setFeaturesOpen((s) => !s)} aria-expanded={featuresOpen} style={mobileLinkStyle}>
-              <span style={{ fontWeight: 700, fontSize : '15px' }}>Features</span>
-              <span style={{ transform: featuresOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-                  <path d="M6 9l6 6 6-6" stroke="#0f1724" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                </svg>
-              </span>
-            </button> */}
+    {/* MOBILE MENU */}
+{/* MOBILE MENU */}
+{isMobile && (
+  <div style={mobileMenuStyle}>
 
-            {/* {featuresOpen && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8 }}>
-                {submenu.map((s) => (
-                  <Link key={s.key} to={s.to} style={{ textDecoration: "none", color: "#0f1724", padding: "10px 8px", borderRadius: 8 }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div style={{ width: 36, height: 36 }}>{s.icon}</div>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{s.title}</div>
-                        <div style={{ fontSize: "0.88rem", color: "#6b7280" }}>{s.desc}</div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )} */}
+    {/* 🌈 Background layers */}
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+      }}
+    >
+      {/* Instagram-style gradient wash */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:"#C7C8CC"
+                 }}
+      />
 
-            <Link to="/pricing" style={mobileLinkStyle}>Pricing</Link>
-            <Link to="/trust-center" style={mobileLinkStyle}>Trust Center</Link>
-          </div>
-        </div>
-      )}
+      {/* Subtle grid */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `
+            linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px)
+          `,
+          backgroundSize: "72px 72px",
+          opacity: 0.25,
+        }}
+      />
+    </div>
+
+    {/* 🔗 Menu content */}
+    <div
+      style={{
+        position: "relative",
+        zIndex: 1,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      <Link to="/pricing" style={mobileLinkStyle}>
+        Pricing
+      </Link>
+
+      <Link to="/trust-center" style={mobileLinkStyle}>
+        Trust Center
+      </Link>
+
+      <Link
+        to="/professional/login"
+        style={{
+          ...mobileLinkStyle,
+          fontWeight: 600,
+          border: "1px solid rgba(15,23,42,0.08)",
+          background: "#37353E",
+          color: "#FFFFFF",
+          boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+          justifyContent: "center",
+          maxWidth: "80%",
+        }}
+        onClick={() => setMobileOpen(false)}
+      >
+        Sign In
+      </Link>
+    </div>
+  </div>
+)}
+
+
     </header>
   );
 }
