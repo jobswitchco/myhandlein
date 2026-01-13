@@ -591,6 +591,30 @@ useEffect(() => {
         )
       );
     }
+
+    if (payload.type === "conversation:created") {
+      const newConv = payload.data;
+      
+      console.log('🆕 New conversation created:', newConv._id);
+      
+      // Check if conversation already exists (dedupe)
+      setConversations(prev => {
+        if (conversationIdSetRef.current.has(newConv._id)) {
+          console.log('⚠️ Conversation already exists, skipping');
+          return prev;
+        }
+        
+        // Add to dedupe set
+        conversationIdSetRef.current.add(newConv._id);
+        
+        // Prepend new conversation to top of list
+        return [newConv, ...prev];
+      });
+      
+      // Optionally auto-select the new conversation
+      // setSelectedConversation(newConv);
+      // setSelectedConversationId(newConv._id);
+    }
   };
 
   socket.on("inbox:event", handleCreatorEvent);
@@ -786,20 +810,6 @@ if (payload.type === "participant:updated") {
     };
   });
 }
-
-if (payload.type === "conversation:created") {
-  setConversations(prev => {
-    if (conversationIdSetRef.current.has(payload.data._id)) return prev;
-
-    conversationIdSetRef.current.add(payload.data._id);
-    return [payload.data, ...prev];
-  });
-
-  setSelectedConversation(payload.data);
-  setSelectedConversationId(payload.data._id);
-  return;
-}
-
 
 
   };
