@@ -1,4 +1,5 @@
 // PricingPage.js
+import React, { useState } from 'react';
 import {
   Box,
   Grid,
@@ -6,440 +7,493 @@ import {
   Card,
   CardContent,
   Button,
-  useMediaQuery,
-  Chip,
-  Divider,
   Stack,
+  useMediaQuery,
+  useTheme,
+  alpha,
+  Divider,
+  Tooltip,
+  ClickAwayListener
 } from '@mui/material';
+
 import Navbar from './Navbar';
 import Footer from './Footer';
-import StarRoundedIcon from '@mui/icons-material/StarRounded';
-import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
-import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 
-// Feature Icons
-import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
-import ContactsRoundedIcon from '@mui/icons-material/ContactsRounded';
-import QuickreplyRoundedIcon from '@mui/icons-material/QuickreplyRounded';
-import SendRoundedIcon from '@mui/icons-material/SendRounded';
-import ShareRoundedIcon from '@mui/icons-material/ShareRounded';
-import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
-import GroupAddRoundedIcon from '@mui/icons-material/GroupAddRounded';
-import LanguageRoundedIcon from '@mui/icons-material/LanguageRounded';
-import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
-import TranslateRoundedIcon from '@mui/icons-material/TranslateRounded';
-import HttpsRoundedIcon from '@mui/icons-material/HttpsRounded';
-import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded';
-import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
-import InstagramIcon from '@mui/icons-material/Instagram';
-import WebStoriesOutlinedIcon from '@mui/icons-material/WebStoriesOutlined';
-import PolylineOutlinedIcon from '@mui/icons-material/PolylineOutlined';
-import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
-import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
-import LoyaltyOutlinedIcon from '@mui/icons-material/LoyaltyOutlined';
-import MoveDownOutlinedIcon from '@mui/icons-material/MoveDownOutlined';
-import CurrencyRupeeOutlinedIcon from '@mui/icons-material/CurrencyRupeeOutlined';
-import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
-import CardGiftcardOutlinedIcon from '@mui/icons-material/CardGiftcardOutlined';
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
-import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
-import AdUnitsOutlinedIcon from '@mui/icons-material/AdUnitsOutlined';
-import ShortcutOutlinedIcon from '@mui/icons-material/ShortcutOutlined';
-import OutdoorGrillOutlinedIcon from '@mui/icons-material/OutdoorGrillOutlined';
-import DownloadingOutlinedIcon from '@mui/icons-material/DownloadingOutlined';
-const PLAN = {
-  price: 399,
-  label: 'Monthly',
-  subLabel: 'Billed monthly',
-  cta: 'Start for ₹399',
-  note: '7 days free trial'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import DiamondOutlinedIcon from '@mui/icons-material/DiamondOutlined'; // Added for Pro Plan
+
+// --- SUB-COMPONENT FOR INDIVIDUAL FEATURE ROWS ---
+const FeatureRow = ({ item, isMobile }) => {
+  const [open, setOpen] = useState(false);
+
+  const isObject = typeof item === 'object';
+  const text = isObject ? item.text : item;
+  const tooltipText = isObject ? item.tooltip : null;
+
+  const handleMobileClick = () => {
+    setOpen((prev) => !prev);
+  };
+
+  const handleClickAway = () => {
+    setOpen(false);
+  };
+
+  const tooltipStyles = {
+    tooltip: {
+      bgcolor: '#1e293b',
+      color: '#fff',
+      fontSize: '0.85rem',
+      padding: '12px',
+      borderRadius: '8px',
+      border: `1px solid ${alpha('#fff', 0.1)}`,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+      fontFamily: 'Inter',
+      maxWidth: 220,
+      textAlign: 'center'
+    },
+    arrow: {
+      sx: { color: '#1e293b' }
+    }
+  };
+
+  return (
+    <Box display="flex" gap={1.5} alignItems="center">
+      <Box 
+        sx={{ 
+          minWidth: 20, 
+          display: 'flex', 
+          justifyContent: 'center' 
+        }}
+      >
+        <CheckCircleOutlineRoundedIcon sx={{ fontSize: 20, color: alpha('#FFFFFF', 0.5) }} />
+      </Box>
+      
+      <Typography 
+        fontSize={isMobile ? 14 : 16} 
+        color={alpha('#FFFFFF', 1.0)} 
+        sx={{ fontFamily: 'Inter', flex: 1 }}
+      >
+        {text}
+      </Typography>
+
+      {tooltipText && (
+        <>
+          {isMobile ? (
+            <ClickAwayListener onClickAway={handleClickAway}>
+              <Box>
+                <Tooltip
+                  title={tooltipText}
+                  arrow
+                  placement="top"
+                  open={open}
+                  onClose={handleClickAway}
+                  disableFocusListener
+                  disableHoverListener
+                  disableTouchListener
+                  componentsProps={tooltipStyles}
+                >
+                  <Box 
+                    onClick={handleMobileClick} 
+                    sx={{ display: 'flex', cursor: 'pointer', opacity: open ? 1 : 0.6 }}
+                  >
+                    <InfoOutlinedIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+                  </Box>
+                </Tooltip>
+              </Box>
+            </ClickAwayListener>
+          ) : (
+            <Tooltip 
+              title={tooltipText} 
+              arrow 
+              placement="top"
+              componentsProps={tooltipStyles}
+            >
+              <Box sx={{ display: 'flex', cursor: 'pointer', opacity: 0.6, '&:hover': { opacity: 1 } }}>
+                <InfoOutlinedIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+              </Box>
+            </Tooltip>
+          )}
+        </>
+      )}
+    </Box>
+  );
 };
 
-// Organized features by category
-const featureCategories = [
-    {
-    title: 'Instagram Automation',
-    icon: InstagramIcon,
-    color: '#e4405f',
-    features: [
-      { text: '25 Lakh Automated Replies per Month', icon: QuickreplyRoundedIcon },
-      { text: '25 Lakh Automated DMs per Month', icon: SendRoundedIcon },
-      { text: 'Unlimited Contacts', icon: ContactsRoundedIcon },
-      { text: 'Unlimited Automations', icon: PolylineOutlinedIcon },
-      { text: 'Unlimited File Upload/Downloads', icon: DownloadingOutlinedIcon },
-    ]
-  },
-  {
-    title: 'Link-in-Bio Features',
-    icon: WebStoriesOutlinedIcon,
-    color: '#7c3aed',
-    features: [
-      { text: 'Unlimited Links', icon: LinkRoundedIcon },
-      { 
-        text: 'Username.myhandle.in NOT myhandle.in/username', 
-        icon: LanguageRoundedIcon,
-        strikethrough: 'myhandle.in/username' // Mark text to strikethrough
-      },
-      { text: 'Digital Store', icon: StorefrontOutlinedIcon },
-      { text: 'Collect & Manage Subscribers', icon: GroupAddRoundedIcon },
-      { text: 'Advanced Analytics: Visitors, Views, CTR, Top links, Referrers, City & State', icon: InsightsRoundedIcon },
-      { text: 'Simple Editor • drag & reorder links', icon: DragIndicatorRoundedIcon },
-      { text: 'Social Profiles, Videos & Embeds', icon: ShareRoundedIcon },
-      { text: 'English + Hindi support', icon: TranslateRoundedIcon },
-    ]
-  },
-
-  {
-    title: 'Support & Security',
-    icon: ShieldRoundedIcon,
-    color: '#10b981',
-    features: [
-      { text: 'Data stays in India', icon: StorageOutlinedIcon },
-      { text: 'Fast, secure hosting with SSL', icon: HttpsRoundedIcon },
-      { text: 'Priority support (24–48 business hours)', icon: SupportAgentRoundedIcon },
-    ]
-  },
-
-  //  {
-  //   title: 'Payments & Transactions',
-  //   icon: PaymentsRoundedIcon,
-  //   color: '#F87B1B',
-  //   features: [
-  //     { text: 'Razorpay Payment Gateway', icon: AccountBalanceOutlinedIcon },
-  //      { 
-  //       text: '4% on Digital Sale NOT ', 
-  //       icon: LoyaltyOutlinedIcon,
-  //       strikethrough: '10%'
-  //     },
-  //      { 
-  //       text: 'Weekly Settlements NOT ', 
-  //       icon: MoveDownOutlinedIcon,
-  //       strikethrough: 'Monthly'
-  //     },
-  //     { text: 'Supports All Payment Methods', icon: CurrencyRupeeOutlinedIcon },
-  //   ]
-  // },
-
-   {
-    title: 'Coming Very Soon',
-    icon: OutdoorGrillOutlinedIcon,
-    color: '#44444E',
-    features: [
-      { text: 'Brand Outreach & Collaboration', icon: Inventory2OutlinedIcon },
-      { text: 'Give-away Feature in Bio', icon: CardGiftcardOutlinedIcon },
-      { text: 'AI-powered Reply & DM suggestions', icon: AutoAwesomeOutlinedIcon },
-      { text: 'Competitor Benchmarks', icon: FactCheckOutlinedIcon },
-      { text: 'Pop-up Banner for Faster Sale', icon: AdUnitsOutlinedIcon },
-      { text: 'Link shortner', icon: ShortcutOutlinedIcon },
-      
-    ]
-  }
-];
-
 export default function PricingPage() {
-  const isMobile = useMediaQuery('(max-width:600px)');
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Helper function to render text with strikethrough
-  const renderFeatureText = (feature) => {
-    if (feature.strikethrough) {
-      const parts = feature.text.split(feature.strikethrough);
-      return (
-        <>
-          {parts[0]}
-          <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>
-            {feature.strikethrough}
-          </span>
-          {parts[1]}
-        </>
-      );
-    }
-    return feature.text;
+  // --- DATA CONFIGURATION ---
+  const freeFeatures = [
+    { text: '10 Leads per month', tooltip: 'You will receive 10 high-quality leads vetted by our AI system every month.' },
+    '10,000 DMs per month',
+    { text: 'Send Leads to WhatsApp', tooltip: 'Automatically forward verified leads directly to your WhatsApp Business API.' },
+    'Comment Auto-Reply',
+    'Flow Automation',
+    'Ask to Follow',
+    'Share PDFs',
+    'Link Click Analytics',
+    'Link-in-Bio Store',
+  ];
+
+  const creatorFeatures = [
+    { text: '500 Leads per month', tooltip: 'Scale up! Get 500 premium leads every month to explode your growth.' },
+    '100,000 DMs per month',
+    'Send Leads to WhatsApp',
+    { text: 'Comment Auto-Reply', tooltip: 'AI-powered smart replies that engage with your audience 24/7.' },
+    'Flow Automation',
+    'Ask to Follow',
+    'Share PDFs',
+    'Link Click Analytics',
+    'Link-in-Bio Store',
+  ];
+
+  // Identical features to Creator, but logically higher limits for "Pro"
+  const proFeatures = [
+    { text: '2,500 Leads per month', tooltip: 'Maximum volume for agencies and power users.' },
+    'Unlimited DMs per month',
+    'Send Leads to WhatsApp',
+    { text: 'Comment Auto-Reply', tooltip: 'AI-powered smart replies that engage with your audience 24/7.' },
+    'Flow Automation',
+    'Ask to Follow',
+    'Share PDFs',
+    'Link Click Analytics',
+    'Link-in-Bio Store',
+  ];
+
+  // Common card styles
+  const commonCardStyles = {
+    height: '100%',
+    width: '100%',
+    borderRadius: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease',
   };
 
   return (
     <>
-      <header>
+
+    <header>
         <title>Pricing and Packages | MyHandle</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="Checkout the prices and rates for MyHandle." />
       </header>
 
+      
       <Navbar />
 
-      {/* Background */}
       <Box
         sx={{
           minHeight: '100vh',
-          mt: 4,
-          background:
-            'radial-gradient(1200px 600px at 20% -10%, #ede9fe 0%, rgba(237,233,254,0) 50%), radial-gradient(900px 500px at 120% 10%, #f0f9ff 0%, rgba(240,249,255,0) 55%), linear-gradient(180deg, #ffffff 0%, #fafafa 100%)'
+          position: 'relative',
+          overflow: 'hidden',
+          pt: 12,
+          pb: 12,
+          px: isMobile ? 2 : 4,
+          bgcolor: '#020617',
+          backgroundImage: `
+            radial-gradient(at 50% 0%, ${alpha('#7e22ce', 0.15)} 0px, transparent 50%),
+            radial-gradient(at 10% 20%, ${alpha('#ec4899', 0.1)} 0px, transparent 40%),
+            radial-gradient(at 90% 20%, ${alpha('#3b82f6', 0.1)} 0px, transparent 40%)
+          `,
         }}
       >
-        <Box sx={{ py: 8, px: isMobile ? 2 : 6 }}>
-          {/* Header */}
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Chip
-              icon={<VerifiedRoundedIcon />}
-              label="Made in India • Priced for India"
-              color="default"
-              sx={{
-                mb: 2,
-                bgcolor: '#eef2ff',
-                borderRadius: 2,
-                fontWeight: 700,
-                fontFamily: 'Inter'
-              }}
-            />
+        {/* --- HEADER SECTION --- */}
+        <Box textAlign="center" mb={8} position="relative" zIndex={1}>
+          <Typography
+            sx={{
+              color: '#3b82f6', 
+              fontWeight: 700,
+              fontSize: isMobile ? '0.75rem' : '0.875rem',
+              fontFamily: 'Inter',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              mb: 2,
+              display: 'block'
+            }}
+          >
+            Pricing Made Simple
+          </Typography>
 
-            <Typography
-              sx={{
-                fontFamily: 'Inter',
-                fontWeight: 700,
-                letterSpacing: '-0.02em',
-                fontSize: isMobile ? 22 : 42,
-                lineHeight: 1.1
-              }}
-            >
-              One simple plan. Everything you need.
-            </Typography>
+          <Typography
+            component="h1"
+            sx={{
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: isMobile ? '2.25rem' : '3.5rem',
+              fontFamily: 'Inter',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+              mb: 3,
+            }}
+          >
+            Choose a plan that’s right for you
+          </Typography>
 
-            {/* Trust row */}
-            <Stack
-              direction="row"
-              spacing={1.5}
-              justifyContent="center"
-              alignItems="center"
-              sx={{ mt: 2, flexWrap: 'wrap', rowGap: 1 }}
-            >
-              <Chip
-                icon={<ShieldRoundedIcon />}
-                label="Secure SSL"
-                variant="outlined"
-                sx={{ borderRadius: 2 }}
-              />
-              <Chip
-                icon={<BoltRoundedIcon />}
-                label="UPI/Razorpay"
-                variant="outlined"
-                sx={{ borderRadius: 2 }}
-              />
-            </Stack>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 1, 
+              alignItems: 'center',
+              color: alpha('#94a3b8', 1),
+              fontSize: isMobile ? 14 : 16,
+              fontFamily: 'Inter',
+            }}
+          >
+            <Box display="flex" alignItems="center" gap={1} textAlign="center">
+              <Typography color="inherit" fontSize="inherit" sx={{ fontFamily: 'Inter' }}>
+                Get started with a free account and upgrade as your DMs take off. No hidden fees, no surprise costs.
+              </Typography>
+            </Box>
           </Box>
-
-          {/* Pricing Card */}
-          <Grid container justifyContent="center">
-            <Grid item xs={12} sm={12} md={6} lg={6}>
-              <Card
-                elevation={0}
-                sx={{
-                  overflow: 'hidden',
-                  borderRadius: 4,
-                  border: '1px solid rgba(0,0,0,0.06)',
-                  background:
-                    'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 100%)',
-                  backdropFilter: 'blur(6px)',
-                  boxShadow:
-                    '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(17,24,39,0.06)'
-                }}
-              >
-                <CardContent sx={{ p: isMobile ? 3 : 5 }}>
-                  {/* Header */}
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: isMobile ? 'flex-start' : 'center',
-                      justifyContent: 'space-between',
-                      gap: 2,
-                      mb: 3,
-                      pb: 3,
-                      borderBottom: '2px solid rgba(0,0,0,0.06)',
-                      flexWrap: 'wrap'
-                    }}
-                  >
-                    <Box>
-                      <Typography
-                        sx={{
-                          letterSpacing: '-0.01em',
-                          fontFamily: 'Inter',
-                          fontSize: isMobile ? 18 : 24,
-                          fontWeight: 700
-                        }}
-                      >
-                        {PLAN.label} Plan
-                      </Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.5, fontSize: 15 }}>
-                        {PLAN.subLabel}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ textAlign: isMobile ? 'left' : 'right' }}>
-                      <Typography
-                        sx={{
-                          letterSpacing: '-0.01em',
-                          fontFamily: 'Inter',
-                          fontSize: isMobile ? 22 : 28,
-                          fontWeight: 800
-                        }}
-                      >
-                        ₹{PLAN.price}
-                        <Typography
-                          component="span"
-                          color="text.secondary"
-                          sx={{ ml: 0.5, fontSize: isMobile ? 14 : 16, fontWeight: 500 }}
-                        >
-                          /month
-                        </Typography>
-                      </Typography>
-                      <Typography color="success.dark" sx={{ fontWeight: 600, fontSize: 14 }}>
-                        {PLAN.note}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {/* CTA */}
-                  <Button
-                    fullWidth
-                    size="large"
-                    variant="contained"
-                    endIcon={<StarRoundedIcon />}
-                    sx={{
-                      mb: 4,
-                      py: 1.6,
-                      borderRadius: 2.5,
-                      textTransform: 'none',
-                      fontFamily: 'Inter',
-                      fontSize: 17,
-                      fontWeight: 700,
-                      letterSpacing: '0.02em',
-                      background:
-                        'linear-gradient(90deg, #111827 0%, #4f46e5 50%, #7c3aed 100%)',
-                      boxShadow: '0 6px 20px rgba(79,70,229,0.35)',
-                      '&:hover': { 
-                        opacity: 0.95,
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 24px rgba(79,70,229,0.4)'
-                      }
-                    }}
-                    onClick={() => (window.location.href = '/professional/login')}
-                  >
-                    {PLAN.cta}
-                  </Button>
-
-                  {/* Feature Categories */}
-                  {featureCategories.map((category, idx) => {
-                    const CategoryIcon = category.icon;
-                    return (
-                      <Box key={idx} sx={{ mb: idx < featureCategories.length - 1 ? 0 : 0 }}>
-                        {/* Category Header */}
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            mb: 2.5
-                          }}
-                        >
-                          <CategoryIcon
-                            sx={{
-                              fontSize: 24,
-                              color: category.color
-                            }}
-                          />
-                          <Typography
-                            sx={{
-                              fontFamily: 'Inter',
-                              fontSize: 18,
-                              fontWeight: 700,
-                              color: category.color
-                            }}
-                          >
-                            {category.title}
-                          </Typography>
-                        </Box>
-
-                        {/* Features List */}
-                        <Stack>
-                          {category.features.map((feature, i) => {
-                            const FeatureIcon = feature.icon;
-                            return (
-                              <Box
-                                key={i}
-                                sx={{
-                                  display: 'flex',
-                                  gap: 1.5,
-                                  p: 1.5,
-                                  bgcolor: 'rgba(255,255,255,0.5)',
-                                  borderRadius: 1.5,
-                                  transition: 'all 0.2s',
-                                  '&:hover': {
-                                    bgcolor: 'rgba(124,58,237,0.05)',
-                                    transform: 'translateX(4px)'
-                                  }
-                                }}
-                              >
-                                <FeatureIcon
-                                  fontSize="small"
-                                  sx={{
-                                    color: category.color,
-                                    mt: '2px',
-                                    flexShrink: 0
-                                  }}
-                                />
-                                <Typography
-                                  sx={{
-                                    color: '#111827',
-                                    fontFamily: 'Inter',
-                                    fontSize: isMobile ? 16 : 16,
-                                    lineHeight: 1.5,
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  {renderFeatureText(feature)}
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Stack>
-
-                        {/* Divider between categories */}
-                        {idx < featureCategories.length - 1 && (
-                          <Divider sx={{ my: 3 }} />
-                        )}
-                      </Box>
-                    );
-                  })}
-
-                  {/* Guarantee strip */}
-                  <Box
-                    sx={{
-                      mt: 3,
-                      p: 2,
-                      bgcolor: '#f0fdf4',
-                      border: '1px solid #dcfce7',
-                      borderRadius: 2
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ color: '#065f46', lineHeight: 1.6 }}>
-                      <strong>7-day no-questions-asked refund.</strong> Cancel anytime from your dashboard.{' '}
-                      Read our{' '}
-                      <a
-                        href="/refund-cancellation-policy"
-                        style={{ color: '#065f46', fontWeight: 600, textDecoration: 'underline' }}
-                      >
-                        Refund Policy
-                      </a>
-                      .
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
         </Box>
-      </Box>
 
+        {/* --- PRICING CARDS --- */}
+        {/* Changed maxWidth to 1200px to accommodate 3 cards comfortably */}
+        <Grid 
+          container 
+          spacing={3} 
+          justifyContent="center" 
+          alignItems="stretch" 
+          sx={{ maxWidth: '1200px', mx: 'auto', position: 'relative', zIndex: 1 }}
+        >
+
+          {/* 1. FREE PLAN */}
+            <Grid size= {{ xs : 12, md: 4 }}>
+            <Card
+              sx={{
+                ...commonCardStyles,
+                background: alpha('#3B4953', 0.6),
+                backdropFilter: 'blur(20px)',
+                border: `1px solid ${alpha('#fff', 0.08)}`,
+                color: '#fff',
+                '&:hover': {
+                  borderColor: alpha('#fff', 0.2),
+                }
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Typography fontSize={isMobile ? 18 : 20} fontWeight={600} color={alpha('#fff', 0.9)} sx={{ fontFamily: 'Inter' }}>
+                  Free Forever
+                </Typography>
+                <Typography variant="body2" sx={{ color: alpha('#94a3b8', 1), mt: 1, mb: 3, minHeight: '40px', fontFamily: 'Inter', fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                  Test drive the power of automated lead finder for free.
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 4 }}>
+                  <Typography component="span" fontSize={isMobile ? 36 : 48} fontWeight={800} sx={{ fontFamily: 'Inter' }}>
+                    $0
+                  </Typography>
+                  <Typography component="span" sx={{ color: alpha('#94a3b8', 1), ml: 1, fontFamily: 'Inter', fontSize: isMobile ? '0.9rem' : '1rem' }}>
+                    / month
+                  </Typography>
+                </Box>
+
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="large"
+                  onClick={() => (window.location.href = '/professional/login')}
+                  sx={{
+                    py: 1.5,
+                    borderRadius: '12px',
+                    borderColor: alpha('#fff', 0.2),
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: isMobile ? '0.9rem' : '1rem',
+                    fontFamily: 'Inter',
+                    '&:hover': {
+                      borderColor: '#fff',
+                      bgcolor: alpha('#fff', 0.05)
+                    }
+                  }}
+                >
+                  Get Started
+                </Button>
+
+                <Divider sx={{ my: 4, borderColor: alpha('#fff', 0.1) }} />
+
+                <Stack spacing={2}>
+                  {freeFeatures.map((item, i) => (
+                    <FeatureRow key={i} item={item} isMobile={isMobile} />
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 2. CREATOR PLAN (Dominant/Highlighted) */}
+                    <Grid size= {{ xs : 12, md: 4 }}>
+            <Card
+              sx={{
+                ...commonCardStyles,
+                background: alpha('#0f172a', 0.6),
+                backdropFilter: 'blur(20px)',
+                border: '1px solid transparent',
+                backgroundImage: `linear-gradient(${alpha('#0f172a', 0.8)}, ${alpha('#0f172a', 0.8)}), linear-gradient(135deg, #F63049, #000000)`,
+                backgroundOrigin: 'border-box',
+                backgroundClip: 'padding-box, border-box',
+                // Strong shadow to make it pop
+                boxShadow: `0 0 40px -10px ${alpha('#F63049', 0.3)}`,
+                position: 'relative',
+                transform: isMobile ? 'none' : 'scale(1.02)', // Slight scale to emphasize importance
+                zIndex: 2,
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Typography fontSize={isMobile ? 18 : 20} fontWeight={600} sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1, fontFamily: 'Inter' }}>
+                  Creator <AutoAwesomeIcon sx={{ fontSize: 18, color: '#F63049' }} />
+                </Typography>
+                <Typography variant="body2" sx={{ color: alpha('#cbd5e1', 1), mt: 1, mb: 3, minHeight: '40px', fontFamily: 'Inter', fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                  Powerful capacity ready to automate at scale.
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 2.5 }}>
+                   <Typography 
+                    component="span" 
+                    sx={{ 
+                      textDecoration: 'line-through', 
+                      color: alpha('#fff', 0.4), 
+                      mr: 2,
+                      fontSize: isMobile ? 16 : 20, 
+                      fontFamily: 'Inter'
+                    }}
+                  >
+                    $49
+                  </Typography>
+                  <Typography component="span" fontSize={isMobile ? 36 : 48} fontWeight={800} color="#fff" sx={{ fontFamily: 'Inter'}}>
+                    $29
+                  </Typography>
+                  <Typography component="span" sx={{ color: alpha('#cbd5e1', 1), ml: 1, fontFamily: 'Inter', fontSize: isMobile ? '0.9rem' : '1rem' }}>
+                    / month
+                  </Typography>
+                </Box>
+
+                <Button
+                  fullWidth
+                  size="large"
+                  onClick={() => (window.location.href = '/professional/login')}
+                  sx={{
+                    mt: 1.5,
+                    py: 1.5,
+                    borderRadius: '12px',
+                    background: 'linear-gradient(90deg, #F63049, #000000)',
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: isMobile ? '0.9rem' : '1rem',
+                    fontFamily: 'Inter',
+                    boxShadow: '0 4px 14px #000000',
+                    '&:hover': {
+                      filter: 'brightness(110%)',
+                      boxShadow: '0 6px 20px #F63049',
+                    }
+                  }}
+                >
+                  Upgrade to Creator
+                </Button>
+
+                <Divider sx={{ my: 4, borderColor: alpha('#fff', 0.15) }} />
+
+                <Stack spacing={2}>
+                  {creatorFeatures.map((item, i) => (
+                    <FeatureRow key={i} item={item} isMobile={isMobile} />
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 3. PRO PLAN (New) */}
+          <Grid size= {{ xs : 12, md: 4 }}>
+            <Card
+              sx={{
+                ...commonCardStyles,
+                // Subtle Blue/Cyan theme - Professional but less aggressive than Creator
+                background: alpha('#0f172a', 0.6),
+                backdropFilter: 'blur(20px)',
+                border: '1px solid transparent',
+                backgroundImage: `linear-gradient(${alpha('#0f172a', 0.9)}, ${alpha('#0f172a', 0.9)}), linear-gradient(135deg, #9929EA, #574964)`,
+                backgroundOrigin: 'border-box',
+                backgroundClip: 'padding-box, border-box',
+                // Subtle glow, not as strong as Creator
+                boxShadow: `0 0 20px -5px ${alpha('#9929EA', 0.15)}`, 
+                position: 'relative',
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Typography fontSize={isMobile ? 18 : 20} fontWeight={600} sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1, fontFamily: 'Inter' }}>
+                  Pro <DiamondOutlinedIcon sx={{ fontSize: 18, color: '#9929EA' }} />
+                </Typography>
+                <Typography variant="body2" sx={{ color: alpha('#cbd5e1', 1), mt: 1, mb: 3, minHeight: '40px', fontFamily: 'Inter', fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                  Maximum power for agencies and professionals.
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 2.5 }}>
+                   <Typography 
+                    component="span" 
+                    sx={{ 
+                      textDecoration: 'line-through', 
+                      color: alpha('#fff', 0.4), 
+                      mr: 2,
+                      fontSize: isMobile ? 16 : 20, 
+                      fontFamily: 'Inter'
+                    }}
+                  >
+                    $99
+                  </Typography>
+                  <Typography component="span" fontSize={isMobile ? 36 : 48} fontWeight={800} color="#fff" sx={{ fontFamily: 'Inter'}}>
+                    $59
+                  </Typography>
+                  <Typography component="span" sx={{ color: alpha('#cbd5e1', 1), ml: 1, fontFamily: 'Inter', fontSize: isMobile ? '0.9rem' : '1rem' }}>
+                    / month
+                  </Typography>
+                </Box>
+
+                <Button
+                  fullWidth
+                  size="large"
+                  onClick={() => (window.location.href = '/professional/login')}
+                  sx={{
+                    mt: 1.5,
+                    py: 1.5,
+                    borderRadius: '12px',
+                    // Cyan/Blue gradient
+                    background: 'linear-gradient(90deg, #9929EA, #574964)',
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: isMobile ? '0.9rem' : '1rem',
+                    fontFamily: 'Inter',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+                    '&:hover': {
+                      filter: 'brightness(110%)',
+                      boxShadow: '0 6px 20px rgba(8, 145, 178, 0.4)',
+                    }
+                  }}
+                >
+                  Get Pro
+                </Button>
+
+                <Divider sx={{ my: 4, borderColor: alpha('#fff', 0.15) }} />
+
+                <Stack spacing={2}>
+                  {proFeatures.map((item, i) => (
+                    <FeatureRow key={i} item={item} isMobile={isMobile} />
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+        </Grid>
+      </Box>
       <Footer />
     </>
   );

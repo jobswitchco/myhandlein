@@ -568,59 +568,87 @@ const Section2 = () => {
   );
 };
 
+
+// Icons
+const FilterIcon = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+);
+const CheckIcon = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
+const UserIcon = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+);
+
+
+
 const Section3 = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width:900px)");
+    const handler = (e) => setIsMobile(e.matches);
+    handler({ matches: mq.matches });
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const conversations = [
     { 
       name: "Sarah M.", 
       message: "I'd love to book a consultation...",
       tag: "High intent",
-      tagColor: "#10B981",
+      tagColor: "#34D399", // Bright Mint for contrast against purple
+      bg: "rgba(52, 211, 153, 0.1)", 
       time: "2m ago",
-      unread: 3,
+      highlight: true
     },
     { 
       name: "Mike T.", 
       message: "What's your pricing for...",
-      tag: "Potential client",
-      tagColor: "#22C55E",
+      tag: "Potential",
+      tagColor: "#60A5FA", // Blue
+      bg: "rgba(37, 99, 235, 0.1)", 
       time: "15m ago",
-      unread: 1,
+      highlight: false
     },
     { 
       name: "Lisa K.", 
       message: "Thanks! Will get back to you...",
       tag: "Follow up",
-      tagColor: "#F59E0B",
+      tagColor: "#FBBF24", // Amber
+      bg: "rgba(245, 158, 11, 0.1)",
       time: "1h ago",
-      unread: 0,
+      highlight: false
     },
     { 
       name: "John D.", 
       message: "Cool content!",
       tag: "Low priority",
-      tagColor: "#64748B",
+      tagColor: "#9CA3AF", // Gray
+      bg: "rgba(107, 114, 128, 0.1)",
       time: "3h ago",
-      unread: 0,
+      highlight: false
     },
   ];
 
   return (
-     <div style={{
-      background: "linear-gradient(180deg, #000000 0%, #0a0a0a 100%)",
-      padding: isMobile ? "80px 24px" : "140px 48px",
+    <div style={{
+      // OPTION: Deep Indigo Spotlight. Looks very "Tech/AI" and premium.
+      background: "radial-gradient(ellipse at 50% -20%, #6B3F69 0%, #020617 80%)", // Indigo-950 to Rich Black
+      padding: isMobile ? "80px 24px" : "140px 60px",
       position: "relative",
       overflow: "hidden",
     }}>
-      {/* Decorative elements */}
+      
+      {/* Subtle Grid Texture to add depth */}
       <div style={{
         position: "absolute",
-        top: "15%",
-        right: "10%",
-        width: 350,
-        height: 350,
-        background: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)",
-        borderRadius: "50%",
-        filter: "blur(60px)",
+        inset: 0,
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+        backgroundSize: "40px 40px",
+        opacity: 0.4,
         pointerEvents: "none",
       }} />
 
@@ -630,280 +658,181 @@ const Section3 = () => {
         display: "flex",
         flexDirection: isMobile ? "column-reverse" : "row",
         alignItems: "center",
-        gap: isMobile ? 48 : 80,
+        gap: isMobile ? 60 : 100,
         position: "relative",
         zIndex: 1,
       }}>
 
-         {/* Right: Smart Inbox Visualization */}
+        {/* RIGHT SIDE: The Interface Visualization */}
         <div style={{ flex: "1 1 50%", width: "100%" }}>
           <div style={{
-            background: "linear-gradient(145deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.08) 100%)",
-            border: "2px solid rgba(16,185,129,0.35)",
-            borderRadius: 28,
-            padding: isMobile ? "32px 24px" : "40px 32px",
-            boxShadow: "0 40px 100px rgba(16,185,129,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
+            background: "rgba(255, 255, 255, 0.03)", // Ultra dark glass
+            backdropFilter: "blur(24px)",
+            borderRadius: 24,
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 40px 80px -12px rgba(0, 0, 0, 0.7)", // Deep shadow
+            padding: "32px",
             position: "relative",
-            overflow: "hidden",
           }}>
-            {/* Header */}
+            
+            {/* Window Header */}
             <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 24,
-              paddingBottom: 16,
-              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24
             }}>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-              }}>
-                <MailIcon size={22} color="#10B981" strokeWidth={2.5} />
-                <span style={{
-                  fontSize: 18,
-                  fontWeight: 800,
-                  color: "#FFF",
-                }}>
-                  Smart Inbox
-                </span>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#FFFFFF" }}>Priority Inbox</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>Sorted by buying intent</div>
               </div>
               <div style={{
-                padding: "6px 14px",
-                background: "rgba(16,185,129,0.2)",
-                border: "1px solid rgba(16,185,129,0.4)",
-                borderRadius: 100,
-                fontSize: 12,
-                fontWeight: 700,
-                color: "#10B981",
+                width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.05)", 
+                display: "flex", alignItems: "center", justifyContent: "center", color: "#A5B4FC"
               }}>
-                4 New
+                <FilterIcon size={18} />
               </div>
             </div>
 
-            {/* Conversation list */}
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}>
+            {/* List */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {conversations.map((conv, i) => (
-                <div
-                  key={i}
-                  style={{
-                    background: conv.unread > 0 
-                      ? "rgba(16,185,129,0.12)" 
-                      : "rgba(255,255,255,0.04)",
-                    border: conv.unread > 0 
-                      ? "1px solid rgba(16,185,129,0.3)" 
-                      : "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 16,
-                    padding: "16px 18px",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    position: "relative",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(16,185,129,0.18)";
-                    e.currentTarget.style.transform = "translateX(4px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = conv.unread > 0 
-                      ? "rgba(16,185,129,0.12)" 
-                      : "rgba(255,255,255,0.04)";
-                    e.currentTarget.style.transform = "translateX(0)";
-                  }}
-                >
-                  <div style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                  }}>
-                    {/* Avatar */}
-                    <div style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: "50%",
-                      background: `linear-gradient(135deg, ${conv.tagColor}, ${conv.tagColor}AA)`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 16,
-                      fontWeight: 700,
-                      color: "#FFF",
-                      flexShrink: 0,
-                    }}>
-                      {conv.name.charAt(0)}
-                    </div>
+                <div key={i} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  padding: "16px 20px",
+                  borderRadius: 16,
+                  // Highlight logic
+                  background: conv.highlight ? "rgba(49, 46, 129, 0.4)" : "transparent", // Indigo tint for highlight
+                  border: conv.highlight ? "1px solid #6366F1" : "1px solid transparent", // Indigo border
+                  boxShadow: conv.highlight ? "0 8px 20px -5px rgba(0,0,0,0.4)" : "none",
+                  transform: conv.highlight ? "scale(1.02)" : "scale(1)",
+                  transition: "all 0.3s ease",
+                  position: 'relative'
+                }}>
+                   {/* Avatar */}
+                   <div style={{
+                     width: 44, height: 44, borderRadius: "50%",
+                     background: conv.bg,
+                     color: conv.tagColor,
+                     display: "flex", alignItems: "center", justifyContent: "center",
+                     fontWeight: 700, fontSize: 16, flexShrink: 0
+                   }}>
+                     {conv.name.charAt(0)}
+                   </div>
 
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* Name and time */}
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 4,
-                      }}>
-                        <span style={{
-                          fontSize: 15,
-                          fontWeight: 700,
-                          color: "#FFF",
-                        }}>
-                          {conv.name}
-                        </span>
-                        <span style={{
-                          fontSize: 12,
-                          color: "rgba(255,255,255,0.5)",
-                        }}>
-                          {conv.time}
-                        </span>
-                      </div>
-
-                      {/* Message preview */}
-                      <p style={{
-                        fontSize: 13,
-                        color: "rgba(255,255,255,0.7)",
-                        margin: "0 0 8px 0",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}>
-                        {conv.message}
-                      </p>
-
-                      {/* Tag */}
-                      <div style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: "4px 12px",
-                        borderRadius: 100,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: conv.tagColor,
-                        background: `${conv.tagColor}22`,
-                        border: `1px solid ${conv.tagColor}44`,
-                      }}>
+                   {/* Text */}
+                   <div style={{ flex: 1 }}>
+                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                       <span style={{ fontWeight: 700, color: "#FFFFFF", fontSize: 15 }}>{conv.name}</span>
+                       <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{conv.time}</span>
+                     </div>
+                     <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>{conv.message}</div>
+                     
+                     <div style={{
+                       display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 6,
+                       background: conv.bg, color: conv.tagColor, fontSize: 11, fontWeight: 700, border: `1px solid ${conv.tagColor}40`
+                     }}>
                         {conv.tag}
-                      </div>
-                    </div>
+                     </div>
+                   </div>
 
-                    {/* Unread indicator */}
-                    {conv.unread > 0 && (
-                      <div style={{
-                        minWidth: 22,
-                        height: 22,
-                        borderRadius: "50%",
-                        background: conv.tagColor,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: "#FFF",
-                        boxShadow: `0 0 16px ${conv.tagColor}88`,
-                      }}>
-                        {conv.unread}
-                      </div>
-                    )}
-                  </div>
+                   {/* Checkmark for high intent */}
+                   {conv.highlight && (
+                     <div style={{
+                       position: "absolute", top: -8, right: -8,
+                       background: "#6366F1", color: "#fff",
+                       width: 22, height: 22, borderRadius: "50%",
+                       display: "flex", alignItems: "center", justifyContent: "center",
+                       boxShadow: "0 2px 5px rgba(0,0,0,0.3)"
+                     }}>
+                       <CheckIcon size={12} />
+                     </div>
+                   )}
                 </div>
               ))}
             </div>
+
+            {/* Floating Label */}
+            <div style={{
+              position: "absolute", bottom: 20, right: -20,
+              background: "#6366F1", color: "#fff",
+              padding: "10px 20px", borderRadius: 100,
+              fontSize: 13, fontWeight: 700,
+              boxShadow: "0 10px 30px rgba(99, 102, 241, 0.4)",
+              display: isMobile ? "none" : "block"
+            }}>
+              4 Leads Detected
+            </div>
+
           </div>
         </div>
 
-        {/* Left: Content */}
+        {/* LEFT SIDE: Content */}
         <div style={{ flex: "1 1 50%" }}>
+          
           <div style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            background: "rgba(16,185,129,0.18)",
-            border: "1px solid rgba(16,185,129,0.4)",
-            borderRadius: 100,
-            padding: "10px 24px",
-            marginBottom: 24,
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "6px 16px", borderRadius: 100,
+            background: "rgba(99, 102, 241, 0.15)", // Indigo tint
+            border: "1px solid rgba(99, 102, 241, 0.3)",
+            color: "#A5B4FC",
+            fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.02em",
+            marginBottom: 24
           }}>
-            <MailIcon size={18} color="#10B981" strokeWidth={2.5} />
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#10B981" }}>
-              Clarity over chaos
-            </span>
+            Clarity over Chaos
           </div>
 
           <h2 style={{
-            fontSize: isMobile ? "clamp(2rem,7vw,3rem)" : "clamp(2.8rem,5vw,4rem)",
-            fontWeight: 900,
-            letterSpacing: "-0.03em",
+            fontSize: isMobile ? "2.25rem" : "3.5rem",
+            fontWeight: 800,
+            color: "#FFFFFF",
+            lineHeight: 1.1,
             marginBottom: 24,
-            lineHeight: 1.15,
-            background: "linear-gradient(135deg,#FFF 0%,#6EE7B7 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
+            fontFamily: "Inter, sans-serif"
           }}>
-            Stop scanning DMs. Start spotting clients.
+            Stop scanning DMs.<br />
+            <span style={{ 
+               background: "linear-gradient(135deg, #FFF 0%, #818CF8 100%)",
+               WebkitBackgroundClip: "text",
+               WebkitTextFillColor: "transparent"
+            }}>Start spotting clients.</span>
           </h2>
 
-          <p style={{ 
-            fontSize: isMobile ? "1.15rem" : "1.3rem", 
-            lineHeight: 1.7, 
-            color: "rgba(255,255,255,0.8)", 
-            marginBottom: 24 
+          <p style={{
+            fontSize: "1.125rem",
+            lineHeight: 1.7,
+            color: "rgba(255,255,255,0.7)",
+            marginBottom: 36
           }}>
-            When everything lands in one noisy inbox, you waste hours reading and guessing which conversations actually matter.
+            When everything lands in one noisy inbox, you waste hours guessing which conversations matter. MyHandle separates the signal from the noise automatically.
           </p>
 
-
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            padding: "24px 28px",
-            background: "rgba(16,185,129,0.08)",
-            border: "1px solid rgba(16,185,129,0.25)",
-            borderRadius: 16,
-          }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {[
-              "MyHandle categorizes every conversation instantly",
-              "See buyer intent before opening messages",
+              "AI categorizes every conversation instantly",
+              "See buyer intent score before opening messages",
               "Prioritize high-value leads automatically"
             ].map((text, i) => (
-              <div key={i} style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-              }}>
+              <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <div style={{
-                  minWidth: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  background: "linear-gradient(135deg, #10B981, #059669)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 14,
-                  fontWeight: 900,
-                  color: "#FFF",
+                  width: 24, height: 24, borderRadius: "50%", background: "rgba(99, 102, 241, 0.2)",
+                  display: "flex", alignItems: "center", justifyContent: "center", color: "#A5B4FC"
                 }}>
-                  ✓
+                  <CheckIcon size={14} />
                 </div>
-                <span style={{
-                  fontSize: isMobile ? "0.95rem" : "1.05rem",
-                  color: "rgba(255,255,255,0.9)",
-                  fontWeight: 500,
-                }}>
-                  {text}
-                </span>
+                <span style={{ fontSize: 16, fontWeight: 500, color: "rgba(255,255,255,0.9)" }}>{text}</span>
               </div>
             ))}
           </div>
+
         </div>
 
-       
       </div>
     </div>
   );
 };
+
+
+
 
 
 const Section4 = () => {
@@ -1148,113 +1077,248 @@ const Section4 = () => {
 };
 
 const Section5 = () => {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+  // New Icon Paths specific for this section
+  const sectionIcons = {
+    eyeOff: "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22",
+    clock: "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6v6l4 2",
+    alert: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01",
+    userX: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M8.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M18 8l5 5 M23 8l-5 5"
+  };
+
+  const problems = [
+    {
+      title: "Invisible DMs",
+      desc: "Message requests that never trigger a notification.",
+      icon: sectionIcons.eyeOff,
+    },
+    {
+      title: "Response Lag",
+      desc: "Replying 4 hours later? That lead is already gone.",
+      icon: sectionIcons.clock,
+    },
+    {
+      title: "Missed Intent",
+      desc: "Generic replies to 'Price please?' kill the sale.",
+      icon: sectionIcons.alert,
+    },
+    {
+      title: "Zero Follow-up",
+      desc: "Manually tracking 50+ convos is impossible.",
+      icon: sectionIcons.userX,
+    },
+  ];
+
   return (
     <div style={{
-      background: "linear-gradient(180deg, #020617 0%, #020617 100%)",
-      padding: "100px 36px",
+      background: "linear-gradient(180deg, #020617 0%, #0F0505 50%, #020617 100%)",
+      padding: isMobile ? "100px 24px" : "160px 48px",
       position: "relative",
       overflow: "hidden",
     }}>
-      {/* Ambient glow */}
+      {/* Background Ambience: Red Warning Glow */}
       <div style={{
         position: "absolute",
         top: "20%",
         left: "50%",
         transform: "translateX(-50%)",
-        width: 600,
-        height: 600,
-        background: "radial-gradient(circle, rgba(239,68,68,0.18) 0%, transparent 70%)",
-        filter: "blur(80px)",
+        width: isMobile ? 300 : 800,
+        height: isMobile ? 300 : 800,
+        background: "radial-gradient(circle, rgba(220, 38, 38, 0.12) 0%, transparent 60%)",
+        filter: "blur(100px)",
         pointerEvents: "none",
+        zIndex: 0,
       }} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", textAlign: "center", position: "relative" }}>
-        <div style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "10px 26px",
-          borderRadius: 100,
-          background: "rgba(239,68,68,0.15)",
-          border: "1px solid rgba(239,68,68,0.4)",
-          marginBottom: 28,
-        }}>
-          <span style={{ color: "#EF4444", fontWeight: isMobile? 700: 800, fontSize: 14, fontFamily: 'Inter' }}>
-            Revenue Leak
-          </span>
+      <div style={{ maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1 }}>
+        
+        {/* Header Section */}
+        <div style={{ textAlign: "center", marginBottom: 80 }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 20px",
+            borderRadius: 100,
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            boxShadow: "0 0 20px rgba(239, 68, 68, 0.1)",
+            marginBottom: 32,
+            backdropFilter: "blur(10px)",
+          }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF4444", boxShadow: "0 0 10px #EF4444" }} />
+            <span style={{ color: "#FCA5A5", fontWeight: 700, fontSize: 13, letterSpacing: "0.05em", textTransform: "uppercase", fontFamily: 'Inter' }}>
+              Critical Revenue Leak
+            </span>
+          </div>
+
+          <h2 style={{
+            fontSize: isMobile ? "2.5rem" : "4.5rem",
+            fontWeight: 800,
+            fontFamily: 'Inter',
+            letterSpacing: "-0.03em",
+            lineHeight: 1.1,
+            marginBottom: 24,
+            color: "#FFF",
+          }}>
+            You’re losing clients 
+            <span style={{
+              background: "linear-gradient(to right, #EF4444, #F87171)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}> without realizing it.</span>
+          </h2>
+
+          <p style={{
+            maxWidth: 760,
+            margin: "0 auto",
+            fontSize: isMobile ? "1.1rem" : "1.35rem",
+            lineHeight: 1.6,
+            color: "rgba(255,255,255,0.7)",
+            fontFamily: 'Inter',
+          }}>
+            Most fitness creators miss <strong style={{ color: "#FFF", borderBottom: "1px dashed #F87171" }}>30–40 high-intent leads</strong> every single month.
+          </p>
         </div>
 
-        <h2 style={{
-          fontSize: "clamp(2.4rem,5vw,4rem)",
-          fontWeight: isMobile? 700 : 900,
-          fontFamily: 'Inter',
-          letterSpacing: "-0.03em",
-          marginBottom: 24,
-          background: "linear-gradient(135deg, #FFF 0%, #F87171 100%)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          textAlign: isMobile? 'left' : 'center'
-        }}>
-          You’re losing clients without realizing it.
-        </h2>
-
-        <p style={{
-          maxWidth: 820,
-          margin: "0 auto 48px",
-          fontSize: isMobile ? "1.16rem" : "1.3rem",
-          lineHeight: 1.8,
-          color: "rgba(255,255,255,0.85)",
-          fontFamily: 'Inter',
-          textAlign: isMobile? 'left' : 'center'
-
-        }}>
-          Every fitness creator misses <strong style={{ color: "#F87171" }}>30–40 high-intent leads</strong> every month —
-          buried in comments, lost in DMs, or forgotten during busy days.
-        </p>
-
+        {/* The Pain Point Grid */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          gap: 28,
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
+          gap: 24,
+          marginBottom: 64,
         }}>
-          {[
-            "You cannot read all DMs",
-            "You reply too late",
-            "You miss buyer signals",
-            "You forget follow-ups",
-          ].map((text, i) => (
-            <div key={i} style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 20,
-              padding: "32px 28px",
-              fontSize: 18,
-              fontWeight: 600,
-              fontFamily: 'Inter',
-              color: "#FFF",
-            }}>
-              {text}
+          {problems.map((item, i) => (
+            <div 
+              key={i}
+              style={{
+                background: "linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 24,
+                padding: isMobile ? "24px" : "32px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 20,
+                transition: "all 0.3s ease",
+                cursor: "default",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.4)";
+                e.currentTarget.style.background = "linear-gradient(145deg, rgba(239, 68, 68, 0.08) 0%, rgba(255,255,255,0.01) 100%)";
+                e.currentTarget.style.transform = "translateY(-4px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                e.currentTarget.style.background = "linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              <div style={{
+                minWidth: 48,
+                height: 48,
+                borderRadius: 14,
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#F87171",
+              }}>
+                <Icon d={item.icon} size={24} />
+              </div>
+              <div>
+                <h3 style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#FFF",
+                  marginBottom: 8,
+                  fontFamily: 'Inter',
+                }}>
+                  {item.title}
+                </h3>
+                <p style={{
+                  fontSize: 15,
+                  lineHeight: 1.5,
+                  color: "rgba(255,255,255,0.6)",
+                  margin: 0,
+                  fontFamily: 'Inter',
+                }}>
+                  {item.desc}
+                </p>
+              </div>
             </div>
           ))}
         </div>
 
+        {/* The Solution Bridge - High Contrast Switch to Green */}
         <div style={{
-          marginTop: 56,
-          padding: "28px 36px",
+          background: "linear-gradient(90deg, rgba(6, 95, 70, 0.3) 0%, rgba(4, 120, 87, 0.15) 100%)",
+          border: "1px solid rgba(52, 211, 153, 0.3)",
           borderRadius: 20,
-          background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.08))",
-          border: "1px solid rgba(16,185,129,0.4)",
-          fontSize: 18,
-          fontWeight: isMobile? 600 : 700,
-          color: "#10B981",
-          fontFamily: 'Inter',
-          textAlign: isMobile? 'left' : 'center'
-
-          
+          padding: isMobile ? "24px" : "32px 48px",
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 24,
+          backdropFilter: "blur(20px)",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
         }}>
-          MyHandle captures them, highlights buyers, and pushes them to WhatsApp —
-          so you close faster.
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: "#10B981",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              boxShadow: "0 0 20px rgba(16, 185, 129, 0.4)"
+            }}>
+               {/* Checkmark Icon */}
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#6EE7B7", marginBottom: 4, letterSpacing: "0.02em", textTransform: "uppercase" }}>
+                System Solution
+              </div>
+              <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: "#FFF", fontFamily: 'Inter' }}>
+                MyHandle captures leads & pushes them to WhatsApp.
+              </div>
+            </div>
+          </div>
+          
+          <button style={{
+            background: "transparent",
+            border: "1px solid rgba(52, 211, 153, 0.5)",
+            color: "#34D399",
+            padding: "12px 24px",
+            borderRadius: 12,
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            transition: "all 0.2s ease",
+            fontFamily: 'Inter',
+          }}
+          onMouseEnter={(e) => {
+             e.currentTarget.style.background = "rgba(52, 211, 153, 0.1)";
+             e.currentTarget.style.borderColor = "#34D399";
+          }}
+          onMouseLeave={(e) => {
+             e.currentTarget.style.background = "transparent";
+             e.currentTarget.style.borderColor = "rgba(52, 211, 153, 0.5)";
+          }}
+          onClick={() => window.location.href = '/professional/login'}
+          >
+            Stop the leak &rarr;
+          </button>
         </div>
+
       </div>
     </div>
   );
