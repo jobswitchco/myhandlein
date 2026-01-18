@@ -137,13 +137,17 @@ const [trialDays, setTrialDays] = useState(0);
     if (isSmallScreen) handleDrawerToggle();
   };
 
-  const handleSessionExpired = () => {
+
+    const handleSessionExpired = async () => {
+
     toast.error("Session expired. Please log in again.");
-    setTimeout(() => {
-      axios.post(baseUrl + "/logout", {}, { withCredentials: true });
-        dispatch(logout()); // Clear Redux state
-        window.location.href = "/professional/login"; // Ensures full logout
-    }, 1500);
+    try {
+      await axios.post(baseUrl + "/logout", {}, { withCredentials: true });
+      dispatch(logout());
+      window.location.href = "/professional/login";
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
     useEffect(() => {
