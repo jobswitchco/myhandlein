@@ -138,17 +138,12 @@ const [trialDays, setTrialDays] = useState(0);
   };
 
 
-    const handleSessionExpired = async () => {
-
-    toast.error("Session expired. Please log in again.");
-    try {
-      await axios.post(baseUrl + "/logout", {}, { withCredentials: true });
-      dispatch(logout());
-      window.location.href = "/professional/login";
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
+   const handleSessionExpired = () => {
+      toast.error("Session expired. Please log in again.");
+      setTimeout(() => {
+        navigate("/professional/login");
+      }, 2000);
+    };
 
     useEffect(() => {
       const verifyToken = async () => {
@@ -157,11 +152,9 @@ const [trialDays, setTrialDays] = useState(0);
         try {
           const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
   
-          if (res.data.valid) {
-            fetchPaymentDetails(); // also load IG info once token is valid
-          } else {
+          if (!res.data.valid) {
             handleSessionExpired();
-          }
+          } 
         } catch (error) {
           if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             handleSessionExpired();
