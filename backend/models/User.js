@@ -12,6 +12,16 @@ const User_Schema = new Schema({
   rightBottomImage: { type: String },
   is_google_user: { type: Boolean },
   handleUserName: { type: String },
+  find_leads: { type: Boolean, default: false },
+  handle_created: { type: Boolean, default: false },
+  leads_plan_limit: { type: Number, default : 10 },
+  leads_found: { type: Number, default : 0 },
+  dms_plan_limit: { type: Number, default : 10000 },
+  subscription_plan: {
+      type: String,
+      enum: ["free", "creator", "pro"],
+      default: "free"
+    },
   
   instagramConnected: { type: Boolean, default: false },
   igUserId: { type: String },

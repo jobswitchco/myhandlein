@@ -1,5 +1,6 @@
 // components/BlocksAnalytics.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -19,6 +20,8 @@ import {
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
 import {
   BarChart,
@@ -122,10 +125,9 @@ export default function BlocksAnalytics() {
   const theme = useTheme();
   const isXs = useMediaQuery(theme.breakpoints.down("sm")); // <600px
   const isSm = useMediaQuery(theme.breakpoints.between("sm", "md")); // 600–900px
-
+  const navigate = useNavigate();
   const yAxisWidth = isXs ? 70 : isSm ? 100 : 140;
   const fontSize = isXs ? 10 : 12;
-
   const [options, setOptions] = useState([]);
   const [selectedBlockId, setSelectedBlockId] = useState("");
   const [rangeKey, setRangeKey] = useState("7d");
@@ -138,6 +140,52 @@ export default function BlocksAnalytics() {
   });
 
   const apiBase = "/api/usersOn";
+  const handleSessionExpired = () => {
+                  toast.error("Session expired. Please log in again.");
+                  setTimeout(() => {
+                    navigate("/professional/login");
+                  }, 2000);
+                };
+
+    useEffect(() => {
+          const verifyToken = async () => {
+            setLoading(true);
+            try {
+              
+              const res = await axios.get(`${apiBase}/verify-login-token`, {
+                withCredentials: true,
+              });
+              if (res.data.valid) {
+      
+                   const creatorHandleRes = await axios.get(
+                          `${apiBase}/check-handle-created`,
+                          { withCredentials: true }
+                        );
+                
+                        if(!creatorHandleRes.data.success){
+    
+              navigate("/professional/creator/onboarding");
+                
+                        }
+              } else {
+                handleSessionExpired();
+              }
+            } catch (error) {
+              if (
+                error.response &&
+                (error.response.status === 401 || error.response.status === 403)
+              ) {
+                handleSessionExpired();
+              } else {
+                toast.error("Network error, please try again later.");
+                handleSessionExpired();
+              }
+            } finally {
+              setLoading(false);
+            }
+          };
+          verifyToken();
+        }, []);
 
   // Load dropdown options
   useEffect(() => {
@@ -187,6 +235,12 @@ export default function BlocksAnalytics() {
 
   return (
     <Box sx={{ p: { xs: 0, md: 1 }, maxWidth: 1400, mx: "auto", my: 2 }}>
+      {loading ?  (<Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+                                              <CircularProgress size={28} />
+                                            </Box>  
+                                ) :
+                                (
+                                  <>
       {/* Header with Title and Range Selector */}
       <Grid container alignItems="center" sx={{ mb: 2, px: { xs: 2, md: 0 } }}>
         <Grid size={{ xs: 6, sm: 6, md: 6 }}>
@@ -483,6 +537,8 @@ export default function BlocksAnalytics() {
           </Card>
         </>
       )}
+
+      </>)}
     </Box>
   );
 }

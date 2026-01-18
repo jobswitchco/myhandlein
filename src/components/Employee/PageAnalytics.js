@@ -2,6 +2,7 @@
 // Frontend: PageAnalytics.jsx
 // =============================
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -35,6 +36,8 @@ import EmojiPeopleOutlinedIcon from '@mui/icons-material/EmojiPeopleOutlined';
 import ShowChartOutlinedIcon from '@mui/icons-material/ShowChartOutlined';
 import ViewAgendaOutlinedIcon from '@mui/icons-material/ViewAgendaOutlined';
 import DoneAllOutlinedIcon from '@mui/icons-material/DoneAllOutlined';
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function PageAnalytics({
   apiBase = "/api",
@@ -48,11 +51,20 @@ export default function PageAnalytics({
   const [duration, setDuration] = useState("28d"); // today|7d|28d
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
+
   const [data, setData] = useState({
     summary: { visitors: 0, pageViews: 0 },
     cities: [],  // [{ city, visitors, pageViews }]
     regions: [], // [{ region, visitors, pageViews }]
   });
+
+      const handleSessionExpired = () => {
+          toast.error("Session expired. Please log in again.");
+          setTimeout(() => {
+            navigate("/professional/login");
+          }, 2000);
+        };
 
   const { startDate, endDate } = useMemo(() => {
     const end = dayjs().endOf("day");
@@ -62,6 +74,48 @@ export default function PageAnalytics({
     else start = end.subtract(6, "day").startOf("day"); // default 7d
     return { startDate: start.toISOString(), endDate: end.toISOString() };
   }, [duration]);
+
+      useEffect(() => {
+        const verifyToken = async () => {
+          setLoading(true);
+          try {
+            
+            const res = await axios.get(`${apiBase}/usersOn/verify-login-token`, {
+              withCredentials: true,
+            });
+            if (res.data.valid) {
+    
+                 const creatorHandleRes = await axios.get(
+                        `${apiBase}/usersOn/check-handle-created`,
+                        { withCredentials: true }
+                      );
+              
+                      if(!creatorHandleRes.data.success){
+  
+            navigate("/professional/creator/onboarding");
+              
+                      }
+            } else {
+              handleSessionExpired();
+            }
+          } catch (error) {
+            if (
+              error.response &&
+              (error.response.status === 401 || error.response.status === 403)
+            ) {
+              handleSessionExpired();
+            } else {
+              toast.error("Network error, please try again later.");
+              handleSessionExpired();
+            }
+          } finally {
+            setLoading(false);
+          }
+        };
+        verifyToken();
+      }, []);
+
+
 
   useEffect(() => {
     let ignore = false;
@@ -125,6 +179,12 @@ export default function PageAnalytics({
     // <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
           <Box sx={{ p: { xs: 0, md: 1 }, maxWidth: 1400, mx: "auto", my: 2 }}>
 
+{loading ?  (<Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+                                  <CircularProgress size={28} />
+                                </Box>  
+                    ) :
+                    (
+                      <>
       <Grid container alignItems="center" sx={{ mb: 2 }}>
      <Grid size={{ xs: 6, sm: 6, md: 6 }}>
        <Typography
@@ -290,14 +350,9 @@ export default function PageAnalytics({
           </Grid>
           </>
       )}
-
-      {!loading && error && (
-        <Card sx={{ mt: 2, borderRadius: 3 }}>
-          <CardContent>
-            <Typography color="error">{error}</Typography>
-          </CardContent>
-        </Card>
-      )}
+</>
+                    )}
+    
     </Box>
   );
 }

@@ -14,7 +14,7 @@ import CancellationRefund from './components/CancellationRefund.js';
 import ShippingPolicy from './components/ShippingPolicy.js';
 import ContactUs from './components/ContactUs.js';
 import ProfileSettings from './components/Employee/Profile.js';
-import AccountDetails from './components/Employee/AccountDetails.js';
+import AccountDetails from './components/Employee/AccountDetailsPage1.js';
 import GoogleApiDisclosure from './components/GoogleApiDisclosure.js';
 import DisclosurePolicy from './components/DisclosurePolicy.js';
 import TrustCenter from './components/TrustCenter.js';
@@ -124,7 +124,6 @@ if (initialSubdomain) {
            <GoogleAnalytics />
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/creator/onboarding" element={<CreatorOnboarding />} />
               <Route path="/professional/login" element={<CreatorInUserLogin />} />
               <Route path="/professional/login/d" element={<DemoLogin />} />
               <Route path="/pricing" element={<PricingPage />} />
@@ -146,6 +145,7 @@ if (initialSubdomain) {
               <Route path="/professional/*" element={<SideNavbar />}>
 
                 <Route path="user/bio" element={<UserBioDashboard />} />
+                <Route path="creator/onboarding" element={<CreatorOnboarding />} />
                 <Route path="support" element={<Support />} />
                 <Route path="profile" element={<AccountDetails />} />
                 <Route path="store/products" element={<ProductCatalogue />} />

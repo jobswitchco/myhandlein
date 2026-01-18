@@ -1,5 +1,6 @@
 // components/CreatorBookings.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -23,6 +24,8 @@ import {
   alpha,
   Badge,
 } from '@mui/material';
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import {
   CalendarMonth,
   VideoCall,
@@ -46,14 +49,13 @@ import TransactionsPage from './TransactionsPage'; // Adjust path as needed
 const CreatorBookings = () => {
   const theme = useTheme();
   const baseUrl = "/api/usersOn";
-
-  // State
+  const navigate = useNavigate();
   const [mainTab, setMainTab] = useState('campaigns'); // 'campaigns' or 'payments'
   const [step, setStep] = useState('campaigns'); // 'campaigns' or 'bookings'
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedTab, setSelectedTab] = useState('all');
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({
@@ -262,12 +264,59 @@ const CreatorBookings = () => {
     }
   };
 
+     const handleSessionExpired = () => {
+      toast.error("Session expired. Please log in again.");
+      setTimeout(() => {
+        navigate("/professional/login");
+      }, 2000);
+    };
+
   // Initial load - fetch campaigns
   useEffect(() => {
     if (mainTab === 'campaigns') {
       fetchCampaigns();
     }
   }, [mainTab]);
+
+    useEffect(() => {
+      const verifyToken = async () => {
+        setLoading(true);
+        try {
+          
+          const res = await axios.get(`${baseUrl}/verify-login-token`, {
+            withCredentials: true,
+          });
+          if (res.data.valid) {
+  
+               const creatorHandleRes = await axios.get(
+                      `${baseUrl}/check-handle-created`,
+                      { withCredentials: true }
+                    );
+            
+                    if(!creatorHandleRes.data.success){
+
+          navigate("/professional/creator/onboarding");
+            
+                    }
+          } else {
+            handleSessionExpired();
+          }
+        } catch (error) {
+          if (
+            error.response &&
+            (error.response.status === 401 || error.response.status === 403)
+          ) {
+            handleSessionExpired();
+          } else {
+            toast.error("Network error, please try again later.");
+            handleSessionExpired();
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      verifyToken();
+    }, []);
 
   // When campaign is selected
   useEffect(() => {

@@ -125,12 +125,24 @@ export default function DashboardAnalytics({
       setLoading(true);
       setError("");
       try {
+
+          const creatorHandleRes = await axios.get(
+          `${apiBase}/usersOn/check-handle-created`,
+          { withCredentials: true }
+        );
+
+        if(creatorHandleRes.data.success){
         const res = await axios.post(
           `${apiBase}/usersOn/dashboard-analytics`,
           { startDate, endDate },
           { withCredentials: true }
         );
         if (!ignore) setData(res.data || {});
+      }
+      else {
+        navigate("/professional/creator/onboarding");
+
+      }
       } catch (e) {
         console.error(e);
         if (!ignore)
@@ -215,6 +227,14 @@ const handleSelectClick = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
+    
+       {loading ? (
+          <Box sx={{ py: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <CircularProgress />
+          </Box>
+        ): 
+    
+      (
       <Box sx={{ p: { xs: 0, md: 1 }, maxWidth: 1400, mx: "auto", my: 2 }}>
         <Grid container alignItems="center" sx={{ mb: 2 }}>
           <Grid size={{ xs: 6, sm: 6, md: 6 }}>
@@ -361,14 +381,9 @@ const handleSelectClick = () => {
           </Grid>
         </Grid>
 
-        {loading && (
-          <Box sx={{ py: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <CircularProgress />
-          </Box>
-        )}
+     
 
-        {!loading && !error && (
-          <>
+        
             {/* Top 10 Cities */}
             <Card elevation={3} sx={{ borderRadius: 3, height: 460, mb: 2, ...cardSx }}>
               <CardContent sx={{ height: "100%", width: "100%" }}>
@@ -433,16 +448,8 @@ const handleSelectClick = () => {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-          </>
-        )}
+    
 
-        {!loading && error && (
-          <Card sx={{ mt: 2, borderRadius: 3 }}>
-            <CardContent>
-              <Typography color="error">{error}</Typography>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Custom Date Range Dialog */}
         <Dialog
@@ -518,6 +525,8 @@ const handleSelectClick = () => {
           </DialogActions>
         </Dialog>
       </Box>
+      )}
+      
     </LocalizationProvider>
   );
 }

@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
   Box,
   Button,
@@ -46,6 +48,8 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import axios from "axios";
 import format from "date-fns/format";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 axios.defaults.withCredentials = true;
 
@@ -210,7 +214,7 @@ export default function Store() {
   const isXs = useMediaQuery(theme.breakpoints.down("sm"));
   const isSm = useMediaQuery(theme.breakpoints.only("sm"));
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
-
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [page, setPage] = useState(0);
   const limit = 12;
@@ -257,7 +261,57 @@ export default function Store() {
   const catDebounce = useRef();
   const [catQuery, setCatQuery] = useState("");
 
+   const handleSessionExpired = () => {
+        toast.error("Session expired. Please log in again.");
+        setTimeout(() => {
+          navigate("/professional/login");
+        }, 2000);
+      };
+
   /* ---------- Effects / data ---------- */
+
+
+       useEffect(() => {
+      const verifyToken = async () => {
+        setLoading(true);
+        try {
+          
+          const res = await axios.get(`${API_BASE}/verify-login-token`, {
+            withCredentials: true,
+          });
+          if (res.data.valid) {
+  
+               const creatorHandleRes = await axios.get(
+                      `${API_BASE}/check-handle-created`,
+                      { withCredentials: true }
+                    );
+            
+                    if(!creatorHandleRes.data.success){
+
+          navigate("/professional/creator/onboarding");
+            
+                    }
+          } else {
+            handleSessionExpired();
+          }
+        } catch (error) {
+          if (
+            error.response &&
+            (error.response.status === 401 || error.response.status === 403)
+          ) {
+            handleSessionExpired();
+          } else {
+            toast.error("Network error, please try again later.");
+            handleSessionExpired();
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      verifyToken();
+    }, []);
+
+    
 
   useEffect(() => {
     fetchProducts(page + 1, limit);

@@ -922,44 +922,7 @@ const [trialDays, setTrialDays] = useState(0);
                 </List>
               </Collapse>
 
-              {/* Newsletter List */}
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  onClick={() => goTo("/professional/newsletter/emails")}
-                  selected={location.pathname === "/professional/newsletter/emails"}
-                  sx={{
-                    pl: 2,
-                    borderRadius: "8px",
-                    py: 0.75,
-                    backgroundColor: location.pathname === "/professional/newsletter/emails" ? "#6E8CFB" : "transparent",
-                    "&:hover": { 
-                      backgroundColor: "#6E8CFB",
-                      "& .MuiListItemIcon-root, & .MuiListItemText-primary": { color: "#FFFFFF" }
-                    },
-                    "&.Mui-selected": { backgroundColor: "#6E8CFB" },
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <MailOutlineOutlinedIcon
-                      sx={{
-                        color: location.pathname === "/professional/newsletter/emails" ? "#FFFFFF" : "#9CA3AF",
-                        fontSize: "1.2rem",
-                      }}
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Newsletter List"
-                    primaryTypographyProps={{
-                      sx: {
-                        color: location.pathname === "/professional/newsletter/emails" ? "#FFFFFF" : "#6B7280",
-                        fontWeight: location.pathname === "/professional/newsletter/emails" ? 500 : 400,
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
+             
             </List>
           </Collapse>
 
@@ -1132,72 +1095,6 @@ const [trialDays, setTrialDays] = useState(0);
         </List>
 
       </Box>
-
-{isTrialActive && (
-         <Box sx={{ p: 2, borderTop: "1px solid #E5E7EB" }}>
-        <Box
-          sx={{
-            borderRadius: "16px",
-            // Subtle gradient to make it stand out
-            background: "linear-gradient(135deg, #FFF0F0 0%, #FFFAFA 100%)", 
-            border: "1px solid #FECACA",
-            p: 2,
-            textAlign: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
-          }}
-        >
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              color: "#6B7280", 
-              fontWeight: 600, 
-              display: "block",
-              mb: 0.5,
-              fontSize: "0.75rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px"
-            }}
-          >
-            Free Trial Ends in
-          </Typography>
-          
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              color: "#DC2626", // Red shade
-              fontWeight: 800, 
-              mb: 1.5,
-              fontSize: isSmallScreen ? "1rem" : "1.25rem",
-              fontFamily : 'Inter'
-
-            }}
-          >
-          {String(trialDays).padStart(2, '0')} days
-          </Typography>
-          
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={() => goTo("/professional/upgrade/plan")} // Add your upgrade route here
-            sx={{
-              fontFamily : 'Inter',
-              bgcolor: "#DC2626",
-              textTransform: "none",
-              borderRadius: "10px",
-              fontWeight: 700,
-              fontSize: isSmallScreen ? "0.75rem" : "0.9rem",
-              boxShadow: "0 4px 6px rgba(220, 38, 38, 0.2)",
-              '&:hover': { 
-                bgcolor: "#B91C1C",
-                boxShadow: "0 6px 10px rgba(220, 38, 38, 0.3)",
-              }
-            }}
-          >
-            Upgrade Now
-          </Button>
-        </Box>
-      </Box>
-)}
 
    
     </Box>

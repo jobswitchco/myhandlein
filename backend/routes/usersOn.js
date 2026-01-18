@@ -2206,46 +2206,38 @@ router.get("/subscription/details", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.user_id;
 
-    // Get subscription + user details
-    const subscription = await Subscriptions.findOne({ user_id: userId })
-      .populate({ path: "user_id", strictPopulate: false });
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    if (!subscription || !subscription.user_id) {
+    const [userDetails, dmsUsed] = await Promise.all([
+      USER.findById(userId)
+        .select("subscription_plan leads_plan_limit leads_found dms_plan_limit")
+        .lean(),
+
+      ActionLock.countDocuments({
+        "payload.creatorId": new mongoose.Types.ObjectId(userId),
+        channel: "public",
+        state: "sent",
+      }),
+    ]);
+
+    if (!userDetails) {
       return res.status(404).json({
         message: "Subscription or user not found",
       });
     }
 
-    const user = subscription.user_id;
-
-    // --- Free trial check (7 days from free_trial_started_date) ---
-    const now = new Date();
-    const freeTrialStart = new Date(user.free_trial_started_date);
-    const freeTrialEnd = new Date(freeTrialStart);
-    freeTrialEnd.setDate(freeTrialEnd.getDate() + 7);
-
-    let response;
-
-    if (now <= freeTrialEnd) {
-      // Still in free trial
-      response = {
-        freeTrial: true,
-        subscription_starts_at: subscription.subscription_starts_at,
-      };
-    } else {
-      // Free trial over
-      response = {
-        freeTrial: false,
-        status: subscription.status,
-      };
-    }
-
-    return res.json({ success: true, response });
+    return res.json({
+      success: true,
+      response: {
+        ...userDetails,
+        dms_used: dmsUsed,
+      },
+    });
   } catch (err) {
     console.error("Error in /subscription/details:", err);
-    const e = err?.response?.data?.error || { message: "Something went wrong" };
-    const status = err?.response?.status || 500;
-    return res.status(status).json(e);
+    return res.status(500).json({ message: "Something went wrong" });
   }
 });
 
@@ -9023,7 +9015,7 @@ router.post("/save-username", authenticateToken, async (req, res) => {
     // update current user
     const updated = await USER.findByIdAndUpdate(
       userId,
-      { handleUserName, goal, updated_at: new Date() },
+      { handleUserName, goal, updated_at: new Date(), handle_created:true },
       { new: true }
     ).select("-password"); // remove sensitive fields if any
 
@@ -9136,6 +9128,38 @@ router.delete("/user/socials/:id", authenticateToken, async (req, res) => {
   
       else{
       res.status(200).send({ success: false, data: null });
+      res.end();
+  
+      }
+  
+    }).catch(e2=>{
+  
+      console.error("❌ Error fetching campaign details:", e2);
+      return res.status(500).json({ error: "Internal Server Error" });
+  
+    })
+  });
+
+      router.get('/check-handle-created', authenticateToken, async function (req, res){
+
+    const userId = req.user?.user_id;
+
+        if (!userId) {
+          return res.status(400).json({ message: "Username is invalid." });
+        }
+  
+    USER.findById(userId).then((result)=>{
+  
+      if(result.handle_created){
+  
+      res.status(200).send({ success: true });
+      res.end();
+
+  
+      }
+  
+      else{
+      res.status(200).send({ success: false });
       res.end();
   
       }

@@ -74,11 +74,8 @@ export default function CreatorUserLogin() {
       const data = res?.data || {};
       if (data.success && data.wasNew) {
         dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
-        navigate("/creator/onboarding");
-      } else if (data.success && !data.wasNew) {
-        dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
-        navigate("/professional/dashboard/analytics");
-      } else {
+        navigate("/professional/dashboard/instagram");
+      }  else {
         toast.error("Something went wrong. Please login again.");
         setTimeout(() => navigate("/professional/login"), 1200);
       }

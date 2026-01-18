@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Container,
@@ -35,14 +36,15 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { format } from 'date-fns';
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const baseUrl = "/api/usersOn";
 
 const FormSubmissions = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  // State
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submissions, setSubmissions] = useState([]);
   const [formBlocks, setFormBlocks] = useState([]);
@@ -60,6 +62,54 @@ const FormSubmissions = () => {
   // Detail dialog
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
+
+    const handleSessionExpired = () => {
+        toast.error("Session expired. Please log in again.");
+        setTimeout(() => {
+          navigate("/professional/login");
+        }, 2000);
+      };
+
+  useEffect(() => {
+      const verifyToken = async () => {
+        setLoading(true);
+        try {
+          
+          const res = await axios.get(`${baseUrl}/verify-login-token`, {
+            withCredentials: true,
+          });
+          if (res.data.valid) {
+  
+               const creatorHandleRes = await axios.get(
+                      `${baseUrl}/check-handle-created`,
+                      { withCredentials: true }
+                    );
+            
+                    if(!creatorHandleRes.data.success){
+
+          navigate("/professional/creator/onboarding");
+            
+                    }
+          } else {
+            handleSessionExpired();
+          }
+        } catch (error) {
+          if (
+            error.response &&
+            (error.response.status === 401 || error.response.status === 403)
+          ) {
+            handleSessionExpired();
+          } else {
+            toast.error("Network error, please try again later.");
+            handleSessionExpired();
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      verifyToken();
+    }, []);
+
 
   useEffect(() => {
     fetchSubmissions(1);

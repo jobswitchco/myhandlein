@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AppBar,
   Avatar,
@@ -19,11 +20,14 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Paper,
+  CircularProgress,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import {
   BarChart,
   Bar,
@@ -173,10 +177,20 @@ export default function StoreAnalytics() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [rangeKey, setRangeKey] = useState("last7");
   const [details, setDetails] = useState(null);
+  const navigate = useNavigate();
   const [clicksSort, setClicksSort] = useState("desc"); // 'asc' | 'desc'
   const baseUrl = "/api/usersOn";
 
   const userId = typeof window !== "undefined" ? window.localStorage.getItem("user_id") : null;
+
+
+   const handleSessionExpired = () => {
+                toast.error("Session expired. Please log in again.");
+                setTimeout(() => {
+                  navigate("/professional/login");
+                }, 2000);
+              };
+
 
   const fetchTable = async () => {
     setLoading(true);
@@ -215,6 +229,46 @@ export default function StoreAnalytics() {
   };
 
   useEffect(() => {
+          const verifyToken = async () => {
+            setLoading(true);
+            try {
+              
+              const res = await axios.get(`${baseUrl}/verify-login-token`, {
+                withCredentials: true,
+              });
+              if (res.data.valid) {
+      
+                   const creatorHandleRes = await axios.get(
+                          `${baseUrl}/check-handle-created`,
+                          { withCredentials: true }
+                        );
+                
+                        if(!creatorHandleRes.data.success){
+    
+              navigate("/professional/creator/onboarding");
+                
+                        }
+              } else {
+                handleSessionExpired();
+              }
+            } catch (error) {
+              if (
+                error.response &&
+                (error.response.status === 401 || error.response.status === 403)
+              ) {
+                handleSessionExpired();
+              } else {
+                toast.error("Network error, please try again later.");
+                handleSessionExpired();
+              }
+            } finally {
+              setLoading(false);
+            }
+          };
+          verifyToken();
+        }, []);
+
+  useEffect(() => {
     fetchTable();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -238,6 +292,13 @@ export default function StoreAnalytics() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
+       {loading ?  (<Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+                                        <CircularProgress size={28} />
+                                      </Box>  
+                          ) :
+                          (
+                            <>
+                            
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         <Typography variant="h5" fontWeight={700}>
           Store Analytics
@@ -336,6 +397,8 @@ export default function StoreAnalytics() {
         details={details}
         loading={loading}
       />
+
+      </> )}
     </Container>
   );
 }

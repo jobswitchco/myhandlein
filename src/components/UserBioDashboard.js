@@ -394,7 +394,22 @@ const handleAddBlockClose = () => {
           withCredentials: true,
         });
         if (res.data.valid) {
+
+             const creatorHandleRes = await axios.get(
+                    `${baseUrl}/check-handle-created`,
+                    { withCredentials: true }
+                  );
+          
+                  if(creatorHandleRes.data.success){
+          
           fetchData();
+                  }
+                  else{
+        navigate("/professional/creator/onboarding");
+
+                  }
+
+
         } else {
           handleSessionExpired();
         }
@@ -530,7 +545,7 @@ const blockTypes = [
   { type: 'video', label: 'Video', description: 'Grow your channel by embedding your YouTube videos directly on your page.', icon: <MovieIcon />, color: '#f093fb' },
   { type: 'form', label: 'Form', description: 'Easily collect emails, phone numbers, and other key details with a customizable form.', icon: <DescriptionIcon />, color: '#fa709a' },
   { type: 'booking', label: 'Booking', description: 'Allow your audience to schedule personalized 1:1 sessions at their convenience.', icon: <EventIcon />, color: '#7132CA' },
-  { type: 'newsletter', label: 'Newsletter', description: 'Build stronger relationships by delivering valuable content and updates straight to your subscribers.', icon: <EmailIcon />, color: '#30cfd0' },
+  // { type: 'newsletter', label: 'Newsletter', description: 'Build stronger relationships by delivering valuable content and updates straight to your subscribers.', icon: <EmailIcon />, color: '#30cfd0' },
 ];
 
 
@@ -1094,8 +1109,11 @@ const handleBlockTypeSelect = (blockType) => {
   return (
     <>
       <Box sx={{ p: { xs: 0, sm: 0, md: 1 }, py: 1, minHeight: '100dvh', overflowY: 'auto', mb: 2 }}>
-      
-        {/* Your complete existing layout with left editor and right preview */}
+       { loading ? 
+      (<Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+                    <CircularProgress size={28} />
+                  </Box>  
+      ) : ( 
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 8}}>
 
@@ -1799,6 +1817,7 @@ const handleBlockTypeSelect = (blockType) => {
             </Box>
           </Grid>
         </Grid>
+      )}
       </Box>
 
       {/* **NEW: Child Creator Dialogs** */}
