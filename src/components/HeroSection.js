@@ -925,7 +925,7 @@ const highlightTextMobile = {
 
 
          <p style={subStyle}>
-  High-intent DMs are identified and only serious leads are sent to your WhatsApp instantly —so you close more clients without DM fatigue.
+  High-intent DMs are identified and serious leads are sent to your WhatsApp instantly —so you close more clients without DM fatigue.
 </p>
 
 
