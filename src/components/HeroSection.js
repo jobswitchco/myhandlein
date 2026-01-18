@@ -73,6 +73,9 @@ const SmartInboxCard = ({ isMobile }) => {
     marginBottom: 4,
   };
 
+
+
+
   const messageStyle = {
     fontSize: 14,
     marginBottom: 10,
@@ -313,6 +316,14 @@ const rightColStyle = {
 };
 
 
+  const noCardTextStyle = {
+  marginTop: "10px",
+  fontSize: "14px",
+  fontWeight: 500,
+  color: "#4B5563", // subtle gray
+  textAlign: "center",
+};
+
 
 const heroImgStyle = {
   width: "100%",
@@ -406,7 +417,7 @@ const happyUsersTextStyle = {
 
   // === CTA row with subdomain input + button (no external CSS)
   const ctaRowStyle = {
-    width: isMobile ? "100%" : "75%",
+    width: isMobile ? "100%" : "100%",
     display: "flex",
     flexDirection: isMobile ? "column" : "row",
     gap: isMobile ? "12px" : "8px",
@@ -459,7 +470,7 @@ const inputWrapStyle = {
     appearance: "none",
     border: "none",
     height: isMobile ? "52px" : "52px",
-    width: isMobile? "100%" : "80%",
+    width: isMobile? "100%" : "50%",
     padding: "0 28px",
     fontSize: "16px",
     fontWeight: 600,
@@ -890,7 +901,7 @@ const highlightTextMobile = {
   </div>
 
   <span style={happyUsersTextStyle}>
-    12,635+ Happy Creators
+    12,635+ Fitness Creators
   </span>
 </div>
 
@@ -899,7 +910,7 @@ const highlightTextMobile = {
         <h1 style={{ ...headlineStyle, display: isMobile ? "none" : "block" }}>
   Convert{" "}
   <span style={highlightPill}>Instagram DMs</span>{" "}
-  into Paying Fitness Clients.
+  into Clients.
 </h1>
 
 
@@ -909,36 +920,50 @@ const highlightTextMobile = {
 >
   Convert{" "}
   <span style={highlightPill}>Instagram DMs</span>{" "}
-  into Paying Fitness Clients.
+  into Clients.
 </h1>
 
 
          <p style={subStyle}>
-  Stop chasing messages. Get serious leads sent to your WhatsApp —instantly.
+  High-intent DMs are identified and only serious leads are sent to your WhatsApp instantly —so you close more clients without DM fatigue.
 </p>
 
 
 
           {/* Subdomain input + CTA */}
-          <div style={ctaRowStyle}>
+      <div
+  style={{
+    ...ctaRowStyle,
+    flexDirection: "column",
+    alignItems: "flex-start", // 👈 button stays left
+  }}
+>
+  {/* Button wrapper defines the centering width */}
+  <div style={{ width: startBtnStyle.width || "80%" }}>
+    <button
+      onClick={() => navigate("/professional/login")}
+      style={{ ...startBtnStyle, ...startBtnHoverStyle, width: "100%" }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      aria-label="Get 10 Leads for free"
+      disabled={availability === "checking"}
+    >
+      Get 10 Leads for free →
+    </button>
 
-              <button
-            onClick={()=> navigate('/professional/login')}
-              style={{ ...startBtnStyle, ...startBtnHoverStyle }}
-              onMouseEnter={() => setIsHovered(true)}
-              onMouseLeave={() => setIsHovered(false)}
-              aria-label="Try for free"
-              disabled={availability === "checking"}
-            >
-              Try for free →
-            </button>
+    {/* Centered under button */}
+    <div style={noCardTextStyle}>
+      No credit card required
+    </div>
+  </div>
+</div>
 
-          </div>
+
 
 
    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start' }}>
 
-  <MetaVerifiedBlock />
+  {/* <MetaVerifiedBlock /> */}
 </div>
 </div>
 
