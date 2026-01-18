@@ -52,9 +52,10 @@ export default function CreatorUserLogin() {
     const verifyToken = async () => {
       try {
         const res = await axios.get(`${baseUrl}/verify-login-token`, { withCredentials: true });
-        if (res.data.valid) {
-          navigate("/professional/dashboard/analytics");
-        }
+        if (res.data?.valid === true) {
+  navigate("/professional/dashboard/instagram", { replace: true });
+}
+
       } catch (error) {
         // ignore -> show login
       }
@@ -72,10 +73,20 @@ export default function CreatorUserLogin() {
       );
 
       const data = res?.data || {};
-      if (data.success && data.wasNew) {
-        dispatch(login({ user_email: data.user.user_email, user_id: data.user.user_id }));
-        navigate("/professional/dashboard/instagram");
-      }  else {
+    if (data.success) {
+  dispatch(login({
+    user_email: data.user.user_email,
+    user_id: data.user.user_id,
+  }));
+
+  navigate(
+    data.wasNew
+      ? "/professional/dashboard/instagram"
+      : "/professional/dashboard/instagram"
+  );
+}
+      
+      else {
         toast.error("Something went wrong. Please login again.");
         setTimeout(() => navigate("/professional/login"), 1200);
       }
