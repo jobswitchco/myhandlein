@@ -29,26 +29,29 @@ app.use((req, res, next) => {
 
 // 1) Single source of truth for CORS check
 function isAllowedOrigin(origin) {
-  if (!origin) return true; // curl/native apps
+  if (!origin) return true; // curl, native apps
+
   try {
-    const { protocol, hostname } = new URL(origin);
+    const url = new URL(origin);
 
     // allow http(s) only
-    if (protocol !== "http:" && protocol !== "https:") return false;
+    if (!["http:", "https:"].includes(url.protocol)) return false;
 
-    // dev ports/origins
+    // localhost dev
     if (origin === "http://localhost:4800") return true;
 
-    // myhandle.in apex or any subdomain
-    if (hostname === ( "myhandle.in" || "https://myhandle.in" ) || hostname.endsWith(".myhandle.in")) {
-      return true;
-    }
+    // apex domain
+    if (url.hostname === "myhandle.in") return true;
+
+    // all subdomains
+    if (url.hostname.endsWith(".myhandle.in")) return true;
 
     return false;
   } catch {
     return false;
   }
 }
+
 
 const corsOptions = {
   origin(origin, cb) {

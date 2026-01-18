@@ -901,13 +901,14 @@ async function makeReceipt(productId) {
 }
 
 router.post("/logout", authenticateToken, (req, res) => {
-  res.clearCookie("tokenMyhandleProf", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    domain: ".myhandle.in",  // CRITICAL: Must match cookie creation
-    path: "/",
-  });
+
+res.clearCookie("tokenMyhandleProf", { path: "/" });
+res.clearCookie("tokenMyhandleProf", {
+  path: "/",
+  domain: ".myhandle.in",
+  secure: true,
+  sameSite: "none",
+});
   
   res.status(200).json({ message: "Logged out successfully" });
 });
