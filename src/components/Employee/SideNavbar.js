@@ -1053,42 +1053,7 @@ const [trialDays, setTrialDays] = useState(0);
             </List>
           </Collapse>
 
-          {/* Profile (only on mobile) — keeping as-is */}
-          {isSmallScreen && (
-            <ListItem disablePadding sx={{ mt: 2 }}>
-              <ListItemButton
-                onClick={() => goTo("/professional/profile")}
-                selected={location.pathname === "/professional/profile"}
-                sx={{
-                  borderRadius: "8px",
-                  py: 0.75,
-                  pl: 2,
-                  backgroundColor: location.pathname === "/professional/profile" ? "#F3F4F6" : "transparent",
-                  "&:hover": { backgroundColor: "#F3F4F6" },
-                  transition: "all 0.2s ease",
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32 }}>
-                  <AccountCircleOutlinedIcon
-                    sx={{
-                      color: location.pathname === "/professional/profile" ? "#667eea" : "#9CA3AF",
-                      fontSize: "1.2rem",
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Profile"
-                  primaryTypographyProps={{
-                    sx: {
-                      color: location.pathname === "/professional/profile" ? "#1F2937" : "#6B7280",
-                      fontWeight: location.pathname === "/professional/profile" ? 500 : 400,
-                      fontSize: "0.875rem",
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          )}
+       
         </List>
 
       </Box>
