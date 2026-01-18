@@ -1187,15 +1187,7 @@ const [trialDays, setTrialDays] = useState(0);
             py: 1,
           }}
         >
-          {loading ? (
-            <Box sx={{ py: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <CircularProgress sx={{ color: "#667eea" }} />
-            </Box>
-          ) : (
-            <Box sx={{ px: 0, py: 0 }}>
-              {hasAccess ? <Outlet /> : <UpiMandateModern />}
-            </Box>
-          )}
+         <Outlet />
         </Box>
       </Box>
     </ThemeProvider>
