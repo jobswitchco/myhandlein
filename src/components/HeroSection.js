@@ -285,7 +285,6 @@ const TestimonialCompactCarousel = ({ isMobile = true }) => {
         marginBottom: isMobile ? "4vh" : "8vh",
         width: "100%",
         maxWidth: isMobile ? "100%" : "600px",
-        padding: isMobile ? "0 16px" : "0",
       }}
     >
       {/* Header */}
