@@ -74,12 +74,7 @@ const headerStyle = {
   top: 0,
   left: 0,
   width: "100%",
-
-  /* 👇 Matches hero gradient + grid tone */
-    background:
-        "radial-gradient(1200px 600px at 15% 20%, #C7C8CC, transparent 100%)," +
-        "radial-gradient(1000px 600px at 40% 80%, #FCF8F8, transparent 65%)",
-  
+       background:'#f5f7f8',
   backdropFilter: "blur(10px)",
   WebkitBackdropFilter: "blur(10px)",
   padding: "0px 15px",
@@ -270,7 +265,7 @@ const mobileMenuStyle = {
   <div
     style={{
       position: "absolute",
-       background:'#C7C8CC'
+      //  background:'#C7C8CC'
     }}
   />
 
@@ -279,11 +274,7 @@ const mobileMenuStyle = {
     style={{
       position: "absolute",
       inset: 0,
-      backgroundImage: `
-        linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px)
-      `,
-      backgroundSize: "80px 80px",
+    
       opacity: 0.35,
     }}
   />

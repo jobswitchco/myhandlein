@@ -18,7 +18,7 @@ export default function Hero({
   const [message, setMessage] = useState("");
   const abortRef = useRef(null);
   const debounceRef = useRef(null);
-  const baseUrl = "http://localhost:8001/usersOn";
+  const baseUrl = "/api/usersOn";
 
 
   // Track small-screen (<=600px)
@@ -308,7 +308,7 @@ const TestimonialCompactCarousel = ({ isMobile = true }) => {
           fontWeight: 600, 
           color: "#1F2937" 
         }}>
-          Trusted by 12,635+ coaches
+          Trusted by 2635+ coaches
         </span>
       </div>
 
@@ -1060,10 +1060,7 @@ const highlightTextMobile = {
     style={{
       position: "absolute",
       inset: 0,
-      background:
-        "radial-gradient(1200px 600px at 15% 20%, #C7C8CC, transparent 100%)," +
-        "radial-gradient(1000px 600px at 40% 80%, #FCF8F8, transparent 65%)",
-    }}
+      }}
   />
 
   {/* 2️⃣ Fine grid */}
@@ -1131,7 +1128,7 @@ const highlightTextMobile = {
   </div>
 
   <span style={happyUsersTextStyle}>
-    12,635+ Fitness Creators
+    2635+ Fitness Creators
   </span>
 </div>
 
