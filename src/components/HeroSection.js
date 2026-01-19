@@ -300,7 +300,7 @@ const TestimonialCompactCarousel = ({ isMobile = true }) => {
           gap: "2px" 
         }}>
           {[...Array(5)].map((_, i) => (
-            <span key={i} style={{ fontSize: "16px", color: "#FFB800" }}>⭐</span>
+            <span key={i} style={{ fontSize: "14px", color: "#FFB800" }}>⭐</span>
           ))}
         </div>
         <span style={{ 
