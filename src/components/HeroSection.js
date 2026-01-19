@@ -236,10 +236,13 @@ const testimonials = [
 ];
 
 
-
-// Design 1: Compact Horizontal Scroll (Best for below CTA)
-const TestimonialCompactCarousel = ({ isMobile }) => {
+const TestimonialCompactCarousel = ({ isMobile = true }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -247,6 +250,31 @@ const TestimonialCompactCarousel = ({ isMobile }) => {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      // Swipe left - next testimonial
+      setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+    } else if (isRightSwipe) {
+      // Swipe right - previous testimonial
+      setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+    }
+  };
 
   const currentTestimonial = testimonials[currentIndex];
 
@@ -257,6 +285,7 @@ const TestimonialCompactCarousel = ({ isMobile }) => {
         marginBottom: isMobile ? "4vh" : "8vh",
         width: "100%",
         maxWidth: isMobile ? "100%" : "600px",
+        padding: isMobile ? "0 16px" : "0",
       }}
     >
       {/* Header */}
@@ -286,6 +315,9 @@ const TestimonialCompactCarousel = ({ isMobile }) => {
 
       {/* Testimonial Card */}
       <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
         style={{
           background: "#FFFFFF",
           borderRadius: "16px",
@@ -297,6 +329,9 @@ const TestimonialCompactCarousel = ({ isMobile }) => {
           minHeight: isMobile ? "180px" : "200px",
           display: "flex",
           flexDirection: "column",
+          cursor: isMobile ? "grab" : "default",
+          userSelect: "none",
+          touchAction: "pan-y",
         }}
       >
         {/* Gradient accent */}
@@ -323,11 +358,12 @@ const TestimonialCompactCarousel = ({ isMobile }) => {
               objectFit: "cover",
               flexShrink: 0,
               border: "2px solid #F3F4F6",
+              pointerEvents: "none",
             }}
           />
 
           {/* Content */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: isMobile ? "140px" : "160px" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: isMobile ? "120px" : "60px" }}>
             <p
               style={{
                 fontSize: isMobile ? "14px" : "15px",
@@ -340,31 +376,31 @@ const TestimonialCompactCarousel = ({ isMobile }) => {
             >
               "{currentTestimonial.text}"
             </p>
+          </div>
+        </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-              <div>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "#1F2937" }}>
-                  {currentTestimonial.name}
-                </div>
-                <div style={{ fontSize: "12px", color: "#6B7280" }}>
-                  {currentTestimonial.role}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  padding: "6px 12px",
-                  background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  color: "#FFFFFF",
-                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-                }}
-              >
-                {currentTestimonial.clientsGained}
-              </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 700, color: "#1F2937", textAlign: 'left' }}>
+              {currentTestimonial.name}
             </div>
+            <div style={{ fontSize: "12px", color: "#6B7280", textAlign: 'left' }}>
+              {currentTestimonial.role}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: "6px 12px",
+              background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+            }}
+          >
+            {currentTestimonial.clientsGained}
           </div>
         </div>
 
@@ -394,6 +430,7 @@ const TestimonialCompactCarousel = ({ isMobile }) => {
     </div>
   );
 };
+
 
 
 const [animateIn, setAnimateIn] = useState(false);
