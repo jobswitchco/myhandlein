@@ -371,6 +371,7 @@ const TestimonialCompactCarousel = ({ isMobile = true }) => {
                 margin: "0 0 12px 0",
                 fontStyle: "italic",
                 minHeight: isMobile ? "80px" : "90px",
+                textAlign: 'left'
               }}
             >
               "{currentTestimonial.text}"
