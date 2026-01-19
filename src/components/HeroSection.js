@@ -362,7 +362,7 @@ const TestimonialCompactCarousel = ({ isMobile = true }) => {
           />
 
           {/* Content */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: isMobile ? "120px" : "60px" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: isMobile ? "140px" : "60px" }}>
             <p
               style={{
                 fontSize: isMobile ? "14px" : "15px",
