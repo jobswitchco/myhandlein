@@ -18,7 +18,7 @@ export default function Hero({
   const [message, setMessage] = useState("");
   const abortRef = useRef(null);
   const debounceRef = useRef(null);
-  const baseUrl = "/api/usersOn";
+  const baseUrl = "http://localhost:8001/usersOn";
 
 
   // Track small-screen (<=600px)
@@ -202,6 +202,199 @@ const SmartInboxCard = ({ isMobile }) => {
     </div>
   );
 };
+
+const testimonials = [
+
+  {
+    id: 1,
+    name: "Harshalifts",
+    role: "Online Fitness Coach",
+    avatar: avatar4,
+    text: "I used to spend hours replying to Instagram DMs daily. Now I only talk to serious leads that come straight to my WhatsApp inbox.",
+    rating: 5,
+    clientsGained: "+89 clients"
+  },
+
+  {
+    id: 2,
+    name: "Siddarth4real",
+    role: "Fitness Coach & Athlete",
+    avatar: avatar1,
+    text: "MyHandle helps me convert more Instagram DMs into paying clients every single month. Game-changer for my coaching business.",
+    rating: 5,
+    clientsGained: "+127 clients"
+  },
+  {
+    id: 3,
+    name: "FitKalyan",
+    role: "Powerlifting Athlete",
+    avatar: avatar3,
+    text: "I was completely tired of managing DMs all day. Now I’m closing three times more clients with a fraction of the effort.",
+    rating: 5,
+    clientsGained: "+156 clients"
+  }
+];
+
+
+
+// Design 1: Compact Horizontal Scroll (Best for below CTA)
+const TestimonialCompactCarousel = ({ isMobile }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentTestimonial = testimonials[currentIndex];
+
+  return (
+    <div
+      style={{
+        marginTop: isMobile ? "6vh" : "12vh",
+        marginBottom: isMobile ? "4vh" : "8vh",
+        width: "100%",
+        maxWidth: isMobile ? "100%" : "600px",
+      }}
+    >
+      {/* Header */}
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        gap: "8px", 
+        marginBottom: "16px",
+        justifyContent: isMobile ? "center" : "flex-start"
+      }}>
+        <div style={{ 
+          display: "flex", 
+          gap: "2px" 
+        }}>
+          {[...Array(5)].map((_, i) => (
+            <span key={i} style={{ fontSize: "16px", color: "#FFB800" }}>⭐</span>
+          ))}
+        </div>
+        <span style={{ 
+          fontSize: "14px", 
+          fontWeight: 600, 
+          color: "#1F2937" 
+        }}>
+          Trusted by 12,635+ coaches
+        </span>
+      </div>
+
+      {/* Testimonial Card */}
+      <div
+        style={{
+          background: "#FFFFFF",
+          borderRadius: "16px",
+          padding: isMobile ? "20px" : "24px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+          border: "1px solid #F3F4F6",
+          position: "relative",
+          overflow: "hidden",
+          minHeight: isMobile ? "180px" : "200px",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Gradient accent */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "4px",
+            background: "linear-gradient(90deg, #FF6B35 0%, #F7931E 50%, #FDB913 100%)",
+          }}
+        />
+
+        <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", flex: 1 }}>
+          {/* Avatar */}
+          <img
+            src={currentTestimonial.avatar}
+            alt={currentTestimonial.name}
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              flexShrink: 0,
+              border: "2px solid #F3F4F6",
+            }}
+          />
+
+          {/* Content */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: isMobile ? "140px" : "160px" }}>
+            <p
+              style={{
+                fontSize: isMobile ? "14px" : "15px",
+                lineHeight: 1.6,
+                color: "#374151",
+                margin: "0 0 12px 0",
+                fontStyle: "italic",
+                minHeight: isMobile ? "80px" : "90px",
+              }}
+            >
+              "{currentTestimonial.text}"
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+              <div>
+                <div style={{ fontSize: "14px", fontWeight: 700, color: "#1F2937" }}>
+                  {currentTestimonial.name}
+                </div>
+                <div style={{ fontSize: "12px", color: "#6B7280" }}>
+                  {currentTestimonial.role}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: "6px 12px",
+                  background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#FFFFFF",
+                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+                }}
+              >
+                {currentTestimonial.clientsGained}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dots indicator */}
+        <div style={{ display: "flex", gap: "6px", marginTop: "16px", justifyContent: "center" }}>
+          {testimonials.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentIndex(index)}
+              style={{
+                width: currentIndex === index ? "24px" : "8px",
+                height: "8px",
+                borderRadius: "4px",
+                border: "none",
+                background: currentIndex === index 
+                  ? "linear-gradient(90deg, #FF6B35 0%, #F7931E 100%)"
+                  : "#D1D5DB",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                padding: 0,
+              }}
+              aria-label={`Go to testimonial ${index + 1}`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const [animateIn, setAnimateIn] = useState(false);
 
@@ -398,8 +591,8 @@ const avatarStackStyle = {
 // });
 
   const avatarStyle = (index) => ({
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: "50%",
     border: "1px solid #F0F0F0",
     marginLeft: index === 0 ? 0 : -10,
@@ -955,7 +1148,9 @@ const highlightTextMobile = {
     <div style={noCardTextStyle}>
       No credit card required
     </div>
+
   </div>
+
 </div>
 
 
@@ -964,6 +1159,8 @@ const highlightTextMobile = {
    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start' }}>
 
   {/* <MetaVerifiedBlock /> */}
+<TestimonialCompactCarousel isMobile={isMobile} />
+
 </div>
 </div>
 
