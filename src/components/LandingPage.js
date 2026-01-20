@@ -20,10 +20,10 @@ export default function LandingPage() {
   return (
     <>
   <Helmet>
-  <title>Convert Instagram DMs into Paying Fitness Clients</title>
+  <title>Convert Instagram DMs into Clients</title>
   <meta
     name="description"
-    content="Stop chasing messages. Get serious leads sent to your WhatsApp instantly."
+    content="High intent DMs are identified and serious leads are sent to your WhatsApp instantly"
   />
   <link rel="canonical" href="https://myhandle.in/" />
 
